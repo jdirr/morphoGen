@@ -6,6 +6,8 @@ that leave the threads of BLAS asleep between the compiled kernels, the matrix b
 of nodes (its product, its values taken from another matrix), the sweeps that follow
 them, and the preconditioner kept from a step of a loading path to the next."""
 
+import platform
+
 import numba
 import numpy as np
 import pytest
@@ -16,6 +18,21 @@ from morphogen import settings
 from morphogen.homogenization import Material, Plasticity, amg, solvers
 from morphogen.homogenization.fe import Reduction
 from morphogen.homogenization.nonlinear import NonlinearFEProblem
+
+#: The sums of SciPy's sparse products and those of the compiled kernels are rounded
+#: alike, but where one of them fuses multiplies and adds (arm64)
+FUSED = platform.machine().lower() in ("arm64", "aarch64")
+
+
+def same_product(product, a, x) -> bool:
+    """Whether ``product`` is ``a @ x`` (SciPy): to the bit, or to the round-off of its
+    sums (a few ulps of the sum of the magnitudes of each row) where multiplies and adds
+    may be fused."""
+    exact = a @ x
+    if not FUSED:
+        return bool(np.array_equal(product, exact))
+    scale = abs(a) @ np.abs(x)
+    return bool(np.all(np.abs(product - exact) <= 16 * np.finfo(float).eps * scale))
 
 
 def spd(n=3000, seed=0):
@@ -76,15 +93,17 @@ def in_colour_order(smoother, a):
 
 def test_product_on_several_threads():
     """The product of a large CSR matrix and a vector on several threads is that of SciPy
-    to the bit (each row summed in the order of its stored values); small matrices, and
-    matrices or vectors that are not in double precision, are left to SciPy."""
+    to the bit (each row summed in the order of its stored values; to the round-off of
+    its sums on arm64, where the one or the other fuses multiplies and adds); small
+    matrices, and matrices or vectors that are not in double precision, are left to
+    SciPy."""
     rng = np.random.default_rng(0)
     a = spd()
     x = rng.normal(size=a.shape[1])
-    assert a.nnz >= amg.THREADED and np.array_equal(amg.product(a, x), a @ x)
+    assert a.nnz >= amg.THREADED and same_product(amg.product(a, x), a, x)
     wide = sp.random(700, 5000, density=0.02, random_state=1, format="csr")
     y = rng.normal(size=5000)
-    assert wide.nnz >= amg.THREADED and np.array_equal(amg.product(wide, y), wide @ y)
+    assert wide.nnz >= amg.THREADED and same_product(amg.product(wide, y), wide, y)
     small = sp.random(50, 50, density=0.2, random_state=2, format="csr")
     assert np.array_equal(amg.product(small, y[:50]), small @ y[:50])
     single = a.astype(np.float32)
@@ -370,10 +389,10 @@ def another(a, seed=7):
 @pytest.mark.parametrize("kind", ["nodes", "held"])
 def test_blocks_of_the_nodes(kind):
     """The matrix by 3 x 3 blocks of nodes: its product is that of its stored values to
-    the bit, on one thread and on several; it takes the values of another matrix of the
-    same pattern at their places, found once for the matrices that share the arrays of
-    their pattern, and those of a matrix with fewer stored values; a matrix with a value
-    outside its blocks leaves it as it is."""
+    the bit (to the round-off on arm64), on one thread and on several; it takes the values
+    of another matrix of the same pattern at their places, found once for the matrices that
+    share the arrays of their pattern, and those of a matrix with fewer stored values; a
+    matrix with a value outside its blocks leaves it as it is."""
     rng = np.random.default_rng(6)
     a, dofs = system(kind)
     n = a.shape[0]
@@ -383,32 +402,32 @@ def test_blocks_of_the_nodes(kind):
     assert np.all(np.diff(blocks.slot) > 0) and blocks.slot[-1] < blocks.size
     x = rng.normal(size=n)
     x[::7] = 0.0
-    assert np.array_equal(blocks.product(x), a @ x)
+    assert same_product(blocks.product(x), a, x)
     several = numba.get_num_threads()
     try:
         numba.set_num_threads(1)
-        assert np.array_equal(blocks.product(x), a @ x)
+        assert same_product(blocks.product(x), a, x)
     finally:
         numba.set_num_threads(several)
     # the values of another matrix, at the places of its stored values
     b = another(a)
-    assert blocks.refresh(b) and np.array_equal(blocks.product(x), b @ x)
+    assert blocks.refresh(b) and same_product(blocks.product(x), b, x)
     places = blocks._place
     c = another(a, seed=8)
     assert blocks.refresh(c) and blocks._place is places  # (the same pattern: found once)
-    assert np.array_equal(blocks.product(x), c @ x)
+    assert same_product(blocks.product(x), c, x)
     # fewer stored values: the others are zeros of the blocks
     fewer = c.copy()
     fewer.data[rng.random(fewer.nnz) < 0.2] = 0.0
     fewer.eliminate_zeros()
     assert fewer.nnz < c.nnz and blocks.refresh(fewer) and blocks._place is not places
-    assert np.array_equal(blocks.product(x), fewer @ x)
+    assert same_product(blocks.product(x), fewer, x)
     # a value outside the blocks: the blocks stay those of the last matrix
     coupled = set(zip(*blocks_pattern(blocks), strict=True))
     i, j = next((i, j) for i in range(n) for j in range(n - 1, i, -1)
                 if (blocks.slot[i] // 3, blocks.slot[j] // 3) not in coupled)  # fmt: skip
     outside = (c + sp.csr_matrix(([1.0], ([i], [j])), shape=c.shape)).tocsr()
-    assert not blocks.refresh(outside) and np.array_equal(blocks.product(x), fewer @ x)
+    assert not blocks.refresh(outside) and same_product(blocks.product(x), fewer, x)
     assert not blocks.refresh(c.astype(np.float32)) and not blocks.refresh(c[:-3][:, :-3])
     # where the blocks would not serve
     assert amg.NodeBlocks.of(a, None) is None
@@ -461,9 +480,9 @@ def test_solver_of_another_matrix(kind):
     """A solver updated with another matrix of the same pattern (the tangent of the next
     Newton iteration) keeps its coarse levels and gives its blocks, and with them its
     sweeps, the values of the new matrix: its products are those of the new matrix to the
-    bit, its sweeps those of a solver built for it, and it solves the new system; with a
-    matrix that is not symmetric the sweeps stay those of the last symmetric one, and
-    GMRES solves it."""
+    bit (to the round-off on arm64), its sweeps those of a solver built for it, and it
+    solves the new system; with a matrix that is not symmetric the sweeps stay those of
+    the last symmetric one, and GMRES solves it."""
     rng = np.random.default_rng(10)
     a, dofs = system(kind)
     n = a.shape[0]
@@ -473,11 +492,11 @@ def test_solver_of_another_matrix(kind):
     rhs = rng.normal(size=n)
     x, info = solver.solve(rhs)
     assert info.iterations > 0 and np.linalg.norm(a @ x - rhs) <= 2e-10 * np.linalg.norm(rhs)
-    assert np.array_equal(solver._product(rhs), a @ rhs)
+    assert same_product(solver._product(rhs), a, rhs)
     b = another(a)
     new = solver.updated(b)
     assert new.blocks is solver.blocks and new._precondition is solver._precondition
-    assert np.array_equal(new._product(rhs), b @ rhs)
+    assert same_product(new._product(rhs), b, rhs)
     fresh = solvers.LinearSolver(b, method="amg", tol=1e-10, coarse=(p, None), dofs=dofs)
     assert np.array_equal(new._precondition.smoother.diag, fresh._precondition.smoother.diag)
     y, info_new = new.solve(rhs)
@@ -491,7 +510,7 @@ def test_solver_of_another_matrix(kind):
                          shape=b.shape)  # fmt: skip
     diag = new._precondition.smoother.diag.copy()
     last = new.updated(skew, symmetric=False)
-    assert not last.symmetric and np.array_equal(last._product(rhs), skew @ rhs)
+    assert not last.symmetric and same_product(last._product(rhs), skew, rhs)
     assert np.array_equal(last._precondition.smoother.diag, diag)
     w, info_last = last.solve(rhs)
     assert info_last.iterations > 0
@@ -499,7 +518,7 @@ def test_solver_of_another_matrix(kind):
     # another pattern: other blocks, for the products
     other = (b + sp.identity(n)).tocsr()
     wider = new.updated(other)
-    assert np.array_equal(wider._product(rhs), other @ rhs)
+    assert same_product(wider._product(rhs), other, rhs)
 
 
 def test_wear_of_a_preconditioner():

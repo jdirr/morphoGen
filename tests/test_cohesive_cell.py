@@ -424,9 +424,11 @@ def test_a_law_for_each_pair_of_phases():
     # the fields of the elements: those on the two sides of the broken interface
     fields = res.fields[1.0]
     damaged = fields["interface_damage"]
-    assert damaged.shape == (cell.mesh.n_elements,) and set(np.unique(damaged)) == {0.0, 1.0}
-    assert int(damaged.sum()) == 16  # eight interface elements, an element on each side
-    centres = cell.mesh.nodes[cell.mesh.elements[damaged > 0]].mean(axis=1)[:, 2]
+    opened = np.isclose(damaged, 1.0)  # (to the round-off of the means of their points)
+    assert damaged.shape == (cell.mesh.n_elements,)
+    assert np.all(opened | np.isclose(damaged, 0.0))
+    assert int(opened.sum()) == 16  # eight interface elements, an element on each side
+    centres = cell.mesh.nodes[cell.mesh.elements[opened]].mean(axis=1)[:, 2]
     assert np.all((centres < 0.1) | (centres > 0.9))  # along the faces of the cell
     assert "interface_damage" in path_fields(fields)  # a colour of the figures of the path
     opening = fields["interface_opening"]

@@ -227,8 +227,9 @@ def test_disorientations_of_the_twins():
     assert titanium[0] == pytest.approx(35.0, abs=0.1)
     # no rotation, the symmetries of the lattices, a small rotation
     assert disorientation(np.eye(3), "cubic") == pytest.approx(0.0, abs=1e-6)
+    # (the arccos of the trace: an ulp of the cosine is 1e-6 degree near zero)
     assert np.allclose(disorientation(np.array(cr._rotations("hexagonal")), "hexagonal"), 0.0,
-                       atol=1e-6)  # fmt: skip
+                       atol=1e-5)  # fmt: skip
     small = euler_to_matrix((7.0, 0.0, 0.0))[0]
     assert disorientation(small, "cubic") == pytest.approx(7.0, abs=1e-9)
     # the stiffness of a turned lattice: that of the fourth-order tensor
