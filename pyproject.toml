@@ -27,7 +27,7 @@ keywords = [
     "topology optimization",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
@@ -39,7 +39,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
     # Not published before the public release (roadmap phase 4): this classifier
     # makes PyPI refuse any accidental upload.
-    "Private :: Do Not Upload",
 ]
 dependencies = [
     "numpy>=1.26",

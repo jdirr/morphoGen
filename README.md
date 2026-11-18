@@ -74,8 +74,8 @@ installation to a behaviour learned from the responses of a microstructure —, 
 [gallery of examples](docs/gallery.md) shows every template with its image, its
 configuration and the commands that reproduce it.
 
-> **Status: 0.6, version 1.0 in preparation** (phase 4: the documentation site, the
-> stable public interface, the citation and the release steps), after the work of
+> **Status: 1.0, released on 18 November 2026**, the first public release, whose
+> public interface is stable ([docs/stability.md](docs/stability.md)): the work of
 > November 2026 (multiphysics, fracture and contact, explicit dynamics with OpenRadioss
 > and the stand-alone application, crystallographic textures and orientation maps,
 > scale-rich networks and exact meshes, laser-architectured sheets), phase 3b (the FFT

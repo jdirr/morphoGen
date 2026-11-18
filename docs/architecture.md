@@ -1,7 +1,7 @@
 # morphoGen — Architecture
 
 This document describes the modules, data model, conventions, file formats and test
-strategy of morphoGen 0.6. The requirements are in [specification.md](specification.md)
+strategy of morphoGen 1.0. The requirements are in [specification.md](specification.md)
 and the formulas in [theory.md](theory.md).
 
 ## 1. Overview

@@ -9,7 +9,7 @@ version and the repository:
 @software{morphogen,
   author  = {Dirrenberger, Justin},
   title   = {morphoGen: morphological modelling and generation of virtual microstructures},
-  version = {0.6.0},
+  version = {1.0.0},
   year    = {2026},
   url     = {https://github.com/jdirr/morphoGen},
   license = {GPL-3.0-or-later},

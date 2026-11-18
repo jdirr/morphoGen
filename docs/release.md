@@ -41,8 +41,11 @@ use are ready in the repository (`CITATION.cff`, `paper/`, `packaging/conda-forg
    metadata of `CITATION.cff` and gives it a DOI. The DOI of all versions (the concept
    DOI) then goes in `CITATION.cff` (`doi:`), in the README and in
    [](citing.md).
-5. **PyPI.** `python -m twine upload dist/*`, with an API token of the project (or
-   trusted publishing from a GitHub workflow).
+5. **PyPI.** The workflow `.github/workflows/release.yml` builds the archives of each
+   published GitHub release, checks them and uploads them by trusted publishing: a
+   publisher declared once on pypi.org for the project `morphogen` (owner `jdirr`,
+   repository `morphoGen`, workflow `release.yml`), no token in the repository. By
+   hand otherwise: `python -m twine upload dist/*` with an API token of the project.
 6. **conda-forge.** For the first release, a pull request to
    `conda-forge/staged-recipes` that adds `recipes/morphogen/recipe.yaml`, copied from
    `packaging/conda-forge/recipe.yaml` with the version and the sha256 of the source

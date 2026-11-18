@@ -1,5 +1,23 @@
 # Change log
 
+## 1.0.0 — 2026-11-18
+
+The first public release. From this version on, the public interface follows semantic
+versioning ([docs/stability.md](docs/stability.md)): the names of
+`tests/public_api.txt`, the commands and the keys of the configuration files, the
+formats read and written. It gathers the versions below, which were not released: the
+models, measures and representative volume elements; the finite element and FFT
+solvers, their behaviours and their exports; the cellular automata, combinatorial
+design and topology optimization; the GPU, MFront and AMITEX_FFTP; and the
+multiphysics, fracture and contact, explicit dynamics with OpenRadioss and the
+stand-alone application, textures and orientation maps, scale-rich networks and exact
+meshes, and the laser-architectured sheets.
+
+* Version 1.0.0: the classifier `Development Status :: 5 - Production/Stable`, the
+  package open to PyPI; `CITATION.cff` with its version and its date of release; the
+  recipe of conda-forge at 1.0.0. The workflow `release.yml` uploads the archives of
+  each published GitHub release to PyPI by trusted publishing (`docs/release.md`).
+
 ## 0.6.0 — unreleased (phase 3b)
 
 The FFT solvers on NVIDIA GPUs; hard-core and curved fibres, rotated and graded lattices;

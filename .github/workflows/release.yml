@@ -1,0 +1,30 @@
+name: Release
+
+# The source archive and the wheel of a published GitHub release, built, checked and
+# uploaded to PyPI by trusted publishing (docs/release.md): PyPI knows this workflow as
+# the publisher of the project morphogen, and no token is kept in the repository.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    name: archives to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: The source archive and the wheel
+        run: |
+          python -m pip install build twine
+          python -m build
+          python -m twine check dist/*
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
