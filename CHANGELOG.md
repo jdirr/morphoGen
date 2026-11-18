@@ -17,6 +17,14 @@
   architecture notes); the API reference opens on a map of the package, the theory notes
   on a map of their sections by theme, and the page of the laser-architectured sheets on
   the way it reads.
+* A Windows installer of the stand-alone application (`packaging/desktop/morphogen.iss`,
+  Inno Setup 6): `morphoGen-<version>-setup.exe` installs the bundle of PyInstaller for
+  the current user, without administrator rights, with a shortcut in the Start menu and
+  an uninstaller, and warns when the computer has no WebView2; its wizard speaks English
+  or French. `packaging/desktop/check_installer.py` installs it silently, checks the
+  program it installs, its shortcut and its entry among the installed applications, then
+  uninstalls it; the workflow `desktop.yml` builds and checks it with the bundles, and
+  attaches it to each release (to an earlier one on demand).
 
 ## 1.0.0 — 2026-11-18
 

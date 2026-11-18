@@ -1,9 +1,18 @@
 name: Desktop application
 
 # The bundles of the stand-alone application (packaging/desktop), built and checked on
-# each system on demand; their zips are the artifacts of the run.
+# each system; on Windows, its installer too, installed, checked and uninstalled. Their
+# zips and the installer are the artifacts of the run, and the installer is attached to
+# each release (or, on demand, to the release named).
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "The tag of a release to attach the Windows installer to (none: artifacts only)"
+        required: false
+        default: ""
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -40,8 +49,43 @@ jobs:
           if [ "$RUNNER_OS" = "macOS" ]; then ditto -c -k --keepParent morphoGen.app ../morphoGen-macos.zip
           elif [ "$RUNNER_OS" = "Windows" ]; then 7z a ../morphoGen-windows.zip morphoGen
           else zip -qr ../morphoGen-linux.zip morphoGen; fi
+      - name: The installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          $version = python -c "import morphogen; print(morphogen.__version__)"
+          & $iscc /Qp "/DAppVersion=$version" packaging\desktop\morphogen.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: The installer installed, checked and uninstalled (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: python packaging/desktop/check_installer.py (Get-Item dist\morphoGen-*-setup.exe).FullName
       - uses: actions/upload-artifact@v4
         with:
           name: morphoGen-${{ runner.os }}
-          path: morphoGen-*.zip
+          path: |
+            morphoGen-*.zip
+            dist/morphoGen-*-setup.exe
           retention-days: 14
+
+  release:
+    name: the installer attached to the release
+    needs: bundle
+    if: ${{ !cancelled() && (github.event_name == 'release' || inputs.release != '') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: morphoGen-Windows
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.release }}
+        run: gh release upload "$TAG" dist/morphoGen-*-setup.exe --clobber --repo "$GITHUB_REPOSITORY"

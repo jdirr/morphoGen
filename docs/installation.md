@@ -76,8 +76,13 @@ pywebview, which shows the interface in a window of the web engine of the system
 (WebView2 on Windows, WebKit on macOS; on Linux, Qt WebEngine from its wheels, with the
 system's EGL and X libraries, e.g. `apt install libegl1 libxkbcommon-x11-0
 libxcb-cursor0`); `morphogen desktop` (or the program `morphogen-desktop`) opens it.
-A folder that runs without Python (`morphoGen.exe` on Windows, `morphoGen.app` on macOS)
-is built with PyInstaller by the recipe of `packaging/desktop` in the repository.
+On Windows, the installer `morphoGen-<version>-setup.exe` of the
+[releases](https://github.com/jdirr/morphoGen/releases) installs the application without
+Python and without administrator rights, with a shortcut in the Start menu and an
+uninstaller; it is not signed, so that Windows may first tell that its publisher is
+unknown (*More info*, then *Run anyway*). A folder that runs without Python
+(`morphoGen.exe` on Windows, `morphoGen.app` on macOS) is built with PyInstaller by the
+recipe of `packaging/desktop` in the repository, which also makes the installer.
 
 **OpenRadioss.** The explicit dynamic simulations run OpenRadioss, a
 separate program: `morphogen radioss install` downloads its latest release from GitHub
