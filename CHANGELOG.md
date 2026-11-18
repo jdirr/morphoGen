@@ -1,6 +1,10 @@
 # Change log
 
-## Unreleased
+## 1.0.1 — 2026-11-18
+
+The window of the stand-alone application on Windows, which closed as it opened, and a
+Windows installer of the application; the documentation site, its presentation
+reorganized.
 
 * The documentation site on GitHub Pages (https://jdirr.github.io/morphoGen/), built and published at each push
   to `main` (`.github/workflows/docs.yml`); the DOI of Zenodo in `CITATION.cff`, the README
