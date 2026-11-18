@@ -10,7 +10,6 @@ This folder builds a bundle of the application that runs without Python, with
 |---|---|
 | `morphogen-desktop.spec` | PyInstaller's recipe: a folder `dist/morphoGen` (and `dist/morphoGen.app` on macOS) |
 | `morphogen_desktop.py` | the program the recipe freezes (`morphogen.gui.desktop.main`) |
-| `morphogen.ico` | the icon of the Windows program (the PNG of the package elsewhere) |
 | `morphogen.desktop` | the entry of the menus of Linux desktops |
 | `morphogen.iss` | the recipe of the Windows installer (Inno Setup 6): `dist/morphoGen-<version>-setup.exe` |
 | `check_installer.py` | the check of that installer: installed, run, uninstalled |
@@ -35,7 +34,9 @@ Build it on each system for that system: PyInstaller does not cross-compile. The
 workflow `.github/workflows/desktop.yml` builds and checks the three, and the Windows
 installer, on demand and at each release.
 
-The window needs the web engine of the system: WebView2 on Windows (part of Windows 10
+The icon of the program and of its window is that of the package
+(`src/morphogen/gui/icon.ico` on Windows, `icon.png` elsewhere). The window needs the
+web engine of the system: WebView2 on Windows (part of Windows 10
 and 11), WebKit on macOS, and on Linux Qt WebEngine (bundled) with the EGL and X
 libraries of the system (`libegl1`, `libxkbcommon-x11-0`, `libxcb-cursor0` on Debian and
 Ubuntu). Numba caches the compiled kernels in the user's cache folder, so that the
@@ -55,12 +56,13 @@ once the bundle is built:
 
 ```bash
 iscc /DAppVersion=1.0.0 packaging\desktop\morphogen.iss     # dist\morphoGen-1.0.0-setup.exe
-python packaging/desktop/check_installer.py dist/morphoGen-1.0.0-setup.exe
+python packaging/desktop/check_installer.py dist/morphoGen-1.0.0-setup.exe --window
 ```
 
 `check_installer.py` installs it silently in a temporary folder, checks the program it
 installs (`morphoGen.exe --check`), its shortcut and its entry among the installed
-applications, then uninstalls it and checks that they are gone; the workflow
+applications (with `--window`, it also opens the window of the program and closes it),
+then uninstalls it and checks that they are gone; the workflow
 `desktop.yml` runs the same, and attaches the installer to each release of GitHub (to
 an earlier release on demand: its input `release`). Installed by hand, the installer
 takes the options of Inno Setup: `/VERYSILENT` (no window), `/DIR=...` (the folder),

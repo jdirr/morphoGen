@@ -129,8 +129,9 @@ def test_hooks_of_the_page_and_the_package():
         "data-reveal",
     ):
         assert hook in page
-    icon = desktop.icon_path()
-    assert icon is not None and icon.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    icon = desktop.icon_path()  # Windows Forms takes no PNG for the icon of a window
+    head = b"\x00\x00\x01\x00" if sys.platform == "win32" else b"\x89PNG\r\n\x1a\n"
+    assert icon is not None and icon.read_bytes()[: len(head)] == head
     from morphogen.cli import build_parser
 
     args = build_parser().parse_args(["desktop", "--browser"])
@@ -171,7 +172,7 @@ def test_real_window(tmp_path):
         window.destroy()
 
     try:
-        webview.start(check)
+        webview.start(check, icon=str(desktop.icon_path()))  # as the application
     finally:
         server.shutdown()
         server.server_close()

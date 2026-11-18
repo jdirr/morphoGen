@@ -25,6 +25,12 @@
   program it installs, its shortcut and its entry among the installed applications, then
   uninstalls it; the workflow `desktop.yml` builds and checks it with the bundles, and
   attaches it to each release (to an earlier one on demand).
+* The window of the stand-alone application on Windows: pywebview gave it the PNG icon of
+  the package, which Windows Forms refuses, and the window closed as it opened (the check
+  `--check` opens none). The package carries its Windows icon (`gui/icon.ico`, from
+  `packaging/desktop`), given to the window on Windows; the test of the real window passes
+  the icon as the application does, and `check_installer.py --window` opens and closes
+  the window of the installed program.
 
 ## 1.0.0 — 2026-11-18
 

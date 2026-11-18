@@ -393,7 +393,7 @@ src/morphogen/
                        of the box and the sections; a budget of triangles; base64 JSON
   gui/               web interface (index.html, viewer.js, api.py, server.py; desktop.py,
                      the stand-alone application: the page in a window of pywebview,
-                     the dialogs of the system, icon.png): menus
+                     the dialogs of the system, icon.png, icon.ico): menus
                      in four sections (create, characterize, simulate, export &
                      compare), their tabs, and in a tab the menu of its tools under
                      the headings of what they do (of the models by family in

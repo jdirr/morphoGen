@@ -14,7 +14,8 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 here = Path(SPECPATH)
-icon = here / ("morphogen.ico" if sys.platform == "win32" else "../../src/morphogen/gui/icon.png")
+# the icon of the package: a Windows icon for the program of Windows, a PNG elsewhere
+icon = here / "../../src/morphogen/gui" / ("icon.ico" if sys.platform == "win32" else "icon.png")
 
 hidden = collect_submodules("morphogen")  # the tools of the interface, found at run time
 hidden += ["webview", "webview.platforms.qt"] if sys.platform.startswith("linux") else ["webview"]

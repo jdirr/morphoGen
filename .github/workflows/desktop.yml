@@ -61,10 +61,10 @@ jobs:
           $version = python -c "import morphogen; print(morphogen.__version__)"
           & $iscc /Qp "/DAppVersion=$version" packaging\desktop\morphogen.iss
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: The installer installed, checked and uninstalled (Windows)
+      - name: The installer installed, its window opened, checked and uninstalled (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: python packaging/desktop/check_installer.py (Get-Item dist\morphoGen-*-setup.exe).FullName
+        run: python packaging/desktop/check_installer.py (Get-Item dist\morphoGen-*-setup.exe).FullName --window
       - uses: actions/upload-artifact@v4
         with:
           name: morphoGen-${{ runner.os }}

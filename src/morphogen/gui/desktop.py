@@ -40,10 +40,12 @@ MIN_SIZE = (960, 640)
 
 
 def icon_path() -> Path | None:
-    """The icon of the application (a PNG of the package)."""
+    """The icon of the application, of the package: a Windows icon on Windows, whose
+    windows take no other image (a PNG closes them at once), a PNG elsewhere."""
     from importlib import resources
 
-    path = Path(str(resources.files("morphogen") / "gui" / "icon.png"))
+    name = "icon.ico" if sys.platform == "win32" else "icon.png"
+    path = Path(str(resources.files("morphogen") / "gui" / name))
     return path if path.is_file() else None
 
 
