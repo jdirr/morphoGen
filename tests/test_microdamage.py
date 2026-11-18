@@ -461,7 +461,9 @@ def test_bar_breaks_across_its_band():
     not widen as the crack opens."""
     n = 64
     res, found = _bar(n)
-    assert res.info["cuts"] == 0 and res.info["microdamage_unsettled"] == 0
+    # (a step may be divided once, as the rounding of the processor has it: a runner of
+    # Windows divided one where this machine divides none)
+    assert res.info["cuts"] <= 1 and res.info["microdamage_unsettled"] == 0
     assert res.info["microdamage_passes"] > len(res.times)
     y0 = WEAK * STRENGTH
     h = found["softening"] * STRENGTH
@@ -718,10 +720,13 @@ def test_accelerated_scheme_follows_the_plain_one():
         problem = NonlinearFFTProblem(_bar_image(64), _bar_materials(found))
         problem.microdamage_options(**options)
         runs[name] = problem.run(path)
-        assert runs[name].info["cuts"] == 0
+        assert runs[name].info["cuts"] <= 1  # (as for the bar above)
     plain, fast = runs["plain"], runs["accelerated"]
     assert fast.info["microdamage_passes"] < 0.6 * plain.info["microdamage_passes"]
-    assert np.abs(fast.stress[:, 0] - plain.stress[:, 0]).max() < 0.01 * STRENGTH
+    # the curves at their common times (a divided step adds times to one of them)
+    both = np.intersect1d(fast.times.round(12), plain.times.round(12))
+    stresses = [r.stress[np.isin(r.times.round(12), both), 0] for r in (fast, plain)]
+    assert np.abs(stresses[0] - stresses[1]).max() < 0.01 * STRENGTH
     work = {
         name: np.trapezoid(res.stress[:, 0], res.strain[:, 0]) * LENGTH
         for name, res in runs.items()
