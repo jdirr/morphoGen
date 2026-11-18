@@ -7,7 +7,7 @@ template NAME -o NAME.yaml` writes one, `morphogen run NAME.yaml` runs it (`morp
 optimize` for the topology optimizations, `morphogen laser` for the laser-architectured
 sheets), and the graphical interface (`morphogen gui`)
 opens the form of each model filled with its template. The [tutorial](tutorial.md) walks
-through a whole study; the [guide](guide.md) describes the configurations.
+through a whole study; the [configuration reference](configuration.md) describes the configurations.
 
 The images show the realization that `morphogen run` makes first (the realization 0 of the
 seed of the template), in its domain: three faces of its box, each the section of the

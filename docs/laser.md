@@ -13,8 +13,21 @@ in the sheet, a finite element model gives the response of the specimen, an opti
 changes the path.
 
 The formulas are in [theory](theory.md#58-architectured-sheets-by-localized-laser-treatment-laser),
-the classes and functions in the [API reference](api.md); this page states the choices of
-a study, the chain of models, what checks them, the first results and the limits.
+the classes and functions in the [API reference](api.md). This page reads in four parts:
+
+* the model: the choices of a study, the chain of models and what checks them (§1 to
+  §3), and how to run it (§12, [Use](#12-use));
+* the results on tensile specimens and on other structures: the first results, the
+  fracture of the martensite, a crack, a corner, the anisotropy and other materials
+  (§4, §5, §10 and §11);
+* the design of the treated pattern: cell by cell, by densities, as laser paths, and
+  with morphoGen's morphologies at the scale of the spot (§6 to §8, §14);
+* the geometric work hardening of corrugated tracks, where it works, and the crossed
+  families of straight tracks that lock (§15 to §17).
+
+§9 places the module among related work and §13 states its limits; the
+[literature survey](laser_materials.md) gathers the materials that a laser treatment
+turns into two-phase sheets.
 
 ## 1. The choices of a study
 

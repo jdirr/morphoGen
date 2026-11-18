@@ -181,7 +181,7 @@ tessellation
 configuration
   A YAML file that describes a run: the model, the domain, the voxels or the mesh, the
   outputs, the measures, the homogenization, an RVE study (`morphogen run`; the keys are
-  in the [architecture notes](architecture.md)).
+  in the [configuration reference](configuration.md)).
 
 template
   An example configuration that comes with morphoGen (`morphogen template`): the

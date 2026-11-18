@@ -146,6 +146,6 @@ session.
 
 * The same study in Python: [a whole study](tutorial.md); the laws and the phase field
   of step 5 in finite strains: [a rubber](tutorial_rubber.md).
-* The [guide](guide.md#graphical-interface-and-figures): every tab, tool by tool.
+* [The graphical interface](interface.md): every tab, tool by tool.
 * The screenshots of this page are taken by `python docs/tutorials/make_screenshots.py`
   (Node.js and Playwright), which drives this very study in the page.

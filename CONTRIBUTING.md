@@ -6,9 +6,9 @@ shows it and what it gives against what you expected.
 
 ## Changes
 
-Changes go through pull requests to `main`. The README's section *Development* gives
-the environment (`python -m pip install -e ".[dev]"`) and the checks; before a pull
-request:
+Changes go through pull requests to `main`. The page *Development* of the documentation
+([docs/development.md](docs/development.md)) gives the environment
+(`python -m pip install -e ".[dev]"`) and the checks; before a pull request:
 
 * `ruff check src tests examples docs` and `ruff format --check src tests examples docs`
   pass;

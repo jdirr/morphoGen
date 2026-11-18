@@ -8,15 +8,15 @@ Virtual microstructures for the mechanics and physics of materials.
 
 ::::{container} hero-text
 morphoGen generates random and architected media from models of stochastic geometry,
-describes them exactly, measures them against theory, computes their properties —
-elastic, thermal, electrical, acoustic, nonlinear, up to their fracture — and tells how
-large a volume must be to represent them. A Python package, a command line and a
-graphical interface in the web browser; free software (GNU GPL v3 or later).
+describes them exactly, measures them against theory, computes their properties up to
+their fracture, and tells how large a volume must be to represent them. A Python
+package, a command line and a graphical interface in the web browser; free software
+(GNU GPL v3 or later).
 ::::
 
 ::::{container} hero-buttons
-[Get started](installation.md) [Tutorials](tutorials.md) [Gallery of examples](gallery.md)
-[Recipes](howto.md)
+[Get started](installation.md) [Tutorials](tutorials.md) [User guide](guide.md)
+[Gallery of examples](gallery.md)
 ::::
 
 :::::
@@ -32,28 +32,20 @@ graphical interface in the web browser; free software (GNU GPL v3 or later).
 [![a pattern of reaction and diffusion](_static/gallery/reaction_diffusion.png)](gallery.md#automata-and-tilings)
 :::
 
-## What it does
+## The steps of a study
 
 :::::{container} cards
 
 ::::{container} card
-**[Generate](gallery.md)**
+**[Generate](models.md)**
 
 40 models of random and architected media: Boolean models, packings, fibres,
 tessellations, Gaussian fields, dead leaves, automata and growths, lattices, foams,
-triply periodic surfaces, bio-inspired structures — periodic or not, combined, nested.
+triply periodic surfaces, bio-inspired structures; periodic or not, combined, nested.
 ::::
 
 ::::{container} card
-**[Grow](gallery.md#automata-and-tilings)**
-
-Cellular automata and lattice processes: annealing and Turing patterns, reaction and
-diffusion, nucleation and growth of grains, coarsening, fractal aggregates, on grids and
-on quasi-periodic tilings.
-::::
-
-::::{container} card
-**[Describe exactly](tutorial_geometry.md)**
+**[Describe exactly](geometry.md)**
 
 A realization is a description (centres, axes, cells) with an implicit function for each
 phase: sections, surfaces and conforming meshes are cut from it at any resolution, not
@@ -61,14 +53,14 @@ from voxels.
 ::::
 
 ::::{container} card
-**[Measure](tutorial.md#3-characterize-it)**
+**[Measure](measures.md)**
 
 Fractions, specific surface, covariance, chords, tortuosity, percolation thresholds,
-stereology... each beside the closed form of its model when there is one.
+stereology, textures..., each beside the closed form of its model when there is one.
 ::::
 
 ::::{container} card
-**[Homogenize](physics.md)**
+**[Compute properties](properties.md)**
 
 Elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their weak
 and strong couplings, harmonic regimes, waves, flow and sound: an FFT solver on voxels
@@ -76,34 +68,40 @@ and strong couplings, harmonic regimes, waves, flow and sound: an FFT solver on 
 ::::
 
 ::::{container} card
-**[Follow behaviours](physics.md#6-nonlinear-behaviours)**
+**[Follow behaviours](behaviours.md)**
 
 Plasticity, crystal plasticity, viscoelasticity, hyperelasticity, damage and MFront laws
-along loading paths, in small or finite strains; reduced and learned models of the
-responses.
+along loading paths, in small or finite strains; macroscopic laws identified, reduced or
+learned from the responses.
 ::::
 
 ::::{container} card
-**[Break](physics.md#7-fracture)**
+**[Break](fracture.md)**
 
-Cracks of any surface and front, cohesive zones, ductile damage, and the phase field of
-fracture on voxel images, from brittle composites to rubbers that tear.
+The phase field of fracture on voxel images, cohesive zones, cracks of any surface and
+front, ductile growth; contact, self-contact and friction; high-cycle fatigue.
 ::::
 
 ::::{container} card
-**[Size the representative volume](tutorial_rve.md)**
+**[Size the representative volume](rve.md)**
 
 The statistics of Kanit et al. (2003) for every property: the variance against the
 volume, the integral range, the volume and the number of realizations for a precision.
 ::::
 
 ::::{container} card
-**[Design](gallery.md#topology-optimization)**
+**[Design](design.md)**
 
 Periodic cells optimized for their homogenized properties, compatible assemblies of
-building blocks, lattices with defects and their rigidity; shapes optimized on their
-exact geometry ([isogeometric analysis](tutorial_iga.md)).
+building blocks, lattices with defects and their rigidity, holes shaped on their exact
+geometry, patterns after buckling.
 ::::
+
+:::::
+
+## Applications and tools
+
+:::::{container} cards
 
 ::::{container} card
 **[Architecture metal sheets](laser.md)**
@@ -113,17 +111,25 @@ tensile test of the specimen, the path optimized for strength and ductility.
 ::::
 
 ::::{container} card
-**[Exchange](howto.md#other-codes)**
+**[Crush and impact](dynamics.md)**
 
-Meshes, images, behaviours and results for Abaqus and CalculiX, AMITEX_FFTP, MFront,
-Z-set, Gmsh, Neper, DAMASK, FEniCSx and ParaView.
+Explicit dynamics with OpenRadioss: the crushing, tension, shear and impact of a
+morphology at the rates of crashes, shocks and drops.
 ::::
 
 ::::{container} card
-**[Work your way](tutorial_interface.md)**
+**[Work your way](running.md)**
 
 Python functions, configuration files run from the command line (in parallel, on
-clusters), or forms in the browser: the same computations, the same files.
+clusters), or the forms of the [graphical interface](interface.md): the same
+computations, the same files.
+::::
+
+::::{container} card
+**[Exchange](interop.md)**
+
+Meshes, images, behaviours and results for Abaqus and CalculiX, AMITEX_FFTP, MFront,
+Z-set, Gmsh, Neper, DAMASK, FEniCSx and ParaView.
 ::::
 
 :::::
@@ -160,52 +166,69 @@ morphogen run study.yaml                                 # realizations and prop
 morphogen gui                                            # the interface, in the browser
 ```
 
-## Find your way
+## Where to go next
 
 | To... | read |
 |---|---|
 | install morphoGen | [Installation](installation.md) |
-| learn it by a study | the [tutorials](tutorials.md): a whole study, the size of the representative volume, a rubber, exact geometry, isogeometric analysis, the interface |
+| learn it by a study | the [tutorials](tutorials.md): a whole study, the size of the representative volume, a rubber, exact geometry, isogeometric analysis, contact and damage, fracture, textures, the interface |
+| go through the steps of a study | the [user guide](guide.md), a page for each step |
 | get a quick answer | the [recipes](howto.md) and the [questions and troubles](faq.md) |
 | know what is computed, and by which solver | the [guide to the physics](physics.md) |
 | start from an example | the [gallery](gallery.md): a card per template, with its image and its configuration |
-| find an option of the command line, of a configuration or of the interface | the [guide](guide.md) |
-| read the formulas and how they were checked | the [theory notes](theory.md) |
+| find a key of a configuration or a command | the [configuration reference](configuration.md) |
 | look up a function or a class | the [API reference](api.md) |
+| read the formulas and how they are checked | the [theory notes](theory.md) |
 | check what a word means here | the [glossary](glossary.md) |
 | see what changed | the [change log](changelog.md) |
 
-## In detail
-
-```{include} ../README.md
-:start-after: <!-- section: introduction -->
-:end-before: <!-- section: features -->
-:relative-docs: docs/
-```
-
 ```{toctree}
-:caption: Start
+:caption: Getting started
 :maxdepth: 2
 :hidden:
 
 installation
 tutorials
+Gallery of examples <gallery>
 Recipes <howto>
 faq
 ```
 
 ```{toctree}
-:caption: Guide
+:caption: User guide
 :maxdepth: 2
 :hidden:
 
-features
+Overview <guide>
+models
+geometry
+measures
+properties
 Guide to the physics <physics>
-User guide <guide>
-gallery
+behaviours
+fracture
+rve
+design
+```
+
+```{toctree}
+:caption: Applications
+:maxdepth: 2
+:hidden:
+
 Laser-architectured sheets <laser>
-laser_materials
-performance
+Laser treatments: a literature survey <laser_materials>
+dynamics
+```
+
+```{toctree}
+:caption: Running studies
+:maxdepth: 2
+:hidden:
+
+running
+interface
+interop
 ```
 
 ```{toctree}
@@ -213,11 +236,12 @@ performance
 :maxdepth: 2
 :hidden:
 
+api
+configuration
 Theory notes <theory>
 Z-mat material files <zmat>
-api
 glossary
-stability
+performance
 ```
 
 ```{toctree}
@@ -227,10 +251,11 @@ stability
 
 citing
 changelog
+stability
 development
 release
 architecture
-specification
+Specification <specification>
 references
 licence
 ```

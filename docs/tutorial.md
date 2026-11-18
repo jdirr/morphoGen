@@ -12,7 +12,7 @@ The Python snippets follow each other in one session (`python`, IPython or a not
 and each runs in seconds, at sizes chosen for that; the first run of each solver compiles
 its kernels (up to a minute or two, once: the compiled code is cached). The figures are
 those that the snippets save. The [gallery](gallery.md) shows the other models, the
-[guide](guide.md) every option, and the [theory notes](theory.md) the formulas behind the
+[user guide](guide.md) each step, and the [theory notes](theory.md) the formulas behind the
 results; the [other tutorials](tutorials.md) measure the size of the representative
 volume, follow a rubber to its tearing and the exact geometry of a composite to its
 meshes, and tour the graphical interface.
@@ -313,8 +313,8 @@ ratio (1.7 on 24³, 1.4 on 48³, still falling): resolve the particles before re
 curve. `fields=True` keeps the voxel fields at the end of each segment of the path
 (`fields="steps"`: of each step), `nonlinear={"kinematics": "finite"}` follows it in
 finite strains; crystal plasticity, Hill's criterion, porous plasticity, MFront
-behaviours and the finite elements of conforming meshes take the same paths (see the
-[guide](guide.md)).
+behaviours and the finite elements of conforming meshes take the same paths (see
+[Behaviours along loading paths](behaviours.md)).
 
 ## 6. Export it for other codes
 
@@ -387,6 +387,6 @@ background, keeping the law in the workspace.
   [exact geometry](tutorial_geometry.md) (implicit functions, surfaces, conforming
   meshes, three solvers) and [the graphical interface](tutorial_interface.md).
 * The [gallery](gallery.md): every template, by family, with its configuration.
-* The [guide](guide.md): the Python interface, the command line and the configurations
-  (meshes, homogenization, loading paths, RVE studies, cluster runs).
+* The [user guide](guide.md): a page for each step of a study, in Python and in
+  configurations (meshes, homogenization, loading paths, RVE studies, cluster runs).
 * The [theory notes](theory.md): the formulas implemented and how they were checked.

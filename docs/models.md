@@ -1,0 +1,284 @@
+# Models of microstructures
+
+A model holds the parameters of a random set or of a deterministic architecture, with the
+closed-form characteristics of the set when they exist (`model.theory()`: volume
+fraction, specific surface, covariance, integral range...). `model.generate(domain,
+seed)` draws one realization of it in a box, periodic or not; the same seed gives the
+same realization. morphoGen has 40 models, listed below by family: `morphogen models`
+lists them, `morphogen models <type>` gives the parameters of one, and the
+[gallery](gallery.md) shows each with a configuration that generates it. In a
+configuration file, a model is the mapping of its `type` and its parameters
+([configuration files](running.md#configuration-files)).
+
+```python
+import morphogen as mg
+
+model = mg.models.BooleanSpheres(radius=1.0, volume_fraction=0.3)
+micro = model.generate(mg.Domain.cube(20.0, periodic=True), seed=42)  # explicit geometry
+print(model.theory()["volume_fraction"], model.theory()["specific_surface"])
+```
+
+What a realization is made of, and how it becomes images and meshes, is the subject of
+[Geometry, voxels and meshes](geometry.md).
+
+## The models by family
+
+### Point processes and Boolean models
+
+| Model | Description |
+|---|---|
+| `boolean_spheres` | Boolean model of spheres, constant or random radii (porous and granular media) |
+| `penetrable_spheres` | Penetrable spheres with impenetrable cores: Torquato's cherry-pit model, between the Boolean model and hard spheres |
+| `hardcore_spheres` | Non-overlapping spheres by random sequential addition, or dense random packings grown by the Lubachevsky–Stillinger algorithm (up to about 0.64) |
+
+### Fibres and layers
+
+| Model | Description |
+|---|---|
+| `boolean_cylinders` | Boolean model of finite fibres (cylinders or spherocylinders) of any law of the axes, with its exact covariance along any direction (Peyrega et al. 2009) and integral range |
+| `poisson_fibers` | Infinite fibres on Poisson lines (Dirrenberger et al. 2014), isotropic or of any law of directions, with their exact covariance along any direction |
+| `curved_fibers` | Curved fibres: worm-like chains whose tangents decorrelate along the contour (nonwovens, entangled networks), circular arcs of distributed radii of curvature (as in PuMA) or helices (crimp); a Boolean model or fibres without overlap; hollow (lumens) |
+| `hardcore_fibers` | Non-overlapping fibres (spherocylinders) by random sequential addition, isotropic, aligned or planar, with a minimal gap |
+| `random_walk_fibers` | Bending fibres without overlap at high volume fractions (Altendorf & Jeulin 2011): random walks whose steps follow a von Mises–Fisher law between the main direction of their fibre (isotropic, aligned, planar, Schladitz's beta law, or mixtures of laws, as the orthotropic glass fibres of the 2014 paper) and the previous step, packed by repulsions against springs on the segments and the joints after an initial placement of least overlap (Altendorf, Jeulin & Willot 2014), then drawn into contact by the contact forces of Keilmann, Redenbach & Willot (2026) |
+| `cross_linked_fibers` | Entangled cross-linked fibres (Mezeix et al. 2009; Chatti et al. 2018, 2020): straight fibres, infinite on Poisson lines or finite, isotropic or in the Gaussian girdle of moulded fibres, bonded by cross-links (phase 2) at a fraction of their contacts, with the exact mean spacing of the contacts and cross-links |
+| `delaunay_network` | Fibre networks on the edges of the periodic Delaunay triangulation of Poisson or hard-core points (Ban et al. 2016), in space or in a plane, cross-linked at every node (15.5 fibres per node in space, 6 in a plane), with the stiffness of their frame of beams |
+| `random_laminate` | Layers of random thicknesses with holes through the thin layers (nanolayered films, Bironeau et al. 2016) |
+
+### Tessellations and polycrystals
+
+| Model | Description |
+|---|---|
+| `voronoi`, `laguerre` | Poisson–Voronoi and Laguerre tessellations (Poisson germs, germs of sphere packings, or stealthy hyperuniform germs: disordered but regular cells): polycrystals with random orientations, multiphase mosaics, grain-boundary phases |
+| `ebsd` | Measured polycrystals: windows of an orientation map (EBSD: `.ang` and `.ctf` files), its grains found from the disorientations of its points, each with its mean orientation |
+
+### Random functions and reconstructions
+
+| Model | Description |
+|---|---|
+| `gaussian_excursion` | Excursions of Gaussian random fields (bicontinuous porous media) |
+| `dead_leaves` | Dead leaves of spheres or spheroids: mosaics of non-convex grains, families of leaves of their own sizes, finite coverage over a background, with their exact covariances (Jeulin 1997) |
+| `transparent_dead_leaves` | Excursions of the random function of transparent leaves (Jeulin 1997), with its exact covariance |
+| `reconstruction` | Stochastic reconstruction (Yeong & Torquato 1998): a lattice annealed to the two-point probability and lineal-path function of a Debye medium, a model or an image |
+
+### Lattices, foams and TPMS
+
+| Model | Description |
+|---|---|
+| `tpms` | Gyroid, Schwarz P, Schwarz D and Neovius, sheet or network |
+| `strut_lattice` | Cubic, BCC, FCC, octet, Kelvin, diamond and pyrochlore lattices, with solid or hollow struts; rotated and functionally graded lattices (non-periodic samples) |
+| `random_lattice` | Strut lattices with missing struts and displaced nodes, with their rigidity (Maxwell–Calladine) |
+| `hierarchical_lattice` | Hierarchical lattices of (hollow) tubes: frames of generation G of regular octahedra (Rayneau-Kirkhope, Mao & Farr 2012) |
+| `fractal_sponge` | Menger sponge, Vicsek fractal, Cantor dust and any iterated function system on a cubic grid |
+| `open_foam` | Open-cell foams and trabecular bone: struts on the edges of relaxed, elongated Voronoi cells, at a given relative density, with their framework and the stiffness of its frame of beams |
+| `level_set_foam` | Open- or closed-cell foams as level sets of the distance fields of packed aligned ellipsoids: Plateau-border struts of controlled curvature thickening towards the nodes, at a given thickness or solid fraction (Degdeg & Dirrenberger); `calibrate_seeds` fits the seeds to measured section radii |
+| `scale_rich_network` | Scale-rich networks (Both et al. 2026): ligaments of thicknesses `lambda_0 t^-alpha` grown one after another from points of the voids until they meet, extruded prisms; their thicknesses, lengths and degrees span orders of magnitude (power-law tails `1 + 1/alpha`, 3 and 3); the relative density in closed form (mean field) or solved on each realization, the jamming threshold; uniform, aligned or polarized ligaments, gradients of nucleation, a frame for periodic cells; in 3D (`dimension: 3`), plates that split convex voids into closed cells (areas and degrees of tails 5/2, the density and the jamming threshold in closed form) or beams grown until they touch (open cells, a mean-field density) |
+
+### Automata and growth
+
+| Model | Description |
+|---|---|
+| `cellular_automaton` | Two-phase structures grown by a cellular automaton from noise: annealing (bicontinuous), majority, conserved volume fraction, any `B/S` rule; on squares or cubes, triangles, hexagons, Penrose rhombi, Ammann–Beenker tiles, prisms, BCC or FCC cells, golden rhombohedra (quasi-periodic tilings in periodic boxes: their periodic approximants) |
+| `activator_inhibitor` | Turing patterns of Young's activator–inhibitor automaton (spots, stripes, labyrinths) |
+| `reaction_diffusion` | Gray–Scott reaction–diffusion patterns (spots, worms, labyrinths, holes), on the grid or the cells of any tiling |
+| `nucleation_growth` | Nucleation and growth of grains (JMAK kinetics): Voronoi or Johnson–Mehl polycrystals, partially crystallized structures, faceted grains, Potts coarsening |
+| `aggregation` | Diffusion-limited, Eden and ballistic aggregates: fractal clusters and deposits |
+| `tile_assembly` | Compatible assemblies of building blocks: polarized blocks (combinatorial metamaterials), pipe networks |
+| `branching` | Vascular trees, roots and corals grown by space colonization, radii by Murray's law |
+
+### Bio-inspired structures
+
+| Model | Description |
+|---|---|
+| `nacre` | Brick-and-mortar stacks of mineral tablets, polygonal or staggered bricks |
+| `bouligand` | Twisted plywoods of fibres (arthropod cuticles, fish scales), periodic fibre families |
+| `honeycomb` | Prismatic cells: hexagonal, square or random honeycombs; softwood with radial files, growth rings and rays |
+| `osteons` | Haversian bone: osteons with canals and cement lines, remodelled one after another (dead leaves) |
+
+### Combinations and nested models
+
+| Model | Description |
+|---|---|
+| `combination` | Union, intersection, difference and complement of models; inclusions in a matrix, e.g. a polycrystal; nested models (each fills the phase 1 of the previous one) |
+| `cox_spheres` | Spheres clustered in the phase 1 of another model: Cox models of nanocomposites (particles in aggregates), hard-core or not |
+| `coating` | A coating (interphase) around the phase 1 of any model, or a shell inside it: hollow spheres, fibres and struts, core–shell particles |
+
+## Anisotropy
+
+Point processes, tessellations, Gaussian fields, dead leaves, growths and lattices take the
+same field `anisotropy: {stretch: [1, 1, 2], euler: [0, 0, 0]}` (or `[1, 1, 2]`): the
+realization of the isotropic model mapped by stretches along turned principal axes,
+preserving volumes (aligned ellipsoids, elongated cells and grains, anisotropic
+covariances); periodic boxes take principal axes along their axes, the Gaussian field any.
+
+## Automata and growth
+
+The models `cellular_automaton`, `activator_inhibitor`, `reaction_diffusion`,
+`nucleation_growth` and `aggregation` grow their structures on a lattice with the
+automata of `morphogen.automata`, which also run on their own:
+
+* Von Neumann, Moore, edge and Euclidean neighbourhoods in 2D and 3D; Life-like
+  `B/S` rules, majority, Vichniac's annealing rule, majority at constant volume
+  fraction, probabilistic rules, activator–inhibitor rules; synchronous,
+  asynchronous and sequential updates.
+* Gray–Scott reaction–diffusion, on the grid or on any tiling (finite-volume
+  Laplacians).
+* Automata on other lattices than the square grid: triangles, hexagons, Penrose
+  rhombi (de Bruijn's pentagrid; quasi-periodic), Ammann–Beenker squares and rhombi
+  (octagonal, quasi-periodic), the prisms stacking them in 3D, truncated octahedra
+  (BCC), rhombic dodecahedra (FCC) and the golden rhombohedra of the icosahedral
+  quasi-periodic tiling, rasterized to images cell by cell (`lattice: hexagonal`);
+  the periodic approximants of the quasi-periodic tilings for periodic boxes (the same
+  tiles in a rectangle or a cube: `approximant: 4`; the cubic approximants 1/1, 2/1,
+  3/2... of the icosahedral tiling).
+* Nucleation and growth by an event-driven automaton with exact (or faceted,
+  oriented) growth fronts, checked against the Avrami law; normal grain growth by
+  the Monte Carlo Potts model; diffusion-limited, Eden and ballistic aggregation.
+* Lattice structures are exact on their lattice and smooth elsewhere (a level set
+  for conforming meshes); non-periodic domains are cut from larger periodic
+  simulations, so that their structures do not wrap around. Their formation can be
+  watched step by step.
+
+```python
+import numpy as np
+import morphogen as mg
+from morphogen import automata
+from morphogen.models import CellularAutomatonModel, NucleationGrowthModel
+
+# an automaton on its own: Vichniac's annealing rule coarsens noise into a
+# bicontinuous structure
+rng = np.random.default_rng(1)
+run = automata.CellularAutomaton("anneal", neighbourhood="moore").run(
+    automata.random_state((64, 64, 64), 0.5, rng), steps=30, rng=rng
+)
+print(run.history["interface"][-1])  # interface density
+
+# as a model: any domain, periodic or not, smooth interfaces off the lattice
+micro = CellularAutomatonModel(rule="anneal", steps=30, cell_size=0.5).generate(
+    mg.Domain.cube(20.0), seed=1
+)
+
+# a partially crystallized structure, and its kinetics against the Avrami law
+model = NucleationGrowthModel(nucleation="continuous", nucleation_rate=1e-3, time=6.0)
+grains = model.generate(mg.Domain.cube(40.0), seed=2)
+print(grains.voxelize().data.mean(), model.theory()["transformed_fraction"])
+frames = model.evolution(mg.Domain.cube(40.0), seed=2, frames=20)  # formation
+```
+
+## Combinations, nested and bio-inspired models
+
+Models take models as parameters: particles clustered in the aggregates of another model,
+coatings and shells around its phase, frames of tubes, fractal sponges. The structures of
+biology are models like the others:
+
+```python
+# carbon black in rubber: particles in aggregates (a Cox model), with a bound-rubber phase
+nano = mg.models.CoxSpheres(
+    aggregates={"type": "boolean_spheres", "radius": 0.1, "volume_fraction": 0.25},
+    radius=0.012,
+    local_fraction=0.35,
+    hardcore=True,
+    aggregate_phase=2,
+)
+# hollow spheres, and a hierarchical lattice of hollow tubes (Rayneau-Kirkhope et al.)
+shells = mg.models.Coating(
+    model={"type": "hardcore_spheres", "radius": 0.1, "volume_fraction": 0.2},
+    thickness=0.02,
+    side="inside",
+)
+frames = mg.models.HierarchicalLattice(
+    generations=1, cells=3, tube_radius=0.012, wall_thickness=0.004
+)
+menger = mg.models.FractalSponge(pattern="menger", level=3)
+# from biology
+nacre = mg.models.Nacre(
+    arrangement="brick", tablet_size=1.0, tablet_thickness=0.2, mortar_thickness=0.05
+)
+plywood = mg.models.Bouligand(fiber_radius=0.03, fiber_spacing=0.08, pitch_angle=15.0)
+wood = mg.models.Honeycomb(
+    arrangement="wood",
+    cell_size=0.4,
+    wall_thickness=0.04,
+    ring_width=4.0,
+    ray_fraction=0.08,  # rays: 3D
+)
+bone = mg.models.OpenFoam(n_cells=64, volume_fraction=0.15, relaxation=10, anisotropy=1.6)
+cortical = mg.models.Osteons(radius=100.0, coverage=0.65, cement_thickness=4.0)
+tree = mg.models.BranchingNetwork(n_attractors=3000, step=0.02, murray_exponent=3.0)
+print(cortical.theory())  # exact fractions of the four phases (dead leaves)
+```
+
+## Scale-rich networks
+
+The networks of Both et al. (2026) grow ligaments one after another, each thinner than
+the previous one, until they meet; in the plane:
+
+```python
+from morphogen.homogenization.postprocess import directional_modulus
+
+# Both et al. (2026): 500 ligaments of thicknesses lambda_0 t^-0.6 at 40 % relative density
+model = mg.models.ScaleRichNetwork(n_ligaments=500, decay=0.6, volume_fraction=0.4)
+plane = mg.Domain(size=(1.0, 1.0, 1 / 512), periodic=False)  # one voxel thick
+net = model.generate(plane, seed=1)
+print(model.theory(plane))  # lambda_0 of the density, the jamming threshold...
+print(net.metadata["summary"])  # ligaments, density, degrees, geometric anisotropy
+print({k: v.exponent for k, v in net.statistics().items()})  # power-law tails
+# aligned, polarized (tangential for the first 20 %), graded nucleation; a frame for a
+# periodic cell (FFT, Bloch waves)
+aligned = mg.models.ScaleRichNetwork(volume_fraction=0.4, angles=[0, 90])
+swirl = mg.models.ScaleRichNetwork(
+    volume_fraction=0.4, pole=[0.5, 0.5], pole_angle=90, polarized_fraction=0.2
+)
+cell = mg.models.ScaleRichNetwork(volume_fraction=0.4, frame=0.006).generate(plane, seed=1)
+# the elastic anisotropy E_min / E_max of a stiffness tensor C, in plane strain
+# eta = directional_modulus(C, np.linspace(0, np.pi, 361)).min() / ....max()
+```
+
+In 3D, the plates or the beams of Fig. 6a of Both et al. (2026) fill the box:
+
+```python
+cube = mg.Domain(size=(1.0, 1.0, 1.0), periodic=False)
+# plates: closed cells
+plates = mg.models.ScaleRichNetwork(dimension=3, n_ligaments=2000, decay=0.5, volume_fraction=0.3)
+cells = plates.generate(cube, seed=1)
+print(plates.theory(cube))  # first plate area, lambda_0, jamming, tails 5/2...
+print(cells.volume_fraction, cells.areas[:5], cells.degrees().mean())
+# beams: open cells, struts
+beams = mg.models.ScaleRichNetwork(
+    dimension=3, element="beams", n_ligaments=500, decay=0.3, volume_fraction=0.15
+)
+struts = beams.generate(cube, seed=1)
+segments = struts.segments()  # the beams as capsules (meshing, STL)
+# layers, vertical walls, shells about a pole, a gradient along z
+layers = mg.models.ScaleRichNetwork(
+    dimension=3, volume_fraction=0.3, orientation={"type": "aligned", "direction": [0, 0, 1]}
+)
+shells = mg.models.ScaleRichNetwork(
+    dimension=3,
+    volume_fraction=0.3,
+    pole=[0.5, 0.5, 0.5],
+    pole_angle=90,
+    nucleation_gradient=[1, 4],
+    gradient_axis=2,
+)
+image = cells.voxelize(shape=128)
+# the elastic anisotropy E_min / E_max of a 3D stiffness C (homogenization.postprocess):
+# e = spatial_modulus(C, sphere_directions()); eta = e.min() / e.max()
+```
+
+`examples/scale_rich_networks.py` reproduces the laws of the paper and the anisotropy of
+its networks, `examples/scale_rich_networks_3d.py` those of plates and beams.
+
+## Templates
+
+`morphogen template` lists the example configurations, and the [gallery](gallery.md)
+shows each with its image. Among them, nested and bio-inspired structures:
+`cox_nanocomposite`, `coated_spheres`, `hierarchical_lattice`, `menger_sponge`, `nacre`,
+`bouligand`, `wood`, `osteons`, `trabecular_bone`, `vascular_tree`. Fibres and lattices:
+`hardcore_fibers`, `curved_fibers`, `random_walk_fibers` (bending fibres packed by forces
+to 0.35), `contact_fibers` (the same drawn into contact, Keilmann et al. 2026),
+`cross_linked_fibers` (entangled carbon fibres bonded by epoxy, Chatti et al.),
+`delaunay_network` (a fibre network on the edges of a Delaunay triangulation, Ban et
+al.), `graded_lattice` (an octet lattice graded and turned, with its STL surface for
+additive manufacturing). Dead leaves and Torquato's models: `sequential_dead_leaves`,
+`transparent_dead_leaves`, `dense_packing`, `penetrable_spheres`, `reconstruction`,
+`hyperuniform_cells`.

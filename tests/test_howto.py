@@ -1,8 +1,8 @@
 """The recipes of the documentation (docs/howto.md) and the first study of its landing
 page (docs/index.md) stay correct: their Python snippets run one after another in one
 session, as they are written (they are small by design), and give what the pages say;
-each ``morphogen`` command of these pages and of the tour of the interface
-(docs/tutorial_interface.md) is one that the command line parses."""
+the README shows the same first study, and each ``morphogen`` command of the pages of
+the documentation and of the README is one that the command line parses."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ import morphogen as mg
 from morphogen import cli
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
+README = DOCS.parent / "README.md"
 HOWTO = DOCS / "howto.md"
 if not DOCS.is_dir():  # an installed package without its sources
     pytest.skip("the documentation is not here", allow_module_level=True)
@@ -83,15 +84,30 @@ def test_first_study_of_the_landing_page(tmp_path, monkeypatch):
     assert (tmp_path / "study.yaml").is_file()
 
 
-@pytest.mark.parametrize("page", ["howto.md", "tutorial_interface.md", "index.md"])
+def test_first_study_of_the_readme_is_that_of_the_landing_page():
+    assert _blocks(README, "python") == _blocks(DOCS / "index.md", "python")
+
+
+#: The pages that give ``morphogen`` commands (the README among them)
+PAGES_WITH_COMMANDS = [
+    "index.md", "installation.md", "tutorial.md", "tutorial_rve.md",
+    "tutorial_interface.md", "howto.md", "gallery.md", "measures.md",
+    "properties.md", "physics.md", "behaviours.md", "fracture.md", "rve.md",
+    "laser.md", "dynamics.md", "running.md", "interop.md", "configuration.md",
+    "../README.md",
+]  # fmt: skip
+
+
+@pytest.mark.parametrize("page", PAGES_WITH_COMMANDS)
 def test_commands_of_the_pages_parse(page):
     parser = cli.build_parser()
     commands = []
     for block in _blocks(DOCS / page, "bash"):
-        for line in block.splitlines():
-            words = shlex.split(line, comments=True)
-            if words and words[0] == "morphogen":
-                commands.append(words)
+        for line in block.replace("\\\n", " ").splitlines():  # continuations joined
+            for part in line.split("&&"):
+                words = shlex.split(part, comments=True)
+                if words and words[0] == "morphogen":
+                    commands.append(words)
     assert commands, page
     for words in commands:
         args = parser.parse_args(words[1:])

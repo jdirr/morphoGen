@@ -14,7 +14,8 @@ The scripts `examples/multiphysics.py` and `examples/acoustic_foam.py` are two c
 studies to run and change. The Python snippets below follow each other in one session and
 run in seconds to a minute on a laptop (the first run of each solver compiles its kernels, once); they are run by the
 tests of the project, so that they stay correct. The [tutorial](tutorial.md) follows one
-study from end to end; the [guide](guide.md) lists every option.
+study from end to end; the [user guide](guide.md) goes through each step, and the
+[configuration reference](configuration.md) lists every option.
 
 ## 1. The chain of a computation
 

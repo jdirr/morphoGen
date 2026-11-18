@@ -1,5 +1,5 @@
 """Configuration of the documentation site (Sphinx): the Markdown pages of docs/ (MyST),
-the README in parts, the change log, and the API reference written from the docstrings.
+the change log, and the API reference written from the docstrings.
 
     python -m pip install ".[docs]"
     python -m sphinx -b html docs site          # the site in site/, from site/index.html
@@ -35,7 +35,7 @@ extensions = [
 ]
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 exclude_patterns = ["_build", "site"]
-suppress_warnings = ["myst.header"]  # the README's sections start at level 2
+suppress_warnings = ["myst.header"]  # the headings of an included file may start below 1
 
 myst_enable_extensions = ["dollarmath", "colon_fence", "deflist"]
 myst_dmath_allow_digits = False  # "$5 and $6" is not math

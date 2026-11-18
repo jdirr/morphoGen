@@ -6,6 +6,17 @@
   to `main` (`.github/workflows/docs.yml`); the DOI of Zenodo in `CITATION.cff`, the README
   and `docs/citing.md` (all the versions: 10.5281/zenodo.24340315; 1.0.0:
   10.5281/zenodo.24340316).
+* The presentation reorganized for a first reading, the content unchanged: the README is a
+  short presentation (what morphoGen does, its installation from PyPI, a first study,
+  where to read on); the user guide of the documentation has a page for each step of a
+  study (models, geometry, measures, apparent properties, behaviours, fracture, the RVE,
+  design), and pages for the applications (explicit dynamics), the configurations and the
+  command line, the graphical interface and the other codes, which take the feature list
+  and the examples of the old README; the keys of the configurations, the commands and
+  the files of a run have their page in the reference (`docs/configuration.md`, from the
+  architecture notes); the API reference opens on a map of the package, the theory notes
+  on a map of their sections by theme, and the page of the laser-architectured sheets on
+  the way it reads.
 
 ## 1.0.0 — 2026-11-18
 
