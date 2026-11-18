@@ -89,7 +89,9 @@ configuration and the commands that reproduce it.
 > Ashby charts, nested and bio-inspired models). The specification
 > ([docs/specification.md](docs/specification.md)) was validated on 2026-10-21 (1.1);
 > its later versions describe the later phases. morphoGen is free software under the GNU
-> GPL v3 or later; its repository is public since 18 November 2026.
+> GPL v3 or later; its repository is public since 18 November 2026, its DOI is
+> [10.5281/zenodo.24340315](https://doi.org/10.5281/zenodo.24340315) and its documentation
+> is online at [jdirr.github.io/morphoGen](https://jdirr.github.io/morphoGen/).
 
 <!-- section: features -->
 ## Features
@@ -2151,8 +2153,9 @@ them in processes (`-j`) or in cluster job arrays (`morphogen submit`).
   [docs/release.md](docs/release.md): the steps of a release; [CITATION.cff](CITATION.cff)
   and [docs/citing.md](docs/citing.md): how to cite morphoGen.
 * [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
-* The documentation site gathers these pages, this README and the API reference written
-  from the docstrings, behind a landing page: `python -m pip install ".[docs]"`, then
+* The documentation site (https://jdirr.github.io/morphoGen/, built at each push to `main`) gathers these pages,
+  this README and the API reference written from the docstrings, behind a landing page;
+  locally: `python -m pip install ".[docs]"`, then
   `python -m sphinx -b html docs site` (open `site/index.html`). Its pages copy their
   code blocks at a click, and its gallery filters its cards by words. The continuous
   integration builds it too and keeps it as the artifact `site` of each run.

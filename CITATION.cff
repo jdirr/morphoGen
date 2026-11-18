@@ -30,6 +30,8 @@ license: GPL-3.0-or-later
 version: 1.0.0
 date-released: 2026-11-18
 repository-code: "https://github.com/jdirr/morphoGen"
+url: "https://jdirr.github.io/morphoGen/"
+doi: 10.5281/zenodo.24340315  # all the versions (1.0.0: 10.5281/zenodo.24340316)
 keywords:  # those of pyproject.toml, and architected materials
   - microstructure
   - random media

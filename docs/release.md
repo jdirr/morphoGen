@@ -40,7 +40,8 @@ use are ready in the repository (`CITATION.cff`, `paper/`, `packaging/conda-forg
    release (zenodo.org, GitHub, the repository), archives each GitHub release with the
    metadata of `CITATION.cff` and gives it a DOI. The DOI of all versions (the concept
    DOI) then goes in `CITATION.cff` (`doi:`), in the README and in
-   [](citing.md).
+   [](citing.md). For 1.0.0 (2026-11-18): 10.5281/zenodo.24340316, all the versions
+   10.5281/zenodo.24340315.
 5. **PyPI.** The workflow `.github/workflows/release.yml` builds the archives of each
    published GitHub release, checks them and uploads them by trusted publishing: a
    publisher declared once on pypi.org for the project `morphogen` (owner `jdirr`,
@@ -50,9 +51,10 @@ use are ready in the repository (`CITATION.cff`, `paper/`, `packaging/conda-forg
    `conda-forge/staged-recipes` that adds `recipes/morphogen/recipe.yaml`, copied from
    `packaging/conda-forge/recipe.yaml` with the version and the sha256 of the source
    archive on PyPI; the bot of the feedstock then follows the next releases on PyPI.
-7. **Documentation site.** Read the Docs builds `docs/` with `.readthedocs.yaml` for
-   each version and for `main` once the public repository is imported there; or
-   GitHub Pages from `python -m sphinx -b html docs site`.
+7. **Documentation site.** GitHub Pages publishes the site of `main` at each push
+   (`.github/workflows/docs.yml`, https://jdirr.github.io/morphoGen/), since 2026-11-18. Read the Docs
+   would build `docs/` with `.readthedocs.yaml` for each version as well, once the
+   repository is imported there.
 
 ## Paper for JOSS
 

@@ -1,5 +1,12 @@
 # Change log
 
+## Unreleased
+
+* The documentation site on GitHub Pages (https://jdirr.github.io/morphoGen/), built and published at each push
+  to `main` (`.github/workflows/docs.yml`); the DOI of Zenodo in `CITATION.cff`, the README
+  and `docs/citing.md` (all the versions: 10.5281/zenodo.24340315; 1.0.0:
+  10.5281/zenodo.24340316).
+
 ## 1.0.0 — 2026-11-18
 
 The first public release. From this version on, the public interface follows semantic

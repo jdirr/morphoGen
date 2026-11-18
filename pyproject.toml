@@ -86,6 +86,7 @@ morphogen-desktop = "morphogen.gui.desktop:main"
 
 [project.urls]
 Repository = "https://github.com/jdirr/morphoGen"
+Documentation = "https://jdirr.github.io/morphoGen/"
 
 [tool.hatch.version]
 path = "src/morphogen/_version.py"
