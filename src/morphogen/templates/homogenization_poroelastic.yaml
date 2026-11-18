@@ -1,0 +1,26 @@
+# The poroelastic law of a porous solid (Biot): its drained stiffness, the tensor and the
+# modulus of Biot (Sigma = C_d : E - b p; change of porosity b : E + p / N) and, with
+# water in the pores, the undrained stiffness and the coefficient of Skempton (Gassmann).
+# The pressure of the pores is one more loading of the elastic solver: the eigenstrain
+# -p S_s : 1 of the solid.
+model:
+  type: boolean_spheres     # the pores: overlapping spheres, connected above 29 %
+  radius: 1.0
+  volume_fraction: 0.2
+domain:
+  size: 6.0
+  periodic: true
+seed: 3
+realizations: 2
+voxels:
+  shape: 24
+homogenization:
+  method: fft
+  materials:
+    0: {young: 60.0e+9, poisson: 0.15}     # quartz-like solid
+    1: void
+  properties: [stiffness, poroelastic]
+  fluid_bulk_modulus: 2.2e+9               # water
+outputs:
+  directory: out/homogenization_poroelastic
+  name: rock

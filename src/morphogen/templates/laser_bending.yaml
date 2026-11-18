@@ -1,0 +1,35 @@
+# Three-point bending of a strip of annealed 0.23 C steel hardened by longitudinal laser
+# tracks on its upper face only (morphogen laser): the number of tracks and the power of
+# the beam optimized for the load at a deflection of 1 mm, within a budget of laser
+# energy; the stiffness does not change (the hardened steel keeps its Young's modulus),
+# the strength in bending does.
+laser_sheet:
+  material: annealed_ms1500
+  treatment: hardening
+  configuration: single            # the face that the load puts in compression
+  layers: 6                        # the hardened depth matters in bending
+  laser:
+    beam: {power: 200, speed: 10, radius: 0.5, absorptivity: 0.55}
+    pause: 30
+  specimen: {kind: strip, length: 40, width: 10, thickness: 1.0}
+  element: 0.5
+  loading: {kind: bending, span: 30, deflection: 1.0}
+  pattern: {kind: straight, count: 4}
+  compare:
+    base: {kind: none}
+optimization:
+  method: bayesian
+  evaluations: 20
+  objective: bending_load_at_deflection
+  parameters:
+    pattern.count: [1, 8, true]
+    beam.power: [100.0, 300.0]     # W
+  constraints:
+    laser_energy: [null, 6000]     # J (the tracks are 50 mm long at 10 mm/s)
+    melted_fraction: [null, 0.05]
+seed: 1
+outputs:
+  directory: laser_bending
+  figures: true
+  fields: [vti]
+  gcode: true

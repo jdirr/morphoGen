@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=morphoGen
+GenericName=Virtual microstructures
+Comment=Morphological modelling of microstructures, their homogenization, fracture and explicit dynamics
+Exec=morphogen-desktop
+Icon=morphogen
+Terminal=false
+Categories=Science;Engineering;Physics;
+Keywords=microstructure;RVE;homogenization;finite elements;OpenRadioss;

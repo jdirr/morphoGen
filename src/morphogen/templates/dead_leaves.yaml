@@ -1,0 +1,22 @@
+# Dead leaves of spheres (Jeulin 1997): each point belongs to the last sphere that fell
+# on it. The visible parts of the leaves form a tessellation of non-convex grains, here
+# two-phase and with random crystal orientations; the theory gives the probability
+# that two points see the same leaf, the covariance and the integral range.
+model:
+  type: dead_leaves
+  radius: {type: lognormal, mean: 0.08, std: 0.03}
+  phase_fractions: [0.5, 0.5]
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+seed: 1997
+realizations: 2
+voxels:
+  shape: 96
+outputs:
+  directory: out/dead_leaves
+  name: leaves
+  image: [vti]
+  labels: [vti]                # visible leaves (grain ids)
+analysis: [volume_fraction, specific_surface, cells]

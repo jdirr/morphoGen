@@ -1,0 +1,22 @@
+@DSL Default;
+@Behaviour OrthotropicHencky;
+@Author morphoGen;
+@Date 23/10/2026;
+@Description {
+  "Orthotropic Hencky elasticity whose three shear moduli differ (G12 = 10000, G23 = "
+  "20000, G13 = 30000), in finite strains, its axes given by Abaqus through its first six "
+  "state variables: the order of the shear components of the exports in finite strains."
+}
+@ModellingHypothesis Tridimensional;
+@OrthotropicBehaviour;
+@AbaqusOrthotropyManagementPolicy[abaqus] MFront;
+@StrainMeasure Hencky;
+@ComputeStiffnessTensor<UnAltered>{200000, 150000, 100000, 0.3, 0.25, 0.2,
+                                   10000, 20000, 30000};
+@ProvidesSymmetricTangentOperator;
+@Integrator{
+  sig = D * (eto + deto);
+  if (computeTangentOperator_) {
+    Dt = D;
+  }
+}

@@ -1,0 +1,22 @@
+# Nanocomposite: small particles clustered in aggregates, a Cox Boolean model of
+# spheres whose germs fall in the phase 1 of a Boolean model of large spheres (carbon
+# black or silica in elastomers: Jean, Jeulin et al. 2011). Non-overlapping particles
+# (hardcore); the aggregates around them may form a phase of their own (bound rubber).
+model:
+  type: cox_spheres
+  aggregates: {type: boolean_spheres, radius: 0.1, volume_fraction: 0.25}
+  radius: 0.012
+  local_fraction: 0.35         # fraction of the aggregates taken by the particles
+  hardcore: true
+  aggregate_phase: 2           # omit for two phases (particles in a matrix)
+domain:
+  size: 1.0
+  periodic: true
+seed: 11
+voxels:
+  shape: 192
+outputs:
+  directory: out/cox_nanocomposite
+  name: nanocomposite
+  geometry: [json, csv]        # csv: centres and radii of the particles
+analysis: [phase_fractions, specific_surface]

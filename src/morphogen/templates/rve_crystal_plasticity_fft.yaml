@@ -1,0 +1,51 @@
+# RVE study of the elastic and viscoplastic responses of a polycrystal, after Yang,
+# Dirrenberger, Monteiro & Ranc (2019): Poisson-Voronoi grains (one per unit volume,
+# random orientations) of a nickel alloy with crystal plasticity (Meric and Cailletaud),
+# pulled to 1 % at 1e-3 /s with free lateral faces, on voxels (the nonlinear FFT solver,
+# periodic conditions). The apparent bulk and shear moduli and the stress of the tension
+# at 0.1, 0.3 and 1 % (the end of the elastic regime, the elastic-plastic transition and
+# the plastic flow) are analysed at three volumes: variance scaling, RVE sizes and their
+# numbers of grains (rve_report.md). A laptop-sized study (about 90 s; wide confidence
+# intervals): increase the sizes and the realizations, and split the study across
+# cluster jobs (--task-id, --n-tasks), for real studies.
+model:
+  type: voronoi
+  intensity: 1.0                      # grains per unit volume
+  crystal_orientations: true
+domain:
+  periodic: true
+seed: 2019
+voxels:
+  voxel_size: 0.2                     # about 125 voxels per grain
+homogenization:
+  method: fft
+  materials:
+    1:
+      cubic: [250000, 160000, 120000]  # MPa
+      crystal_plasticity:
+        families: [octahedral]
+        tau0: 80                        # MPa
+        Q: 20
+        b: 10
+        C: 20000
+        D: 300
+        K: 25
+        n: 10
+        interaction: [1.0, 1.0, 0.6, 12.3, 1.6, 1.3]
+  properties: [bulk_modulus, shear_modulus]
+  paths:
+    tension:                            # strain rate 1e-3 /s, lateral stresses free
+      times: [0, 1, 3, 10]
+      increments: [2, 4, 7]
+      strain: {"11": [0, 0.001, 0.003, 0.01]}
+rve:
+  method: ensemble
+  sizes: [2, 3, 4]                      # 8, 27 and 64 grains on average
+  realizations: [16, 8, 4]
+  # quantities of the curves: S11 of the path tension at the times 1 and 3, and at its end
+  properties: [bulk_modulus, shear_modulus, tension.S11@1, tension.S11@3, tension.S11]
+  relative_errors: [0.01, 0.05]
+  n_realizations: [1, 10]
+outputs:
+  directory: out/rve_crystal_plasticity_fft
+  name: polycrystal

@@ -1,0 +1,36 @@
+# The flow and the sound in an open-cell foam: the permeability of Darcy's law (a Stokes
+# flow through the pores, by the lattice Boltzmann method) and the parameters of the
+# equivalent fluid of the rigid frame (Johnson-Champoux-Allard-Lafarge): porosity,
+# tortuosity, viscous and thermal characteristic lengths, thermal permeability. Lengths
+# in mm here: the permeabilities come out in mm^2 (1e-6 m^2). In Python,
+# morphogen.homogenization.absorption gives the absorption of a layer from them.
+# The foam is a level set of distance fields (as the template level_set_foam): cells of
+# about 0.3 mm, 8 % of solid in struts that thicken towards their nodes. Raise
+# domain.size for the statistics (an rve section) and lower voxels.voxel_size until the
+# parameters settle (the struts are two voxels thick here).
+model:
+  type: level_set_foam
+  seed_radius: {type: uniform, low: 0.12, high: 0.18}
+  packing: dense
+  packing_fraction: 0.6
+  volume_fraction: 0.08
+  curvature: -0.7
+  c1: 50.0
+  c2: 1.0
+domain:
+  size: 1.5
+  periodic: true
+seed: 3
+voxels:
+  voxel_size: 0.025
+homogenization:
+  method: fft
+  materials:
+    0: void                                  # the pores: the fluid flows through them
+    1: {young: 2500.0, poisson: 0.35}        # polymer (MPa); the frame is rigid for the flow
+  properties: [hydraulic_permeability, acoustic]
+  tolerance: 1.0e-4
+outputs:
+  directory: out/homogenization_acoustic_foam
+  name: foam
+  image: [vti]

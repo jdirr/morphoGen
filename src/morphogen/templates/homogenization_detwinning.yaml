@@ -1,0 +1,58 @@
+# The twins of a textured magnesium, there and back. The polycrystal of the template
+# homogenization_twinning (the axes c of its grains near the axis 3), pulled by 4 % along
+# 3 and brought back. The twins that the tension made shear back when the stress is
+# reversed (detwinning), at about the stress of the tension: a crystal that kept its twins
+# would have to slip on its hard pyramidal systems, at nearly twice that stress
+# (twin_detwinning: false; a number: the share of their resistance at which they shear
+# back). And the lattices of the points become those of their predominant twins
+# (twin_reorientation), 86 degrees off those of their grains, grain by grain: the most
+# twinned points first, so that the turned volume of a grain is its twinned volume. A
+# turned point slips and twins as the twin does - its axis c lies across the tension, the
+# polycrystal hardens - and twins back to the lattice of its grain when the load is
+# reversed. The curve (magnesium_0000_cycle_periodic.csv) has the twinned fraction, the
+# turned volume and the mean disorientation of the points at each step; the fields (.vti)
+# those of each voxel. Half a minute.
+model:
+  type: voronoi
+  n_cells: 12
+  crystal_orientations: true
+  texture:                     # of the axes c of the grains; the grains turned about them
+    type: von_mises_fisher
+    kappa: 30.0
+    axis: [0, 0, 1]
+domain:
+  size: 1.0
+  periodic: true
+seed: 5
+voxels:
+  shape: 12
+homogenization:
+  method: fft
+  materials:
+    1:
+      hexagonal: [59400.0, 25600.0, 21400.0, 61600.0, 16400.0]   # c11, c12, c13, c33, c44 (MPa)
+      crystal_plasticity:
+        c_over_a: 1.624
+        K: 5.0
+        n: 10.0
+        families:              # critical resolved shear stresses (MPa)
+          basal: {tau0: 10.0}
+          prismatic: {tau0: 60.0}
+          pyramidal2_ca: {tau0: 100.0}
+        twins:                 # {10-12}<10-1-1>: a shear of 0.129
+          twin1012: {tau0: 25.0, Q: 15.0, b: 20.0}
+        twin_reorientation:    # the lattices become those of the predominant twins (none
+          threshold: 0.2       # by default): grain by grain, past this twinned fraction
+          growth: 0.0          # (plus this times turned volume / twinned volume); a
+                               # number alone: point by point, at that twinned fraction
+        twin_detwinning: true  # the twins shear back when the stress is reversed (default)
+  properties: []
+  fields: true
+  paths:
+    cycle:                     # the other components: zero stress
+      times: [0, 1, 2]
+      increments: 16
+      strain: {"33": [0, 0.04, 0.0]}
+outputs:
+  directory: out/homogenization_detwinning
+  name: magnesium

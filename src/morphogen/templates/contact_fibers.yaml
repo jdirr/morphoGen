@@ -1,0 +1,27 @@
+# Bending fibres drawn into contact (Keilmann, Redenbach & Willot 2026): the random walks
+# of Altendorf & Jeulin packed without overlap, then the pairs of fibres closer than the
+# interaction distance (here half a radius, the paper's 1 voxel for a radius of 2) drawn
+# together by contact forces against the springs of the fibres. The summary gives the
+# contacts per fibre before and after the contact packing; the theory, Toll's estimate.
+model:
+  type: random_walk_fibers
+  radius: 0.5
+  length: 10.0                 # contour length: aspect ratio L / 2r = 10
+  orientation: isotropic
+  kappa1: 10.0
+  kappa2: 100.0
+  step: 1.0                    # segments of a radius (the paper's balls: 0.5)
+  volume_fraction: 0.2
+  interaction_distance: 0.25
+domain:
+  size: 20.0
+  periodic: true
+seed: 2026
+voxels:
+  voxel_size: 0.1
+outputs:
+  directory: out/contact_fibers
+  name: fibres
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

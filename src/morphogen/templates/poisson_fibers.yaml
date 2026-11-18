@@ -1,0 +1,21 @@
+# Poisson fibres (Dirrenberger et al. 2014): infinite cylinders on isotropic Poisson lines.
+# Infinite fibres cannot be periodic: the domain must be non-periodic.
+model:
+  type: poisson_fibers
+  radius: 1.0
+  volume_fraction: 0.16
+domain:
+  size: 30.0
+  periodic: false
+seed: 2014
+voxels:
+  voxel_size: 0.25
+outputs:
+  directory: out/poisson_fibers
+  name: fibres
+  geometry: [json, geo]        # geo: Gmsh script for conforming tetrahedral meshes
+  image: [vtk]                 # legacy VTK (cell data), e.g. for FFT solvers
+  mesh:
+    formats: [msh]
+    phases: [1]                # mesh the fibres only (porous medium)
+analysis: [volume_fraction, specific_surface, connectivity]

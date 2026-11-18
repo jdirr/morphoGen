@@ -1,0 +1,28 @@
+# Bouligand (twisted plywood) structure of the dactyl club of the mantis shrimp or of
+# fish scales: layers of parallel fibres, each turned by 15 degrees from the one below.
+# Twelve layers make a half-turn: the periodic box holds one. The moduli along x and y
+# are equal; the directions of the fibres, taken among the families periodic in the box
+# (here within 1.4 degrees), leave the in-plane shear modulus a few percent off
+# isotropy, less in larger boxes.
+model:
+  type: bouligand
+  fiber_radius: 0.03
+  fiber_spacing: 0.08
+  layer_thickness: 0.08333333  # 12 layers in the box
+  pitch_angle: 15.0
+  start_angle: 0.0
+domain:
+  size: 1.0
+  periodic: true
+voxels:
+  shape: 128
+homogenization:
+  method: fft
+  materials:
+    0: {young: 2.0, poisson: 0.4}        # protein matrix
+    1: {young: 40.0, poisson: 0.3}       # mineralized chitin fibres
+  properties: [stiffness]
+outputs:
+  directory: out/bouligand
+  name: plywood
+analysis: [volume_fraction]

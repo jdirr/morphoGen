@@ -1,0 +1,23 @@
+# Extended finite elements: the level set of the spheres cuts a regular grid of 16^3
+# cells (six tetrahedra each), whose cut elements are enriched (Moes et al. 2003) instead
+# of drawing the interfaces as stairs of voxels or meshing them. Elastic and thermal
+# properties under periodic conditions; compare with method: fft at the same shape.
+model:
+  type: boolean_spheres
+  radius: 1.0
+  volume_fraction: 0.25
+domain:
+  size: 6.0
+  periodic: true
+seed: 2
+voxels:
+  shape: 16                 # the grid cut by the interfaces
+homogenization:
+  method: xfem
+  materials:
+    0: {young: 1.0, poisson: 0.3, conductivity: 1.0}
+    1: {young: 10.0, poisson: 0.3, conductivity: 10.0}
+  properties: [bulk_modulus, shear_modulus, conductivity, stiffness]
+outputs:
+  directory: out/homogenization_xfem
+  name: spheres

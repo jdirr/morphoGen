@@ -1,0 +1,26 @@
+# Spheres with an interphase: a coating of constant thickness around non-overlapping
+# spheres (exact for unions of spheres and segments), three phases whose effective
+# stiffness is computed by FFT. With side: inside, the spheres become hollow shells
+# (core_phase 0), or core-shell particles (core_phase 3).
+model:
+  type: coating
+  model: {type: hardcore_spheres, radius: 0.1, volume_fraction: 0.25}
+  thickness: 0.02
+  side: outside                # outside: a coating; inside: a shell
+domain:
+  size: 1.0
+  periodic: true
+seed: 5
+voxels:
+  shape: 96
+homogenization:
+  method: fft
+  materials:
+    0: {young: 3.0, poisson: 0.35}       # matrix
+    1: {young: 70.0, poisson: 0.22}      # spheres
+    2: {young: 10.0, poisson: 0.3}       # interphase
+  properties: [stiffness]
+outputs:
+  directory: out/coated_spheres
+  name: coated
+analysis: [phase_fractions]

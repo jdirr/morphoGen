@@ -1,0 +1,30 @@
+# Copper polycrystal with an amorphous grain-boundary phase and alumina inclusions,
+# homogenized by FFT: the grains (phase 1) are cubic crystals turned by their random
+# orientations, the boundaries (phase 0, 0.01 thick) and the inclusions (phase 2) are
+# isotropic. The combination keeps the grains of the polycrystal under the inclusions.
+model:
+  type: combination
+  operation: inclusions
+  models:
+    - {type: voronoi, n_cells: 50, crystal_orientations: true, boundary_thickness: 0.01}
+    - {type: hardcore_spheres, radius: 0.05, volume_fraction: 0.05}
+  inclusion_phases: [2]
+domain:
+  size: 1.0
+  periodic: true
+seed: 11
+voxels:
+  shape: 64
+homogenization:
+  method: fft
+  materials:
+    0: {young: 60.0, poisson: 0.35}           # grain boundaries (GPa)
+    1: {cubic: [168.4, 121.4, 75.4]}          # copper crystals
+    2: {young: 380.0, poisson: 0.22}          # alumina
+  properties: [bulk_modulus, shear_modulus]
+outputs:
+  directory: out/homogenization_polycrystal_inclusions
+  name: composite
+  image: [vti]
+  labels: [vti]
+analysis: [phase_fractions]

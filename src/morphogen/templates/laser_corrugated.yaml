@@ -1,0 +1,36 @@
+# Architectured sheet by localized laser treatment (morphogen laser): corrugated tracks of
+# martensite in an annealed 0.23 C steel (Wang 2022, thesis ch. 5; Wang et al. 2023,
+# steel res. int. 94, 2200695), their tensile test, and the optimization of their
+# amplitude and period for the strength-ductility balance at a minimum yield strength.
+laser_sheet:
+  material: annealed_ms1500        # aisi430, dp1180, or {preset: ..., strength: [...]}
+  treatment: hardening             # carburizing, nitriding, alloying (melt pool)
+  configuration: symmetric         # a beam on each face (single: the upper face only)
+  layers: 4                        # through the thickness
+  laser:
+    beam: {power: 150, speed: 10, radius: 0.5, absorptivity: 0.55}       # fibre, Gaussian
+    bottom: {power: 100, speed: 10, radius: 0.6, absorptivity: 0.55, profile: tophat}  # diode
+    pause: 30                      # s between tracks
+  specimen: {kind: dogbone, length: 30, width: 5, thickness: 1.0}
+  element: 0.5                     # mm (0.25 for a converged check)
+  pattern: {kind: corrugated, count: 1, amplitude: 1.0, period: 15}
+  compare:
+    base: {kind: none}
+    straight: {kind: straight, count: 1}
+optimization:
+  method: bayesian                 # grid, nelder_mead, differential_evolution, genetic
+  evaluations: 24
+  objective: strength_ductility    # energy, uniform_elongation, tensile_strength, yield_strength
+  parameters:
+    pattern.amplitude: [0.0, 2.5]  # mm
+    pattern.period: [6.0, 30.0]    # mm
+  constraints:
+    yield_strength: [400, null]    # MPa
+    min_radius: [1.5, null]        # mm: tracks curved gently (quasi-steady cycles)
+  check_element: 0.25
+seed: 1
+outputs:
+  directory: laser_corrugated
+  figures: true
+  fields: [vti]
+  gcode: true

@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.nbi
+*.nbc
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Environments
+.venv/
+venv/
+env/
+.python-version
+
+# Tools
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+
+# Outputs of example runs
+out/
+results/
+*.vti
+*.vtu
+*.vtk
+*.mhd
+*.raw
+*.stl
+*.msh
+*.inp
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local continuous integration (tools/ci_local.sh)
+.ci_local/
+
+# Documentation site: the pages of the API reference written at each build, the site
+docs/api/
+docs/_build/
+site/

@@ -1,0 +1,281 @@
+/* The style of the site beyond its theme (Furo): the landing page (its banner, its strip
+   of images, its cards), the figures and screenshots of the tutorials, the filter of the
+   gallery, the copy button of the code blocks and the enlarged screenshots (site.js).
+   The colours are the variables of the theme, so that its light and dark modes both
+   work. The boxes are docutils containers, whose horizontal padding the theme sets to
+   zero ([role=main] .container): their rules are written under [role="main"] to keep
+   theirs. */
+
+/* the logo of the sidebar: an SVG without a size of its own */
+.sidebar-logo {
+  width: 5.5rem;
+}
+
+/* --- the landing page ----------------------------------------------------------- */
+
+[role="main"] .hero {
+  margin: 1.2rem 0 1rem;
+  padding: 1.5rem 1.7rem 1.6rem;
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.8rem;
+  background: linear-gradient(
+    135deg,
+    var(--color-background-secondary),
+    var(--color-background-primary) 75%
+  );
+}
+
+.hero-tagline p {
+  margin: 0 0 0.6rem;
+  font-size: 1.5rem;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--color-foreground-primary);
+}
+
+.hero-text p {
+  margin: 0 0 1.1rem;
+  color: var(--color-foreground-secondary);
+}
+
+.hero-buttons p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.hero-buttons a {
+  display: inline-block;
+  padding: 0.42rem 1rem;
+  border: 1px solid var(--color-brand-primary);
+  border-radius: 0.4rem;
+  color: var(--color-brand-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hero-buttons a:first-child {
+  background: var(--color-brand-primary);
+  color: var(--color-background-primary);
+}
+
+.hero-buttons a:hover,
+.hero-buttons a:focus-visible {
+  background: var(--color-brand-primary);
+  color: var(--color-background-primary);
+  text-decoration: none;
+}
+
+/* a strip of images of the gallery, each a link to its family */
+.strip p {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.3rem;
+  margin: 0 0 1.6rem;
+}
+
+@media (max-width: 46em) {
+  .strip p {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.strip a {
+  display: block;
+  border-radius: 0.4rem;
+}
+
+.strip img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.15s ease;
+}
+
+.strip a:hover img,
+.strip a:focus-visible img {
+  transform: scale(1.07);
+}
+
+/* cards of text: what morphoGen does, where to read about it */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0 2rem;
+}
+
+[role="main"] .card {
+  min-width: 0;
+  padding: 0.6rem 0.9rem 0.7rem;
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.5rem;
+  background: var(--color-background-secondary);
+  transition: border-color 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--color-brand-primary);
+}
+
+.card p {
+  margin: 0.3rem 0;
+  font-size: 0.92em;
+}
+
+.card p:first-child {
+  font-size: 1em;
+}
+
+/* --- the figures and screenshots of the tutorials -------------------------------- */
+
+/* the cards of the index of the tutorials: two columns, figures of one height */
+.gallery.tutorials {
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+}
+
+.tutorials .gallery-card img {
+  height: 11rem;
+  max-width: 100%;
+  border-radius: 0.3rem;
+  background: #fff;
+  object-fit: contain;
+}
+
+img.tutorial-figure {
+  display: block;
+  max-width: min(100%, 36rem);
+  height: auto;
+  margin: 1rem auto;
+  padding: 0.3rem;
+  border-radius: 0.4rem;
+  background: #fff; /* the figures are drawn on white */
+}
+
+img.tutorial-screenshot {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.2rem auto;
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.4rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+  cursor: zoom-in;
+}
+
+/* a screenshot enlarged over the page (site.js) */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.82);
+  cursor: zoom-out;
+}
+
+.lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 0.3rem;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* --- the filter of the gallery (site.js) ------------------------------------------ */
+
+/* it stays at the top of the page while the cards scroll, on wide screens (on narrow
+   ones the theme has its own header there, and the page another scrolling box) */
+.gallery-filter {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 1.2rem 0 0.4rem;
+  padding: 0.5rem 0;
+  background: var(--color-background-primary);
+}
+
+@media (max-width: 63em) {
+  .gallery-filter {
+    position: static;
+  }
+}
+
+.gallery-filter input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.4rem;
+  background: var(--color-background-secondary);
+  color: var(--color-foreground-primary);
+  font: inherit;
+}
+
+.gallery-filter input:focus {
+  border-color: var(--color-brand-primary);
+  outline: none;
+}
+
+.gallery-filter span {
+  color: var(--color-foreground-secondary);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.gallery-card.filtered,
+section.filtered {
+  display: none;
+}
+
+/* --- the copy button of the code blocks (site.js) --------------------------------- */
+
+div.highlight {
+  position: relative;
+}
+
+button.copy-code {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.3rem;
+  background: var(--color-background-primary);
+  color: var(--color-foreground-secondary);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+div.highlight:hover button.copy-code,
+button.copy-code:focus-visible,
+button.copy-code.copied {
+  opacity: 1;
+}
+
+button.copy-code:hover,
+button.copy-code.copied {
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary);
+}
+
+@media (hover: none) {
+  button.copy-code {
+    opacity: 0.85; /* no hover on a touch screen: always there */
+  }
+}
+
+@media print {
+  button.copy-code,
+  .gallery-filter {
+    display: none;
+  }
+}

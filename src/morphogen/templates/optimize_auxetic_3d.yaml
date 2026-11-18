@@ -1,0 +1,27 @@
+# Topology optimization of a periodic cell with a negative Poisson's ratio in three
+# dimensions (auxetic along its three axes), by inverse homogenization with the FFT
+# solver: minimize C_12 / C_11 at a volume fraction of 30 %, with cubic symmetry and the
+# method of moving asymptotes, on 24^3 voxels. Expect a Poisson's ratio near -0.14 (-0.2
+# on a grid twice as fine: optimization.json, properties and check) after 250 iterations,
+# three to eight minutes. The planar cell of optimize_auxetic reaches -0.87 in a minute:
+# in space the members that fold inwards are bars, not walls, and a finer grid and more
+# iterations go further. The json geometry can be meshed and homogenized like any
+# microstructure, and morphogen view auxetic3d.json --tile 2 shows its three sections.
+optimization:
+  objective: poisson_ratio
+  volume_fraction: 0.3
+  grid: 24
+  cell_size: 1.0
+  material: {young: 1.0, poisson: 0.3}
+  method: mma
+  filter_radius: 2.0         # voxels: minimal length scale
+  projection: 8.0            # Heaviside projection, doubled from 1 up to 8
+  symmetry: cubic
+  iterations: 250
+seed: 1994
+outputs:
+  directory: out/optimize_auxetic_3d
+  name: auxetic3d
+  image: [vti]
+  density: [vti]
+  geometry: [json]

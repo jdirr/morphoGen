@@ -1,0 +1,22 @@
+# Non-overlapping straight fibres (spherocylinders) by random sequential addition: no two
+# fibres closer than min_gap, a fibre-reinforced composite. The process jams at a
+# fraction that falls as the fibres lengthen; aligned fibres pack further.
+model:
+  type: hardcore_fibers
+  radius: 0.5
+  length: 6.0                  # of the cylindrical part (aspect ratio 7 with the caps)
+  orientation: isotropic       # or {type: aligned, direction: [0, 0, 1]} / {type: planar, normal: [0, 0, 1]}
+  volume_fraction: 0.15
+  min_gap: 0.1
+domain:
+  size: 20.0
+  periodic: true
+seed: 1
+voxels:
+  voxel_size: 0.1
+outputs:
+  directory: out/hardcore_fibers
+  name: fibres
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

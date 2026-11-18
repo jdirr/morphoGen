@@ -1,0 +1,43 @@
+# Plates parted by thin gaps and held apart by pillars (a laminate whose void layers have
+# holes: the pillars), compressed across the plates in finite strains. The plates first
+# bend between the pillars and the cell is soft; then the gaps close one after another:
+# the plates come to rest on each other (the self-contact of the walls of the pores, with
+# Coulomb's friction, also through the faces of the periodic cell) and the cell becomes
+# five times stiffer. Unloaded, it comes back along nearly the same curve: the walls
+# press more than they rub. The curve (gaps_0000_compression_periodic.csv) has at each
+# step the area in contact, the largest pressure and the energy that friction dissipated;
+# about two minutes.
+model:
+  type: random_laminate
+  thickness: {type: uniform, low: 0.05, high: 0.11}   # the gaps (phase 1)
+  spacing: 0.3                                        # the plates (phase 0)
+  axis: 2
+  hole_fraction: 0.5           # the pillars: holes through the layers of phase 1
+  hole_radius: 0.2
+domain:
+  size: [2.4, 0.08, 1.2]       # a slice: the pillars are walls across it
+  periodic: true
+seed: 8                        # a pillar or two across each of the three gaps
+mesh:
+  size: 0.08
+  background: 0.04             # the sampling of the level set: the gaps
+  min_size: 0.04
+  hausdorff: 0.008
+  order: 1                     # 4-node tetrahedra, eight across a plate
+homogenization:
+  method: fe
+  materials:
+    0: {young: 1000.0, poisson: 0.3}     # the plates and the pillars
+    1: void                              # the gaps: the mesh is that of the solid
+  properties: []
+  paths:
+    compression:               # free components: zero stress
+      times: [0, 1, 2]
+      increments: [15, 15]
+      strain: {"33": [0, -0.15, 0], "23": 0.0, "13": 0.0, "12": 0.0}
+  nonlinear:
+    contact: {friction: 0.3}   # the walls of the pores touch; finite strains by default
+outputs:
+  directory: out/homogenization_contact
+  name: gaps
+  conforming_mesh: [vtu]

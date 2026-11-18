@@ -1,0 +1,22 @@
+# Stochastic reconstruction (Yeong & Torquato 1998): a two-phase lattice annealed to the
+# two-point probability S2 and the lineal-path function L of a realization of a Boolean
+# model of spheres. S2 alone keeps the fraction and the correlations but not the
+# connectedness along lines that L carries; compare the chords and the connectivity of
+# the reconstruction with those of the reference (or set lineal_path: 0).
+model:
+  type: reconstruction
+  reference: {type: boolean_spheres, radius: 0.08, volume_fraction: 0.3}
+  lineal_path: 1.0             # weight of L in the energy, 0: S2 alone
+  cell_size: 0.025
+  sweeps: 60
+domain:
+  size: 1.0
+  periodic: true
+seed: 1998
+voxels:
+  shape: 40
+outputs:
+  directory: out/reconstruction
+  name: reconstruction
+  image: [vti]
+analysis: [volume_fraction, specific_surface, chords, connectivity]

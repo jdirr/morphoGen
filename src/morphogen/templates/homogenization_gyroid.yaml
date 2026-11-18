@@ -1,0 +1,30 @@
+# Effective stiffness tensor (cubic symmetry) and conductivity of a sheet gyroid lattice
+# of relative density 0.2, by periodic homogenization of one unit cell with finite
+# elements on a conforming mesh of the solid (the void is not meshed). Thin sheets need
+# 10-node tetrahedra or several elements across the thickness. Local fields (energy
+# density, von Mises stress...) are written for ParaView.
+model:
+  type: tpms
+  surface: gyroid
+  variant: sheet
+  cell_size: 1.0
+  volume_fraction: 0.2
+domain:
+  size: 1.0
+  periodic: true
+mesh:
+  size: 0.08
+  order: 2
+  background: 0.025           # method: grid only (the default meshes the exact sheet):
+                              # level-set sampling, about 3 points across the sheet
+homogenization:
+  materials:
+    0: void
+    1: {young: 110000.0, poisson: 0.34, conductivity: 7.0}   # Ti-6Al-4V
+  boundary_conditions: [periodic]
+  properties: [stiffness, bulk_modulus, shear_modulus, conductivity]
+  fields: true
+outputs:
+  directory: out/homogenization_gyroid
+  name: gyroid
+  conforming_mesh: [vtu]

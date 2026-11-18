@@ -1,0 +1,18 @@
+# Laguerre (power) tessellation; two-phase mosaic (Kanit et al. 2003 style).
+model:
+  type: laguerre
+  intensity: 300.0
+  radius: {type: uniform, low: 0.02, high: 0.08}
+  phase_fractions: [0.7, 0.3]  # probabilities of phases 0 and 1 for each cell
+domain:
+  size: 1.0
+  periodic: true
+seed: 11
+voxels:
+  shape: 64
+outputs:
+  directory: out/laguerre
+  name: mosaic
+  image: [vti]
+  labels: [vti]
+analysis: [volume_fraction, cells]

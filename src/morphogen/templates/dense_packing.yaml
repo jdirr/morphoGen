@@ -1,0 +1,22 @@
+# A dense random packing of hard spheres (Lubachevsky & Stillinger 1990): the spheres of
+# a hard-sphere fluid grow until they reach their radii, here to 0.6, well beyond the
+# random sequential addition (0.38); equal spheres jam near 0.64 (the maximally random
+# jammed state of Torquato), polydisperse ones a little beyond.
+model:
+  type: hardcore_spheres
+  method: lubachevsky_stillinger
+  radius: {type: lognormal, mean: 0.5, std: 0.1}
+  volume_fraction: 0.6
+  growth_rate: 0.01            # slower: denser, and ordered for equal spheres
+domain:
+  size: 10.0
+  periodic: true
+seed: 1990
+voxels:
+  voxel_size: 0.05
+outputs:
+  directory: out/dense_packing
+  name: packing
+  geometry: [csv]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

@@ -1,0 +1,56 @@
+# Cracks between the grains and through them. A polycrystal meshed grain by grain: the
+# boundaries of the grains are cohesive (a strength and a fracture energy), and each
+# grain is a cubic crystal that slips ({110}<111>) and whose {100} planes cleave (the
+# crack band: the fracture energy of the planes dissipated in one element). Which gives
+# way depends on the two strengths: with boundaries weaker than the planes (here), the
+# crack follows the boundaries and the grains stay whole (intergranular fracture: the
+# work that breaks the cell is the fracture energy of the boundaries times the area of
+# the crack); with strong boundaries (normal_strength: 3000) it cuts through the grains
+# along their cleavage planes (transgranular fracture: no boundary debonds). The curve
+# (grains_0000_tension_periodic.csv) has the debonded area of the boundaries and the
+# damage of the cleavage planes at each step; the fields (.vtu) those of each element.
+# Half a minute; a minute for the transgranular crack.
+model:
+  type: voronoi
+  n_cells: 8
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+seed: 2
+mesh:
+  size: 0.2
+  order: 1                     # 4-node tetrahedra, interface elements of three nodes a side
+homogenization:
+  method: fe
+  materials:
+    1:
+      cubic: [230000.0, 135000.0, 117000.0]   # c11, c12, c44 (MPa)
+      crystal_plasticity:
+        K: 10.0
+        n: 10.0
+        families:
+          bcc110: {tau0: 300.0, Q: 100.0, b: 20.0}
+        cleavage:
+          planes: cube         # {100}
+          strength: 500.0      # the normal stress that opens a plane (MPa)
+          energy: 1.0          # the fracture energy of the planes (N/mm)
+          length: 0.2          # the size of the elements that dissipate it
+          K: 20.0              # a viscosity of the opening (the crack crosses the cell at once)
+          n: 1.0
+  properties: []
+  fields: true
+  paths:
+    tension:                   # the other components: zero stress
+      times: [0, 1]
+      increments: 40
+      strain: {"33": [0, 0.012]}
+  nonlinear:
+    interfaces:
+      faces: grains            # every boundary between two grains
+      normal_strength: 300.0   # MPa: weaker than the cleavage planes (3000: stronger)
+      mode_I: 0.5              # the fracture energy of the boundaries (N/mm)
+outputs:
+  directory: out/homogenization_grain_fracture
+  name: grains
+  conforming_mesh: [vtu]

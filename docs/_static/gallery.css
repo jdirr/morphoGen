@@ -1,0 +1,56 @@
+/* The cards of the gallery of examples (docs/gallery.md): a grid of cards, each with its
+   image, description, commands and folded configuration; a card whose configuration is
+   unfolded takes the whole width of the grid. */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  grid-auto-flow: row dense;
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+
+/* under [role="main"]: the theme sets the horizontal padding of containers to zero */
+[role="main"] .gallery-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.4rem;
+  background: var(--color-background-secondary);
+}
+
+.gallery-card:has(details[open]) {
+  grid-column: 1 / -1;
+}
+
+.gallery-card img {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  height: auto;
+  margin: 0 auto 0.4rem;
+}
+
+.gallery-card p {
+  margin: 0.3rem 0;
+  font-size: 0.9em;
+}
+
+.gallery-card div[class^="highlight"] {
+  margin: 0.4rem 0;
+}
+
+.gallery-card div[class^="highlight"] pre {
+  font-size: 0.75em;
+}
+
+.gallery-card details {
+  margin-top: auto;
+}
+
+.gallery-card details summary {
+  cursor: pointer;
+  font-size: 0.9em;
+  color: var(--color-link);
+}

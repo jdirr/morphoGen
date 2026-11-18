@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: python -m pip install ruff
+      - run: ruff check src tests examples docs
+      - run: ruff format --check src tests examples docs
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: python -m pip install ".[docs]"
+      - name: The documentation site, warnings as errors
+        run: python -m sphinx -b html -W --keep-going -q docs site
+      - name: Keep the site, to download from the page of the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: site
+          retention-days: 14
+
+  test:
+    name: test (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # the slow tests (marker slow) on one job; the fast tier elsewhere
+        include:
+          - { os: ubuntu-latest, python: "3.12", tests: "not slow" }
+          - { os: ubuntu-latest, python: "3.14", tests: "" }
+          - { os: windows-latest, python: "3.14", tests: "not slow" }
+          - { os: macos-latest, python: "3.14", tests: "not slow" } # Apple Silicon
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build and install the wheel with the optional dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          python -m pip install "$(ls dist/*.whl)[test,surface,io,plot,mesh]"
+      - name: Tests (against the installed wheel, in parallel)
+        shell: bash
+        run: |
+          cd tests && python -m pytest -q -p no:cacheprovider --rootdir .. -c ../pyproject.toml \
+            -n auto --dist loadfile -m "${{ matrix.tests }}" .
+      - name: Command-line smoke test
+        shell: bash
+        run: |
+          morphogen info
+          morphogen template boolean_spheres -o smoke.yaml
+          morphogen run smoke.yaml -o smoke_out -q
+          test -f smoke_out/results.csv
+          python -c "from morphogen.mesh import mmg_executable; print(mmg_executable())"

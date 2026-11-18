@@ -1,0 +1,25 @@
+@DSL Implicit;
+@Behaviour VonMisesTwin;
+@Author morphoGen;
+@Date 23/10/2026;
+@Description {
+  "Von Mises elasto-viscoplasticity as morphoGen's Plasticity(yield_stress=100, "
+  "hardening=500, isotropic=((50, 20),), kinematic=((20000, 200), (5000, 0)), "
+  "viscosity=50, exponent=5) of a material E = 70e3, nu = 0.33: a twin for the "
+  "validation of the MFront behaviours in small strains."
+}
+@Algorithm NewtonRaphson;
+@Epsilon 1.e-14;
+@Theta 1;
+@Brick StandardElastoViscoPlasticity{
+  stress_potential : "Hooke" {young_modulus : 70e3, poisson_ratio : 0.33},
+  inelastic_flow : "Norton" {
+    criterion : "Mises",
+    isotropic_hardening : "Linear" {R0 : 100, H : 500},
+    isotropic_hardening : "Voce" {R0 : 0, Rinf : 50, b : 20},
+    kinematic_hardening : "Armstrong-Frederick" {C : 20000, D : 200},
+    kinematic_hardening : "Prager" {C : 5000},
+    K : 50,
+    n : 5
+  }
+};

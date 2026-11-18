@@ -1,0 +1,34 @@
+# A measured polycrystal: windows of an orientation map (EBSD) as the realizations of a
+# study. The grains of the map are its sets of neighbouring points less than 5 degrees
+# apart; each has its mean orientation, and the elastic stiffness of the window is that
+# of its crystals of nickel, by the FFT solver. The bulk modulus of a polycrystal of
+# cubic crystals is (C11 + 2 C12) / 3 = 180.37 GPa for every window; the Young's moduli
+# vary from a window to the next with the grains that it holds.
+#
+# The map is the demonstration map that comes with morphoGen (a section of a polycrystal
+# as an acquisition would give it, written by examples/ebsd_map.py): put the path of an
+# .ang or a .ctf file in its place, from the folder of this file.
+model:
+  type: ebsd
+  file: ebsd_map.ctf
+  threshold: 5.0               # degrees between two neighbouring points of one grain
+  min_size: 5                  # points: smaller grains are given to their neighbours
+  window: random               # origin: the window at the first corner of the map
+domain:
+  size: [16.0, 12.0, 0.5]      # um: a window of 32 x 24 points of the map
+  periodic: false
+seed: 2026
+realizations: 4
+voxels:
+  voxel_size: 0.5              # the step of the map
+homogenization:
+  method: fft
+  materials:
+    1: {cubic: [246.5, 147.3, 124.7]}   # nickel, GPa
+  properties: [bulk_modulus, shear_modulus, stiffness]
+outputs:
+  directory: out/ebsd
+  name: ebsd
+  image: [vti]
+  labels: [vti]
+analysis: [volume_fraction]

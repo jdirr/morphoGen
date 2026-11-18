@@ -1,0 +1,25 @@
+# Sequential dead leaves (Jeulin 1997): two families of spheroidal leaves, small and
+# prolate (phase 1) or large and flat (phase 2), fall on a background (phase 0) until
+# each point is covered 1.5 times on average: exp(-1.5) = 22 % of it stays uncovered.
+# phase_fractions are the fractions of space of the leaves of each phase; the theory
+# gives the fractions with the background, the covariances and the integral range.
+model:
+  type: dead_leaves
+  shape: spheroid
+  aspect_ratio: 2.0
+  phase_fractions: [0.0, 0.6, 0.4]
+  phase_radius: [0.05, 0.04, 0.09]
+  coverage: 1.5
+  background: 0
+domain:
+  size: 1.0
+  periodic: true
+seed: 1968
+voxels:
+  shape: 96
+outputs:
+  directory: out/sequential_dead_leaves
+  name: leaves
+  image: [vti]
+  labels: [vti]                # visible leaves; the background is the last label
+analysis: [phase_fractions, specific_surface, cells]

@@ -1,0 +1,30 @@
+# Partially crystallized material: spherical grains nucleated at a constant rate grow in
+# an amorphous matrix until the transformation is stopped (36 % crystallized according
+# to the Avrami law, see run.json; about 40 grains per sample). The arrival time of the
+# growth front gives an exact level set, so that the grains are meshed conformingly
+# (MMG) and homogenized by finite elements, like the other implicit morphologies, with
+# 10-node elements whose nodes lie on the grains (about a minute per sample).
+model:
+  type: nucleation_growth
+  nucleation: continuous
+  nucleation_rate: 0.006
+  growth_rate: 0.65
+  time: 4.0
+  cell_size: 0.25
+domain:
+  size: 12.0
+  periodic: true
+seed: 1940
+realizations: 2
+mesh:
+  size: 1.0
+homogenization:
+  materials:
+    0: {young: 2.5, poisson: 0.38, conductivity: 0.2}    # amorphous polymer, GPa
+    1: {young: 6.0, poisson: 0.33, conductivity: 0.4}    # crystallites
+  boundary_conditions: [periodic]
+  properties: [bulk_modulus, shear_modulus, conductivity]
+outputs:
+  directory: out/homogenization_crystallization
+  name: crystallized
+  conforming_mesh: [vtu]

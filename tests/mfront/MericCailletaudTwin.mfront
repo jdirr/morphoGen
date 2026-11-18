@@ -1,0 +1,66 @@
+@DSL Implicit;
+@Behaviour MericCailletaudTwin;
+@Author morphoGen;
+@Date 23/10/2026;
+@Description {
+  "Meric-Cailletaud crystal plasticity in small strains as morphoGen integrates it: "
+  "octahedral slip, uniform interaction, Norton flow, isotropic and kinematic hardening "
+  "of each system (tau0 = 80, Q = 20, b = 10, C = 20000, D = 300, K = 25, n = 10: parameters tau0, Q, b, Ck, Dk, Kv, nv), a "
+  "cubic crystal (C11 = 250000, C12 = 160000, C44 = 120000): a twin for the validation "
+  "of the MFront behaviours."
+}
+@ModellingHypothesis Tridimensional;
+@OrthotropicBehaviour;
+@Algorithm NewtonRaphson_NumericalJacobian;
+@PerturbationValueForNumericalJacobianComputation 1.e-10;
+@Epsilon 1.e-13;
+@Theta 1;
+@Brick StandardElasticity;
+@ComputeStiffnessTensor<UnAltered>{125121.95121951219, 125121.95121951219,
+                                   125121.95121951219, 0.3902439024390244,
+                                   0.3902439024390244, 0.3902439024390244,
+                                   120000, 120000, 120000};
+@CrystalStructure FCC;
+@SlidingSystem <0, 1, -1>{1, 1, 1};
+@Parameter real tau0 = 80;
+@Parameter real Q = 20;
+@Parameter real b = 10;
+@Parameter real Ck = 20000;
+@Parameter real Dk = 300;
+@Parameter real Kv = 25;
+@Parameter real nv = 10;
+@StateVariable strain g[Nss];
+g.setEntryName("Slip");
+@AuxiliaryStateVariable strain v[Nss];
+v.setEntryName("CumulatedSlip");
+@AuxiliaryStateVariable strain a[Nss];
+a.setEntryName("KinematicVariable");
+@AuxiliaryStateVariable strain p;
+p.setGlossaryName("EquivalentPlasticStrain");
+
+@Integrator{
+  const auto& ss = MericCailletaudTwinSlipSystems<real>::getSlipSystems();
+  auto r = real(tau0);
+  for (unsigned short j = 0; j != Nss; ++j) {
+    r += Q * (1 - exp(-b * (v[j] + abs(dg[j]))));
+  }
+  for (unsigned short i = 0; i != Nss; ++i) {
+    feel += dg[i] * ss.mus[i];
+    const auto tau = sig | ss.mus[i];
+    const auto x = Ck * (a[i] + dg[i]) / (1 + Dk * abs(dg[i]));
+    const auto f = abs(tau - x) - r;
+    const auto vp = (f > 0) ? pow(f / Kv, nv) : real(0);
+    fg[i] -= dt * vp * ((tau - x >= 0) ? 1 : -1);
+  }
+}
+
+@UpdateAuxiliaryStateVariables{
+  const auto& ss = MericCailletaudTwinSlipSystems<real>::getSlipSystems();
+  auto dep = Stensor(real(0));
+  for (unsigned short i = 0; i != Nss; ++i) {
+    a[i] = (a[i] + dg[i]) / (1 + Dk * abs(dg[i]));
+    v[i] += abs(dg[i]);
+    dep += dg[i] * ss.mus[i];
+  }
+  p += sqrt(2 * (dep | dep) / 3);
+}

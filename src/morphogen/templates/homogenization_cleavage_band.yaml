@@ -1,0 +1,55 @@
+# Cleavage across a band of a given width. The polycrystal of iron of
+# homogenization_cleavage, here columnar on a finer grid, whose {100} planes are
+# regularized by their microdamage (Aslan & Forest 2009): the strength of a plane falls
+# with the damage of its point and with a field that follows it over a length, the
+# microdamage, so that a plane breaks across a band of a width of its own - five voxels
+# here, whatever the grid - and not across one voxel. The fracture energy of the planes
+# is dissipated in this band: no length of elements to give, and the same crack on a
+# finer grid. Pulled, the polycrystal is elastic up to the strength of its best oriented
+# planes (510 MPa at 0.30 %), then a crack crosses its grains within a step, in a band
+# that winds a little from grain to grain: the planes of its middle are broken through,
+# and the work that broke the cell is 1.7 times the fracture energy times its section
+# (the planes of the grains are inclined to the band: they open and slide). The curve
+# (iron_0000_tension_periodic.csv) has the opening, the damage and the microdamage of
+# the planes; the fields (.vti) those of each voxel: the damage is the share of its
+# strength that a plane has lost, 1 where it is broken through. Half a minute.
+model:
+  type: voronoi
+  n_cells: 5
+  crystal_orientations: true
+domain:
+  size: [0.1, 0.1, 0.003125]   # mm: a slice one voxel thick, columnar grains
+  periodic: true
+seed: 3
+voxels:
+  shape: [32, 32, 1]
+homogenization:
+  method: fft
+  materials:
+    1:
+      cubic: [230000.0, 135000.0, 117000.0]   # c11, c12, c44 (MPa)
+      crystal_plasticity:
+        K: 10.0
+        n: 10.0
+        families:
+          bcc110: {tau0: 300.0, Q: 100.0, b: 20.0}   # hard: a low temperature
+        cleavage:
+          planes: cube         # {100}
+          strength: 500.0      # the normal stress that opens a plane (MPa)
+          energy: 0.05         # the fracture energy of the planes (N/mm)
+          regularization:
+            width: 0.015625    # the width of the damage band (mm): five voxels, some
+                               # seven lengths of the microdamage; or {modulus, length}
+                               # with the linear softening of the planes
+          K: 50.0              # a viscosity of the opening
+          n: 1.0
+  properties: []
+  fields: true
+  paths:
+    tension:                   # the other components: zero stress
+      times: [0, 1]
+      increments: 40
+      strain: {"11": [0, 0.006]}
+outputs:
+  directory: out/homogenization_cleavage_band
+  name: iron

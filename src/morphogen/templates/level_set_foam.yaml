@@ -1,0 +1,29 @@
+# The open-cell copper foam of Degdeg & Dirrenberger (2026), a level set of distance
+# fields (Sonon et al. 2012; Kilingar et al. 2019): seeds are aligned ellipsoids of short
+# semi-axes 87 to 145 um (b = 1.22 a, c = 3.22 a), densely packed; the struts follow the
+# edges of their tessellation with convex cross-sections (curvature -0.7) thickening
+# towards the nodes (c1 = 50, c2 = 1: 2.1 times wider there), their thickness solved
+# for the solid fraction 0.261 of the tomography. Lengths in mm. The mean ligament
+# thickness comes out at about 74 um (72.8 um in their model, 71.1 um measured).
+# cells: closed adds walls (wall_thickness); thickness: t instead of volume_fraction.
+model:
+  type: level_set_foam
+  seed_radius: {type: uniform, low: 0.0871, high: 0.1452}
+  aspect: [1.22, 3.22]
+  packing: dense
+  packing_fraction: 0.6
+  volume_fraction: 0.261
+  curvature: -0.7
+  c1: 50.0
+  c2: 1.0
+domain:
+  size: 3.0
+  periodic: true
+seed: 3
+voxels:
+  voxel_size: 0.025
+outputs:
+  directory: out/level_set_foam
+  name: foam
+  image: [vti]
+analysis: [volume_fraction, specific_surface, thickness, minkowski]

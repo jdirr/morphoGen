@@ -1,0 +1,22 @@
+# Fibre network on the edges of the Delaunay triangulation of random points (Ban et al.
+# 2016): fibres join the points whose Voronoi cells share a face, cross-linked at every
+# node, about 15.5 fibres per node for Poisson points (2 + 48 pi^2 / 35), 6 in a plane
+# (dimension: 2). The dual of the open foam (open_foam), far more connected.
+model:
+  type: delaunay_network
+  n_points: 200                # exactly 200 nodes in the periodic box
+  radius: 0.04                 # or volume_fraction: 0.1, solved on each realization
+  regularity: 0.0              # least distance of the points (hard-core points), in jamming distances
+  dimension: 3                 # 2: a planar network in the middle plane z of the domain
+domain:
+  size: 5.0
+  periodic: true
+seed: 1
+voxels:
+  voxel_size: 0.02
+outputs:
+  directory: out/delaunay_network
+  name: network
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

@@ -1,0 +1,42 @@
+# A composite that breaks, by the phase-field method: glass beads in a brittle epoxy,
+# pulled until a crack crosses the cell. The damage field regularizes the cracks over
+# the length (two voxels at least); the toughness G_c is the energy of their unit area
+# (lengths in micrometres, stresses in MPa: G_c in J/m2); the beads have none and do not
+# break. Cracks start at the poles of the beads, where the matrix is stretched most,
+# and join across the cell: the strength, near 120 MPa at a strain of 2 %, hardly depends
+# on the voxels (122 to 124 MPa on 32, 40 and 48 voxels per edge). voxels.section
+# studies one layer of voxels through the middle of the volume (a plane strain): 40 x 40
+# voxels instead of 40^3; about a minute.
+# Curve: section_0000_pull_periodic.csv (stress, damage, crack surface); fields: .vti.
+model:
+  type: hardcore_spheres
+  radius: 10.0
+  volume_fraction: 0.25
+domain:
+  size: 80.0
+  periodic: true
+  unit: um
+seed: 4
+voxels:
+  shape: 40
+  section: z                   # the layer normal to z through the middle of the volume
+homogenization:
+  method: fft
+  materials:
+    0: {young: 3000.0, poisson: 0.38}    # epoxy
+    1: {young: 70000.0, poisson: 0.22}   # glass
+  properties: []
+  paths:
+    pull:
+      times: [0, 1]
+      increments: 20
+      strain: {"11": [0, 0.05]}          # the other stresses are free
+  fracture:
+    toughness: {0: 100.0}                # of the phases that break (phase: G_c)
+    length: 4.0                          # of the regularization: the strength goes as sqrt(E G_c / length)
+    model: AT1                           # elastic up to a strength; AT2: damage from the first load
+    split: spectral                      # the tensile energy breaks; also volumetric, none
+  fields: true
+outputs:
+  directory: out/fracture_composite
+  name: section

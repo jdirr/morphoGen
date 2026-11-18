@@ -1,0 +1,29 @@
+# Topology optimization of a periodic cell with a negative Poisson's ratio (auxetic),
+# by inverse homogenization (Sigmund 1994) with the FFT solver: minimize C_12 / C_11 at
+# a volume fraction of 35 %, the mean normal stiffness staying above 5 % of the
+# Young's modulus of the solid, with the method of moving asymptotes. The cell is planar
+# (one voxel through the thickness: a prismatic microstructure, in-plane properties in
+# plane strain), with square symmetry. Expect a re-entrant cell with a Poisson's ratio
+# near -0.87, the same on a grid twice as fine, after about a minute (optimization.json).
+# Smaller filter radii or sharper projections give mechanisms whose members touch at
+# corners (hinges, reported): check them on the finer grid. The json geometry can be
+# meshed and homogenized like any microstructure (morphogen homogenize auxetic.json
+# --size ...), and morphogen view auxetic.json --tile 3 shows the periodic pattern.
+optimization:
+  objective: poisson_ratio
+  volume_fraction: 0.35
+  grid: [64, 64, 1]
+  cell_size: 1.0
+  material: {young: 1.0, poisson: 0.3}
+  method: mma
+  filter_radius: 3.0         # voxels: minimal length scale (members of a few voxels)
+  projection: 8.0            # Heaviside projection, doubled from 1 up to 8
+  symmetry: cubic            # square symmetry in 2D
+  iterations: 300
+seed: 1994
+outputs:
+  directory: out/optimize_auxetic
+  name: auxetic
+  image: [vti]
+  density: [vti]
+  geometry: [json]

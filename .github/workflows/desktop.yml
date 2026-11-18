@@ -1,0 +1,47 @@
+name: Desktop application
+
+# The bundles of the stand-alone application (packaging/desktop), built and checked on
+# each system on demand; their zips are the artifacts of the run.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    name: bundle (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: The libraries of Qt WebEngine (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-cursor0 libnss3
+      - name: morphoGen, its extras and PyInstaller
+        run: python -m pip install ".[all,desktop]" pyinstaller
+      - name: The bundle
+        run: pyinstaller packaging/desktop/morphogen-desktop.spec --noconfirm
+      - name: Its check, without a window
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then dist/morphoGen/morphoGen.exe --check
+          else dist/morphoGen/morphoGen --check; fi
+      - name: Its zip
+        shell: bash
+        run: |
+          cd dist
+          if [ "$RUNNER_OS" = "macOS" ]; then ditto -c -k --keepParent morphoGen.app ../morphoGen-macos.zip
+          elif [ "$RUNNER_OS" = "Windows" ]; then 7z a ../morphoGen-windows.zip morphoGen
+          else zip -qr ../morphoGen-linux.zip morphoGen; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: morphoGen-${{ runner.os }}
+          path: morphoGen-*.zip
+          retention-days: 14

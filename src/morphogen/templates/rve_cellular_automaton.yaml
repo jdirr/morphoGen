@@ -1,0 +1,23 @@
+# RVE study by the window method of a structure grown by a cellular automaton: the
+# variance of the volume fraction over sub-volumes of one large realization gives its
+# integral range and the RVE sizes for given precisions (Kanit et al. 2003). Automata
+# generate any size in a few seconds: the lattice of the cube of edge 64 has 256^3 cells.
+model:
+  type: cellular_automaton
+  rule: conserved              # coarsening at constant volume fraction
+  volume_fraction: 0.3
+  steps: 30
+  cell_size: 0.25
+domain:
+  periodic: true
+seed: 2003
+voxels:
+  voxel_size: 0.25             # one voxel per cell
+rve:
+  method: windows
+  size: 64.0
+  window_sizes: [4, 8, 16]
+  relative_errors: [0.01, 0.05]
+outputs:
+  directory: out/rve_cellular_automaton
+  name: automaton

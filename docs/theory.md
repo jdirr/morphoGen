@@ -1,0 +1,12515 @@
+# morphoGen — Theory notes
+
+This page lists the closed-form results implemented in `morphogen` (mostly in
+`models/*.py` and `theory.py`) and used by the tests to validate the generators. The
+notation follows the specification (§12).
+
+## 1. Boolean models
+
+A Boolean model is the union $A = \bigcup_i (x_i + K_i)$ of random grains $K_i$
+implanted on a Poisson point process $\{x_i\}$ of intensity $\theta$. Its Choquet
+capacity is $T(B) = 1 - \exp(-\theta\,\mathbb{E}|K \oplus \check B|)$ (Matheron 1975).
+
+* **Volume fraction:** $p = 1 - q$ with $q = \exp(-\theta\,\mathbb{E}[V(K)])$. Given
+  $p$, morphoGen uses $\theta = -\ln(1-p)/\mathbb{E}[V(K)]$.
+* **Specific surface** (convex grains): $S_V = \theta\, q\, \mathbb{E}[S(K)]$.
+* **Covariance:** $Q(h) = P(x \notin A, x + h \notin A) = q^2 \exp(\theta\, \mathbb{E}[K(h)])$,
+  where $K(h) = |K \cap (K + h)|$ is the geometric covariogram of the grain. Then
+  $C(h) = P(x \in A, x+h \in A) = 1 - 2q + Q(h)$. For a sphere of radius $R$,
+  $K_R(h) = \frac{\pi}{12}(4R + h)(2R - h)^2$ for $h < 2R$, and 0 beyond.
+* **Integral range** of the indicator:
+  $A_3 = \frac{1}{p q}\int_{\mathbb{R}^3} (C(h) - p^2)\,dh = \frac{q}{p}\int_0^{2R_{max}} 4\pi h^2 \left(e^{\theta \mathbb{E}[K(h)]} - 1\right) dh$.
+  When $p \to 0$, $A_3$ tends to the grain volume (tested).
+* **Random radii.** Expectations over the radius distribution use quantile quadrature.
+* **Spheres:** $\mathbb{E}[V] = \frac43\pi\mathbb{E}[R^3]$ and $\mathbb{E}[S] = 4\pi \mathbb{E}[R^2]$.
+* **Cylinders** of radius $r$ and length $\ell$:
+  * flat caps: $V = \pi r^2 \ell$ and $S = 2\pi r \ell + 2\pi r^2$;
+  * round caps: $V = \pi r^2\ell + \frac43 \pi r^3$ and $S = 2\pi r\ell + 4\pi r^2$.
+
+## 2. Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014)
+
+Infinite cylinders of radius $R$ around isotropic Poisson lines, with $L_V$ the mean
+fibre length per unit volume.
+
+* **Number of lines hitting a convex body** $B$: Poisson with mean $L_V\,\mathbb{E}_\omega[|\Pi_\omega B|] = L_V\,S(B)/4$,
+  where $\Pi_\omega$ is the projection onto the plane orthogonal to $\omega$. For the
+  cube of edge $L$, $\bar N = L_V \cdot 6L^2/4$, which is eq. (9) of Dirrenberger et al.
+  (2014) with $\theta = L_V/\pi$ in Jeulin's notation.
+* **Volume fraction:** $p = 1 - \exp(-L_V\,\pi R^2) = 1 - \exp(-\theta\pi^2R^2)$.
+* **Specific surface:** $S_V = 2\pi R\, L_V\, q$.
+* **Covariance.** The lines hitting $\{x, x+h\}\oplus B_R$ are those whose projection meets
+  two disks of radius $R$ whose centres are $|h|\sin\beta$ apart, $\beta$ being the angle
+  between $h$ and the line. Averaging over isotropic directions ($\cos\beta$ uniform on
+  $[0,1]$) gives
+  $Q(h) = q^2 \exp\left(L_V\,\mathbb{E}_\beta\left[\mathrm{lens}(|h|\sin\beta)\right]\right)$,
+  where $\mathrm{lens}(d) = 2R^2\arccos\frac{d}{2R} - \frac d2\sqrt{4R^2-d^2}$ is the area
+  of the intersection of the two disks.
+* **Long-range correlations.** $C(h) - p^2 \sim h^{-2}$, so the integral range is
+  infinite and $D^2(V) \propto V^{-2/3}$ (Jeulin 2011).
+
+**Generation.**
+
+1. Take the ball of radius $\rho = \tfrac12\mathrm{diag} + R$ around the box.
+2. Draw $N \sim \mathcal P(L_V\pi\rho^2)$ lines with uniform directions, through
+   uniform points of the disk of radius $\rho$ orthogonal to each direction (these are
+   the isotropic uniform lines hitting the ball).
+3. Keep the lines that hit the box dilated by $R$, and clip them to it.
+
+The directions may follow any law (`orientation`, as in `cross_linked_fibers`): the
+projection of the ball is the same disk for every direction, so that step 2 holds, and
+$p = 1 - e^{-L_V\pi R^2}$, $S_V$ unchanged; the axes crossing the box number on average
+$L_V\sum_k A_kE|u_k|$ ($A_k$ the area of the faces normal to the axis $k$, $S/4$ isotropic).
+
+**Covariances of oriented fibres** (`PoissonFibers.covariance`,
+`BooleanCylinders.covariance`; Peyrega et al. 2009, 2011; Peyrega & Jeulin 2013). In addition,
+the covariances of the fibre systems for any law of the axes:
+isotropic, aligned, planar, β, girdle, von Mises–Fisher (`{type: von_mises_fisher,
+kappa, axis}`, density $\kappa e^{\kappa\cos t}/4\pi\sinh\kappa$, drawn by inversion as the
+steps of the curved fibres) and mixtures (§23). For a Boolean model of grains $K'$ of
+intensity θ,
+
+$$Q(h) = P(x, x + h \notin A) = e^{-\theta E\mu(K' \cup (K' + h))} = q^2e^{\theta E[K(h)]}
+= q^{2 - r(h)}, \qquad C(h) = 1 - 2q + Q(h),$$
+
+$r = E[K]/E[V]$ the normalized covariogram (Peyrega et al. 2009, eq. 5; 2013, eq. 28), the
+mean over the sizes and axes $u$ of the grains for the vector $h$, $b$ the angle between
+$h$ and $u$:
+
+* Poisson lines of length density $L_V$ (a grain per unit length of line): $Q(h) =
+  q^2\exp(L_V E_u[\mathrm{lens}(|h|\sin b)])$, the lines of direction $u$ hitting
+  $\{x, x + h\} \oplus B_R$ crossing two disks $|h|\sin b$ apart in the plane normal to
+  $u$ (above for isotropic lines, unchanged);
+* cylinders of radius $r$ and length $l$ (flat caps): $K(h) = (l - |h\cdot
+  u|)_+\,\mathrm{lens}_r(|h \times u|)$ (Peyrega et al. 2009, eq. 15, their longitudinal
+  covariogram of transversely isotropic wood fibres), the expectations over the lengths
+  and radii apart (32 quantiles of each);
+* spherocylinders: $K(h) = \int \mathrm{lens}(|h \times u|; \rho(z), \rho(z - |h\cdot
+  u|))\,dz$, the sections of the two grains at the height $z$ along their axes being
+  disks of the radii of the profile, $r$ along the axis and $\sqrt{r^2 - z^2}$ over the
+  caps, $\mathrm{lens}(d; \rho_1, \rho_2) = \rho_1^2\arccos\frac{d^2 + \rho_1^2 -
+  \rho_2^2}{2d\rho_1} + \rho_2^2\arccos\frac{d^2 + \rho_2^2 - \rho_1^2}{2d\rho_2} -
+  \frac12\sqrt{(\rho_1 + \rho_2 - d)(d + \rho_1 - \rho_2)(d - \rho_1 + \rho_2)(d + \rho_1 +
+  \rho_2)}$ (the smaller disk when it lies in the other), by Gauss–Legendre (24 nodes)
+  over the six pieces between the ends of the axes and of the caps and the height where
+  the facing caps have equal sections, exact on the cylinders (6 quantiles of each size
+  when random).
+
+The mean over the axes depends on the angle $b$ only (`orientations.angle_weights`). Every
+law has a quadrature (`quadrature(n)`, weights summing to 1): Gauss–Legendre in $\cos t$
+times $2n$ azimuths for isotropic axes; the quantiles $c = u/\sqrt{\beta^2(1 - u^2) +
+u^2}$ of $|\cos t|$ at Gauss–Legendre nodes $u$ of [0, 1] for the β law, both signs; the
+angle of the girdle over $\pi/2 \pm 8\sigma$ weighted by its density; the quantiles $w =
+1 + \ln(u + (1 - u)e^{-2\kappa})/\kappa$ of $\cos t$ for von Mises–Fisher; azimuths in the
+plane; the rules of the components weighted for mixtures (the default of a new law:
+$8n^2$ axes drawn from a fixed seed). For isotropic axes $\cos b$ is uniform (128
+Gauss–Legendre nodes); otherwise the angles of the axes of the rule are gathered on a
+uniform grid of 193 angles of $[0, \pi/2]$ (linear interpolation), on which
+$E_{r,l}[K(|h|\cos b, |h|\sin b)]$ is tabulated once. Without a direction, $Q$ (not $K$)
+is averaged over the directions of $h$ (72 of a half sphere): the covariance of a
+uniform direction, from which the integral range of Boolean fibres follows, $A_3 =
+\frac{4\pi}{pq}\int h^2(\bar C(h) - p^2)\,dh$ (96 distances up to the largest extent), which
+tends to $E[V^2]/E[V]$ as $p \to 0$ (to $5\cdot10^{-6}$ isotropic, $3$ to
+$7\cdot10^{-4}$ for a β law: the grid of angles); 22.85 for isotropic cylinders ($r = 1$,
+$l = 8$, 0.2), 26.61 spherocylinders. Checked: the moments $E[u_x^2]$, $E[u_z^2]$,
+$E|u_xu_y|$ of every rule within $10^{-3}$ of $4\cdot10^5$ draws; $K(0) = V$; across the
+axis $l\,\mathrm{lens} + $ the covariogram of the ball (to $10^{-5}$: the tangent sections
+are the kink left), along it a capsule of length $l - a$ then the lens of two balls (to
+$10^{-10}$); $\int K(h)\,dh = V^2$ to $4\cdot10^{-6}$ (both caps); an oblique shift within
+0.04 % of $4\cdot10^6$ points drawn in the capsule; isotropic lines exactly as before.
+Measured against realizations, the closed form evaluated at the fraction of each one
+(which removes the fluctuation of the number of fibres): spherocylinders ($r = 1$, $l =
+8$, 0.2, β = 0.3 about (1, 1, 1), four periodic boxes of $120^3$ voxels of 0.2), the
+mean residuals along x, y, z and the mean fibre axis (1, 1, 1) (lags of $\sqrt3$ voxels)
+at most 0.0022, 0.0021, 0.0014 and 0.0026 (flat caps 0.0020, 0.0023, 0.0017, 0.0028),
+where the axis departs from the faces by 0.02; Poisson lines ($R = 1$, 0.16, twelve
+windows of $120^3$ voxels of 0.25): von Mises–Fisher κ = 4 about (1, 1, 1), 0.0021 along
+the axes and 0.0008 along the mean axis, the girdle σ = 0.4 about z 0.0010, 0.0006 and
+0.0016 along x, y, z (standard errors 0.001), where $C(1.25)$ is 0.0865 along x and 0.0647
+along z. The curves of the interface draw the closed form along each axis.
+
+## 3. Random sequential addition
+
+Spheres are added one by one at uniform positions, the largest first; a trial is
+rejected when it comes closer than the minimal gap to a placed sphere. Drawn late among
+polydisperse spheres, a large one may find no room left: radii uniform between 0.8 and
+1.2 and 0.05 apart jam from a fraction of 0.31 in the order of their draw, and still
+fill 0.41 the largest first. For equal spheres the process saturates
+at $p \approx 0.384$ (Torquato 2002), and morphoGen raises an explicit error beyond;
+dense packings grow the spheres instead (the Lubachevsky–Stillinger algorithm, §38).
+Non-overlapping fibres (spherocylinders): §23.
+
+## 4. Tessellations
+
+* **Voronoi cells:** $C_i = \{x : |x - g_i| \le |x - g_j|\ \forall j\}$.
+* **Laguerre (power) cells:** $C_i = \{x : |x-g_i|^2 - w_i \le |x-g_j|^2 - w_j\}$ with
+  $w_i = r_i^2$. They are the Voronoi cells, restricted to $\mathbb R^3$, of the lifted
+  points $(g_i, \sqrt{w_{max} - w_i}) \in \mathbb{R}^4$.
+* **Poisson–Voronoi cells** (germ intensity $\theta$):
+  * mean cell volume $1/\theta$;
+  * $\mathrm{Var}(V)/\mathbb{E}[V]^2 = 0.1790$ (Gilbert 1962);
+  * mean number of faces $2 + 48\pi^2/35 \approx 15.535$ (Meijering 1953);
+  * boundary area per unit volume $S_V = \tfrac12 (256\pi/3)^{1/3}\,\Gamma(5/3)\,\theta^{1/3} \approx 2.910\,\theta^{1/3}$.
+* **Mosaic random functions.** If each cell independently takes the value $Z_i$ (phase
+  indicator, property), the integral range is the mean volume of the cell containing a
+  given point: $A_3 = \mathbb{E}[V^2]/\mathbb{E}[V] = 1.179/\theta$ (Kanit et al. 2003).
+
+## 5. Excursions of Gaussian random fields
+
+$Y$ is a stationary Gaussian field with unit variance and covariance
+$\rho(h) = \exp(-h^2/2\ell^2)$, and the excursion is $A = \{Y > \lambda\}$.
+
+* **Volume fraction:** $p = 1 - \Phi(\lambda)$.
+* **Covariance:** $C(h) = P(Y(0) > \lambda, Y(h) > \lambda) = (1-\Phi(\lambda))^2 + \frac{1}{2\pi}\int_0^{\arcsin\rho(h)} e^{-\lambda^2/(1+\sin t)}\,dt$.
+* **Specific surface** (Rice formula): crossings per unit length
+  $\frac1\pi\sqrt{\lambda_2}\,e^{-\lambda^2/2}$ with $\lambda_2 = -\rho''(0) = 1/\ell^2$, hence
+  $S_V = \frac{2}{\pi\ell}\, e^{-\lambda^2/2}$.
+
+**Representation.** $Y(x) = \sum_{m \in H} A_m\cos(k_m\cdot x) + B_m\sin(k_m\cdot x)$, where:
+
+* $k_m = 2\pi m / L$ are wave vectors of the generation box, kept in a half space and
+  with $|k_m|\ell \le 6$;
+* $A_m, B_m \sim \mathcal N(0, s_m^2)$ with $s_m^2 \propto e^{-|k_m|^2\ell^2/2}$, normalized
+  so that $\sum s_m^2 = 1$.
+
+The field is exactly periodic on the generation box and has the same values at any
+resolution. Periodic boxes should be at least about 10 correlation lengths wide.
+
+## 6. TPMS
+
+With $X = 2\pi x/a$ (and likewise $Y$, $Z$):
+
+* **gyroid:** $\sin X\cos Y + \sin Y\cos Z + \sin Z\cos X$;
+* **Schwarz P:** $\cos X + \cos Y + \cos Z$;
+* **Schwarz D:** $\sin X\sin Y\sin Z + \sin X\cos Y\cos Z + \cos X\sin Y\cos Z + \cos X\cos Y\sin Z$;
+* **Neovius:** $3(\cos X + \cos Y + \cos Z) + 4\cos X\cos Y\cos Z$.
+
+The solid is $\{\varphi \le t\}$ (network) or $\{|\varphi| \le t\}$ (sheet).
+
+* For the gyroid, Schwarz P and Schwarz D, the network at $t = 0$ has volume fraction
+  exactly ½: $\varphi$ is odd under a symmetry of the lattice (inversion, or the
+  translation by $(\pi,\pi,\pi)$ for Schwarz P).
+* The level-set field is the first-order distance $(\varphi - t)/|\nabla\varphi|$.
+
+## 7. Strut lattices
+
+For the simple cubic lattice (three orthogonal cylinders of radius $r$ per cell of edge
+$a$, $r < a/2$), the solid fraction follows from the union of three cylinders: the
+bicylinder volume is $16r^3/3$ and the tricylinder volume $8(2-\sqrt2)r^3$, so
+
+$$p = \frac{3\pi r^2 a - 8\sqrt2\, r^3}{a^3}.$$
+
+The spherical nodes lie inside the union of the cylinders. Other cells are evaluated
+numerically. Rotated and graded lattices: §23.
+
+## 8. Specific surface by Cauchy–Crofton
+
+For any surface, the mean number of intersections per unit length of isotropic test
+lines is $P_L = S_V/2$.
+
+* $P_L(d)$ is counted along the lattice directions $d$: pairs of voxels
+  $(x, x + d)$ with different values, divided by the length of the pairs.
+* The sphere average is approximated by $\sum_d w_d P_L(d)$, where $w_d$ is the solid
+  angle of the Voronoi cells of $\pm d/|d|$ on the unit sphere (3 axes: $w = 1/3$; 13
+  directions: axes 0.0916, face diagonals 0.0740, body diagonals 0.0704 for cubic
+  voxels).
+* Biases, both tested:
+  * the quadrature is exact for isotropic structures and has up to 7 % error for
+    planes aligned with the grid;
+  * chords shorter than a voxel are missed, which biases the estimate low by roughly
+    $h/\bar\ell$.
+
+## 9. Representative volume element
+
+Following Matheron (1971), Kanit et al. (2003) and Lantuéjoul (1991):
+
+* ergodic random function with finite integral range:
+  $D_Z^2(V) = D_Z^2\,\frac{A_3}{V}$ for $V \gg A_3$, with
+  $A_3 = \frac1{D_Z^2}\int \overline{W}_2(h)\,dh$;
+* generalized scaling law: $D_Z^2(V) = D_Z^2\left(\frac{A_3^*}{V}\right)^\gamma = K\,V^{-\gamma}$;
+* point variance: $D_Z^2 = p(1-p)(Z_1 - Z_2)^2$ for two phases, and
+  $\sum_i P_i (Z_i - \bar Z)^2$ for several (Yang et al. 2019);
+* with $n$ realizations, $\varepsilon_{rel} = \frac{2 D_Z(V)}{\bar Z\sqrt n}$, hence
+  $V_{RVE} = \left(\frac{4K}{\varepsilon_{rel}^2\bar Z^2 n}\right)^{1/\gamma}$ and
+  $n = \frac{4K}{\varepsilon_{rel}^2 \bar Z^2 V^\gamma}$.
+
+The fit is done by least squares on $\log D^2 = \log K - \gamma\log V$, with $\gamma$
+free or imposed, on a chosen range of volumes. $\bar Z$ is the mean at the largest
+volume.
+
+**Window method.** Means over non-overlapping cubic windows of a large sample replace
+independent realizations. For a window of edge $a$ the exact variance is
+$\frac{1}{a^3}\int (C(h) - p^2)\prod_i (1 - |h_i|/a)_+\,dh$; it reaches the asymptotic
+form only when $a$ is much larger than the correlation length. The tests check
+`window_statistics` against this formula for the Boolean model of spheres. Across a planar
+image ($n_z = 1$) the windows are squares, their measure is their area $A$, and the reports
+give their edges, and those of the RVE sizes, as $A^{1/2}$ (a cube's as $V^{1/3}$).
+
+**Shifted tilings** (`shifts`). On a periodic image, the windows tile it from its origin
+(the remainder left out) and, with `shifts` $= m > 1$, also from the offsets
+$\lfloor k w / m\rfloor$, $k < m$, along each axis, all their combinations: $T \le m^3$
+tilings of cubes ($m^2$ of squares), wrapping around the image. Each tiling is a
+translate of the first on the torus, so that by stationarity its windows have the joint law
+of the unshifted ones, and its variance $s_t^2$ the law of theirs. The estimators:
+
+* the mean over all the windows of all the tilings, that of the tiling means, each the
+  image mean when its edges are multiples of $w$ (exactly so on dyadic indicators);
+* $D_Z^2(V)$, the variance pooled within the tilings,
+  $\sum_t \sum_{k \in t} (Z_k - \bar Z_t)^2 / \sum_t (n_t - 1)$, with $n$ windows in each
+  the mean of the $s_t^2$: of the expectation of the variance of one tiling — unbiased under
+  the hypothesis that makes that one unbiased, its windows uncorrelated ($V \gg A_3$) —
+  and of a smaller scatter (windows of $4^3$ independent voxels on 200 images of $32^3$:
+  the mean $0.999\,D_Z^2(V)$, the standard deviation 0.70 times that of one tiling with
+  $m = 2$, 0.55 with $m = 4$). The variance of the $T n$ windows about their mean with
+  $T n - 1$ degrees of freedom would be lower by $T (n - 1) / (T n - 1)$: the windows of
+  different tilings overlap, so that their mean, the image mean, is known no better than
+  from one tiling, the deviations of each tiling summing to zero;
+* the count behind the uncertainties stays $n$, the windows of one tiling, the independent
+  ones: the shifts leave the mean unchanged, its standard error $D_Z(V)/\sqrt n$; the
+  relative errors $\varepsilon_{rel}$, the Student tests of the components of the tensors
+  and the weights $(n - 1)/2$ of the fits count $n$ too, conservatively for the variance, to
+  which the overlapping windows add correlated, not independent, samples. The fits of
+  $D_Z^2(V)$ and the RVE sizes follow from these variances, unchanged.
+
+The tensors of the windows (below) take the shifted tilings from the solutions already
+computed, one more pass over the image per tiling, a few percent of a solve.
+
+**Tensors by windows** (`rve.window_tensors`). One large periodic realization is solved
+once per unit macroscopic load by the FFT solver (§12): the six unit strains $E^{(k)}$
+(Voigt order 11 22 33 23 31 12, engineering shears), the three in-plane ones $E_{11},
+E_{22}, E_{12}$ of a planar image (its plane stiffness, Voigt 11 22 12), the three unit
+gradients $G^{(k)}$ of the conduction. The tensor of a window $w$ is the matrix of the
+window means of the mutual energy densities of these solutions,
+$$C^w_{kl} = \langle \varepsilon^{(k)} : C : \varepsilon^{(l)}\rangle_w, \qquad
+K^w_{kl} = \langle \nabla T^{(k)} \cdot K\,\nabla T^{(l)}\rangle_w,$$
+integrated at the Gauss points of its voxels, as the solver integrates the energy. The
+reasons of this definition:
+
+* it is symmetric — to the bit, its upper triangle being computed and mirrored — and
+  positive semi-definite: $a \cdot C^w a$ is the mean energy over the window of the solution
+  $\sum_k a_k u^{(k)}$; its compliance exists but for a window without stiffness in some
+  direction (within a pore), NaN as a singular realization;
+* over windows tiling the box, the mean of their tensors is the box's mean energy to
+  round-off, which Hill's lemma $\langle\sigma : \varepsilon\rangle = \Sigma : E$ makes the
+  box's apparent stiffness $\tilde C_{kl} = E^{(k)} \cdot \langle\sigma^{(l)}\rangle$ (that of
+  its mean stresses, `stiffness_tensor`) to the tolerance of the solver: the energy is
+  stationary at the discrete solution, its error of the second order in that of the fields,
+  the error of the mean stresses of the first (both agree to $10^{-15}$ at a tolerance of
+  $10^{-12}$);
+* its diagonal is the energy estimate of the apparent moduli (Dirrenberger et al. 2014,
+  eqs. 64 and 66).
+
+The window means of the stresses under the unit strains, $\langle\sigma^{(l)}\rangle_w$
+(Kanit et al. 2003), also tile the box exactly, but they are not symmetric ($C A$ at a
+point, $A$ the concentration of the strains: 16 % off on random voxels of a contrast of
+10) nor positive (their symmetric part is indefinite at some voxels of that contrast, and
+in windows of $2^3$ voxels at a contrast of 1000); in a laminate their components
+across the layers are those of the box in every window, the tractions being continuous: no
+scatter, whatever the window. The window's own apparent tensor
+$\langle\sigma\rangle_w \langle\varepsilon\rangle_w^{-1}$ is neither symmetric nor tiling,
+and undefined where the mean strain of a window is singular (a rigid inclusion). In a
+laminate the strains are uniform in each layer, $\varepsilon = A_p E$ (the strains in the
+plane of the layers and the tractions across them continuous), and the tensor of a window
+is $\sum_p f^w_p A_p^T C_p A_p$, $f^w_p$ the fraction of the layers $p$ in it: across the
+layers $C^w_{44} = \tilde C_{44}^2 \langle 1/G_{23}\rangle_w$, along them $C^w_{66} =
+\langle G_{12}\rangle_w$. The tests check these window tensors, the tiling, the plane
+stiffness of a planar image (the plane part of its stiffness) and the conductivity. Their
+statistics per size are those of the ensemble method (§13), the windows as realizations.
+
+In a configuration, the window method (`rve.method: windows`) takes a `homogenization`
+section computing `stiffness` and/or `conductivity_tensor` by FFT, and `rve.properties`
+names them (by default, with the volume fraction); `results.csv` has one row per window
+size with the components of the mean tensors, of their inverses and their standard
+deviations, `run.json` the apparent tensors of the realization, and the report the tables
+and figures of §13 per window size. `rve.shifts` ($m$, 1 by default) adds the shifted
+tilings above, on a periodic domain: `results.csv` counts them (`tilings`, after `n`, then
+the windows of one tiling), and the report writes the counts of windows as $n \times T$.
+
+## 10. Apparent properties of a volume element
+
+morphoGen computes apparent properties by solving linear boundary-value problems on a
+volume element $V$ (Kanit et al. 2003; Dirrenberger et al. 2014). The phases are
+isotropic, stiffness $c = \lambda\, 1\otimes 1 + 2\mu\, I$ and conductivity $k$, or
+anisotropic crystals turned by the orientation of each grain (§20); pores are voids
+($c = 0$, $k = 0$).
+
+**Unknowns.** The displacement is $u = E\cdot x + w$ (temperature $T = G\cdot x + w$):
+the affine part carries the macroscopic strain $E$ (gradient $G$), and the fluctuation
+$w$ solves $\operatorname{div}\, c : (E + \varepsilon(w)) = 0$.
+
+**Boundary conditions** ($\partial V$ is the boundary of the box, $F_i$ its two faces
+normal to $e_i$):
+
+* **KUBC** (UTG in conduction): $w = 0$ on $\partial V$, i.e. $u = E\cdot x$.
+* **SUBC** (UHF): tractions $\sigma\cdot n = \Sigma\cdot n$ (flux $q\cdot n = Q\cdot n$) on
+  $\partial V$; the rigid motions are removed by 3-2-1 supports, which carry no load.
+  Not applicable to porous media: tractions would be applied to pores (Dirrenberger et
+  al. 2014, §3.4.2).
+* **MBC** (mixed, Dirrenberger et al. 2014, §3.4.3):
+  * diagonal $E$: $u_i = E_{ii} x_i$ on $F_i$, tangential tractions zero;
+  * simple shear $E_{12}$: $u_2 = E_{12} x_1$ on $F_1$, $u_1 = E_{12} x_2$ on $F_2$,
+    tractions free on $F_3$, and $u_3$ fixed at one node (a rigid translation).
+  * MTBC in conduction: $T = G\cdot x$ on the faces normal to $G$, the other faces
+    insulated.
+* **PBC**: $w$ periodic, $\sigma\cdot n$ anti-periodic.
+
+**Averages.** $\Sigma = \frac1V\int_V \sigma\,dV$ and $E = \frac1V\int_V\varepsilon\,dV$,
+with $\sigma = 0$ in the pores (eq. 24 of the paper); likewise
+$Q = \frac1V \int_V q\,dV$ with $q = -k\nabla T$. For these four conditions Hill's lemma
+holds, $\langle\sigma:\varepsilon\rangle = \Sigma : E$, so the stress and energy
+estimates coincide (tested).
+
+**Apparent moduli** (eqs. 60–71):
+
+| property | loading | value | energy estimate |
+|---|---|---|---|
+| bulk modulus | $E = 1$ (KUBC, MBC, PBC) / $\Sigma = 1$ (SUBC) | $k = \operatorname{tr}\Sigma/9$ / $k = 1/\operatorname{tr}E$ | $\langle\sigma:\varepsilon\rangle/9$ |
+| shear modulus | $E_{12} = E_{21} = \frac12$ / $\Sigma_{12} = 1$ | $\mu = \Sigma_{12}$ / $\mu = 1/(2E_{12})$ | $\langle\sigma:\varepsilon\rangle$ |
+| conductivity | $G = e_1$ / $Q = -e_1$ | $k = -Q_1$ / $k = 1/G_1$ | $\langle k\nabla T\cdot\nabla T\rangle$ |
+
+The full stiffness (and conductivity) tensor follows from six (three) unit loadings,
+under KUBC, PBC or SUBC (inverted compliance).
+
+**Ordering.** For one realization, the energy principles give
+$\text{Reuss} \le \text{SUBC} \le \text{PBC} \le \text{KUBC} \le \text{Voigt}$, and MBC lies
+between SUBC and KUBC (tested on random media). With several realizations, the
+**discrepancy** between boundary conditions is $D(Z) = (Z_{max} - Z_{min})/Z_{min}$ of
+their mean values (eq. 69).
+
+**Statistical isotropy** of the mean response (eqs. 72–74), with
+$K = \frac13 1\otimes 1$ and $J = I - K$: $d_k = \sqrt{\Sigma:J:\Sigma/\Sigma:K:\Sigma}$
+for the bulk loading, its inverse $d_\mu$ for the shear loading, and
+$(|Q_2| + |Q_3|)/|Q_1|$ in conduction; isotropy when they are $\ll 1$.
+
+**Bounds** (`homogenization.bounds`): Voigt and Reuss (Wiener in conduction), and the
+Hashin–Shtrikman bounds in Walpole's form for any number of isotropic phases, e.g.
+$k_{HS}^{+} = \left(\sum_i \frac{f_i}{k_i + \frac43\mu_{max}}\right)^{-1} - \frac43\mu_{max}$.
+With pores, every lower bound is zero; for 16 % steel fibres the upper bounds are those
+of Table 4 of the paper (tested).
+
+## 11. Finite elements on conforming meshes
+
+**Conforming meshes** (`mesh.conforming`).
+
+1. The level set $\varphi$ of the microstructure (negative in phase 1) is sampled at the
+   nodes of a grid that covers the box exactly (spacing `background`, default half the
+   element size), split into six tetrahedra per cube along a main diagonal (Kuhn
+   triangulation: the faces of the box are exactly represented), reflected in the
+   cubes of odd index so that no diagonal direction is preferred. With a single
+   direction, the discretized interface of a sheet gyroid gave a spurious normal–shear
+   coupling of 1.2 % of $C_{11}$ in its stiffness (10-node elements); with the
+   reflected triangulation and the same resolution, 0.06 %.
+2. Values closer to zero than 20 % of the variation of $\varphi$ along a grid edge are
+   moved away from zero ("snapping"): the zero level set then never cuts an edge close
+   to a node, which avoids slivers; the interface moves by at most 20 % of the spacing.
+3. MMG (`mmg3d -ls`) cuts the background mesh along the zero level set (phases 1 and
+   0 become two subdomains, the interface a surface), then remeshes: edge lengths
+   bounded by `size`, interface within the Hausdorff distance `hausdorff` (default
+   `size`/20) of the discrete interface, gradation `gradation`.
+4. **Periodic microstructures.** The level set is made identical on opposite faces of
+   the background grid, MMG cuts it without remeshing (the cut faces match), then
+   remeshes the inside with the triangles and vertices of the box faces kept
+   unchanged. Opposite faces therefore have matching nodes (along all the axes, or
+   along some of them: `periodic=(False, False, True)`).
+5. Porous media are meshed without their pores (`phases: solid`).
+6. **Mirrored meshes** (`mirrored_mesh`). A microstructure symmetric about the mid-planes
+   of its box (a level set with `φ(x) = φ(R x)` for the reflections `R` across them,
+   checked on a sample) is meshed in the irreducible part of the box, halved along
+   each mirrored axis (matching faces along the others), and reflected across the
+   mid-planes: the nodes of a plane are their own images, so that the halves join
+   conformingly whatever the triangulation of the plane, and the reflected elements
+   are turned back to a positive orientation. The mesh is symmetric to the rounding
+   (2·10⁻¹⁶), where an unstructured mesh of the whole box has no symmetry at all; a
+   periodic microstructure symmetric about its mid-planes is also symmetric about the
+   faces of its box (the composition of the mirror and a period), so that the reflected
+   faces match: the opposite faces of the mesh match along every axis. Copies side by
+   side (`cells`) make a cell of several primitive cells, whose translations are exact
+   too. These are the meshes of the analyses by group theory (section 45), whose
+   operations must map nodes onto nodes: the square array of circular holes in a 2 × 2
+   cell has its group of 32 operations (mmm and four translations) on the mirrored
+   mesh, none on a mesh of the whole box. `ImplicitBody(domain, function)` makes a
+   microstructure of any level-set function.
+7. **Diagonal mirrors** (`mirrored_mesh(diagonals=...)`). The diagonal planes `x_i - c_i =
+   x_j - c_j` of a box with equal edges along `i` and `j` join the mirrors: the group of
+   the square, 4/mmm (16 operations with the mirror along z), or of the cube, m-3m (48),
+   all signed permutations of the axes about the centre (`point_group`). Its chamber, a
+   fundamental domain bounded by mirror planes, is the part of the box quarter (or
+   octant) where `u_0 ≥ u_1 (≥ u_2)` (`u = x - lower`): a triangular prism or a
+   tetrahedron. The diagonal planes through the corner are unions of faces of the
+   background mesh, reflected or not in its cubes (the Kuhn tetrahedra of a cube are the
+   orderings of its coordinates, and a reflection in one axis exchanges two of them only
+   along that axis), so that the chamber is the union of the background tetrahedra whose
+   centroids satisfy the inequalities, its boundary triangles referenced by their planes.
+   MMG cuts and remeshes it (matching faces along the axes without mirror); the
+   vertices of its boundary triangles are moved exactly onto their planes (alternating
+   projections where two planes meet), and the chamber is mapped by every operation of
+   the group, the copies merged: adjacent copies differ by the reflection across their
+   common face, whose nodes it fixes, so that they join conformingly. The square array of
+   holes in a 2 × 2 cell is invariant under the 16 operations to 1.6·10⁻¹⁶ and its group
+   of 64 operations (4/mmm and the translations) is detected on the mesh; a simple cubic
+   array of spherical holes under the 48 operations to 10⁻¹⁶, with its group of 48 (384
+   for a cell of 2 × 2 × 2), its faces matching, its elements positive (quality above 0.2
+   with MMG's default sizes). A level set without the diagonal symmetry is refused
+   (sampled on a grid of equal steps, the transposition of two axes of the samples is the
+   reflection across the diagonal plane).
+
+Thin features must be resolved by the background grid and by the elements: a sheet of
+thickness $t$ needs a background spacing below about $t/2$, and an element size about
+$t$ with 10-node tetrahedra (smaller with 4-node ones). Degenerate elements are reported.
+
+**Elements.** 4-node tetrahedra (P1, constant strain, one integration point) and 10-node
+isoparametric tetrahedra (P2, four-point rule, exact for the stiffness of those with
+straight edges; their edges may follow the interfaces: §76). The
+element stiffness of an isotropic phase is
+$K_{ab}^{ij} = \int \lambda\, \partial_i N_a \partial_j N_b + \mu\,(\partial_j N_a \partial_i N_b + \delta_{ij}\nabla N_a\cdot\nabla N_b)$.
+The affine field is represented exactly, so a homogeneous medium gives the exact
+moduli under every condition (tested), and so does a laminate under PBC (Backus
+formulas, tested). Results agree with scikit-fem to 10 digits (tested).
+
+**Constraints.** The fluctuations are $w = T\,x$, where $x$ are the free unknowns:
+
+* KUBC, MBC: $T$ selects the unconstrained components;
+* PBC: each node of an upper face takes the value of its image on the lower face (or,
+  for non-matching faces, the value interpolated in the lower face element containing
+  the image: an approximation, reported in the log); edges and corners are resolved
+  recursively; one node is fixed (translations). On porous meshes whose opposite faces
+  differ (the voxel meshes of a pore phase, e.g. a gyroid cut off-centre), a node whose
+  image falls in a pore of the opposite face stays free (it was tied to the nearest
+  element of that face, which stiffened the cell: a lattice of bars shifted by two
+  voxels lost 1.9 % of its bulk modulus, and the stiffness did not commute with the
+  symmetries of the cell), unless another node lies at the same place through an edge
+  or a corner of the box, with which it is merged;
+* SUBC: three nodes fixed in 3-2-1 fashion; consistent nodal loads
+  $\int_{\partial V} N_a\,\Sigma\cdot n$.
+
+The reduced system $T^T K T\, x = -T^T K\,(E\cdot x)$ is solved, and the averages are
+integrated element by element with the same quadrature.
+
+**Porous media.** Solid clusters touching no face of the box carry no load: they are
+removed. Clusters held only by mixed or periodic conditions may keep rigid motions; a
+shift of $10^{-12}$ times the mean diagonal makes the system definite without changing
+strains or stresses. A sample without load-carrying material has zero properties.
+
+**Linear solvers** (`homogenization.solvers`, `homogenization.amg`). Small systems
+(up to 6 000 unknowns) are factorized. Larger ones are solved by conjugate gradients
+preconditioned by smoothed-aggregation algebraic multigrid (Vaněk, Mandel & Brezina
+1996), with the rigid-body modes (constants in conduction) as near-null space:
+aggregation of the matrix graph, tentative prolongator from a QR factorization of the
+modes on each aggregate, one damped Jacobi smoothing step, Galerkin coarse matrices,
+V-cycles with Gauss–Seidel sweeps. For 10-node elements the preconditioner has two
+levels: a Gauss–Seidel sweep on the quadratic system, and the multigrid cycle on the
+system of the corner nodes, obtained by Galerkin projection with the interpolation of
+4-node functions into 10-node ones (it equals the 4-node stiffness). Typical
+iteration counts are 25–70, independent of the mesh size.
+
+*Several threads.* A Gauss–Seidel sweep relaxes the unknowns one after the other, each
+with the latest values of those coupled with it: as written, it runs on one thread, and
+the two sweeps of the preconditioner took more than half of the time of an iteration of
+the conjugate gradients. On large systems (200 000 stored values or more)
+the unknowns are *coloured* so that no stored value couples two unknowns of a colour (a
+greedy colouring of the graph of the matrix, Saad 2003, §12.4: each unknown takes the
+smallest colour that its neighbours do not have; some 50 colours for 10-node
+tetrahedra), and the unknowns of a colour, which do not see each other, are relaxed
+together. This is the Gauss–Seidel sweep of the unknowns taken in the order of the
+colours: its backward sweep is the adjoint of the forward one, so the preconditioner
+stays symmetric; it smooths as well as the sweep of the unknowns in their own order
+(the iterations of the conjugate gradients change by 1 % on the linear analyses below,
+by 4 % at most on the loading paths); and its result is the same for any number of
+threads. The graph is that of the couplings on both sides of the diagonal: the products
+of sparse matrices that reduce a stiffness drop the values that are exactly zero, and
+round-off leaves a few on one side only (283 of the 6.5 million of the matrix of the
+example below, reduced in this way), which must separate their two unknowns as the
+others do.
+
+A sweep is bound by the memory that it reads, not by the arithmetic: the rows of a
+colour, scattered through the matrix, are read no faster by four threads than all the
+rows in their order by one. The sweeps therefore read a copy of the matrix made for
+them: its rows and columns sorted by colour; its values in single precision and its
+column indices on 32 bits (a preconditioner needs no more, and this is half of the
+memory); the parts below and above the diagonal apart, $A = L + D + U$ — the forward
+sweep from zero, $x = (D + L)^{-1} b$, reads $L$ only, and the residual that follows
+it, $b - A x = -U x$, reads $U$ only; the backward sweep reads both. The whole cycle
+runs in the order of the colours (the rows of the interpolation are sorted with it):
+the right-hand side is sorted once, and the solution sorted back once. The products of
+the matrix and a vector in the Krylov iterations, in double precision, share the rows
+between the threads, each row summed in the order of its stored values — the same
+product to the bit as on one thread. For the tangent of a volume element of 76 398
+unknowns (6.5 million stored values, 54 colours), on four threads:
+
+| | one thread | four threads |
+|---|---|---|
+| a Gauss–Seidel sweep | 11 ms | 3.9 ms (7.7 ms on the rows of the colours where they are) |
+| the two-level preconditioner, once | 32 ms | 10.8 ms |
+| a product of the matrix and a vector | 3.6 ms | 2.7 ms |
+
+with 49 iterations of the conjugate gradients in both cases. The product gains little:
+it is bound by the memory as well, and reads in double precision what the iterations
+need to that precision. The linear analyses of the templates, on four threads:
+
+| template | unknowns | iterations | solves | run |
+|---|---|---|---|---|
+| `homogenization_spheres` | 368 577 | 1 034 for 1 021 | 106 s for 248 s | 192 s for 342 s |
+| `homogenization_gyroid` | 304 977 | 603 for 596 | 54 s for 125 s | 124 s for 200 s |
+| `homogenization_polycrystal` | 47 319 | 1 478 for 1 475 | 17 s for 27 s | 24 s for 34 s |
+
+*The reduced tangent of a loading path.* Each linearization of a path (§31) reduces
+its tangent, $T^T K T$, with a $K$ whose pattern does not change. Where $T$ has one
+stored value per row at most (matching periodic faces, kinematic conditions), each
+stored value of $K$ goes to one place of the reduced matrix: the places are found once
+(`fe.Reduction`), and a linearization adds the values at their places, where the two
+products of sparse matrices and their conversions took ten times longer (17.5 s over
+the 69 linearizations of `homogenization_viscoplastic`, now 1.3 s). With the sweeps and
+the products on four threads, that path runs in 86 s for 129 s, and that of
+`homogenization_crystal_plasticity` in 21 s for 32 s, with the same Newton iterations
+and the same curves to the tolerance of the equilibria.
+
+*By nodes.* The unknowns of a mechanical problem are the three components of the
+displacements of the nodes, and the stored values of its matrix are the 3 × 3 blocks
+of the couplings of the nodes. The sweeps then work by nodes: the nodes are coloured
+(a third of the colours: 18 for 54), the copy of the matrix holds the blocks — one
+column index for nine values, 4.4 bytes a value for 8 — and a row reads the three
+components of a neighbour together, in one place of the memory. The nodes of a colour
+are relaxed in parallel, the three components of a node one after the other: this is
+again a Gauss–Seidel sweep, and *the same one* as that of the unknowns coloured one by
+one. The three components of a node have the same neighbours, so that the greedy
+colouring gives them three colours that follow each other, $3c$, $3c + 1$ and
+$3c + 2$ where the node has the colour $c$: two coupled unknowns come in the same
+order in both sweeps, and the preconditioner is the same operator. The iterations are
+the same, the properties the same to $10^{-15}$; on the matrix of the example above a
+forward sweep takes 0.9 ms for 1.8 ms, the residual 0.6 ms for 1.3 ms, a backward sweep
+1.8 ms for 3.4 ms, and one application of the two-level preconditioner 4.9 ms for
+9.0 ms. The solver is given the degree of freedom, $3\,\mathrm{node} +
+\mathrm{component}$, that each unknown stands for: a condition that holds some of the
+components of a node (mixed conditions, the six components that the static conditions
+hold) leaves their places empty in the blocks, and the four kinds of conditions work
+by nodes. The part of the matrix above the diagonal, which the residual reads, is full
+for the first colour and empty for the last: its rows are shared between the threads
+by equal numbers of stored values, not of rows.
+
+*The threads of BLAS.* The compiled kernels run on their own threads; NumPy's BLAS
+(OpenBLAS) has its own. A product of BLAS between two kernels — the norm of a residual,
+the dense matrix of the coarsest level of a multigrid cycle, a small factorization of
+GMRES — wakes them, and they then stay busy for a tenth of a second, waiting for the
+next product: as many threads as cores, which take the cores of the kernels that
+follow. A product of the sparse matrix of the example takes 3.7 ms alone and 11.7 ms
+after a dot product of BLAS, which costs the kernels that follow it some 80 ms of
+their work in all; a multigrid cycle whose coarsest level was a product of
+BLAS kept them awake throughout a solve. The conjugate gradients had their dot products
+taken out of BLAS for this reason; the rest follows: the coarsest level, the norms of
+the solves, the products of the condensation and of the merit of a path are summed in
+a single thread or on the threads of the kernels (`solvers.dot`, `solvers.times`,
+`amg.dense_product`), and a loading path, like a Krylov solve, runs with the BLAS on one
+thread (`settings.blas_on_one_thread`: the number of its threads is restored
+afterwards), which the small dense algebra of these loops — 6 × 6 systems, the
+Hessenberg matrices of GMRES — does not need.
+
+*The assembly by colours.* The tangent of a path is assembled at each linearization:
+each element adds its matrix at the places of its nodes, and two elements with a
+common node write at the same places — one thread, as written. The elements are
+coloured so that two elements of a colour have no node in common (the same greedy
+colouring, on the graph of the elements: 56 colours for 19 025 10-node tetrahedra), and
+the elements of a colour are assembled in parallel, by chunks that have their own work
+arrays. A place receives the contributions of its elements colour by colour: the sums
+are the same for any number of threads, and those of the elements taken one by one to
+round-off ($10^{-16}$ of the largest value). The nodal forces and the couplings with the
+macroscopic strains are assembled in the same way; their sums over all the elements
+(the mean stress, the scale of the forces) are kept chunk by chunk and added in the
+order of the chunks. The tangent of the example is assembled in 42 ms for 158 ms.
+
+On four threads, with these three changes (the times of the linear analyses include
+their meshing, which does not change):
+
+| template | analysis | before | after |
+|---|---|---|---|
+| `homogenization_viscoplastic` | path, 10-node tetrahedra, 76 398 unknowns | 93 s | 49 s |
+| `homogenization_crystal_plasticity` | path in finite strains, 9 542 unknowns | 22 s | 16 s |
+| `homogenization_ductile_damage` | path on voxels, porous plasticity | 59 s | 30 s |
+| `homogenization_crystal_plasticity_fft` | path on voxels | 86 s | 74 s |
+| `homogenization_rubber` | path on voxels | 67 s | 58 s |
+| `homogenization_polycrystal` | linear, 47 319 unknowns | 26 s (solves: 18 s) | 15 s (9 s) |
+| `homogenization_gyroid` | linear, 304 977 unknowns | 128 s (57 s) | 103 s (35 s) |
+| `homogenization_spheres` | linear, 368 577 unknowns | 198 s (107 s) | 160 s (72 s) |
+
+The iterations are those of before (one more of 1 033 for the spheres), and the curves
+the same to $10^{-12}$ of the stresses. On the paths on voxels the gain is that of the
+threads of BLAS alone.
+
+*The product by nodes.* The products of the Krylov iterations read the matrix by the
+same 3 × 3 blocks of nodes, in double precision (`amg.NodeBlocks`): one column index
+for nine values, the three components of a neighbour read once, the rows of the nodes
+shared between the threads by equal numbers of blocks. Each component of a row is
+summed term by term in the order of the columns, as the product of the stored values
+sums it — a value that is not stored adds a zero —: the same product to the bit, and
+with it the same iterations and the same results. On the matrix of the example the
+product takes 1.2 ms for 3.9 ms alone, and 2.2 ms for 7.0 ms between the sweeps of an
+iteration, where it shares the memory with them. The blocks are held with the stored
+values of the matrix, which the setups read: 70 % of its memory more. On the large
+linear analyses, bound by the memory that an iteration reads (the product and the
+sweeps: some 430 MB for 520 MB with 305 000 unknowns), the solves take a fifth less.
+
+*The preconditioner along a path.* A path built its preconditioner again at the first
+Newton iteration of each step — an eighth of the time of `homogenization_viscoplastic`
+— and kept it, as built, for the other iterations of the step. Its two parts are now
+treated apart. The pattern of the tangent does not change along a path: the place of
+each stored value in the blocks is found once, as is that of each block in the copy
+of the sweeps, and at each linearization the blocks take the values of the tangent
+(`NodeBlocks.refresh`: 10 ms for 6.5 million values) and the sweeps follow
+(`Smoother.refresh`: 3 ms). The sweeps are those of the tangent as it is at every
+Newton iteration, for a tenth of what building them costs. The interpolation and
+the coarse levels — the stiffness of the corner nodes and its multigrid hierarchy —
+are kept from a step to the next while they serve: at the start of a step they are
+built again if the solves of the last step took 1.3 times the iterations per decade of
+their residual that those of the step for which they were built took
+(`LinearSolver.worn`: building them costs a step what a third more iterations cost
+it). The preconditioner stays symmetric positive definite whatever the age of its
+coarse levels: with $S = (D + L)^{-1}$ the forward sweep of the tangent $A = L + D +
+L^T$ as it is and $B$ the cycle of the coarse levels, symmetric positive definite,
+
+$$M^{-1} = S^T D\,S + (I - S^T A)\,P B P^T (I - A S),$$
+
+the symmetric Gauss–Seidel preconditioner of $A$ plus a positive semi-definite term:
+old coarse levels can slow the iterations, not break them. `homogenization_viscoplastic`
+builds two preconditioners for its 25 steps, `homogenization_crystal_plasticity` four
+for 67, and their linear iterations are fewer, since the sweeps follow the tangent:
+1 867 for 1 917, and 3 937 for 4 071, with the same Newton iterations and the same
+curves to the tolerance of the equilibria ($10^{-8}$ of the stresses). The reduction of
+the tangent sums at each place of the reduced matrix the stored values that go there,
+the places shared between the threads (16 ms for 23 ms).
+
+On four threads, back to back (a session in which the machine ran a fifth slower than
+for the table above):
+
+| template | analysis | before | after |
+|---|---|---|---|
+| `homogenization_viscoplastic` | path, 76 398 unknowns | 61 s | 41 s |
+| `homogenization_crystal_plasticity` | path in finite strains, 9 542 unknowns | 20 s | 14 s |
+| `homogenization_fatigue` | elastic cycles, multigrid | 25 s | 21 s |
+| `homogenization_polycrystal` | linear, 47 319 unknowns | 18 s (solves: 11 s) | 14 s (7 s) |
+| `homogenization_gyroid` | linear, 304 977 unknowns | 116 s (42 s) | 107 s (33 s) |
+| `homogenization_spheres` | linear, 368 577 unknowns | 190 s (85 s) | 170 s (68 s) |
+
+The paths solved by factorization (cracks along grain boundaries, contact, debonding:
+small meshes) keep their times.
+
+## 12. FFT solver on voxel images
+
+Voxel images are homogenized under periodic conditions by an FFT-preconditioned solver
+of the trilinear finite element discretization (Schneider, Merkert & Kabel 2017):
+
+* each voxel is an 8-node hexahedron (2×2×2 Gauss points), so the discrete problem is
+  that of voxel finite elements, without the ringing of the spectral (Moulinec–Suquet)
+  discretization; pores have zero stiffness, no ersatz material is needed;
+* the stiffness operator $K$ is applied matrix-free, node by node;
+* the preconditioner is the inverse of the stiffness $K^0$ of a homogeneous reference
+  medium on the same periodic grid: $K^0$ is a convolution, diagonal ($3\times3$ blocks)
+  in Fourier space, inverted frequency by frequency with real FFTs; its Lamé
+  coefficients are the means of the extreme coefficients of the phases;
+* conjugate gradients on $K w = f$, from $w = 0$, to a relative residual of $10^{-8}$.
+
+The number of iterations grows with the contrast between the phases (as its square
+root at worst), not with the number of voxels. Loads that cancel to round-off (the
+affine field solves the problem: homogeneous medium, laminate loaded along its
+layers) are recognized and not iterated on. The solver is checked against a direct
+solution of the same operator, against the Backus formulas for laminates, and for
+translation invariance. Nonlinear behaviours along loading paths: §34; on the GPU: §35.
+
+## 13. Statistical analysis of apparent properties (Dirrenberger et al. 2014)
+
+A **series** is one property under one boundary condition, at several volumes
+(`rve.study`). For each series:
+
+* per volume: number of realizations $n$, mean $\bar Z$, standard deviation $D_Z(V)$,
+  interval $\bar Z \pm 2 D_Z$ (Tables 3–4), relative error
+  $\varepsilon_{rel} = 2 D_Z(V)/(\bar Z\sqrt n)$ (Table 8), isotropy of the mean
+  response;
+* fit of $D_Z^2(V) = K V^{-\gamma}$ by least squares on $\log D^2$, with $\gamma$ free
+  (Table 9) and imposed (Table 10; $\gamma = 2/3$ for Poisson fibres), optionally weighted
+  by $(n-1)/2$ (the variance of $\log D^2$ is about $2/(n-1)$);
+* RVE volume $V_{RVE} = \left(\frac{4K}{\varepsilon^2 \bar Z^2 n}\right)^{1/\gamma}$
+  (eq. 87) for each $(\varepsilon, n)$, with $\bar Z$ the mean at the largest volume; its
+  edge; the mean number of objects in it (e.g. fibres:
+  $\bar N = -3\ln(1-p)\,L^2/(2\pi R^2)$); and the number of realizations needed at each
+  sampled volume;
+* bootstrap confidence intervals (resampling the realizations of each volume) for $K$,
+  $\gamma$ and $V_{RVE}$.
+
+The tests reproduce the RVE sizes of Table 10 from the paper's own $K$, $\gamma$ and
+$\bar Z$, and recover $K$ and $\gamma$ from synthetic data.
+
+**Stiffness and compliance per volume.** When the realizations have their apparent
+stiffness (the property `stiffness`, six loadings), each boundary condition gives, per
+volume, the mean stiffness $\bar C = \frac1n \sum_k C^{(k)}$ with the standard deviation
+$D(C_{ij})$ of each component, and the compliance $S = \bar C^{-1}$: the inverse of the
+mean stiffness, so that $S \bar C = I$, not the mean of the compliances of the
+realizations $\langle C^{-1}\rangle$ (`mean_compliance` in `rve_report.json`), which
+exceeds it ($\langle C^{-1}\rangle - \langle C\rangle^{-1}$ is positive semi-definite, the
+inverse being operator convex) by a term of the order of the relative variance. Under
+KUBC $\langle C\rangle$ bounds the effective stiffness from above, and under SUBC
+$\langle C^{-1}\rangle^{-1}$ from below (Huet 1990). $D(S_{ij})$ is the
+standard deviation of the components of the compliances $C^{(k)\,-1}$ of the
+realizations. Each component of $C$ and of $C^{-1}$ is also a series: its variance fitted
+as $K V^{-\gamma}$ and its RVE sizes, for the diagonal components and for the others
+whose mean the realizations of the largest volume distinguish from zero (Student's $t$
+test at the level of the study), since a coupling that vanishes on average ($C_{14}$ of an
+orthotropic medium in its axes) has no relative precision. The notation is morphoGen's
+Voigt order $(11, 22, 33, 23, 31, 12)$ with engineering shears (§27). The report adds the
+tables of $\bar C_{ij} \pm 2D$ and $S_{ij} \pm 2D$ per volume, the RVE sizes of the
+components and the figure `rve_stiffness_<bc>.png`; `rve_stiffness.csv` holds one row per
+condition and volume ($C_{11} \ldots C_{66}$, $S_{11} \ldots S_{66}$ and their standard
+deviations `C11_std` ...). `rve.properties` names them `stiffness` (or `stiffness.<bc>`),
+there by default when the homogenization computes the stiffness; `morphogen fit` finds
+them in the columns `stiffness.<bc>.C11` ... of `results.csv`. The conductivity tensor
+(`conductivity_tensor`, three loadings) has the same statistics, its inverse the
+resistivity, in its axes 1 2 3 (`rve_conductivity_tensor.csv`). By the window method
+(§9) the windows of one realization are the realizations, their tensors their mean mutual
+energies.
+
+**Nonlinear responses.** A series may also be a quantity of the curves of a loading path
+(§31, §34): a component of the macroscopic strain or stress, of the mean stress of a
+phase, or the mean cumulated plastic strain, at the end of the path or at the end of one
+of its steps (`tension.S11@3`), as Yang et al. (2019) analysed the stresses of
+viscoplastic polycrystals. Each realization adds its value to `homogenization.csv`,
+which `morphogen fit` analyses again. In the template `rve_crystal_plasticity_fft`
+(Poisson–Voronoi grains of a cubic crystal with octahedral slip, one per unit volume, on
+voxels of a fifth of a grain size; 16, 8 and 4 realizations of 8, 27 and 64 grains on
+average; a tension at $10^{-3}$/s, 90 s on 20 threads), the bulk modulus is exact (cubic
+crystals) and the RVE for a relative error of 1 % with one realization holds about 600
+grains for the shear modulus, but 1,450, 2,010 and 3,700 grains for the stress at 0.1,
+0.3 and 1 % of strain: the RVE grows with the plastic flow. Three volumes and so few
+realizations leave wide confidence intervals ($\gamma$ between 0.3 and 2.6 by bootstrap):
+the template shows the method; studies use more volumes and realizations.
+
+## 14. Cellular automata (`automata`)
+
+A binary automaton updates the state $s_i \in \{0, 1\}$ of the cells of a periodic or
+fixed lattice from the number $n_i$ of neighbours in state 1. Neighbourhoods of radius
+$r$: von Neumann ($|d|_1 \le r$, 6 cells for $r = 1$), Moore ($|d|_\infty \le r$, 26),
+edges (Moore cells with $|d|_1 \le 2r$, 18) and Euclidean ($|d|_2 \le r$); planar
+automata use the cells of one plane.
+
+* **Life-like rules** `B.../S...`: birth when $s_i = 0$ and $n_i \in B$, survival when
+  $s_i = 1$ and $n_i \in S$ (Conway's Life is B3/S23; `clouds` is B13–14,17–19/S13–26,
+  Bays 1987).
+* **Majority** over the neighbourhood and the cell. **Annealing** (Vichniac 1984): the
+  outcome of the two votes next to a tie is inverted, which destroys the flat
+  interfaces that block plain majority; interfaces then move with their mean curvature
+  and domains coarsen into bicontinuous patterns. In B/S notation (Moore), annealing is
+  B13,15–26/S12,14–26.
+* **Conserved majority**: the $\lfloor f N \rceil$ cells of highest $n_i + s_i$ (ties
+  broken at random) take state 1, so the volume fraction is exact at every step.
+* **Activator–inhibitor** (Young 1984): the score of a cell is the number of active
+  cells within the activation radius $r_1$ (itself included) minus $w$ times the active
+  cells at distances in $(r_1, r_2]$; positive scores activate, negative ones
+  deactivate. With the balanced weight $w = |B_{r_1}| / |B_{r_2} \setminus B_{r_1}|$, a
+  uniform state is steady and patterns of wavelength between $r_2$ and $2 r_2$ appear
+  (measured: 7.1 cells for $r_2 = 5$, 9.8 for $r_2 = 7$). Scores are computed by FFT
+  convolution.
+* **Updates**: synchronous; asynchronous, each cell being updated with probability
+  $\alpha$ (Fatès 2014), which removes the period-2 oscillations of synchronous
+  majority; sequential, over sublattices of non-neighbouring cells (2 colours for von
+  Neumann neighbourhoods, 8 for Moore, 4 in 2D).
+
+**Unbiased windows.** After $t$ steps, a cell depends only on the cells within the
+light cone of radius $r t$. A non-periodic domain is the centre of a periodic lattice
+enlarged by $\min(32, \lceil r t \rceil)$ cells on each side: its statistics are those
+of the stationary automaton (to the light-cone cut-off).
+
+**Other lattices** (`lattice`; `automata.tilings`). The automata also run on the cells
+of tilings: triangles (3 edge and 12 vertex neighbours), hexagons (6), the thick and thin
+rhombi of Penrose's quasi-periodic tiling (4 edge, 7 to 11 vertex neighbours), the
+squares and 45° rhombi of the octagonal Ammann–Beenker tiling (4 edge, 8 to 12 vertex
+neighbours), the prisms that stack the planar tilings in 3D (hexagonal prisms: 8 face
+and 20 vertex neighbours; triangular prisms: 5 and 38), the Voronoi cells of the BCC and
+FCC lattices: truncated octahedra (14 faces: 8 hexagons towards the nearest neighbours at
+$a\sqrt3/2$, 6 squares towards the second ones at $a$; every edge and vertex is shared by
+face neighbours only) and rhombic dodecahedra (12 faces; 18 vertex neighbours, the 6
+second neighbours meeting at the fourfold vertices), and the prolate and oblate golden
+rhombohedra of the icosahedral quasi-periodic tiling (6 face, 15 to 28 edge and 23 to 48
+vertex neighbours, 39 on average). Every cell has the area $h^2$ or the volume $h^3$ of
+the square or cube of edge $h$ = `cell_size` (quasi-periodic tiles on average: edge
+$\ell = h\,[(\tau\sin 72° + \sin 36°)/(1 + \tau)]^{-1/2} = 1.110\,h$ for Penrose rhombi,
+$h\,[(1 + \sqrt2)/2]^{1/2} = 1.099\,h$ for Ammann–Beenker tiles, $1.155\,h$ for
+rhombohedra), prisms are $h$ high, and periodic tilings are fitted to the box by an affine
+scaling of whole unit cells, like the square grid. Neighbourhoods become graph balls: von Neumann,
+edges and Moore are the cells within $\lfloor r \rfloor$ steps across faces (edges in
+2D), edges or vertices (on the square grid, exactly the $L^1$, edge and $L^\infty$
+balls), Euclidean the cells whose centres lie within $r h$; they are CSR lists, and
+counts sparse sums. The rules generalize as follows.
+
+* **Life-like rules** count neighbours in state 1: the sets $B$ and $S$ are parameters
+  of each lattice (Conway's B3/S23 has no counterpart on hexagons); `fit_rule`, the
+  Design tool and `morphogen fit-rule --tiling` search them on any lattice (configurations
+  of quasi-periodic tilings on non-periodic domains).
+* **Majority and annealing** vote over the $n + 1$ cells of the neighbourhood and the
+  cell, as fractions; when $n$ is odd (triangles across their edges, some Penrose
+  rhombi), the cell's own vote counts twice, so that ties keep its state, and the twist
+  inverts the two totals next to the tie as before.
+* **Conserved majority** ranks the cells by the local fraction $(n_i + s_i)/(N_i + 1)$
+  of phase 1 when neighbourhood sizes $N_i$ vary (by $n_i + s_i$ otherwise).
+* **Probabilistic rules** keep probabilities indexed by counts.
+* **Activator–inhibitor** discs and rings are Euclidean over the cell centres, the
+  balanced weight $|D_{r_1}| / |D_{r_2} \setminus D_{r_1}|$ being computed cell by cell
+  when the discs vary (Penrose).
+* **Sequential updates** take the colour classes of a greedy colouring of the
+  neighbourhood graph (any radius).
+
+On the square tiling, the CSR engine reproduces the grid automaton to the bit (the
+square grid itself keeps its code and its realizations). From one seed, the rule
+"any neighbour gives birth" grows the ball of the lattice: hexagons of $3t(t+1) + 1$
+cells on the hexagonal lattice, convex hexagons of sides $t$ and $t + 1$ on the
+triangular lattice (vertex neighbours), cuboctahedra on the FCC lattice (1, 13, 55, 147
+cells) and rhombic dodecahedra on the BCC lattice (1, 15, 65, 175). Realizations
+(`TilingField`) are rasterized at any resolution, each voxel taking the state of the
+cell containing its centre (partial volumes by supersampling), so that every analysis
+and solver applies: periodic tilings are affine images of reference tilings that are
+the Voronoi tessellations of their centres (the triangles are the Voronoi cells of the
+honeycomb of their centroids), in which a point lies in the cell of its nearest centre;
+rhombi are tested among the nearest centres, rhombohedra by the coordinates of the point
+along their edges (in $[0, 1]$) among the 16 nearest centres, then among all the centres
+closer than the circumradius ($1.192\,\ell$, half the long diagonal of the prolate cell)
+for the points left. The rasterized cells measure their areas within 4–8 % at 16 pixels
+per cell size, their volumes within 5–10 % at 10 voxels (bcc, fcc, prisms; rhombohedra
+2 %), the totals exactly.
+
+**Penrose tilings** by de Bruijn's (1981) pentagrid: the lines
+$x \cdot e_j + \gamma_j \in \mathbb Z$, $e_j = (\cos\frac{2\pi j}{5}, \sin\frac{2\pi j}{5})$,
+$\sum_j \gamma_j = 0$, split the plane into meshes; the mesh of $x$ maps to the vertex
+$\sum_j K_j e_j$, $K_j = \lceil x \cdot e_j + \gamma_j \rceil$, and the intersection of
+lines of the families $r < s$ to the rhombus of edges $e_r, e_s$, thick (72°) when
+$s - r \in \{1, 4\}$, thin (36°) otherwise. Since $\sum_j (x \cdot e_j)\, e_j =
+\tfrac52 x$, the tiling is the pentagrid scaled by 5/2, displaced by at most
+$\sum_j (1 + |\gamma_j|)$ edges, which bounds the lines to generate. Random offsets
+(uniform, centred) draw random patches of the same local isomorphism class. Measured on
+an 80 × 80 patch: thick and thin rhombi in the ratio $\tau$ to 0.3 %, the vertex
+indices $\sum_j K_j \in \{1, 2, 3, 4\}$, and exactly de Bruijn's eight vertex stars
+(angles around the vertex in units of 36°: (3,3,4), (1,2,1,3,3), (2,4,4), (2,2,2,4),
+(1,1,2,1,1,2,2), (1,1,2,2,2,2) and twice (2,2,2,2,2), the stars S and S5 told apart by
+the folded index $\min(k, 5 - k)$) with the frequencies $\tau^{-2}$, $\tau^{-3}$,
+$\tau^{-4}$, $\tau^{-5}$, $\tau^{-6}$, $\tau^{-7}$, $\tau^{-5}/\sqrt5$ and
+$\tau^{-7}/\sqrt5$ to 2 %; offsets summing to 1/2 give 22 kinds (generalized Penrose
+tilings). The tiling has no period: only non-periodic domains, cut from a larger patch
+(the light cone) whose edge cells have fewer neighbours, or its periodic approximants
+(below) for periodic domains. The two tilings below share the
+construction (`_dual_cells`: one cell per intersection of $d$ hyperplanes, whose corners,
+vectors of $\mathbb Z^n$, identify the shared vertices without tolerance) and these
+domains. Their tile frequencies are measured with a smooth window (weights
+$\prod_a \cos^2(\pi x_a/2L)$ over a cube of half-side $L$), whose discrepancy is far
+smaller than a sharp window's: on planar patches of 80 × 80 tiles, ratios within
+$10^{-4}$ instead of 1–2.5 %.
+
+**Ammann–Beenker tilings** (Beenker 1982; Ammann et al. 1992) by the same dual method
+on four grids, $e_j$ at angles $j\pi/4$, $j = 0..3$ ($\sum_j (x \cdot e_j)\, e_j = 2x$):
+the intersection of lines of the families $r < s$ gives a square when $s - r = 2$, a 45°
+rhombus otherwise. It is the cut-and-project set of $\mathbb Z^4$ (Gähler & Rhyner
+1986): the vertices $\sum_j K_j e_j$ have the internal coordinates $\sum_j K_j e_j^\perp$,
+$e_j^\perp$ at angles $3j\pi/4$, dense in the regular octagon $W$ of unit edge (the
+zonogon of the $e_j^\perp$, shifted by $\sum_j \gamma_j e_j^\perp$: any regular offsets give
+the same local isomorphism class, without the index of the Penrose tilings). The lattice
+has the covolume 4 in $\mathbb R^2 \times \mathbb R^2$, so that vertices and tiles have
+the density $|W|/4 = (1 + \sqrt2)/2$ per squared edge, the tiles of edges $e_r, e_s$ the
+density of the area of the complementary pair $e_t^\perp, e_u^\perp$ over 4: squares (area
+1) and rhombi ($1/\sqrt2$) in the ratio $1 : \sqrt2$, covering equal areas. An edge joins two
+vertices whose internal coordinates differ by an $e_j^\perp$ ($W \cap (W - e_j^\perp)$ is the
+zonogon of the other three vectors), so the vertex star of a vertex is set by its
+internal position: the 64 lines bounding the 8 translates $W \pm e_j^\perp$ cut $W$ into 81
+convex pieces, which give exactly six stars, one per coordination number from 3 to 8
+(angles around the vertex in units of 45°): (2,3,3), (1,2,3,2), (1,2,1,2,2),
+(1,1,1,2,1,2), (1,1,1,1,1,1,2) and (1,1,1,1,1,1,1,1), of frequencies $\lambda^{-1}$,
+$2\lambda^{-2}$, $2\lambda^{-3}$, $2\lambda^{-4}$, $\lambda^{-5}$ and $\lambda^{-4}$, the areas of their
+regions over $|W| = 2(1 + \sqrt2)$ ($\lambda = 1 + \sqrt2$, the silver mean; computed exactly
+in $\mathbb Q(\sqrt2)$, and in Baake & Grimm 2013). Measured on an 80 × 80 patch
+(6,749 tiles, 6,542 inner vertices): exactly these six stars, at these frequencies
+within 3.5 %; rhombi and squares in the ratio $\sqrt2$, and their areas equal, within
+0.012 % (smooth window); the tiles clipped to the box sum to its area within
+$4\cdot10^{-14}$ (no gap or overlap, also on 100 × 100 and 160 × 160 patches), and the
+patch is a disc ($V - E + F = 1$). The Penrose rhombi remain the first quasi-periodic
+tiling for de Bruijn's eight stars and their index; the Ammann–Beenker tiling adds the
+eightfold symmetry and squares.
+
+**Icosahedral tilings** (golden rhombohedra; Kramer & Neri 1984; Socolar & Steinhardt
+1986) by the dual method on six grids of planes $x \cdot e_j + \gamma_j \in \mathbb Z$
+normal to the fivefold axes $e_j$ of the icosahedron, $(0, \pm 1, \tau)/|\cdot|$ and
+their cyclic permutations ($\sum_j (x \cdot e_j)\, e_j = 2x$): the intersection of
+planes of the families $r < s < t$ gives the rhombohedron of edges $e_r, e_s, e_t$,
+prolate (volume $V_P = 2[\tau/(5\sqrt5)]^{1/2}\ell^3 = 0.7608\,\ell^3$) when the product of
+the cosines $\pm 1/\sqrt5$ between its edges is positive, oblate ($V_O = V_P/\tau =
+0.4702\,\ell^3$) otherwise, ten triples of each; all its faces are golden rhombi of area
+$(2/\sqrt5)\,\ell^2$. Four planes through one point (a singular grid) are refused. It is
+the cut-and-project set of $\mathbb Z^6$ whose window is the rhombic triacontahedron,
+of volume $10(V_P + V_O)$ for unit edges; the lattice has the covolume 8, and the cells
+of the triple $rst$ have the density of the projected volume of the complementary
+triple, so that vertices and cells have the same density $10(V_P + V_O)/8 =
+1.539\,\ell^{-3}$: $V = C$, $F = 3C$ (six faces, each shared by two cells) and, by Euler's
+relation $V - E + F - C = 0$ per unit volume, $E = 3C$. Prolate and oblate cells number
+in the ratio $\tau$ (their volumes $\tau^2$), of mean volume $(\tau V_P + V_O)/(1 + \tau) =
+h^3$. Measured on a $32^3$ patch (41,230 cells): every random point (4,000) of the inner
+box in exactly one cell (no gap or overlap); every face shared by one or two cells, the
+inner ones by two, 6 face neighbours inside; $V - E + F - C = 1$ (a ball); with the
+smooth window, $V/C = 1.0000$, $E/C = 2.9998$, $F/C = 2.9999$, the mean volume
+$1.000\,h^3$, and prolate/oblate $= \tau$ within 0.7 % (within 0.04 % on $56^3$ patches,
+197,000 cells built in 2.6 s; 1–2.5 % with sharp windows). The light cone of 30 steps
+around an $8^3$ window is a patch of $72^3$ cell sizes: 412,000 cells, built in 5 s.
+
+*Vertex stars* (`Tiling.vertex_stars`, `ICOSAHEDRAL_STARS`, `window_stars`). The star of
+a vertex is the set of the rhombohedra around it: their corners at the vertex
+triangulate the sphere of directions, with a point for each of its $Z$ edges and a
+triangle for each of its $2Z - 4$ cells. A kind is given by the numbers of cells that
+meet the vertex by a tip of a prolate rhombohedron (the corner of its three acute
+angles), by another of its corners, by a tip of an oblate one (three obtuse angles) and
+by another of its corners, and by the numbers of cells around each edge, sorted. These
+tell apart the stars up to the 120 symmetries of the icosahedron (checked against the
+smallest of the 120 images of each star), where the directions of the edges alone give
+9 kinds. In the cut-and-project of $\mathbb Z^6$ a rhombohedron is a cell when its eight
+corners fall in the window $W$, so that the star of a vertex depends only on its image
+$x_\perp$ in the perpendicular space: the cell of edges $s_a e_a, s_b e_b, s_c e_c$
+($s = \pm 1$) is there when $x_\perp + \sum_{k \in S} s_k e_k^\perp \in W$ for the eight
+subsets $S$ of its edges (the axes $e_j^\perp$ are the conjugates of the $e_j$, $\tau \to
+-1/\tau$: their cosines have the opposite signs), and the frequency of a star is the
+share of $W$ where the images of its vertices fall. `window_stars` measures these shares
+on points drawn in $W$ — a construction independent of the dual grids. It finds 24
+stars (Henley 1986 enumerates the local environments of this tiling), whose shares on
+$3\cdot10^7$ points are within 1.7 standard deviations ($10^{-5}$ to $8\cdot10^{-5}$) of
+these expressions of the golden mean (`ICOSAHEDRAL_STARS`; corners: prolate tips, other
+prolate corners, oblate tips, other oblate corners):
+
+| Z | corners | cells around the edges | frequency | |
+|---|---|---|---|---|
+| 4 | 0, 2, 2, 0 | 3 3 3 3 | $\tau^{-3}$ | 0.23607 |
+| 5 | 0, 4, 1, 1 | 3 3 4 4 4 | $\tau^{-3}$ | 0.23607 |
+| 6 | 0, 6, 0, 2 | 3 3 4 4 5 5 | $\tau^{-3}$ | 0.23607 |
+| 6 | 1, 3, 1, 3 | 3 3 4 4 5 5 | $\tau^{-6}$ | 0.05573 |
+| 7 | 1, 5, 0, 4 | 3 3 4 4 5 5 6 | $\tau^{-6}$ | 0.05573 |
+| 8 | 2, 4, 0, 6 | 3 3 4 4 5 5 5 7 | $2\tau^{-7}$ | 0.06888 |
+| 9 | 3, 3, 0, 8 | 3 3 3 4 5 5 5 6 8 | $2\tau^{-9}$ | 0.02631 |
+| 9 | 5, 3, 0, 6 | 3 4 4 4 4 5 5 6 7 | $\tau^{-9} + \tau^{-12}$ | 0.01626 |
+| 10 | 4, 2, 0, 10 | 3 3 3 3 5 5 5 5 7 9 | $2\tau^{-12}$ | 0.00621 |
+| 10 | 6, 2, 0, 8 | 3 3 4 4 4 5 5 5 7 8 | $\tau^{-12} + \tau^{-15}$ | 0.00384 |
+| 10 | 8, 2, 0, 6 | 4 4 4 4 4 4 5 5 7 7 | $\tau^{-12}$ | 0.00311 |
+| 12 | 6, 0, 0, 14 | 3 3 3 3 3 3 5 5 7 7 8 10 | $\tau^{-12} + \tau^{-15}$ | 0.00384 |
+| 12 | 8, 0, 0, 12 | 3 3 3 3 3 4 5 6 6 7 7 10 | $\tau^{-12}$ | 0.00311 |
+| 12 | 8, 0, 0, 12 | 3 3 3 3 4 4 4 5 7 7 8 9 | $\tau^{-12} - \tau^{-15}$ | 0.00237 |
+| 12 | 10, 0, 0, 10 | 3 3 3 3 3 5 6 6 6 6 6 10 | $\tau^{-12}$ | 0.00311 |
+| 12 | 10, 0, 0, 10 | 3 3 3 4 4 4 4 6 6 7 7 9 | $\tau^{-12}$ | 0.00311 |
+| 12 | 10, 0, 0, 10 | 3 3 4 4 4 4 4 4 7 7 8 8 | $2\tau^{-12} + \tau^{-15}$ | 0.00694 |
+| 12 | 12, 0, 0, 8 | 3 3 3 4 4 5 5 6 6 6 6 9 | $\tau^{-15}$ | 0.00073 |
+| 12 | 12, 0, 0, 8 | 3 4 4 4 4 4 4 5 6 7 7 8 | $\tau^{-12} + \tau^{-15}$ | 0.00384 |
+| 12 | 14, 0, 0, 6 | 3 4 4 4 4 5 5 5 6 6 6 8 | $\tau^{-12} - \tau^{-15}$ | 0.00237 |
+| 12 | 14, 0, 0, 6 | 4 4 4 4 4 4 5 5 5 7 7 7 | $2\tau^{-12}$ | 0.00621 |
+| 12 | 16, 0, 0, 4 | 4 4 4 4 5 5 5 5 5 6 6 7 | $\tau^{-12} + \tau^{-15}$ | 0.00384 |
+| 12 | 18, 0, 0, 2 | 4 4 5 5 5 5 5 5 5 5 6 6 | $\tau^{-12}$ | 0.00311 |
+| 12 | 20, 0, 0, 0 | 5 5 5 5 5 5 5 5 5 5 5 5 | $\tau^{-9}$ | 0.01316 |
+
+The expressions satisfy exactly, in $\mathbb Z[\tau]$, the identities of the tiling: they
+sum to 1; the mean coordination is 6 ($E = 3V$); a vertex has $2/\tau$ prolate tips,
+$6/\tau$ other prolate corners, $2/\tau^2$ oblate tips and $6/\tau^2$ other oblate corners
+(as many cells as vertices, prolate and oblate in the ratio $\tau$, two tips for six
+other corners). The vertices of twelve edges, of 13 stars, have the frequency
+$\tau^{-6}$: their images fall in the window shrunk by $\tau^{-2}$; the star of twenty
+prolate tips has $\tau^{-9}$. Measured on a $24^3$ patch (18,127 cells; 15,274 interior
+vertices, those around which the solid angles of the cells add up to $4\pi$): exactly
+these 24 stars, the six most frequent within 6 % (the stars of many cells are more
+often cut by the faces of the box).
+
+**Periodic approximants** (`approximant`: an order $k \ge 1$, or one per axis;
+`approximant_grid`, `approximant_period`). The three tilings fill periodic boxes through
+their rational approximants (Elser & Henley 1985; Entin-Wohlman et al. 1988; Duneau et al.
+1989; Goldman & Kelton 1993): a phason strain turns the physical space of the
+cut-and-project into a rational subspace, so that the strip, hence the tiling, is
+periodic, while the projection, hence the tiles, stays the same. In the dual method the
+grids $x \cdot g_j + \gamma_j \in \mathbb Z$ take integer vectors $g_j$: the $e_j$ with
+their irrational ratios made rational, scaled along each axis. $\tau \to F_{k+1}/F_k$
+(Fibonacci numbers) in the components $2F_k\,(1, \frac{\tau - 1}2, -\frac\tau2,
+-\frac\tau2, \frac{\tau - 1}2)$ and $F_{k+1}\,(0, 1, \tau^{-1}, -\tau^{-1}, -1)$ of the
+pentagrid (each summing to 0, which keeps the index $\sum_j K_j \in \{1, 2, 3, 4\}$);
+$\sqrt2 \to H_k/P_k$ (Pell numbers, $\lambda^k = H_k + P_k\sqrt2$, so that $\lambda \to
+P_{k+1}/P_k$) in $H_k\,(1, \frac1{\sqrt2}, 0, -\frac1{\sqrt2})$ and $H_k\,(0,
+\frac1{\sqrt2}, 1, \frac1{\sqrt2})$; $\tau \to F_{k+1}/F_k$ in the axes $F_k\,(\pm 1,
+\tau, 0)$ and their cyclic permutations, the cubic approximants 1/1, 2/1, 3/2, 5/3...
+of the icosahedral tiling. The grid then has the period 1 along each axis, column $a$ of
+the $g_j$ being that period in $\mathbb Z^n$, and its dual tiling, whose cells keep the
+edges $e_j$, the period $\sum_j g_{ja} e_j$ along axis $a$: rectangles of
+$\sqrt5\,\tau^k \times 2\sin 72°\,\tau^k$ edges (Penrose; $15.3 \times 13.0$ for $k =
+4$), squares of side $\lambda^k$ (Ammann–Beenker) and cubes of side
+$2\tau^{k+1}/\sqrt{2 + \tau}$ (2.753, 4.454, 7.207 and 11.66 edges from 1/1 to 5/3).
+The cells of edges $e_r, e_s$ ($e_t$) number $|\det(g_r, g_s)|$ ($|\det(g_r, g_s, g_t)|$)
+per period: $2L_{2k+1}$ thick and $2L_{2k}$ thin rhombi (Lucas numbers: 8 and 6 for $k =
+1$, 152 and 94 for $k = 4$), $H_{2k}$ squares and $2P_{2k}$ rhombi (3 and 4, then 17 and
+24), $4F_{3k+2}$ prolate and $4F_{3k+1}$ oblate rhombohedra (20 and 12 in the 1/1, 356
+and 220 in the 3/2): ratios that tend to $\tau$, $\sqrt2$ and $\tau$, their errors
+divided by about $\tau^4$, $\lambda^4$ and $\tau^6$ per order. The cells cover the
+period, $\det \sum_j e_j g_j^{\mathsf T} = \sum_{r<s} \det(g_r, g_s) \det(e_r, e_s)$,
+when every term has the same sign: the grids keep the orientations of their tiles (for
+every order up to 6 along each axis; others would be refused). The intersections in the
+box of grid periods give the cells, and their corners, vectors of $\mathbb Z^n$, are
+reduced modulo the periods $B$ in exact integers, $K - Bc$ with $c = \lfloor
+\mathrm{adj}(B_I) K_I / \det B_I \rfloor$ for a minor $B_I$ of the periods: the vertices
+of the torus, numbered without tolerance (the number of cells of each family checked
+against its determinant). The box holds the nearest whole number of periods along each
+axis (refused under half a period), fitted to it by an affine scaling like the unit
+cells of the periodic tilings: the tiles keep their shapes when the box is a multiple of
+the period (`approximant_period`), and are affine images otherwise, whose shared edges
+and faces give the fluxes of the Laplacian. The mean area or volume of the tiles is
+$h^2$ ($h^3$) in the limit (within 2.1 % for $k = 1$). Measured:
+
+* the tiles: every cell has edges $\pm e_j$ and the area or volume of one of the tiles
+  ($10^{-12}$), they fill the box ($10^{-12}$), and random points (3,000) lie in exactly
+  one cell, the one the point location finds (nearest images of the cells);
+* periodicity: every edge (face) is shared by two cells, 4 (6) face neighbours each, with
+  pairs across every face of the box; the tiling translated by a period is itself (its
+  centres within $10^{-9}$, the same tiles in the same orientations), and the rasterized
+  cells continue across the faces of the box (no seam);
+* Euler's relation on the torus: $V - E + F = 0$ ($V = F$, $E = 2F$) and $V - E + F - C =
+  0$ with exactly $V = C$ and $E = F = 3C$ (1/1 and 2/1 in 2 × 2 × 2 periods, 3/2 and 5/3
+  in one: 256, 1,088, 576 and 2,440 cells), the densities of the icosahedral tiling;
+* tori too small for their cells are refused, with their remedy (a larger box, i.e. more
+  periods, or a higher order): a cell meeting its own image (a vertex twice among its
+  corners), two cells meeting through several images (the vertices they share, counted
+  before the adjacency is deduplicated, not those of a single common vertex, side, edge
+  or face, so that their neighbourhoods would be wrong), or a face shared through another
+  image than the nearest one, which the fluxes take. Measured over the orders 1 and 2
+  along each axis and up to three periods: refused exactly when the neighbourhoods would
+  be wrong, for a single period along an axis of order 1 (Ammann–Beenker; Penrose
+  rhombi of orders (1, 1) with one period along $x$, or (2, 1) with one along $y$: 5 face
+  neighbours for some rhombi) and for one period along an axis of the cubic approximants
+  1/1 and 2/1 (the 2/1 has its 6 face neighbours per cell, but 46 pairs of cells share
+  two vertices through two images, which would be taken for an edge: 29 edge
+  neighbours). Two periods along every axis (any order), the orders 2 and above along
+  both axes of the planar tilings and the cubic approximants 3/2 and 5/3 with one period
+  pass, their face and edge neighbourhoods those of the shared sides, edges and faces;
+* vertex stars: Ammann–Beenker approximants have the six stars and no other at every
+  order (its undecorated stars do not force aperiodicity), at frequencies within 2.9 %,
+  0.087 %, $2.6\cdot10^{-5}$ and $7.5\cdot10^{-7}$ of the window's at orders 3 to 6;
+  Penrose approximants have de Bruijn's eight stars and exactly 8 vertices of other stars
+  per period (the defects of the phason strain: 3.3 % of the vertices at order 4, 0.47 %
+  at 6, 0.026 % at 9), the eight at frequencies within 7–20 % at order 4, 1–3 % at order
+  6 and 0.15–0.3 % at order 8 (three offsets); in the cubic approximants of the
+  icosahedral tiling every vertex has its star ($V = C$) and the mean coordination is
+  exactly 6; the 24 stars come at frequencies within 0.012–0.019 (3/2, 576 cells),
+  0.0025–0.0033 (5/3), 0.001 (8/5) and 0.0002–0.0006 (13/8, 43,784 cells) of the
+  window's, beside vertices of other stars (the phason strain): 3.3 % at 3/2, 0.2–0.4 %
+  at 5/3 and 8/5, 0.05–0.1 % at 13/8 (two offsets);
+* the models: the automata, `activator_inhibitor` and `reaction_diffusion` run on
+  approximants in periodic boxes (planar tilings, prisms, rhombohedra; windows of larger
+  approximants on non-periodic domains), and `TilingField`s rebuild them from their
+  specification; Gray–Scott on two periods of the order-4 Penrose approximant (34.0 ×
+  28.9 cell sizes, volume fraction 0.30) through the FFT solver gives the apparent bulk
+  modulus 1.884, between the Hashin–Shtrikman bounds 1.001 and 3.212 (phases of Young's
+  moduli 1 and 20), its energy equal within $2\cdot10^{-13}$, in 47 iterations.
+
+Built in 0.11 s: the order-9 Penrose approximant (30,254 tiles, 188.6 × 160.4 cell
+sizes); 0.20 s: the order-6 Ammann–Beenker one (47,321); 0.56 s: the cubic approximant
+13/8 (43,784 rhombohedra, a cube of 35.2 cell sizes).
+
+**Reaction–diffusion** (Gray–Scott; Pearson 1993):
+$\partial_t u = D_u \Delta u - u v^2 + F(1-u)$,
+$\partial_t v = D_v \Delta v + u v^2 - (F + k) v$, explicit Euler steps of unit time on
+unit cells (7-point Laplacian), stable for $D \le 1/(2d)$. Presets (with
+$D_u = 0.16$, $D_v = 0.08$): spots $(F, k) = (0.030, 0.062)$, worms
+$(0.046, 0.065)$, labyrinth $(0.037, 0.060)$, holes $(0.039, 0.058)$; their period is
+about 12 cells. For these rates $F < 4(F + k)^2$ except for holes: the uniform state
+$(1, 0)$ is the only homogeneous steady state, the patterns are localized structures,
+and lattices narrower than about two periods let them die (the model then draws new
+initial conditions).
+
+*On tilings* (`lattice`; `gray_scott_tiling`) the Laplacian is that of finite volumes
+with two-point fluxes (Eymard et al. 2000):
+$(\Delta u)_i = V_i^{-1} \sum_j (A_{ij}/d_{ij})(u_j - u_i)$ over the cells $j$ sharing
+with $i$ a face of length or area $A_{ij}$, their centres $d_{ij}$ apart, $V_i$ the area
+or volume of $i$, all in cell sizes so that $D$ keeps its units (`Tiling.face_measures`,
+`Tiling.diffusion_weights`). The faces: the edges of the polygons, times the layer height
+on the sides of prisms, the cells' areas on their bases; in periodic tilings, affine
+images $S$ of Voronoi tilings, $A\,|\det S|\,|S^{-1} n|$ (Nanson); every edge of rhombi
+has the length $\ell$, every face of rhombohedra the area $(2/\sqrt5)\,\ell^2$; the free
+edges of patches have no flux. Measured:
+
+* on the square tiling, the scheme is the grid's 5- or 7-point scheme: the fields agree
+  within $2.5\cdot10^{-14}$ over 4,000 steps in 2D and 3D, the patterns cell for cell;
+* on Voronoi tilings (the offsets of the centres normal to the faces) fitted to their
+  box, the pyramids on the faces fill the cells ($\sum_j A_{ij} d_{ij}/2 = d\,V_i$ to
+  $10^{-12}$: squares, hexagons, triangles, prisms, BCC, FCC), and the Laplacian of
+  $\cos kx$ is $-k^2$ within 1 % at $k = 0.26$ per cell size;
+* on rhombi and rhombohedra the offsets of the centres are not normal to the faces, and
+  the flux of a linear field is not exact (its energy 6.5–7.4 % too high on Penrose and
+  Ammann–Beenker tiles, 13.5–14.3 % on rhombohedra), but the graph relaxes it: its
+  homogenized diffusivity (the discrete Laplace equation with $u = x$ on the cells near
+  the edge of the patch, the energy of the inner faces) is that of the plane within
+  0.5–1.3 % (Penrose, Ammann–Beenker, 80 × 80) and 1–2 % (rhombohedra, $30^3$).
+
+The steps of unit time are split into $\lceil D \max_i (\sum_j w_{ij}/V_i) \rceil$ explicit
+substeps (`stable_substeps`: the eigenvalues of the Laplacian lie within twice that rate,
+Gershgorin), one on squares, hexagons, triangles, Ammann–Beenker tiles and BCC and FCC
+cells for $D_u = 0.16$, two on Penrose rhombi, triangular prisms and rhombohedra; the
+initial blobs are the highest values of a white noise smoothed by the heat equation (a
+kernel of standard deviation `seed_size`), and with `volume_fraction` the threshold keeps
+the cells of highest activator up to that fraction of the window's volume (0.299 measured
+for 0.3 on Penrose rhombi). Wavelengths of the patterns (the centroid of the radial power
+spectrum about its peak; 128 × 128 cell sizes, 6,000 steps, two seeds): labyrinths 11.72
+cells on the grid, 11.63 on hexagons, 11.68 on triangles, 11.86 on Penrose rhombi, 11.68
+on Ammann–Beenker tiles; spots 11.45, 11.22, 11.41, 12.38 and 11.92. The periodic
+tilings agree with the grid within 2 %, labyrinths on quasi-periodic tilings within
+1.2 %; spots are 4–8 % wider there, localized structures whose spacing depends on their
+replication, sensitive to the irregular cells, more than on the diffusivity.
+
+**Lattice microstructures** (`LatticeField`). A cell-wise realization is exact on its
+own lattice. Elsewhere, its level set is the trilinear interpolation of
+$(\tfrac12 - \chi)\,h\,\max(1, \sqrt{2\pi}\sigma)$ ($\chi$ the indicator, optionally
+smoothed over $\sigma$ cells), or of $\tau - f$ for structures with a continuous field
+$f$ thresholded at $\tau$ (concentration, arrival time): about the signed distance to
+the interface, which MMG meshes conformingly.
+
+## 15. Nucleation and growth (Johnson–Mehl–Avrami–Kolmogorov)
+
+Nuclei appear in the untransformed volume, all at $t = 0$ with density $N$ (site
+saturation) or at a constant rate $I$ per unit volume and time (continuous
+nucleation), and grow at velocity $G$ with the shape $K$ of volume $c\,r^d$ at radius
+$r$ ($c = \frac43\pi$, 8 and $\frac43$ for spheres, cubes and octahedra in 3D; $\pi$, 4
+and 2 in 2D). The extended volume fraction counts overlaps and phantom nuclei:
+
+$$X_{ext}(t) = N c (G t)^d \quad\text{or}\quad X_{ext}(t) = \frac{I c G^d t^{d+1}}{d+1},
+\qquad X(t) = 1 - e^{-X_{ext}(t)}$$
+
+(Kolmogorov 1937; Johnson & Mehl 1939; Avrami 1939–41): Avrami exponents $d$ and $d+1$.
+After a complete transformation with continuous nucleation, the grain density is
+$N_g = \int_0^\infty I e^{-a t^{d+1}} dt = I\,\Gamma\!\left(1 + \frac{1}{d+1}\right)
+a^{-1/(d+1)}$ with $a = I c G^d / (d+1)$.
+
+**Event-driven automaton.** A cell is transformed by the first grain reaching it, at
+$t_i + \|x - x_i\| / G$ (norm of the growth shape, rotated by the grain orientation for
+faceted grains). Grains are propagated from cell to neighbouring cell (26 neighbours)
+in a priority queue ordered by arrival time, each carrying its nucleus. A grain is
+star-shaped with respect to its nucleus (if $x$ is reached first by grain $i$, so is
+every point of the segment from $x_i$ to $x$, by the triangle inequality), so the
+propagation finds the first grain at every cell: arrival times equal the exact
+distances (checked to round-off against a k-d tree). A nucleus whose cell is already
+transformed is a phantom and is discarded.
+
+Validation: transformed fractions within 0.01 of the Avrami law (site saturation and
+continuous nucleation, 2D and 3D, faceted grains), Johnson–Mehl grain densities within
+the statistical error.
+
+**Grain growth** (Anderson, Srolovitz & Grest 1984): Monte Carlo Potts model with the
+energy $E = \sum_{\langle ij \rangle} [g_i \ne g_j]$ over Moore neighbours. A cell
+proposes the label of a random neighbour; the change is accepted if $\Delta E \le 0$, or
+with probability $e^{-\Delta E / T}$. Cells are swept by colour classes (parity, and a
+third colour for the last cell of odd periodic axes) in which no two cells are
+neighbours, in parallel, with counter-based random numbers (results independent of the
+number of threads). At $T = 0$ the energy never increases (tested); the mean grain size
+grows as $t^{1/2}$.
+
+## 16. Aggregation
+
+* **Diffusion-limited aggregation** (Witten & Sander 1981): random walkers stick on
+  contact with the aggregate (with probability $p$; $p < 1$ gives denser,
+  reaction-limited aggregates). A single cluster is fed from a launching sphere of
+  radius $r_{max} + 3$; walkers farther than $r_{max} + 6$ jump to a uniform point of
+  the sphere around them that does not reach the cluster (exact first-passage
+  distribution); walkers beyond the kill radius are relaunched. Measured mass–radius
+  dimensions: 1.67 in 2D and 2.48 in 3D (Meakin 1983: 1.71 and about 2.5).
+* **Eden growth** (Eden 1961): a uniformly chosen perimeter cell is added; clusters are
+  compact with rough surfaces (dimension 2.00 in 2D, 2.94 in 3D on 30 000 particles).
+* **Ballistic aggregation**: particles fly along straight lines (exact voxel
+  traversal), random for clusters, normal to the substrate for deposits; 2D ballistic
+  deposition reaches the density 0.46 known for nearest-neighbour sticking.
+* **Box-counting dimension** (measure `fractal_dimension`): least-squares slope of
+  $\log N(s)$ against $\log s$ for boxes of $s$ voxels (exact on a Sierpiński carpet).
+
+## 17. Combinatorial design (`design`)
+
+**Tile assemblies.** A tile set is a finite set of cubes with labelled faces; tiles $A$
+and $B$ may be neighbours along $+a$ when the labels of the faces in contact match
+(equal, or opposite). Deciding whether a box can be tiled is NP-complete in general, so
+the solvers are:
+
+* **wave function collapse with backtracking**: each cell keeps the set of its possible
+  tiles (a 64-bit set); arc consistency removes the tiles without a compatible tile in
+  some neighbouring set; the cell of least weighted entropy is given a tile (weighted
+  random choice), the choice is propagated, and contradictions are undone through a
+  trail (depth-first search). Exhausting the first decision proves that no assembly
+  exists.
+* **transfer matrices**: the admissible cross-sections $s$ of the box (compatible along
+  y and z) are enumerated, and $T_{ss'} = 1$ when $s'$ may follow $s$ along x. The
+  number of assemblies of $n$ sections is $\mathbf 1^T T^{n-1} \mathbf 1$ (open) or
+  $\operatorname{tr} T^n$ (periodic), computed with exact integers; uniform samples are
+  drawn section by section with the backward counts.
+
+**Polarized blocks** (a model of the building blocks of Coulais et al. 2016). Each block
+has one deformation mode: strains of signs $(e_x, e_y, e_z)$ with one sign different
+from the two others (6 states: axis and sign), the faces normal to an axis moving out
+when the strain along it is positive. Neighbours share their face motion, so the strain
+along every line of blocks alternates: $e_x(i,j,k) = F_x(j,k)(-1)^i$,
+$e_y = F_y(i,k)(-1)^j$, $e_z = F_z(i,j)(-1)^k$, and periodic boxes need even numbers of
+blocks. Counting assemblies means counting sign arrays with no block of three equal
+signs. For fixed $F_x, F_y$, the sum over $F_z$ factorizes over the columns $(i, j)$
+(each column excludes the values of $F_z(i,j)$ that would equalize a block); the sum
+over $F_y$ then factorizes over the rows $i$ and depends only on the parity of $i$:
+
+$$\Omega = \sum_{F_x} R_0(F_x)^{\lceil n_x/2 \rceil} R_1(F_x)^{\lfloor n_x/2 \rfloor},$$
+
+a sum of $2^{n_y n_z}$ terms. Brute force, transfer matrices and this formula agree; for
+cubes of $L$ blocks, $\Omega = 6$, 450, 151 206 and 145 456 074 ($L = 1$ to 4), and
+$\log_2 \Omega / L^2$ = 2.58, 2.20, 1.91, 1.70: the design space grows with the area of
+the faces of the cube, not with its volume ($\log \Omega / L^3 \to 0$).
+
+**Rigidity of frameworks.** For a periodic pin-jointed framework of $j$ nodes and $b$
+bars per cell, the compatibility matrix $A$ ($b \times 3j$) gives the bar extensions
+of periodic node displacements, and $B$ ($b \times 6$) those of a macroscopic strain
+($e = n \cdot E\,L$ for a bar of direction $n$ and vector $L$). Then (Pellegrino &
+Calladine 1986; Guest & Hutchinson 2003): mechanisms $m = 3j - 3 - \operatorname{rank} A$,
+states of self-stress $s = b - \operatorname{rank} A$ (Maxwell–Calladine:
+$m - s = 3j - 3 - b$), and floppy macroscopic strains
+$6 - \operatorname{rank}[A\ B] + \operatorname{rank} A$; a lattice without floppy
+strain is stretching-dominated (Deshpande, Ashby & Fleck 2001). Ranks come from SVDs.
+The simple cubic lattice has 3 floppy strains (the shears) and the bcc lattice 2; the
+octet truss none. Diluting the octet truss at random (at least 3 bars per node), floppy
+strains appear between mean coordinations 6 and 5.5, at Maxwell's isostatic point
+$Z = 2d = 6$.
+
+**Inverse design of automata.** `fit_rule` searches the birth and survival sets (and
+the density of the initial noise) whose structures match target descriptors: volume
+fraction $f$, interface density $s$ (fraction of unlike neighbour pairs) and
+two-point correlation $\rho(h) = (C(h) - f^2)/(f - f^2)$ at lags 1–4. The cost is
+$((f - f^*)/f^*)^2 + ((s - s^*)/s^*)^2 + \sum_h (\rho(h) - \rho^*(h))^2$; candidates
+start from the same noise (common random numbers) and evolve by a genetic algorithm
+(tournaments, uniform crossover, bit-flip mutation, elitism).
+
+## 18. Topology optimization of periodic cells (`optimization`)
+
+**Homogenization of graded cells.** Voxel $e$ has the stiffness $s_e K^0$ of the base
+material scaled by the SIMP interpolation $s_e = \varepsilon + (1-\varepsilon)\rho_e^p$
+(Bendsøe 1989; $p = 3$, $\varepsilon = 10^{-3}$). For each unit macroscopic strain
+$E^i$ the periodic fluctuation solves $K w^i = -\sum_e s_e K^0_e u^i_{aff}$ (FFT
+solver of §12, warm-started from the previous design). With $u^i = u^i_{aff} + w^i$,
+
+$$C^H_{ij} = \frac{1}{|Y|} \sum_e s_e\, u^{i\,T}_e K^0 u^j_e, \qquad
+\frac{\partial C^H_{ij}}{\partial s_e} = \frac{1}{|Y|}\, u^{i\,T}_e K^0 u^j_e$$
+
+since the problem is self-adjoint (Sigmund 1994; Andreassen & Andreasen 2014). The
+derivatives match finite differences to $10^{-8}$; laminates match the Backus formulas
+to round-off.
+
+**Regularization.** Densities are the design variables filtered by a periodic linear
+hat of radius $r$ (Bruns & Tortorelli 2001; Bourdin 2001), then projected by
+$\bar\rho = \frac{\tanh(\beta\eta) + \tanh(\beta(\tilde\rho - \eta))}{\tanh(\beta\eta) +
+\tanh(\beta(1-\eta))}$ with $\beta$ doubled from 1 (Wang, Lazarov & Sigmund 2011), and
+averaged over a symmetry group (mirror planes; with the permutations of the axes for
+cubic or square symmetry). Gradients follow by the chain rule (the filter and the
+symmetry projection are self-adjoint).
+
+**Objectives** (normalized by the base modulus): the mean of the normal block of
+$C^H$ (bulk modulus of a cubic material), the mean shear modulus, the mean diagonal
+conductivity, a least-squares target tensor, and the Poisson's ratio
+$\nu = \overline{C_{ij}}_{i \ne j} / \overline{C_{ii}}$ with a constraint
+$\overline{C_{ii}} \ge c_{min}$ (5 % of the Young's modulus by default), which prevents
+the collapse of the structure into a mechanism of vanishing stiffness. The uniform
+design is a stationary point (uniform strains, uniform sensitivities), so the initial
+design has a void ball (disc) of radius 0.3.
+
+**Methods.**
+
+* Optimality criteria: $\rho \leftarrow \rho \sqrt{-\partial_\rho f / (\lambda
+  \partial_\rho V)}$ within move limits, $\lambda$ by bisection on the projected volume.
+* Method of moving asymptotes (Svanberg 1987): convex separable approximations on
+  asymptotes moved by the oscillations of the iterates, solved by a primal–dual
+  interior-point method; it reproduces SLSQP on Svanberg's test problem. The
+  asymptotes are reset at each continuation step: tightened by earlier oscillations,
+  they would hold a grey design in place and stop the iterations as if converged.
+* BESO (Huang & Xie 2010; Huang, Radman & Xie 2011): solid or void voxels; filtered
+  sensitivity numbers averaged with the previous iteration; the volume decreases by 2 %
+  per iteration to the target, keeping the voxels of highest sensitivity.
+* Hybrid cellular automaton (Tovar et al. 2006): each voxel's density moves by
+  $m\,(\bar S_e / S^* - 1)$, with $\bar S_e$ the mean stimulus ($-\partial f / \partial
+  \rho$) of its Moore neighbourhood and the set point $S^*$ fixed by the volume
+  constraint (bisection); the neighbourhood rule replaces the density filter.
+
+**Checks.** Black-and-white designs (densities above 1/2, true voids) are compared
+with the Hashin–Shtrikman upper bounds (Hashin & Shtrikman 1963) for a solid of moduli
+$(k, \mu)$ and voids at solid fraction $f$: $k\mu f/((1-f)k + \mu)$ for the
+plane-strain bulk modulus ($k = \lambda + \mu$), $4\mu k f / (4\mu + 3k(1-f))$ in 3D,
+and $(d-1)f/(d-f)$ times the conductivity. Trilinear voxels overestimate the stiffness
+of thin members, and two solid voxels that touch only along an edge or at a corner form
+a hinge that carries forces through a single node, which a continuum cannot do. Sharp
+projections let the optimizer exploit them: a 32² design with 28 such contacts reached
+100.03 % of the bound on its own grid, but 93.6 % and 91.0 % on grids two and four
+times as fine. Designs are therefore checked for hinges (2 × 2, or 2 × 2 × 2, blocks
+whose solid voxels form several face-connected groups) and re-evaluated on a grid twice
+as fine, voxelized from the level set of the densities.
+
+Bulk modulus at 40 % solid in 2D, in percent of the bound, on the design grid (and on
+the finer grid):
+
+| Method | 32² voxels | 48² voxels |
+|---|---|---|
+| MMA, β doubled up to 32 | 96.3 (93.5) | 94.3 (91.8) |
+| OC, β doubled up to 8 | 96.8 (94.4) | 95.0 (91.9) |
+| BESO | 96.3 (91.9) | 93.7 (88.0) |
+| HCA | 93.9 (90.1) | 93.9 (92.4) |
+
+The 2D conductivity reaches 98–99 % of its bound (96–97 %; 48², all methods); in 3D at
+30 % solid on 24³ voxels, the bulk modulus reaches 97 % (93 %, MMA) and the
+conductivity 88 % (87 %, HCA). With β = 8, MMA leaves 20–28 % of intermediate
+densities in stiffness designs, and their thresholded volume exceeds the target by 10
+to 20 %; with β = 32 they are black and white at the target volume, without hinges.
+Auxetic cells reach Poisson's ratios of −0.87 to −0.89 at 35 % solid (MMA, β = 8,
+filter radius 2 on 48² voxels, 3 on 64²), within 0.01 on the finer grid, with a Young's
+modulus about 1 % of the solid's. Sharper projections or smaller filters give
+mechanisms with hinges: Poisson's ratios down to −0.98, Young's moduli three to six
+times lower.
+
+## 19. Polycrystals: exact cells and conforming meshes (`mesh.polyhedra`, `mesh.polycrystal`)
+
+**Exact cells.** The cell of germ $g_i$ in a Laguerre tessellation is the polyhedron
+$\{x : 2x\cdot(g_j - g_i) \le |g_j|^2 - w_j - |g_i|^2 + w_i\ \forall j\}$. morphoGen
+computes it as the intersection of the half-spaces of nearby germs (Qhull), then checks
+it: no other germ may be closer, in power distance, to one of its vertices; otherwise
+the missing germs are added and the cell computed again. Restricted to the box, the
+cells form a complex of convex pieces sharing their facets exactly (vertices merged
+within $10^{-9}$ of the box size); the cells of a periodic tessellation that cross the
+faces of the box give one piece per periodic image, and the facets of opposite faces
+are translates of each other.
+
+**Regularization** (`mesh.regularize`, after the idea of Quey, Dawson & Barbe 2011).
+Exact cells have edges and facets far smaller than the element size, which would force
+tiny elements. With a length $\delta$ (`min_feature`, default a quarter of the element
+size):
+
+1. caps of cells on the faces of the box thinner than $\delta$ (a piece with one facet on
+   a face and little volume) are flattened onto the face, or given to the neighbour
+   sharing their largest facet; on periodic faces, the opposite facet is split into the
+   translates of the new facets so that the faces stay translates of each other;
+2. clusters of vertices (up to six) within $\delta$ of their centre are contracted to one
+   point, constrained to the faces, edges and corners of the box it lies on, with its
+   periodic images moved alike.
+
+Each change is kept only if every piece it touches stays a valid star polyhedron:
+closed, the cones from its centroid over its facets of positive volume, touching the
+faces of the box by facets rather than along lines. The facets become slightly
+non-planar.
+
+With $\delta$ a quarter of the element size, the meshed cells keep their volumes within
+0.3–0.5 % (median relative error over 30 to 300 cells; a few percent for the smallest
+cells); $\delta = 0$ meshes the exact cells (volumes to $10^{-6}$), at the price of flat
+elements next to their small features.
+
+**Meshing.** Each piece is split into tetrahedra (a cone from its centroid over its
+triangulated facets), which conforms at the grain boundaries; MMG (`mmg3d`) remeshes this
+mesh as subdomains (one reference per grain), keeping the interfaces, their triple lines
+and quadruple points. For periodic tessellations, each pair of opposite faces is meshed
+in the plane: the traces of the grain boundaries on the face (subdivided at the element
+size), split at their intersections, are triangulated (constrained Delaunay
+triangulation: the Delaunay triangulation of the points, each missing segment recovered
+by flipping the edges that cross it (Sloan 1993) with exact orientation tests (Shewchuk
+1997), then Lawson's flips), `mmg2d` remeshes this triangulation keeping the traces, and
+its output is made canonical by the same flips (it is not deterministic). The same
+triangles are used on both faces and kept by the volume remeshing, so that opposite
+faces match node for node.
+
+## 20. Anisotropic crystals (`homogenization.materials`)
+
+Stiffness matrices use the Voigt order (11, 22, 33, 23, 31, 12) with engineering shear
+strains. A crystal is given by its matrix in its own axes: cubic ($C_{11}, C_{12},
+C_{44}$), hexagonal ($C_{11}, C_{12}, C_{13}, C_{33}, C_{44}$, $C_{66} = (C_{11} -
+C_{12})/2$) or any symmetric positive definite $6\times6$ matrix, and a conductivity
+(scalar, basal and axial values, or a tensor). With the Bunge angles of a grain,
+$g = R_z(\varphi_2) R_x(\Phi) R_z(\varphi_1)$ maps the sample axes to the crystal axes,
+and $C_{ijkl} = g_{pi} g_{qj} g_{rk} g_{sl} C'_{pqrs}$, $K_{ij} = g_{pi} g_{qj} K'_{pq}$ in
+the sample axes. The finite element solver forms one element matrix per grain; the FFT
+solver uses a reference medium built from the eigenvalues of the Mandel form of the
+matrices (the mean of the extreme ones).
+
+**Polycrystals.** Under a hydrostatic strain a cubic crystal responds isotropically, so
+the bulk modulus of any cubic polycrystal is exactly $(C_{11} + 2C_{12})/3$, for every
+boundary condition (tested on meshes and voxels). The shear modulus lies between the
+Voigt ($\mu_V = (C_{11} - C_{12} + 3C_{44})/5$) and Reuss averages, and within the
+Hashin–Shtrikman bounds of statistically isotropic polycrystals (Hashin & Shtrikman
+1962), with $\mu_1 = (C_{11} - C_{12})/2$, $\mu_2 = C_{44}$, $k = (C_{11} + 2C_{12})/3$,
+$\beta_i = -3(k + 2\mu_i) / (5\mu_i(3k + 4\mu_i))$:
+
+$$\mu^{(1)} = \mu_1 + \frac{3}{5/(\mu_2 - \mu_1) - 4\beta_1},\qquad
+\mu^{(2)} = \mu_2 + \frac{2}{5/(\mu_1 - \mu_2) - 6\beta_2}.$$
+
+For copper (168.4, 121.4, 75.4 GPa) they are 45.96 and 49.45 GPa (Voigt 54.6, Reuss
+40.0); for two realizations of 50 grains morphoGen finds 47.0–47.4 under SUBC, 49.3–49.5
+under PBC and 51.5 under KUBC (isotropic projection of the apparent stiffness tensors,
+which are not yet isotropic at this size). The conductivity of a
+polycrystal lies within the Hashin–Shtrikman bounds of the principal conductivities
+taken with equal fractions.
+
+## 21. Morphological measures (`analysis.morphology`)
+
+**Chords.** The chords of a phase are its runs along the lines of the grid. With the
+mean chord lengths $\bar\ell_1$ and $\bar\ell_0$ of the phases along isotropic lines,
+$\bar\ell_1 = 4p/S_V$ and $\bar\ell_0 = 4(1-p)/S_V$; on a grid, along one direction, the
+chords of the two phases alternate on every line that crosses both, so that on periodic
+images $\bar\ell_1/\bar\ell_0$ is exactly the ratio of the volumes of the phases on those
+lines ($p/(1-p)$ when every line crosses both phases). For a Boolean model of
+spheres the chords of the pores are exponential with mean $1/(\theta\pi E[r^2])$.
+
+**Granulometry and local thickness.** The opening of a phase $X$ by a ball of radius
+$r$ is the union of the balls of radius $r$ inside $X$. On an image, as in the local
+thickness of Hildebrand & Rüegsegger (1997) and BoneJ, the balls are centred on the
+voxels at distance at least $r$ from the complement (Euclidean distance transform, in
+half-voxel steps of $r$) and cover the voxels closer than $r$ to their centre. Each voxel
+gets the largest radius whose opening keeps it, so that the kept fractions decrease
+(discrete balls do not make exact granulometries); the local thickness is twice that
+radius, and the pore sizes are the local thickness of the pores. A layer of $n$ voxels
+has thickness exactly $n$ voxels; a ball of radius $R$ voxels has a mean radius within
+about a voxel and a half of $R$.
+
+**Euler characteristic.** For 6-connected voxels (their complement 26-connected),
+$\chi = V - E + F - C$, counts of the voxels, of their pairs of face neighbours, and of
+their $2\times2$ and $2\times2\times2$ blocks (Ohser & Mücklich 2000), on the torus for
+periodic images. It is the number of components minus tunnels plus cavities: 1 for a
+ball, 0 for a ring, 2 for a hollow ball, $-1$ for a ring with a bar. With the volume
+fraction and the specific surface it gives three Minkowski densities. Objects closer
+than a voxel touch on the image: for random objects the estimate is biased by about
+half the number of pairs closer than a voxel, so that the Euler number of dense Boolean
+models needs fine images.
+
+**Geometric tortuosity.** Shortest paths inside a phase (26-connected voxels, Euclidean
+steps, Dijkstra's algorithm) from one face of the box to the opposite face, divided by
+the distance between the faces; infinite when the phase does not percolate.
+
+## 22. Combinations of models and grain-boundary phases
+
+**Set operations** (`models.combination`). The components are independent realizations.
+For independent stationary random sets $A$ and $B$ (volume fractions $p$, specific
+surfaces $S$, covariances $C$, complementary covariances $Q$):
+
+* union: $p = 1 - (1-p_A)(1-p_B)$, $S = S_A(1-p_B) + S_B(1-p_A)$, $Q = Q_A Q_B$;
+* intersection: $p = p_A p_B$, $S = S_A p_B + S_B p_A$, $C = C_A C_B$;
+* difference $A \setminus B$: the intersection of $A$ and of the complement of $B$;
+* complement: $p = 1 - p_A$, $S = S_A$.
+
+The boundary of a union is the boundary of each set outside the other ones, whence
+the surfaces. Level sets combine as $\min(\varphi_A, \varphi_B)$,
+$\max(\varphi_A, \varphi_B)$ and $-\varphi_A$, which keeps their zero sets exact.
+Intersections of fine inclusions with a coarse random set give clustered (Cox-like)
+and multiscale media.
+
+**Inclusions in a matrix.** The phase 1 of each further component covers the matrix
+(later components cover earlier ones) with a phase of its own. A polycrystal matrix
+keeps its labels and orientations: crystals, boundaries and inclusions are homogenized
+together.
+
+**Grain-boundary phase** (tessellations). The faces of the cell of $g_i$ containing $x$
+lie in the planes where the power distances $p_j(x) = |x - g_j|^2 - w_j$ equal $p_i(x)$;
+$x$ is at distance $d_j = (p_j(x) - p_i(x)) / (2|g_j - g_i|)$ from the plane of $g_j$, and,
+the cell being convex, $\min_j d_j$ is its distance to the boundary of the cell. A
+plane closer than $r$ satisfies $l_j < l_i + 2r$ for the lifted distances
+$l^2 = p + w_{max}$ (since $|g_j - g_i| \le l_i + l_j$), so the nearest lifted germs
+suffice; their number is doubled until this holds. The points closer than half the
+thickness $t$ to a face shared by two cells form the boundary phase; to first order its
+fraction is $S_V t$ ($2.910\,\theta^{1/3} t$ for Poisson–Voronoi), less where the layers
+overlap along the edges: measured fractions are 0.96, 0.89 and 0.79 times $S_V t$ for
+$t$ = 0.04, 0.12 and 0.23 times $\theta^{-1/3}$. Grains of phase 1 in a
+boundary phase 0 have the level set $t/2 - \min_j d_j$.
+
+## 23. Further models
+
+**Random laminates** (`random_laminate`; nanolayered films, Bironeau et al. 2016).
+Layers of phases 1 and 0 of independent thicknesses $t$ and $s$ alternate along an axis:
+an alternating renewal process. Its stationary version starts in a layer of phase 1 with
+probability $p = E[t]/(E[t] + E[s])$, of length drawn from the length-biased law
+$x f(x)/E[x]$, the lower face falling uniformly in it. Each layer of phase 1 is pierced
+across its thickness by a Boolean model of discs of intensity
+$\lambda = -\ln(1-q)/(\pi E[r^2])$ covering the fraction $q$ of its area. Then:
+
+* volume fraction $p(1-q)$;
+* specific surface $(1-q)\,(2 + E[t]\,\lambda\,2\pi E[r]) / (E[t] + E[s])$: the faces of the
+  layers outside the holes, and the walls of the holes (perimeter
+  $(1-q)\lambda 2\pi E[r]$ per unit area of a layer);
+* without holes, the fraction of phase 1 along a segment of length $L$ has the variance
+  $p(1-p)A_1/L$ for large $L$ (renewal–reward theorem), with
+  $A_1 = (E[s]^2\operatorname{Var}t + E[t]^2\operatorname{Var}s) / ((E[t]+E[s])E[t]E[s])$:
+  $2E[t]E[s]/(E[t]+E[s])$ for exponential thicknesses (covariance
+  $p^2 + p(1-p)e^{-h/\ell}$, $1/\ell = 1/E[t] + 1/E[s]$), zero for constant ones.
+
+The covariance does not decay in the plane of the layers: the 3D integral range is
+infinite and the variance of the fraction of a cube decreases as $1/L$, not as the
+inverse of its volume — a second scale of heterogeneity, as observed by Bironeau et al.
+The voxel estimate of $S_V$ (13 directions) is about 7 % low for planes normal to an
+axis of the grid, a known anisotropy of discrete Crofton weights.
+
+**Dead leaves** (`dead_leaves`; Matheron 1968, Jeulin 1997). Grains fall one after the
+other, each hiding what it covers; at the limit every point belongs to the last grain
+covering it. The perfect simulation of Kendall & Thönnes (1999) runs the time
+backwards: a point belongs to the first grain drawn that covers it. The first grain
+covering $x$ or $x + h$ covers both with probability
+$r(h) = K(h) / (2K(0) - K(h))$, where $K(h) = E[|A' \cap (A' + h)|]$ is the mean geometric
+covariogram of the grain $A'$ ($K(0) = E[V]$; for a sphere of radius $R$,
+$V(1 - \frac{3h}{4R} + \frac{h^3}{16R^3})$ for $h < 2R$). Grains of phase $i$ with
+probability $p_i$ give the covariance $C_i(h) = p_i^2 + p_i(1-p_i)\,r(h)$ and the integral
+range $A_3 = \int r(h)\,dh$; for spheres of radius $R$, $A_3 \approx 0.61\,V$ (tested on
+images: covariance within 0.03, variance of the fraction of boxes).
+
+*Families, spheroids, finite coverage.* Each phase may have its own law of leaves
+(Jeulin's multicomponent dead leaves): with the fractions of space $q_i$ of the leaves
+of the families, their leaves fall in the proportions $p_i \propto q_i/E[V_i]$. Spheroids
+(semi-axes $a$, $a$, $c$ about an axis drawn from an orientation distribution) are affine
+images of the ball: $K(hw) = V k(h\sqrt{(1-t^2)/a^2 + t^2/c^2})$, $t = w\cdot$axis, $k(s) =
+1 - \tfrac34 s + \tfrac1{16}s^3$, averaged over the sizes (weighted by their volumes) and
+over the axes. A finite coverage $c$ (the mean number of leaves falling on a point; a
+Poisson number of leaves in the window) leaves the fraction $e^{-c}$ to a background
+(the last cell of the labels). Going back in time, with $\kappa_i = K_i/K_i(0)$ and $c_i =
+cq_i$, the leaves hitting both $x$ and $x+h$ come at the rate $a_i = c_i\kappa_i$, those
+hitting $x$ only at $b_i = c_i(1-\kappa_i)$, either at $\lambda = \sum c_i(2-\kappa_i)$, $x + h$ at
+$\mu = c$: the same leaf of $i$ has the probability $(a_i/\lambda)(1 - e^{-\lambda})$, a leaf of
+$i$ at $x$ and another of $j$ at $x + h$ $(b_iq_j + b_jq_i)(I_1 - I_2)$, with $I_1 = (1 -
+e^{-\lambda})/\lambda$ and $I_2 = (e^{-\lambda} - e^{-\mu})/(\mu - \lambda)$, a leaf of $i$ and the
+background $b_iI_2$, both points uncovered $e^{-\lambda}$; as $c \to \infty$, $a_i/\lambda$ and
+$(b_iq_j + b_jq_i)/\lambda$. The covariances of the phases sum these probabilities, and
+their integrals the integral ranges (over 24 directions for oriented spheroids).
+Measured on $96^3$ voxels: the proportion of the leaves of two families (radii 0.03
+and 0.07, fractions 0.4 and 0.6) 0.0971 for 0.0979, the probability of the same leaf
+within 0.02; aligned prolate spheroids along each axis within 0.0025; a coverage of
+0.8: a background of $0.4450 \pm 0.0046$ over twelve realizations for $e^{-0.8} = 0.4493$,
+its centred covariance within 0.01.
+
+**Transparent dead leaves** (`transparent_dead_leaves`; Jeulin 1997). Each leaf (a
+sphere) carries a value $v$ (uniform on $[0, 1]$, or Bernoulli), and a leaf falling on a
+point turns the value $Z$ there into $\alpha v + (1 - \alpha) Z$: it lets $1 - \alpha$ of what
+it covers show through ($\alpha = 1$: the dead leaves). At the limit $Z(x) = \sum_n \alpha(1 -
+\alpha)^{n-1}v_n$, $v_1$ the last leaf fallen on $x$, so that $E[Z] = E[v]$ and $\operatorname{Var}Z =
+\sigma^2\alpha/(2 - \alpha)$. Going back in time, the leaves hitting $x$ or $x + h$ hit both with the
+probability $r(h)$ (above), one of them otherwise; each multiplies $E[(1 - \alpha)^{a + b}]$,
+$a$ and $b$ the leaves already counted on each point, by $m = r(1 - \alpha)^2 + (1 - r)(1 -
+\alpha)$, and the shared leaves give
+$$\operatorname{Cov}\big(Z(x), Z(x + h)\big) = \frac{\sigma^2\alpha^2r}{1 - m} =
+\frac{\sigma^2\alpha\,r}{1 + r(1 - \alpha)},$$
+the correlation $r(2 - \alpha)/(1 + r(1 - \alpha))$, $r$ for opaque leaves. The leaves are
+drawn backwards until the weight left to the centres of a check grid is below the
+tolerance ($10^{-3}$), then a third more, the rest of the weight of a point taking the mean
+value. Phase 1 is $\{Z > t\}$, of fraction $P(Z > t)$: the law of $Z$ from $10^6$ draws of its
+series down to a weight of $10^{-4}$, which gives the threshold of a volume fraction to
+about $10^{-3}$. Measured on $64^3$ voxels ($\alpha = 0.4$, radii 0.05): the variance within 5 %,
+the covariance within 5 % of the variance, the fraction $0.4008 \pm 0.0017$ over ten
+realizations for 0.4; opaque leaves give the values of the visible leaves of the dead
+leaves exactly.
+
+**Kelvin cells** (`strut_lattice`, `cell: kelvin`). The edges of the truncated
+octahedra centred on a bcc lattice (the Voronoi cells of the bcc lattice; vertices at
+the permutations of $(0, \pm a/4, \pm a/2)$ around each centre, edges of length
+$\sqrt2 a/4$): 24 struts and 12 nodes of four struts per cubic cell of edge $a$.
+
+**Laguerre tessellations of packings** (`laguerre`, `germs: packing`). The germs are
+the centres of non-overlapping spheres placed by random sequential addition (largest
+first), whose radii follow the given distribution up to a common factor filling the
+packing fraction; the weights are their squared radii, so the cells contain their
+spheres and follow their sizes (the correlation of the cell volumes with $r^3$ rises
+from 0.74 for Poisson germs to 0.98 for a lognormal distribution, CV 0.5).
+
+**Hard-core fibres** (`hardcore_fibers`). Spherocylinders of radius $r$ and cylinder
+length $L$ (constant or random) are placed one at a time by random sequential addition
+(§3): uniform centres, axes drawn from the orientation distribution, a trial rejected
+when its axis comes closer than $r_i + r_j + g$ to that of a placed fibre ($g$ the gap
+between their surfaces). The distance between two axes is that of the closest points of
+two segments (Ericson 2005), taken to the nearest periodic image of each fibre of the
+neighbouring cells of a cell list, so that the periodic box must be longer than twice the
+reach $L + 2r + g$ of a fibre. The number of fibres is the one whose total volume is
+closest to the target, and the fibres do not overlap: the volume fraction is exact, and
+
+$$S_V = p\,\frac{2\pi E[r]E[L] + 4\pi E[r^2]}{\pi E[r^2]E[L] + \tfrac43\pi E[r^3]}$$
+
+(the template `hardcore_fibers`: 0.1499 and 0.627 on $200^3$ voxels, for 0.15 and 0.630).
+The excluded volume of two isotropic spherocylinders of diameter $D = 2r$,
+$\tfrac{4\pi}{3}D^3 + 2\pi D^2L + \tfrac{\pi}{2}DL^2$ (Onsager 1949), grows as $L^2D$, so
+that the process jams at a fraction that falls as the fibres lengthen; aligned fibres,
+whose excluded volume has no $L^2$ term, pack further. Non-periodic samples are cut from
+a periodic box enlarged by the reach, without wall effects. Tested: no two fibres closer
+than the gap (brute force over the periodic images), the closest points of segments
+against a fine sampling, the fraction on voxels.
+
+**Curved fibres** (`curved_fibers`; worm-like chains, Kratky & Porod 1949). A fibre is a
+chain of $m$ straight segments of length $\Delta s = L/m$ with round caps, so that its
+joints are smooth. Each direction turns from the previous one by an angle whose cosine
+$w$ has the von Mises–Fisher density $\kappa e^{\kappa w}/(2\sinh\kappa)$ on $[-1, 1]$,
+about a uniform perpendicular axis; $w$ is drawn by inversion,
+$w = 1 + \ln(u + (1-u)e^{-2\kappa})/\kappa$. Its mean, the Langevin function
+$\coth\kappa - 1/\kappa$ (inverted by Newton's method from Cohen's 1991 approximation), is
+set to $c = e^{-\Delta s/\ell_p}$, $\ell_p$ the persistence length. The turns being
+symmetric about the previous direction, $E[t_{k+1} \mid t_k] = c\,t_k$: the tangents
+decorrelate as $E[t_j\cdot t_{j+d}] = c^d = e^{-s/\ell_p}$ at the distance
+$s = d\,\Delta s$ along the contour, and the end-to-end vector $R = \Delta s\sum_k t_k$
+has
+
+$$E[R^2] = \Delta s^2\Big(m + 2\sum_{d=1}^{m-1}(m-d)\,c^d\Big) \;\to\;
+2\ell_pL - 2\ell_p^2\big(1 - e^{-L/\ell_p}\big) \quad (m \to \infty),$$
+
+from $L^2$ for straight fibres ($\ell_p \gg L$) to $2\ell_pL$ for flexible ones. The
+middles of the contours form a Poisson process of intensity $\theta$ (a Boolean model):
+the length density is $L_V = \theta L$, and the volume fraction $1 - e^{-\theta V}$ with
+$V = \pi r^2L + \tfrac43\pi r^3$, exact for straight fibres and a little above that of
+curved ones, whose segments overlap at the bends (`volume_fraction` sets $\theta$ by this
+formula). Tested: the correlations of the tangents at lags 1, 3 and 6 and $E[R^2]$ within
+four standard errors (over a thousand fibres), and the fraction of straight and tortuous
+fibres within 0.014 of 0.15 (the mean of six boxes, whose fraction fluctuates by about
+0.011).
+
+*Arcs, helices, fibres without overlap.* After the curved fibres of
+NASA's PuMA, `shape: arc` bends the fibres along circular arcs of radius of curvature
+$\rho$ drawn from `curvature_radius` (a distribution), in a uniformly random plane
+containing the tangent $t$ at the middle of the contour, which follows `orientation`:
+$P(s) = \rho\sin(s/\rho)\,t + \rho\,(1 - \cos(s/\rho))\,u$ for the arc length $s$ from the
+middle, $u \perp t$ uniform; the polyline of $m$ chords of length $2\rho\sin(L/2m\rho)$
+joins points of the circle, and its end-to-end distance is the chord
+$2\rho\sin(L/2\rho)$. `shape: helix` gives crimped fibres: helices of radius $a$ and pitch
+$p$ about straight axes $t$ (following `orientation`), of random phase,
+$P(s) = a(\cos\alpha\,u + \sin\alpha\,w) + c\,\alpha\,t$ with $c = p/2\pi$,
+$\alpha = s/\sqrt{a^2 + c^2}$ and $w = t \times u$; $E[R^2] = (c\alpha_L)^2 +
+(2a\sin(\alpha_L/2))^2$. `overlap: false` places the fibres one at a time by random
+sequential addition, uniformly random centres (the middles of the contours) of fibres
+of fixed shapes, a trial rejected when one of its segments comes closer than
+$2r + $ `min_gap` to a segment of the nearest periodic image of a fibre already placed
+(Ericson's closest points of segments; linked cells at least as large as the reach of
+two fibres; `kernels.rsa.random_sequential_addition_polylines`); `volume_fraction` sets
+the number of fibres $pV/(\pi r^2L + \frac43\pi r^3)$, a little above the fraction of the
+image (the segments overlap at the joints). Tested: the radii of curvature of the arcs
+(the circumradii of consecutive points, to 1e-9), their chords and $E[R^2]$; the radius,
+pitch and $E[R^2]$ of the helices; no two segments of non-overlapping arcs and
+worm-like chains closer than $2r +$ `min_gap` over all the pairs of nearby fibres and
+their periodic images, and the fraction 0.08 within 8 %.
+
+*Hollow fibres* (`lumen`, of `hardcore_fibers` and `curved_fibers`): the union of the
+fibres minus the union of their lumens, spherocylinders of radius `λ r` on the same
+axes (`Combined` with the operation `difference`: stored, voxelized, and meshed
+conformingly through the combined level sets); the lumens belong to phase 0 (the
+matrix or the pores). Exact without overlaps: the walls of a fibre fill
+`π (1 − λ²) r² L + (4/3) π (1 − λ³) r³` of its volume (`solid_fraction` of the
+theory); in the Boolean model a lumen crossing another fibre opens its wall there.
+Checked: lumens on the axes, walls halfway, solid fractions within 3 % for straight
+and curved fibres (`λ` = 0.6 and 0.5).
+
+**Bending fibres packed by forces** (`random_walk_fibers`; Altendorf & Jeulin 2011,
+Phys. Rev. E 83, 041804, and its application to a glass-fibre composite, ISMM 2011). Implemented:
+dense systems of bending fibres without overlap, of given
+distributions of orientation, length and radius. *Random walks* (as in the papers). A
+fibre of radius $r$ and contour length $L$ is a chain of $m = \mathrm{round}(L/\eta r)$
+segments of length $L/m$ ($\eta$ = `step`; the papers' $r/2$ is $\eta = 0.5$), whose
+directions follow the multivariate von Mises–Fisher law
+
+$$f(t_k \mid \mu, \kappa_1, t_{k-1}, \kappa_2) \propto e^{\kappa_1\,\mu\cdot t_k +
+\kappa_2\,t_{k-1}\cdot t_k}, \qquad t_0 = \mu,$$
+
+that is the von Mises–Fisher law about $\kappa_1\mu + \kappa_2t_{k-1}$ of concentration
+$\kappa = |\kappa_1\mu + \kappa_2t_{k-1}|$ (drawn as for the curved fibres, the cosine by
+inversion and a uniform azimuth). $\kappa_1$, the reliability to the main direction $\mu$
+of the fibre, holds it to that direction; $\kappa_2$, the reliability to the previous
+step, sets the smoothness of the bending. $\mu$ follows `orientation`, in the papers the
+β law of Schladitz et al. (2006), of density $\beta\sin\theta/4\pi(1 + (\beta^2 -
+1)\cos^2\theta)^{3/2}$ in the angle $\theta$ to the axis, uniform for β = 1, on the axis
+as β → 0 and in its normal plane as β → ∞ (`{type: beta, beta, axis}`, for every fibre
+model: isotropic directions whose axial component is divided by β, the angular central
+Gaussian law of $\mathrm{diag}(1, 1, \beta^{-2})$). Each chain is turned (Rodrigues)
+about its first node, uniform in a periodic box, so that its end-to-end vector follows
+$\mu$, and the number of fibres is the one whose total volume
+$\sum \pi r^2L + \frac43\pi r^3$ is closest to $pV$. *Packing* (as in the paper,
+sec. II B–C; `kernels.force_biased`). At each step every node moves by the repulsions
+plus $\varepsilon$ = `recovery` (0.2) times the recovery forces, the sum capped (a choice:
+the paper gives no value) to a quarter of the shortest segment or radius: two segments
+closer than $r_a + r_b + g$ by $\delta$ ($g$ = `min_gap`) are pushed apart by $\delta/2$
+each along the line of their closest points (nearest periodic images); a segment of
+length $D \ne D_0$ moves its nodes by $f_{0.05,0.10}(|\Delta D|/D_0)\,\Delta D$ along it
+(springs); a joint more bent than at rest, $\alpha < \alpha_0$, moves its node towards
+the chord of its neighbours by $f_{0.1,0.2}(\alpha_0 - \alpha)\,(z - z_0)$, $z$ its
+distance to the chord and $z_0$ the root of $z_0^2 - (h_1 + h_2)\cot\alpha_0\,z_0 -
+h_1h_2 = 0$ at which the angle is $\alpha_0$ ($h_{1,2}$ the distances of the foot to the
+neighbours; open springs, which straighten the fibres but do not fold them), with the
+friction ramp $f_{s,e}(x) = \frac12 - \frac12\cos(\pi\frac{x - s}{e - s})$ from 0 to 1.
+The packing stops when the total force is below $0.04\,\bar r$ per fibre (the paper's
+$0.002\,s$ per fibre, for its window $s = 20r$) and the largest overlap below
+$0.1\,r_{min}$, the paper's condition of acceptance (an error after `max_steps`, 10 000:
+the fraction is out of reach). The overlaps left are removed by steps of repulsions
+alone (`end_step: repulsion`, the paper's second solution, down to $10^{-9}r_{min}$)
+or by the paper's end step (`shrink`), the radius of each fibre reduced by half its
+largest overlap; either way the radii end reduced by half the overlaps left, so that
+$d \ge r_a + r_b + g$ for every pair. Soft-core walks (`packing: false`) form a Boolean
+model, whose `volume_fraction` is that of the union, $1 - e^{-\theta\bar V}$.
+
+*Choices.* The papers' fibres are chains of balls $r/2$ apart; ours are chains of
+spherocylinders (sphere-swept polylines): smooth surfaces, longer steps if wanted, and
+no overlap meaning axes at distances $d \ge r_a + r_b$ (Ericson's closest points). The
+push of a segment is shared by its two nodes with the barycentric weights of its
+closest point; the segments of a fibre at most $\lceil 2.5/\eta\rceil$ steps apart are
+exempt (the paper's five balls, an arc length of $2.5r$); a segment stretched beyond
+twice its rest length is shortened to it after a step (an unreachable fraction tears the
+fibres apart, which would swell the cells of the search); the radius is one per fibre
+(the papers allow it to vary along the walk); the tolerance is made scale-free; a joint
+folded beyond its chord (the foot outside it) moves towards the middle of the chord; and
+non-periodic samples are cut from a periodic box enlarged by half the reach
+$L + 2r + g$ on every side. The volume of a chain is
+$\pi r^2L + \frac43\pi r^3 - \frac23r^3\sum_j(2\tan\frac{d_j}{2} - d_j)$, $d_j$ the turn
+of joint $j$ (the cylinders overlap inside a bend, the ball of the joint fills its
+outside; $\approx r^3d^3/18$), from which the summary gives the realized fraction: it
+departs from the target by the change of the contour lengths that the springs leave
+free (the paper's 0.9 to 1.1 times the initial fraction): 0.358 for 0.35 (the template:
+334 fibres of aspect ratio $(L + 2r)/2r = 11$, β = 0.5, 266 steps and 138 end steps,
+about 9 s), 0.509 for 0.5 (isotropic), 0.604 and 0.641 for 0.6 and 0.65 (β = 0.1; 1334
+steps, about a minute), where the paper reaches 0.72 for β = 0.1 at the aspect ratio 9
+and about 0.5 at 18 to 33. Tested: the β law (Kolmogorov–Smirnov on
+$P(|\cos\theta| \le c) = \beta c/\sqrt{1 + (\beta^2 - 1)c^2}$ for β = 0.2, 1, 4); the
+steps (κ₁ = 4, κ₂ = 12), whose cosines to $\kappa_1\mu + \kappa_2t_{k-1}$ are uniform
+once transformed by the distribution function of their law and whose azimuths are
+uniform; the paper's estimator $\hat\kappa_2 = 2/\mathrm{Var}_2$ (for $\kappa_2/\kappa_1 >
+2$), 105 and 305 for κ₂ = 100 and 300 (κ₁ = 10; within 8 %), and $\hat\kappa_1 =
+2/\mathrm{Var}_1$, 34 and 70, above $2\kappa_1$ for walks of 40 steps, which do not
+outlast their memory of $(\kappa_1 + \kappa_2)/\kappa_1$ steps (the paper's measure of κ₁
+is likewise too high before packing); the mean tortuosity
+(contour over end-to-end length) of the walks within 6 % of its small-angle value,
+$\frac1{2m}\big(\sum_kE|\xi_k|^2 - \frac1m\sum_{j,k}E\,\xi_j\cdot\xi_k\big)$ for the
+deviations $\xi_k = a\,\xi_{k-1} + \eta_k$, $a = \kappa_2/(\kappa_1 + \kappa_2)$,
+$E|\eta_k|^2 = 2/(\kappa_1 + \kappa_2)$ ($T - 1$ = 0.0301, 0.0146 and 0.00619 against
+0.0288, 0.0144 and 0.00613 for (κ₁, κ₂) = (10, 100), (10, 300) and (100, 100));
+after packing 0.35 (79 fibres of aspect ratio 6, β = 0.5), no two segments closer than
+$r_a + r_b$ to $3\cdot10^{-15}r$ (brute force over the periodic images, the five steps
+of a fibre exempt), against $-2r$ for the soft-core walks, the segments 1.5 % longer on
+average and 90 % of them within 9.6 % of their rest length, 99 % of the turns below
+0.42 rad; the realized fraction 0.3561, its image 0.3561 on $120^3$ voxels; the chains
+continued across the faces, a period apart; seeds, the end step `shrink` (radii reduced
+by 1.5 %), a non-periodic sample (0.300 for 0.3).
+
+**Fibres drawn into contact** (`random_walk_fibers` with `interaction_distance`; Keilmann,
+Redenbach & Willot, Comput. Mater. Sci. 264, 114458, 2026). Implemented: the
+extension of the Altendorf–Jeulin model that raises the number of contacts between the
+fibres, as in the paper (sec. 3, Algorithm 1), on our chains of spherocylinders. After
+the packing above, the pairs of segments of different fibres whose surfaces are closer
+than $\epsilon + \delta$ ($\epsilon$ = `contact_distance`, $\delta$ =
+`interaction_distance`) are the contact candidates; the shortlist (eq. 18) keeps a pair
+when no candidate pair of the same two fibres that shares one of its segments is closer,
+so that a segment keeps at most one pair per other fibre. The packing then runs again
+with the contact forces (eqs. 20–23): a shortlisted pair farther apart than
+$r_a + r_b + g + \epsilon$ by $e > 0$ is drawn together by $\omega_c f_{0,\epsilon}(e)\,e/2$
+each ($\omega_c$ = `contact_weight`, the paper's 0.5; $f_{0,\epsilon}$ the friction ramp,
+1 for $\epsilon = 0$) along the line of the closest points, the complement of the
+repulsions, until the total force changes by less than 0.001 % over a step (the paper's
+criterion; 1000 steps at most); the pairs that leave on one of their nodes a force above
+$\tau\bar r$ ($\tau$ = `contact_threshold`, 0.05: the paper's 0.1 voxel for a radius of 2
+voxels) are released as conflicting and the packing run once more, before the end step,
+which removes the overlaps the pulls leave by repulsions alone, so that the pairs drawn
+together end in contact. *Choices.* The segments instead of the balls; the stop when the
+force changes by less than its relative amount (the paper says "decreases": stopping at
+the first increase left the pulled pairs short of contact); a contact is a pair of fibres
+of which two segments are closer than $r_a + r_b + g + \epsilon$ plus 1 % of the smallest
+radius (the paper counts the connected components of the balls in contact, which merge
+along our longer segments; their clots, the components holding more than two fibres, are
+reported). Toll's estimate (eq. 1a; appendix D), the mean number of fibres that cross a
+fibre in the Boolean model of straight fibres of the same lengths, is
+$\theta\,\bar V_{ex}$ with the excluded volume of two spherocylinders of axes $l_1, l_2$
+closer than $D = 2r + g + \epsilon$ (the parallelogram swept by one axis along the other,
+dilated by a ball: Steiner's formula; Onsager's for $D = 2r$)
+
+$$V_{ex} = \tfrac43\pi D^3 + \pi D^2(l_1 + l_2) + 2Dl_1l_2\,|\sin\gamma|,$$
+
+averaged over the angle $\gamma$ between two fibres ($E|\sin\gamma| = \pi/4$ isotropic,
+$2/\pi$ planar, by Monte Carlo from a fixed seed otherwise). Measured (aspect ratio
+$L/2r = 10$, isotropic, 20 %, κ₁ = 10, κ₂ = 100): 4.40 contacts per fibre after the
+packing, 6.44 and 7.33 after the contact packing for δ = 0.5r and r (303 and 391 pairs
+shortlisted, 9 and 22 released), against Toll's 5.35; the template `contact_fibers`
+(191 fibres, δ = r/2, segments of one radius) goes from 4.74 to 7.06 in 22 s, as the paper
+from about 5 to 8.2 against Toll's 6.6 at the aspect ratio 30. Tested: the shortlist on a
+hand-made case; at the aspect ratio 6 the contacts per fibre raised by more than 30 %,
+above 1.2 times Toll's estimate, which the packing alone matches within 20 %; no two
+fibres closer than $r_a + r_b - 10^{-6}$ after it; the fraction kept (0.2 within 0.01);
+seeds.
+
+**Initial placement and mixed orientation laws** (`random_walk_fibers` with
+`placement_trials`, `{type: mixture}` laws; Altendorf, Jeulin & Willot, Int. J. Solids
+Struct. 51, 3807, 2014). Added: what the 2014 paper, which applies the
+model to a glass-fibre composite and computes its elastic and thermal responses by FFT,
+uses that the model lacked. *Mixed laws.* Its fibres follow a mixture of two β laws
+(eqs. 2–4): 0.393 of β = 0.114 about (−0.075, −0.006, −0.997) and 0.607 of β = 10.1 about
+(−0.526, 0.849, −0.045), an orthotropic law, and its virtual materials vary the weight.
+`{type: mixture, laws: [...], weights: [...]}` gives it to every fibre model: each axis
+from a law drawn with the probabilities of the weights (normalized), the quadrature the
+weighted union of those of the laws (the moments of this law within $10^{-3}$ of draws).
+*Initial placement.* "Adding an initial placement strategy to place the fibers at
+locations with minimal overlap reduces the computation time of the packing algorithm"
+(sec. 2.3, after Altendorf & Jeulin's ICS 2011 paper, not in the folder: the strategy is
+not described). Our choice: the fibres are placed one after another, in the order of
+their draw, each at the best of `placement_trials` uniform translations, the one whose
+segments overlap those of the fibres already placed the least, the sum of the depths
+$r_a + r_b + g - d$ of the overlapping pairs (nearest periodic images, linked cells as
+large as the reach of two segments; a trial abandoned once its sum exceeds the best, the
+first without overlap taken at once; `kernels.force_biased.place`); 1 keeps uniform
+positions and the draws of the earlier versions. Measured (radius 0.5, contour length
+10, κ₁ = 10, κ₂ = 100, a periodic box of 20, one thread): the template (β = 0.5, 0.35)
+from 266 packing steps to 53 with 10 trials and 31 with 30 (274, 51 and 33 for another
+seed, 8.4 s to 3.6 and 2.8 s), the realized fraction nearer the target (0.3518 for 0.35
+against 0.3583, the springs stretched less); isotropic, 0.5: 675 to 135 steps (33 to 11
+s), 0.55: 975 to 259, 0.6: 1842 to 508 (102 to 36 s); β = 0.1, 0.6: 870 to 238, 0.65:
+1493 to 600 (93 to 47 s), 0.7:
+5104 to 1416 (343 to 130 s; realized 0.681 against 0.672). Both reach 0.7 within the
+paper's 10 000 steps, but a budget of 2000 steps reaches 0.65 from uniform positions and
+0.7 with the placement. The end steps change little (138 to 92 for the template). Tested: the choice of the
+best trial on two straight chains (depths 0.8, 0.5 and 0 per pair of segments, the
+shallower of two overlaps), the packing of the fixture of the tests from 92 to 14
+steps with 20 trials, without overlap, at the fraction.
+
+**Entangled cross-linked fibres** (`cross_linked_fibers`; Mezeix et al., J. Mater. Sci.
+44, 3652, 2009, and Appl. Compos. Mater. 23, 71 and 87, 2016; Chatti et al., Comput. Mater.
+Sci. 151, 14, 2018, and Int. J. Solids Struct. 184, 221, 2020; Piollet et al. 2016). Implemented:
+the volume elements of the papers: carbon fibres separated by air,
+sprayed with epoxy and moulded, the resin bonding some of their contacts. As in Chatti et
+al., straight fibres in contact where their axes are closer than a diameter (plus
+`contact_gap`), a fraction `bonded_fraction` of the contacts, drawn independently, bonded
+(theirs: 1/3 to 1; all of them, the networks cross-linked at every crossing of Ban et al.
+2016, Shahsavari & Picu 2015 or Bosco et al. 2017). Their fibres, 12 mm long in a 1 mm
+element, cross it: `length: null` puts them on Poisson lines (§2) whose directions follow
+`orientation`, non-periodic; a `length`, a Boolean model of spherocylinders (Mikado
+networks), periodic or not. Their moulded fibres follow a Gaussian girdle (eq. 3), the
+angle θ to the axis of compression of density $\propto \sin\theta\,e^{-(\theta -
+\pi/2)^2/2\sigma^2}$ on $[0, \pi]$, σ = 0.4 rad (`{type: girdle, sigma, axis}`, for
+every fibre model: normal angles truncated to $[0, \pi]$ kept with the probability
+$\sin\theta$). Lines of any law of directions hitting the ball of radius ρ that contains
+the box (dilated by the reach of a cross-link) number a Poisson variable of mean
+$L_V\pi\rho^2$, through points uniform in the disc normal to them; for every law the
+fibres fill $p = 1 - e^{-L_V\pi r^2}$. Along a fibre the other lines of direction at an
+angle γ closer than $D$ to a length $\ell$ of it are those that cross the projection of
+its $D$-neighbourhood, of area $2D\ell|\sin\gamma| + \pi D^2$: the contacts form along a
+fibre a Poisson process of intensity
+
+$$\nu = 2DL_V\,E|\sin\gamma|, \qquad \bar\ell_c = \frac1\nu \overset{\text{iso}}{=}
+\frac{1}{\pi rL_V} \approx \frac{d}{2f},$$
+
+Mezeix's eq. 16 at small fractions (41 µm for 7 µm carbon fibres at 8.5 %; 39.4 µm exactly,
+42.2 µm in the girdle), the cross-links $1/b$ times farther, and per unit volume
+$\frac12 L_V\nu$ contacts; a finite fibre has on average $\theta\bar V_{ex}$ contacts
+(above). A cross-link (the papers model it by springs) is a ball of radius `link_radius`
+centred between the closest points of the axes, of phase `link_phase` (2) outside the
+fibres, merged with them if 1. The summary counts the axes crossing the domain, the
+contacts and cross-links centred in it and their spacings, the length of axis inside it
+over twice their numbers. Measured (40 samples of 200³ µm³, 7 µm fibres at 8.5 %): 0.02542
+and 0.02369 contacts per µm against 0.02538 and 0.02370 (isotropic, girdle), 0.492 and
+0.499 of them bonded for 1/2. Tested: the girdle law (Kolmogorov–Smirnov against its
+distribution function by quadrature, σ = 0.2, 0.4, 1.5); the contacts of Poisson lines,
+exactly the pairs of lines closer than $D$ (closed-form distances) whose closest points
+are near the box, their number per unit length within 6 % of ν and the axes crossing the
+box within 8 % of $L_VS/4$ (8 samples); finite fibres in a periodic box (girdle), their
+contacts per fibre within 5 % of $\theta\bar V_{ex}$ and half of them bonded (6 samples);
+the voxels of the three phases, the fibres at $1 - e^{-\theta V}$, the merged phases, seeds,
+the conditions on periodicity; Mezeix's spacing within 5 %.
+
+**Delaunay fibre networks** (`delaunay_network`; Ban, Barocas, Shephard & Picu, J. Mech.
+Phys. Solids 87, 38, 2016). Implemented: the three-dimensional networks of the
+paper, whose softening with the variance of the fibre stiffnesses scales with their
+coordination: points drawn at random in a cube, fibres along all the edges of their
+Delaunay triangulation, cross-linked at every node (its Voronoi networks are the open
+foams of §30). The triangulation is periodic (`models.foam.periodic_delaunay`): the
+points and their images within a margin of the box (three mean spacings, doubled until it
+holds) are triangulated by Qhull, the margin accepted when the circumsphere of every
+simplex at a point of the box lies in it, so that these simplices are empty of every
+image, those of the periodic triangulation; each edge is kept once, from a point of the
+box to an image of the other (the framework of `random_lattice`, in the metadata). The
+fibres are the struts of the open foams (spherocylinders, spheres of `node_ratio` radii
+at the nodes; a radius, or a fraction solved on each realization: 0.09996 for 0.1); the
+points are Poisson, hard-core (random sequential addition at `regularity` jamming
+distance) or Lloyd-relaxed, in space or (`dimension: 2`) in the middle plane of the domain.
+Two points are joined when their Voronoi cells share a face: for Poisson points the mean
+coordination is the mean number of faces of the Poisson–Voronoi cell, $2 + 48\pi^2/35 =
+15.535$ (Meijering 1953), and 6 in the plane (exactly on the torus: $E = 3V$ by Euler's
+formula); the mean edge of the planar Poisson–Delaunay triangulation is $32/(9\pi)
+\lambda^{-1/2} = 1.1318\,\lambda^{-1/2}$ (Miles 1970), $32/(3\pi)\lambda^{1/2}$ of fibres per
+unit area. Measured over eight periodic realizations: 15.532 ± 0.007 in space (1000
+points), mean fibre length $1.2859 \pm 0.0007\,\lambda^{-1/3}$ (coefficient of variation
+0.332; 1.2844 over 20 000 points; we know no closed form), in the plane 6 and $1.1332 \pm
+0.0009\,\lambda^{-1/2}$ (CV 0.49); hard-core points at 0.6 of the jamming distance give
+15.39 and more even fibres (CV 0.277; 0.349 in the plane). Ban et al. report a
+coordination of 21.12 for their Delaunay networks and fibre lengths close to exponential;
+those of Poisson–Delaunay networks are not (CV 0.33, against 1). Tested: the same edges as
+the triangulation of all the 3² or 3³ images (150 points, 2-D and 3-D), the statistics
+above within four standard errors, the least distance of hard-core points, the solved
+fraction, the framework, JSON round trips, the planar networks, the template and the
+form of the interface.
+
+**The stiffness of fibre networks and open foams by frames of beams**
+(`homogenization.networks`; Ban, Barocas, Shephard & Picu 2016; Shahsavari & Picu 2015;
+Bosco, Peerlings & Geers 2017). Implemented: the moduli of the networks of these papers by the periodic frames of
+Euler–Bernoulli beams of §45 (or of its Timoshenko beams, `shear_coefficient`). The
+framework of a realization (the Delaunay networks above,
+the open foams of §30, whose Voronoi framework `models.foam.periodic_framework` is now kept
+in their metadata, and `random_lattice`) becomes a frame of beams of circular sections with
+rigid joints (`SpaceFrame.from_framework`, `Frame.from_framework` in the plane: `A = πr²`,
+`I = πr⁴/4`, `J = 2I`, a radius, a Young's modulus and a Poisson's ratio per fibre), whose
+periodic problem gives the effective stiffness, its split into stretching, bending and
+torsion and the non-affinity of the deformation (the regimes reviewed by Picu 2011;
+`frame_stiffness`, `network_stiffness`;
+the three models add them to their summary with `frame_stiffness: true`). Ban et al. pull
+non-periodic cubes with free lateral faces (Abaqus, Timoshenko beams); the cell is periodic
+here, as in the asymptotic homogenization of Bosco et al., and the Young's modulus is that
+of a uniaxial stress, `1/S₁₁`. Measured over four realizations each:
+
+* slender Delaunay networks (radius `10⁻⁴`, 1000 points in a unit cube) store all their
+  energy in stretching, but do not tend to the affine estimate `C = φE_s⟨n⊗n⊗n⊗n⟩`: its
+  modulus is `0.1662 φE_s` on these realizations (`φE_s/6` for isotropic directions),
+  theirs `0.1364 ± 0.0004 φE_s`, 0.821 ± 0.002 of it, with the Poisson's ratio of the
+  estimate, `0.253 ± 0.001` (1/4). The nodes of a disordered network of central forces
+  (`Z = 15.5 > 2d`) relax away from the affine motion (non-affinity 0.082), as an
+  independent computation of the truss confirms (§45); in the plane (2000 points) 0.756 ±
+  0.002 of `0.334 φE_s` (`φE_s/3`), `ν = 0.374 ± 0.002` (1/3), non-affinity 0.19
+  (`φ` the fibre volume per unit area). Thicker fibres add their bending: 0.86 of the
+  estimate at `φ = 0.31`;
+* Poisson–Voronoi open foams (200 cells) are bending-dominated: `E/(E_s φ²) = 1.27 ±
+  0.02`, 1.21 and 0.79 at `φ = 1.6·10⁻⁴`, `2.5·10⁻³` and 0.04 (the stretching of the struts
+  in series with their bending), 94 % of the energy in bending and 5 % in torsion; Gibson
+  & Ashby's coefficient is about 1, that of Kelvin foams of circular struts 0.60 (§45):
+  the short edges of the Poisson–Voronoi cells stiffen them. Their Poisson's ratio tends to
+  1/2 (0.4996 at `φ = 1.6·10⁻⁴`), their bulk modulus being carried by stretching, as in
+  Kelvin foams (Warren & Kraynik 1997); non-affinity 1.1.
+
+*Networks of non-identical beams* (`softening_coefficients`, `softening`). Ban et al. draw
+the axial or bending stiffness `k` of each fibre from a normal, lognormal or bimodal law of
+mean `k₀` and coefficient of variation `CV`, on one geometry, and find the mean modulus
+softening as `CV²` and its variance growing as `CV²`. The Young's modulus is the minimum,
+over the fluctuations and the free macroscopic strains (the lateral contraction), of an
+energy linear in each `k_i`, hence concave in each (their eqs. 9 and 20), and to second
+order (their eqs. 22 and 25)
+
+$$\frac{E_0 - \langle E\rangle}{E_0} = s\,CV^2,\quad s = -\frac{k_0^2}{2E_0}\sum_i
+\frac{\partial^2E}{\partial k_i^2},\qquad \frac{\sigma_E^2}{E_0^2} = v\,CV^2,\quad v =
+\frac{k_0^2}{E_0^2}\sum_i\Big(\frac{\partial E}{\partial k_i}\Big)^2,$$
+
+computed exactly for a frame: with `U` the solution of the uniaxial stress and `f_i = k₀
+K_i' U` the force of the mode of beam `i`, `k₀ ∂E/∂k_i = U·f_i/V` and `k₀² ∂²E/∂k_i² =
+−(2/V)(f_i·K⁻¹f_i + g_i·(V C')⁻¹g_i)`, the fluctuations and the free strains relaxing (`g_iJ =
+u_J·f_i`, `C'` their stiffness), one solve per beam. The replicas of `softening` use the
+first-order part, of zero mean, as a control variate, which removes most of their scatter.
+Ban's reference (`r = 0.02 L`, `(EI)₀/(EA)₀ = 10⁻⁴ L²`, `G = E/2.6`) on a Voronoi network of
+100 cells (1340 fibres, `Z = 4`) and a Delaunay network of 150 points (1171 fibres, `Z =
+15.6`; theirs 21.12), the stiffness drawn from normal laws (40 replicas per point):
+
+* Voronoi, `EA = 10³(EA)₀`, `EI` random (their case 1, bending-dominated: 94 % of the energy
+  in bending): `s = 0.458`; replicas 0.00465 ± 0.00006, 0.0188 and 0.0471 at `CV` = 0.1,
+  0.2, 0.3 (`s CV²` = 0.00458, 0.0183, 0.0413); `v = 1.5·10⁻³`;
+* Delaunay springs (`EI = GJ = 0`; their case 11): `s = 0.354`, replicas 0.00358 ±
+  0.00006 at `CV = 0.1` (0.00354), 0.378 `CV²` for the bimodal law at `CV = 0.5`; `v =
+  3.1·10⁻³`;
+* the reference with a random Young's modulus: Voronoi `s = 0.594` (41 % of the energy in
+  stretching), Delaunay 0.315.
+
+Read on their Fig. 4, their Voronoi and Mikado networks (and most cases) follow `s ≈
+0.45`–0.55 (`v ≈ 2.5`–`3.1·10⁻³`), their springs `s ≈ 0.34`–0.39 (`v ≈ 3.3·10⁻³`), their
+Delaunay networks of axial stiffness `10⁻³(EA)₀` `s ≈ 0.11` (`v ≈ 5·10⁻⁴`): agreement for
+the bending-dominated Voronoi network (0.458) and the springs (0.354 and 0.378 bimodal),
+and the scatter within a factor of two (it scales as the inverse of the number of fibres,
+which they do not give exactly). With the axial stiffness lowered to `10⁻³(EA)₀` and `EI`
+kept, Euler–Bernoulli beams soften far less than theirs: `s = 0.11` for the Voronoi network
+(their case 4: about 0.45) and 0.0075 for the Delaunay network (case 9: 0.11), the bending
+stiffness holding the nodes on a nearly prescribed motion (the transverse stiffness
+`12EI/l³` of the beams is then 20 times their axial stiffness `EA/l` in the Delaunay
+network, 150 times in the Voronoi one; 85 % and 91 % of the energy in stretching).
+
+*Ban's cases 4 and 9 with Timoshenko beams.* Their fibres are Timoshenko beams (linear
+elements of Abaqus) of general sections, chosen to set the axial and bending stiffnesses
+independently: a general section sets its area `A`, its moments `I` and `J` and the
+moduli `E` and `G` apart, so that `EA = 10⁻³(EA)₀` at the same `E` and
+`EI` is an area `A = 10⁻³A₀`, and its transverse shear stiffness is, unless given apart,
+`kGA` of that area (`k = 1` for generalized sections; Abaqus Analysis User's Guide 2016,
+§29.3.3). The paper gives neither the shear stiffness nor the mesh; we read the default.
+Timoshenko beams of that shear stiffness (§45, Cowper's `κ = 0.886` for `ν = 0.3`) have
+`Φ = 12EI/(κGAl²)` of median 531 in the Voronoi network and 59 in the Delaunay one: their
+transverse stiffness, nearly `κGA/l`, falls to a third of their axial stiffness, and the
+network is no longer held by its bending. With the area drawn at random (`EA` and `κGA`
+together, the mode `area`; 40 replicas per point):
+
+* case 4 (Voronoi): `s = 0.464` (0.462 with `k = 1`; 0.464 ± 0.004 over four
+  realizations), replicas 0.00472 ± 0.00006, 0.0191 and 0.0466 at `CV` = 0.1, 0.2, 0.3
+  (`s CV²` = 0.00464, 0.0186, 0.0418), `v = 1.7·10⁻³`; 46 % of the energy in stretching
+  and 54 % in shear. Against about 0.45 on their Fig. 4a: settled;
+* case 9 (Delaunay): `s = 0.171` (0.165 with `k = 1`; 0.175 ± 0.001 over four
+  realizations, 0.170 with 400 points), replicas 0.00172 ± 0.00003, 0.00691 and 0.0157
+  (`s CV²` = 0.00171, 0.00684, 0.0154), `v = 2.1·10⁻³`; 70 % in stretching, 29 % in shear.
+  Against about 0.11 (0.12 read again below): the order of magnitude is recovered (the
+  Euler–Bernoulli beams were 15 times too low) but a factor 1.4–1.5 remains; their
+  coordination, their free faces and their coefficient of variation do not account for it
+  (*Case 9, a closer look*, below): not settled.
+
+Drawing `EA` alone at that shear stiffness gives `s = 0.26` and 0.14, and keeping the shear
+stiffness of the full section `κGA₀` gives 0.112 and 0.0080, those of Euler–Bernoulli
+beams: the agreement of case 4 needs a shear stiffness that falls with the area and varies
+with it, as general sections give by default. Cases 1 and 11 are unchanged (`Φ` of median
+`5·10⁻⁴` at `A = 10³A₀`: `s = 0.458`; springs have no transverse stiffness). The reference
+sections themselves are shear-deformable on the short edges of the Voronoi network (`Φ` of
+median 0.53, 16 % of the energy in shear), not in the Delaunay one (0.06). The softening
+holds for every geometry, its coefficient falling with the coordination (Delaunay below
+Voronoi), as they found. Tested: the derivatives against finite differences (relative
+`10⁻⁵` and `2·10⁻³`), for Euler–Bernoulli and for Timoshenko beams (the four modes, `Φ` of
+order 10 to 100), the replicas within 3.5 standard errors of `s CV²` and their scatter
+within 35 % of `√v CV`.
+
+*Case 9, a closer look* (`ban9` scripts of the session, not in the package). Four suspects,
+measured on the realization of 150 points above (seed 1; seeds 2 and 3 alike):
+
+* *their coordination of 21.12.* No Delaunay triangulation of Poisson points reaches it:
+  the periodic one has 15.54 (Meijering), and that of the points of a cube without images
+  less, its hull vertices missing neighbours (12.9, 13.4, 14.0 and 14.8 for 100, 150, 300
+  and 1000 points, eight cubes each; 14.9 for the nodes a mean spacing away from the
+  faces). The faces of the cube cut the periodic network 404 times (1154 fibres; a fibre
+  of length `l` is cut `1.5 l/L` times on average): counting the pieces as fibres,
+  `2 N_pieces/N` = 20.8, 21.3 and 20.5 for the three seeds (21.2 ± 0.4 with 120 points,
+  21.6 with 100). We read their 21.12 as that count, their networks as Poisson–Delaunay
+  ones cut by the cube (their springs agree with ours in `s`, 0.35–0.38 against
+  0.354–0.367, and in scatter, `v = 3.1–3.2·10⁻³` against `3.2–3.4·10⁻³`, which scales as
+  the inverse of the number of fibres): not the origin of the factor;
+* *their free faces.* A cube cut out of the periodic network as their Fig. 1 (the fibres
+  cut by the faces, the cut ends of `x = 0` and `x = L` held at `u₁ = 0` and `u₁ = d₀` and
+  free otherwise, two of them held against rigid motions, the pieces cut by the lateral
+  faces dangling and dropped; their eq. 1, `s` and `v` from the exact derivatives with
+  prescribed displacements): `s` = 0.196, 0.196 and 0.190 against 0.178, 0.174 and 0.173 in
+  the periodic cell for the three seeds (`v` = 2.5–2.7·10⁻³ against 2.1–2.3·10⁻³): the free
+  faces soften more, away from theirs. (Held this way, a network of springs carries no
+  load, its held pieces free to turn: their faces must hold nodes of several fibres, which
+  the paper does not describe);
+* *their coefficient of variation* is `σ/⟨k⟩` (their footnote 1, and their bimodal law
+  `⟨k⟩ ± σ`), ours; the normal law at their largest `CV` (0.39) loses 0.5 % of its draws
+  below zero;
+* *their figures, read again* (Fig. 4 rendered at 400 dpi): the seven filled navy
+  triangles of case 9 give `(E₀ − ⟨E⟩)/E₀CV²` = 0.106, 0.135, 0.122, 0.122, 0.193, 0.121 and
+  0.128 at `CV²` from 0.006 to 0.16 (median 0.122; their dashed line 0.11–0.12, the filled
+  blue circles of case 10 at 0.124–0.131) and `σ_E²/E₀²CV²` = 4.5–5.2·10⁻⁴ (one point at
+  7.6·10⁻⁴), so `s ≈ 0.12`, `v ≈ 4.9·10⁻⁴`; case 4: `v ≈ 3.1–3.6·10⁻³`.
+
+So the factor is 1.45 (0.178 against 0.122), and their scatter is 4.5 times smaller than
+ours (`2.2·10⁻³`) while that of their springs, on the same geometry, is ours. No shear
+stiffness of the beams gives both: with `κGA = β κGA(A)`, drawing the area gives `s` =
+0.178, 0.152, 0.144, 0.145 and 0.137 for `β` = 1, 2, 4, 8 and 16 (`v` from `2.2·10⁻³` to
+`1.1·10⁻³`), drawing `EA` alone 0.148, 0.097, 0.062, 0.040 and 0.027 (`v` from `1.7·10⁻³` to
+`5.7·10⁻⁴`): `s = 0.12` at `β ≈ 1.5` but `v` three times theirs (and case 4 falls from
+0.46 to 0.26 in that reading). Not settled: their case 9 behaves as a network whose
+varied mode carries a smaller part of the energy, or with more fibres, than the spring
+network of case 11; the paper gives neither its sections' shear stiffness nor the number
+of its fibres.
+
+*The frames against the continuum* (`rigid_joints`). The
+Young's modulus of the frame of a realization
+against that of the FFT solver of §12 on its voxel image (struts of `E_s = 1`, `ν = 0.3`,
+pores void, periodic, the six unit strains; the mean over the axes of `1/S_ii`, as for the
+frame): open foams of 10 cells (Lloyd-relaxed ten times, 138 struts) and a Delaunay
+network of 12 points (95 fibres) in a unit cube, nodes as thick as the struts
+(`node_ratio` 1), radii from 0.016 to 0.05. Convergence in the voxels (the foam of `r =
+0.03`): `E` grows by 1.45 % from 64³ to 128³ voxels (3.8 to 7.7 voxels across a strut) and
+by 0.02 % from 128³ to 160³; five voxels across leave it within about 0.5 %, three about
+3–4 % low (the foam of `r = 0.016`: +12 % from 64³ to 96³). The ratio frame/FFT, against
+the fraction of the image (`φ_frame = ΣAL/V` counts the overlaps at the nodes twice: 9 to
+30 % more) and the slenderness `r/l̄`:
+
+| framework | `φ` image | `φ_frame` | `r/l̄` | voxels across | Euler–Bernoulli | Timoshenko | Timoshenko, `a = r/3` |
+|---|---|---|---|---|---|---|---|
+| foam | 0.019 | 0.021 | 0.086 | 3.1 | 0.978 | 0.926 | 1.069 |
+| foam | 0.062 | 0.073 | 0.161 | 9.6 | 0.909 | 0.796 | 0.998 |
+| foam | 0.105 | 0.129 | 0.215 | 7.7 | 0.891 | 0.739 | 0.976 |
+| foam | 0.155 | 0.202 | 0.269 | 9.6 | 0.878 | 0.691 | 0.959 |
+| Delaunay | 0.123 | 0.152 | 0.053 | 5.8 | 0.934 | 0.933 | 0.971 |
+
+(at 3 voxels across, the FFT modulus is a few per cent low: the first row overestimates
+the ratios by about as much). The frames are softer than the continuum, the more so as
+the struts thicken, and Timoshenko beams more than Euler–Bernoulli ones: the shear
+compliance of thick struts (`Φ = 8.8 (r/l)²`, 0.07 to 0.6 here; 6 to 20 % of the energy of
+the foams) is real, so that the deficit lies in the joints, where the struts of the
+continuum merge over a length of the order of their radius and neither bend nor shear,
+while the beams do so from node to node (the Euler–Bernoulli frames come closer by an
+error that cancels the other). Rigid ends of `c` radii at each joint (`rigid_joints`, §45)
+correct it: the length that matches the continuum is, for Timoshenko beams, `c` = 0.18
+(0.2–0.25 once the voxels are corrected), 0.34, 0.36 and 0.37 for the foams and 0.56 for
+the Delaunay network, whose fifteen fibres per node meet at smaller angles and overlap
+more (Euler–Bernoulli: 0.05, 0.14, 0.14, 0.13 and 0.55); rigid ends of the node radius
+(`c` = 1) overshoot by 42 to 94 % for the foams. Timoshenko beams rigid over a third of
+their radius follow the continuum within 4 % for the foams from 6 to 15 % (7 % at 2 %,
+about 3 % once the voxels are corrected) and 3 % for the Delaunay network: a fit, about
+half the length over which the surfaces of struts at tetrahedral angles intersect
+(`r/tan 54.7° = 0.71 r`), not a rule derived from the geometry of the joints.
+
+*In the interface and on the command line* (the frames of beams
+no longer reachable from the API only). The frame of a realization (`network_frame`: the
+framework of its metadata, the radius of its fibres from its summary, solved for a volume
+fraction, or from its model; a plane frame when the framework lies in a plane, as that of
+a planar Delaunay network, whose stiffness is per unit area and `φ` the fibre volume per
+unit area) is solved with every option above by `morphogen frame-stiffness FILE` (a
+configuration, realized as the realization `R` of its batch run, or the geometry of a
+realization) and by the tool *Stiffness of the frame of beams* of the tab Mechanics, on
+the networks of the workspace: Euler–Bernoulli or Timoshenko beams (Cowper's coefficient,
+or a given one), rigid ends of `c` radii at the joints (a third for Timoshenko beams, from
+the comparison above), the modulus and Poisson's ratio of the fibres. Both give the Voigt
+stiffness and its engineering constants; along each axis, the Young's modulus, Poisson's
+ratio (the contraction along the next axis), ratio to the affine estimate, energy split
+and non-affinity of a uniaxial stress (`FrameStiffness.by_axis`); their means, those of
+the summaries of the models with `frame_stiffness: true` (Euler–Bernoulli beams, `E_s =
+1`, `ν = 0.3`), which Generate shows in a table of their own; and, on request, the
+coefficients `s` and `v` of the softening of non-identical beams along an axis (one solve
+per beam and mode). A morphology without a framework is refused, plainly.
+
+*Ban's replicas and a drawing of the frame* (the two things the
+tool still lacked). The replicas of `softening` (the factor of a mode drawn independently
+from beam to beam, from a normal law truncated at 10⁻³, a lognormal law or the bimodal law
+1 ± CV, on the same geometry; one solve each) run, for each mode chosen and each
+coefficient of variation, in the tool (the box *Softening of non-identical beams*: replicas
+per CV, coefficients of variation, distribution, seed; in the thread of the tools, its
+progress replica by replica) and with `morphogen frame-stiffness --softening MODE ...
+--replicas N --cv CV ... --distribution LAW --replica-seed S` (`--table` writes their
+table as CSV, `--figure` their figure; the JSON output keeps them under `replicas`). For
+each CV, `Softening.rows` gives the plain mean of `E/E₀` and its standard error `σ/√n`, the
+mean corrected by the control variate (the first-order part `Σ_i ∂E/∂k_i (k_i − k₀)`, of
+zero mean, taken from each replica) and its standard error, `1 − s CV²`, the standard
+deviation `σ_E/E₀`, the scatter `σ_E²/E₀²` with its standard error for normal draws,
+`σ²√(2/(n − 1))` (an estimate: `E` is close to normal at small CV), and `v CV²`; the figure
+(`viz.figures.softening_figure`) draws the means against CV with their error bars (filled:
+corrected; open: plain) under the curve `1 − s CV²`, and the scatter against `v CV²` with
+the diagonal. A replica costs a factorization of the stiffness of the fluctuations
+(SuperLU): 0.05 s for Ban's Delaunay network of 1154 fibres, 1.5 s for an open foam of 200
+cells (2690 beams, 8067 dofs, 1.1·10⁷ nonzeros in the factors), so that 40 replicas at
+three CV take 6 s and 3 min per mode.
+
+The drawing: `beam_forces(frame, axis)` solves the uniaxial stress `Σ = 1` along an axis
+(the lateral stresses free) and gives, beam by beam, the axial force `N = EA δ/l` (`δ` the
+extension of the flexible part `l`, which the rigid ends, turning about it, do not change)
+and the energy of each part, `u_k·K_k u_k/2V`, which sum to `E·CE/2 = 1/2E` and split as
+`FrameStiffness.split`. Tested, all to round-off (`4·10⁻¹⁶` to `4·10⁻¹⁴`): the forces of
+the dense path (`axial_forces`) of a kagome and an octet lattice under random strains, the
+energies summing to `1/2E` and split as `split`, the stretching energy of each beam
+`N²l/2EA` with rigid ends and Timoshenko beams, and the virial of a truss, `(1/V) Σ_k N_k
+d_k⊗d_k/l_k`, giving `Σ` back. `viz.figures.frame_figure` draws the beams in the
+cell, each cut where it crosses a face and its pieces brought back by the periods (their
+lengths summing to that of the beam), in an orthographic 3D view (in its plane for a
+planar network), coloured by the axial force (a scale about zero up to the 99th
+percentile of `|N|`: tension red, compression blue) or by the share of the energy of the
+network in the stretching or in the bending (with the torsion and shear) of each beam (a
+log scale over three decades below the largest), the strongest widest and on top; beyond
+2000 pieces the beams are rasterized in the vector files (an SVG of 0.75 MB for 2690
+beams, the PNG of the page 0.3 MB). The tool also gives the share of the beams that store
+half the energy (50 % if it were even): under a uniaxial stress along x, 14.7 % for the
+bending-dominated open foam above (36 % of its energy in stretching, a third of its struts
+compressed), 9.6 % for Ban's Delaunay network (`r = 0.02 L`, 95 % in stretching), 9.8 % for
+a slender one of 1000 points (7771 fibres) and 11.7 % for a planar one of 2000 points: the
+energy of these networks runs along chains of a tenth of their beams, those of the foam,
+whose struts bend, less concentrated.
+
+**Rotated and graded lattices** (`strut_lattice` with `rotation` or `radius_gradient`, in
+non-periodic domains). A rotated lattice is the lattice of §7 turned by the Bunge angles
+of `rotation` about the centre of the domain: its struts are generated over the box that
+contains the turned domain, enlarged by a cell, and turned back; its fraction is that of
+the lattice. In a graded lattice, each strut takes the radius
+$r(s) = r_0 + (r_1 - r_0)\,s$ at the reduced coordinate $s \in [0, 1]$ of its midpoint
+along the axis of the gradient, so that the local density is $p(r(s))$, that of the
+uniform lattice of this radius (§7), and the mean density is
+
+$$\bar p = \int_0^1 p\big(r(s)\big)\,ds,$$
+
+computed by Gauss–Legendre quadrature (6 points); the theory also gives the local
+densities at both faces, $p(r_0)$ and $p(r_1)$. Measured on $160^3$ voxels of $8^3$
+cells: 0.1165 for 0.1162 (cubic cells turned by (30°, 40°, 50°), $r = 0.12\,a$), 0.2728
+for 0.2711 (octet cells, $r$ from $0.04\,a$ to $0.12\,a$; the first and last cells at
+0.101 and 0.470, between the local densities 0.076 and 0.500 of the faces and the mean);
+the template `graded_lattice` (octet, $r$ from $0.05\,a$ to $0.15\,a$, turned by 45°)
+gives 0.3844 for 0.3842.
+
+## 24. Whole periodic grains (`mesh.polycrystal`, `cells: whole`)
+
+Periodic polycrystals are periodized at the design, not at the mesh: each cell of the
+periodic tessellation is taken whole, around its germ brought into the box
+(`periodic_cells`), instead of being cut by the faces of the box into pieces. The union
+of the whole cells is a fundamental domain of the torus: it has the volume of the box,
+and its boundary is made of pairs of facets that are translates of each other by a
+period. Each pair is meshed once — the corners of the facet (its vertices where the
+boundary turns), the subdivision points of its edges added by fans, a constrained
+Delaunay triangulation and Lawson flips, lifted onto the facet — and its translate takes
+the same triangles, reversed: every node of the boundary has its translates, the
+periodic conditions link nodes to nodes, and no cell is cut into slivers by a face of
+the box. A facet warped by the regularization whose triangulation would be seen from
+behind from the centroid of its cell is meshed as a fan from its centre instead.
+
+The faces of the elements on the boundary of the union are recorded (`TetMesh.outer`),
+through subsets and exports; the boundary faces, the periodic links (node, image,
+shift) and the pairs of translated faces derive from them. Kinematic and static
+conditions apply on that boundary with its geometric normals; the mixed conditions,
+defined on the faces of a box, do not. On a sweep of 210 periodic Voronoi and Laguerre
+tessellations of 20 to 200 cells, every mesh is valid and fills the volume of the box.
+
+## 25. The periodic element: macroscopic strains and stresses as unknowns
+
+The periodic element of Z-set adds the components of the macroscopic strain $E$ to the
+unknowns of the problem; their reactions are $V\Sigma$, so that each component can be
+prescribed either as a strain or as a stress. morphoGen solves such mixed loadings
+(`Loading`: strain components where `controls` is true, stress components elsewhere)
+by condensation. For a linear problem the averages of the dual field are affine in the
+native components $x$ of the boundary condition (strains under KUBC and PBC, stresses
+under SUBC) and in the change of temperature $\Delta T$:
+
+$$\text{dual} = M\,x + r\,\Delta T,$$
+
+where the columns of $M$ (the apparent stiffness, or compliance under SUBC) are the
+responses to unit native loadings and $r$ the response to a unit $\Delta T$ at zero $x$.
+With $P$ the prescribed native components and $U$ the others, whose duals are
+prescribed,
+
+$$x_U = M_{UU}^{-1}\left(\text{dual}_U - M_{UP}\,x_P - r_U\,\Delta T\right),$$
+
+and the field is the sum of the unit fields weighted by $x$ and $\Delta T$. The unit
+solutions are cached by the problem: after the six (three in conduction) solutions of
+the apparent tensor, any loading costs no further solve. This is exact for linear
+behaviours, keeps the linear systems and their solvers (algebraic multigrid, FFT)
+unchanged, and gives the same solutions as the extra degrees of freedom. A uniaxial
+stress $\Sigma_{11}$ gives back $E_1 = 1/S_{11}$ and the Poisson ratios of the compliance;
+a heating at zero macroscopic stress gives the thermal expansion tensor. Nonlinear
+behaviours need the extra degrees of freedom themselves: they are unknowns of the Newton
+iterations of the loading paths (§31).
+
+## 26. Thermo-elasticity
+
+Each phase may expand: $\sigma = C : (\varepsilon - \alpha\,\Delta T)$, with an isotropic
+expansion $\alpha I$, or a tensor turned by the orientation of each grain. The thermal
+strains act as eigenstrains: forces $\int_\Omega B^T C\,\alpha\,\Delta T$ in finite
+elements, a polarization in the FFT solver. The macroscopic law is
+
+$$\Sigma = C^* : (E - A^*\,\Delta T),\qquad A^* = -C^{*-1} r,$$
+
+$A^*$ being the strain of a stress-free heating by one degree. For two isotropic phases
+of bulk moduli $k_1 \neq k_2$, Levin's exact relation (Levin 1967; Rosen & Hashin 1970)
+gives $A^*$ from the effective compliance $S^*$:
+
+$$A^* = \bar\alpha\, i + \frac{\alpha_1 - \alpha_2}{1/(3k_1) - 1/(3k_2)}\,(S^* - \bar S) : i,$$
+
+with $i$ the identity, $\bar\alpha$ and $\bar S$ the averages of the expansions and of the
+compliances of the phases; for statistically isotropic composites
+$\alpha^* = \langle\alpha\rangle + (\alpha_1 - \alpha_2)(1/k^* - \langle 1/k\rangle) /
+(1/k_1 - 1/k_2)$, and the Hashin–Shtrikman bounds of $k^*$ bound $\alpha^*$ (Schapery
+1968). A uniform expansion of all phases is free of stress. The FFT and finite element
+solutions satisfy Levin's relation to $10^{-9}$ (unidirectional fibre composite of the
+template `homogenization_mixed_loading`).
+
+## 27. Post-processing: compliance, engineering constants, anisotropy, normalized values
+
+**Stiffness and compliance.** Every output of an elastic stiffness $C$ (the apparent
+stiffness of `homogenize` and of AMITEX_FFTP, the frames of beams, the designs of
+topology optimization, the elasticity of the laws identified or learned) gives its
+compliance $S = C^{-1}$ beside it, in the same notation: morphoGen's Voigt order
+$(11, 22, 33, 23, 31, 12)$ with engineering shears $\gamma_{ij} = 2\varepsilon_{ij}$
+($(11, 22, 12)$ for plane problems), $C$ in the units of the moduli and $S$ in their
+inverse. For an orthotropic material in its axes,
+
+$$S = \begin{pmatrix}
+1/E_1 & -\nu_{21}/E_2 & -\nu_{31}/E_3 & & & \\
+-\nu_{12}/E_1 & 1/E_2 & -\nu_{32}/E_3 & & & \\
+-\nu_{13}/E_1 & -\nu_{23}/E_2 & 1/E_3 & & & \\
+& & & 1/G_{23} & & \\
+& & & & 1/G_{31} & \\
+& & & & & 1/G_{12}
+\end{pmatrix}, \qquad \frac{\nu_{12}}{E_1} = \frac{\nu_{21}}{E_2}\ \ldots$$
+
+TFEL (MFront) and Abaqus order their shears $(12, 13, 23)$: morphoGen's $C_{44}$ (the
+plane 23) is their $C_{66}$ and its $C_{66}$ (the plane 12) their $C_{44}$; the outputs
+state the order. The Mandel form, $\sqrt 2$ on the shears, is $W C W$ for the stiffness
+and $W^{-1} S W^{-1}$ for the compliance, $W = \mathrm{diag}(1, 1, 1, \sqrt 2, \sqrt 2,
+\sqrt 2)$, still inverse to each other.
+
+**Engineering constants** of a Voigt stiffness (engineering shears): with $S = C^{-1}$,
+$E_i = 1/S_{ii}$, $\nu_{ij} = -S_{ij}/S_{ii}$ (contraction along $j$ under a stress along
+$i$), $G_{23}, G_{31}, G_{12}$ the inverses of the shear terms $S_{44}, S_{55}, S_{66}$.
+
+**Anisotropy.** The Voigt and Reuss averages of the bulk and shear moduli give the
+universal anisotropy index $A_U = 5G_V/G_R + K_V/K_R - 6 \ge 0$ (Ranganathan &
+Ostoja-Starzewski 2008), zero only for isotropy; the Zener ratio
+$2C_{44}/(C_{11} - C_{12})$ of the mean cubic part (1 for isotropy); and the relative
+distance, in the Mandel norm, to the isotropic stiffness of the Voigt averages.
+
+**Porous media.** Meshes or images without their pores give the macroscopic stress as
+the average over the volume element, the pores carrying none: $\Sigma = \varphi
+\langle\sigma\rangle_s$ (the average over the solid times the solid fraction $\varphi$),
+as in the homogenization notice of Z-set. The macroscopic strain is not the average over
+the solid: it is the prescribed strain or the macroscopic unknown of §25.
+
+**Normalized values.** For a property $P$ (bulk, shear or Young's modulus,
+conductivity) of a microstructure of solid fraction $\varphi$ whose solid phases have the
+properties $P_i$ and fractions $f_i$: relative $P/P_s$ with $P_s = \sum f_i P_i / \varphi$
+(the property of the solid); normalized $P / \sum f_i P_i$, which the rule of mixtures
+bounds by 1; specific $P/\rho$ with the effective density $\rho = \sum f_i\rho_i$.
+
+## 28. Results database and Ashby charts (`results`)
+
+Every run can be recorded in a database (one SQLite file, `outputs.database` or
+`morphogen db add`): its configuration flattened into dotted keys
+(`model.type`, `homogenization.materials.1.young`...) and one record per realization
+with its measures, apparent properties and normalized values. Records are selected by
+conditions on any key (`==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not in`, `~` for glob
+patterns).
+
+Normalized Ashby charts place the records in the plane (relative density, relative
+property) on logarithmic axes, one family per value of a key (the model by default).
+Families have their own colour (three validated categorical colours, the others folded
+into a grey "Other", markers as a second encoding), their convex hull as an envelope,
+and the guides $P/P_s = \varphi^n$ of cellular solids: $n = 1$ for stretching-dominated
+architectures (the rule of mixtures), $n = 2$ for bending-dominated open-cell foams,
+$n = 3/2$ for closed cells (Gibson & Ashby 1997; Deshpande, Ashby & Fleck 2001).
+
+## 29. Nested models
+
+Model parameters may be models: a model fills the phase 1 of another, or decorates it.
+
+**Cox spheres** (`cox_spheres`). Spheres whose germs fall in the phase 1 $A$ of another
+model (the aggregates): a Poisson process of intensity $\theta_1$ in $A$ and $\theta_0$
+outside, directed by the random set $A$ — a Cox process (Jeulin 1996; Jean et al. 2011
+for carbon black in rubber). For spheres of radius $r$ and aggregates of fraction $p_A$
+much larger than the spheres, the fraction of spheres is close to
+$p_A f_1 + (1 - p_A) f_0$, with the fractions $f_1 = 1 - e^{-\theta_1 V}$ and $f_0 = 1 -
+e^{-\theta_0 V}$ of a Boolean model inside and outside the aggregates ($V$: the mean
+volume of a sphere), given as `local_fraction` and `outside_fraction` (or $\theta_1$ as
+`intensity`). With `hardcore`, as many non-overlapping spheres as these fractions
+require are placed in each region by random sequential addition. The aggregates may form a phase of their own
+around the spheres; nested Cox models (aggregates of aggregates) follow.
+
+**Coatings and hollow members** (`coating`). A layer of thickness $t$ around the phase 1
+of a model (an interphase: the points within $t$ of it), or inside it (a shell, the core
+becoming another phase or void). Unions of spheres and segments are treated exactly:
+the coating is the union dilated by $t$, a hollow member each sphere or segment minus a
+thinner copy (bores of radius $r - t$, which join where members meet). Other structures
+go through the signed Euclidean distance transform of their voxels (periodic: on a copy
+wrapped over the thickness). For a Boolean model of spheres the coated set is the
+Boolean model of the dilated spheres:
+$1 - e^{-\theta\,\frac{4}{3}\pi E[(r + t)^3]}$.
+
+**Hierarchical lattices** (`hierarchical_lattice`; Rayneau-Kirkhope, Mao & Farr 2012). A
+frame of generation 1 between two nodes is a column of $n$ regular octahedra closed by
+two tetrahedra, of length $\sqrt{2/3}\,(n+2)\,a$ for an edge $a$; under compression the
+edges of its triangles carry tension and its lateral and end edges compression. A frame
+of generation $G$ replaces each compressed edge by a frame of generation $G-1$ of the
+same length; a frame of generation 0 is a tube. The nodes of a face-centred cubic
+lattice are joined to their 12 nearest (the octet truss) and 6 next-nearest neighbours
+by such frames, of solid or hollow tubes, with radii per generation. For hollow tubes the
+volume of material carrying a load index $f$ without buckling scales as
+$f^{(G+2)/(G+3)}$, against $f^{1/2}$ for solid struts. Generation 1 with $n = 3$
+octahedra per frame makes 1296 tubes per cubic cell.
+
+**Fractal sponges** (`fractal_sponge`). An iterated function system on a cubic grid:
+each kept sub-cube of a $k\times k\times k$ subdivision is subdivided again, `level`
+times; a point is solid when all the base-$k$ digits of its coordinates fall in kept
+cells. With $N$ kept sub-cubes the solid fraction is $(N/k^3)^{\ell}$ and the
+self-similarity dimension $\ln N/\ln k$: the Menger sponge ($N = 20$, $k = 3$,
+$D = 2.727$), the Vicsek fractal ($N = 7$, $D = 1.771$), the Cantor dust ($N = 8$,
+$D = 1.893$), or any pattern. Box counting on the voxels gives the dimension back.
+
+**Hollow strut lattices.** The struts of `strut_lattice` may be tubes of wall $t$: the
+union of the struts minus that of their bores. The solid fraction then peaks when the
+bores begin to fill the cell, and the radius for a target density is taken below the
+peak (exact for cubic cells: $3\pi r^2 - 8\sqrt2 r^3$ minus the same at $r - t$; voxel
+estimates otherwise, on a grid offset from the symmetries of the cell so that it samples
+the struts as at random rather than in aligned batches).
+
+**Nested combination** (`combination`, `operation: nested`): each model fills the phase
+1 of the previous one, keeping the other phases: a gyroid made of an octet lattice,
+spheres within the struts of a foam. For independent stationary models the fraction is
+the product of the fractions.
+
+## 30. Bio-inspired models
+
+**Nacre** (`nacre`; Jackson, Vincent & Turner 1988; Barthelat et al. 2007). Layers of
+mineral tablets of thickness $t$ separated by mortar of thickness $m$ (period $t + m$);
+in each layer the tablets are the cells of a planar tessellation shrunk by half the gap
+$g$: Voronoi cells of germs at least a fraction of the jamming distance of their random
+sequential addition apart (sheet nacre), or bricks staggered by `overlap` tablet from one
+layer to the next. The distance of a point to the sides of its cell is computed as for
+the grain-boundary phase (§22), in the plane. Volume fraction of tablets:
+$\frac{t}{t+m}\frac{(a - g)(b - g)}{ab}$ for bricks of $a\times b$, and
+$\frac{t}{t+m}(1 - 2\sqrt\lambda\,g)$ to first order for Poisson germs of intensity
+$\lambda$ (the sides of a Poisson–Voronoi tessellation of the plane are $2\sqrt\lambda$
+long per unit area).
+
+**Bouligand structures** (`bouligand`; Bouligand 1972; Weaver et al. 2012). Layers of
+parallel cylinders of radius $r$ at the spacing $s$, the direction of layer $k$ being
+$\theta_0 + k\,\delta$; the distance to the nearest fibre axis of the layers around a
+point is the exact signed distance. Without overlaps ($2r \le s$, $2r \le h$) the fibre
+fraction is $\pi r^2/(s h)$. A periodic box holds whole half-turns ($n\delta = 180°m$) and
+fibre families periodic in its plane: the lines normal to $(a/L_u, b/L_v)$, $a, b$
+integers, at the spacing $1/|(a/L_u, b/L_v)|$; each layer takes the family closest to
+its direction (cost $(\Delta\theta/1°)^2 + (\Delta s/s/0.025)^2$), the number of layers
+and the pitch those closest to the asked ones (a warning tells when they differ by more
+than 5 %).
+
+**Honeycombs and wood** (`honeycomb`; Gibson & Ashby 1997). Prisms along an axis over the
+cells of a planar tessellation, with walls of thickness $t$ (each cell contributes its
+half): hexagonal or square lattices, random cells, or the radial files of softwood —
+rectangular cells in files of width $d$ along the tangential axis, with straight radial
+walls and staggered tangential walls, whose radial size and wall thickness vary through
+the growth rings from earlywood to latewood. With uniform cells the radial modulus is
+several times the tangential one (4 times for $t/d = 0.1$); dense latewood bands,
+continuous along the tangential axis, raise the tangential modulus. Rays, ribbons of
+parenchyma cells that run radially between two files, make the structure
+three-dimensional. A ray of width $w$ (one cell across for the uniseriate rays of
+softwoods) and height $H$ along the grain lies on the boundary of two files: over its
+height its walls replace their radial wall, and each file is narrowed by $w/2$ (the
+tracheids pass beside the ray). Its cells are boxes with walls of their own thickness.
+Rays are added one after the other at random, never closer than one ray cell along the
+grain to a ray on the same boundary or on a neighbouring one. A periodic box holds a
+whole number of them, $n = \mathrm{round}(\varphi_r L_T L_L/(w H))$ for a fraction
+$\varphi_r$, and since they cross the box radially their share of the volume is exactly
+$n w H/(L_T L_L)$. They stiffen the radial direction, along which their walls run
+continuously, more than the tangential one. With 11 % of uniseriate rays ($t/d = 0.15$,
+FFT on $80 \times 80 \times 72$ voxels), $E_R$ rises by 38 %, $E_T$ by 29 % and $E_L$ by
+2 %; $E_R/E_T$ goes from 1.9 to 2.0, and to 2.4 with 22 % of biseriate rays. Across
+dense latewood, rays take the place of thick-walled cells: in the `wood` template (one
+ring, 10 % of rays, equal seeds) they raise $E_R$ by 30 % but lower $E_T$ by 4 to 12 %
+and $E_L$ by 4 %. Walls of
+hexagons or squares of width $d$ take $1 - (1 - t/d)^2$ of the volume exactly; around
+the cells of Poisson germs, $2t\sqrt\lambda$ to first order. Loaded along the axis,
+prismatic walls (without rays) contract
+freely across it, so that $E_3^* = \varphi E_s$ exactly, whatever the cells (checked by
+the FFT solver to $2\cdot10^{-3}$), while the in-plane moduli come from the bending of
+the walls ($\propto (t/d)^3$ for regular hexagons).
+
+**Haversian bone** (`osteons`). A dead-leaves model of aligned cylinders (Matheron 1968;
+Jeulin 1989): osteons of radius $R$ arrive at Poisson positions of the cross-section in
+random order, the last on top; uncovered points are interstitial bone. With $\lambda$
+osteons per unit area for a coverage $p = 1 - e^{-\lambda\pi E[R^2]}$, the top osteon over
+a point is an osteon weighted by its area and the point is uniform in it, so that the
+phases take, exactly: canals (the vascular porosity) $p\rho^2$; cement lines
+$p\,E[R^2 - \max(R - c, \rho R)^2]/E[R^2]$; lamellar bone the rest of $p$; interstitial
+bone $1 - p$ ($\rho$: the canal ratio, $c$: the thickness of the cement lines). Measured
+fractions agree within their standard errors (16 realizations, about 1400 osteons each).
+
+**Open-cell foams and trabecular bone** (`open_foam`). Struts along the edges of the
+periodic Voronoi tessellation of germs (exact cells, §19), each edge taken once (its
+translates removed through the torus classes of its vertices), with spheres at the
+vertices for thicker nodes. Germs: Poisson points, points of a random sequential
+addition, or points moved to the centroids of their cells (Lloyd 1982; centroids
+estimated on random points): centroidal tessellations have the even cells of real
+foams. Cells elongated by $a$ along an axis come from the tessellation of the box
+shortened by $a$, stretched back. For Poisson germs of intensity $\lambda$ the edges are
+$L_V = 5.832\,\lambda^{2/3}$ long per unit volume and meet at $N_V = 24\pi^2\lambda/35 =
+6.768\,\lambda$ vertices of degree 4 (Meijering 1953); stretched by $a$, isotropic
+lengths grow by $F(a) = \tfrac12\left(a + \operatorname{acosh}(a)/\sqrt{a^2 - 1}\right)$
+($\operatorname{acos}$ and $\sqrt{1 - a^2}$ for $a < 1$), so that
+$L_V = 5.832\,(a\lambda)^{2/3}F(a)/a$; thin struts take $\pi r^2 L_V$ of the volume. The
+strut radius may instead be solved on each realization for a relative density, on
+voxels a quarter of the radius wide.
+
+**Branching networks** (`branching`; Runions, Lane & Prusinkiewicz 2007; Murray 1926).
+Space colonization: attraction points pull the nearest node of the tree within the
+influence distance; each pulled node grows a segment of length $D$ toward the mean
+direction of its points; points within the kill distance of the tree are removed;
+growth stops when no point is within reach. Murray's law sets the radii from the tips:
+$r^n = \sum r_{\text{child}}^n$, with $n = 3$ for the minimum work of laminar flow, $n =
+2$ for the pipe model of plants (da Vinci's rule); a root feeding $N$ tips has the
+radius $r_t N^{1/n}$, a symmetric branching the radius ratio $2^{-1/n}$ and the area
+ratio $2^{1 - 2/n}$. On a periodic box the tree grows on the torus.
+
+## 31. Nonlinear behaviours along loading paths: the periodic element
+
+**Behaviour** (`homogenization.behaviours`; Lemaitre & Chaboche 1990). A phase may yield:
+von Mises elasto-(visco)plasticity in small strains, with isotropic elasticity
+$\sigma = C : (\varepsilon - \varepsilon_{th} - \varepsilon_p)$,
+
+$$f = J(\sigma - X) - R(p) - R_0,\qquad R(p) = H p + \sum_i Q_i\,(1 - e^{-b_i p}),\qquad
+X = \sum_k X_k,\quad \dot X_k = \tfrac23 C_k\,\dot\varepsilon_p - D_k X_k\,\dot p,$$
+
+with $J(a) = \sqrt{\tfrac32\,a' : a'}$, the flow $\dot\varepsilon_p = \dot p\,n$,
+$n = \tfrac32 (s - X)/J(\sigma - X)$, and Norton's viscous flow $\dot p = \langle f/K
+\rangle^N$, or the consistency condition $f = 0$ without viscosity (rate-independent
+plasticity). $D_k = 0$ gives Prager's linear kinematic hardening, $D_k > 0$
+Armstrong–Frederick's.
+
+**Implicit integration.** Over a step $\Delta t$, backward Euler gives the backstresses
+$X_k = \theta_k (X_k^n + \tfrac23 C_k\,\Delta p\,n)$ with $\theta_k = 1/(1 + D_k\Delta p)$,
+and the relative stress $s - X$ is parallel to $\xi^* = s^{tr} - \sum_k \theta_k X_k^n$
+($s^{tr}$: the deviator of the elastic trial stress). The update reduces to one scalar
+equation for $\Delta p$:
+
+$$\varphi(\Delta p) = J(\xi^*) - \Big(3\mu + \sum_k \theta_k C_k\Big)\Delta p - R(p_n +
+\Delta p) - R_0 - K\,(\Delta p / \Delta t)^{1/N} = 0,$$
+
+decreasing in $\Delta p$ (Armstrong–Frederick backstresses stay below $C_k/D_k$). It is
+solved by Newton's method safeguarded by bisection: in $\Delta p$ for plasticity, and in
+$y = (\Delta p/\Delta t)^{1/N} \in [0, f^{tr}/K]$ for viscoplasticity, where it is smooth
+at $\Delta p = 0$. Its linearization gives the consistent tangent (Simo & Taylor 1985):
+
+$$d\Delta p = \frac{2\mu}{h}\,n : d\varepsilon,\qquad h = 3\mu + \sum_k C_k\theta_k^2 + R'
+- n : \sum_k D_k\theta_k^2 X_k^n + \frac{K}{N \Delta t}\,y^{1-N},$$
+
+$$d\sigma = C : d\varepsilon - 2\mu\,(d\Delta p\,n + \Delta p\,dn),\quad
+dn = \frac{3}{2J^*}\Big(d\xi^* - \tfrac23 (n : d\xi^*)\,n\Big),\quad
+d\xi^* = 2\mu\,d\varepsilon' + \sum_k D_k\theta_k^2 X_k^n\,d\Delta p.$$
+
+The last term makes the tangent unsymmetric (by about 1 % of its largest entries once
+the backstresses have grown): the volume elements keep it whole (below). Under
+proportional loading the scheme is exact for linear hardening and for the saturation of
+the isotropic hardening (the yield condition
+holds at the end of each step); it is of first order in the step for the
+Armstrong–Frederick hardening and the viscous relaxation: the increments of a path set
+the accuracy.
+
+**The periodic element** (`homogenization.nonlinear`). The unknowns of a step are the
+fluctuation $w$ of $u = E\,x + w$ (periodic, or zero on the boundary under KUBC) and the
+components $E_U$ of the macroscopic strain prescribed as stresses: the macroscopic
+degrees of freedom of the periodic element of Z-set. Their equations are the equilibrium
+$R_w = \int_\Omega B^T\sigma = 0$ and the macroscopic stress
+$R_E = \int_\Omega \sigma\,dV - V\,\Sigma_U = 0$ ($V$: the volume of the box, voids
+included); the reactions of the prescribed components are $V\Sigma$. Newton's method
+solves the linearized system
+
+$$\begin{pmatrix} K_{ww} & K_{wE} \\ K_{Ew} & K_{EE}\end{pmatrix}
+\begin{pmatrix} \delta w \\ \delta E_U\end{pmatrix} = -\begin{pmatrix} R_w \\ R_E\end{pmatrix},
+\quad K_{ww} = \int B^T C_t B,\ K_{wE} = \int B^T C_t,\ K_{EE} = \int C_t,$$
+
+by condensation of the macroscopic block: with $Y = K_{ww}^{-1} K_{wE}$ (one solve per
+unknown component) and $y_0 = -K_{ww}^{-1} R_w$,
+
+$$\big(K_{EE} - K_{Ew} Y\big)\,\delta E_U = -R_E - K_{Ew}\,y_0,\qquad \delta w = y_0 - Y\,\delta E_U.$$
+
+$K_{EE} - K_{Ew}Y$ is $V$ times the macroscopic tangent operator. For linear behaviours
+one iteration reaches the solution of the condensation of §25. With symmetric point
+tangents $K_{Ew} = K_{wE}^T$; with full ones (below) $K_{Ew}\,v = \int C_t : B\,v\,dV$ is
+the integral of the stress increments of each vector $v$ ($y_0$ and the columns of $Y$:
+a product by the tangents of the points each, without a solve).
+
+**Solution.** The tangent is assembled at each iteration and reduced by the periodic
+links (or the kinematic conditions); it is solved by sparse LU (small systems) or by
+conjugate gradients preconditioned by algebraic multigrid, whose hierarchy is built
+once per step. With LU the iterations are exact Newton iterations. With multigrid,
+$Y$ is computed again (from its previous value) at the start of a step only when the
+previous step needed more than three iterations or was divided, and at the third
+iteration of a step: the macroscopic unknowns are otherwise corrected by a quasi-Newton
+iteration, whose block $S = K_{EE} - K_{Ew}Y$ is updated by the secants of the
+corrections (below). The equilibrium is solved inexactly (Eisenstat & Walker 1996), to the
+relative residual $\eta = \min(10^{-2}, \max(\rho, 0.1\,\mathrm{tol}/\rho))$, $\rho$
+being the relative residual of the iteration. A step converges when $\|R_w\|$ is below
+`tolerance` (default $10^{-6}$) times the norm of the nodal forces of the integration
+points before they cancel, and each component of $R_E$ below `tolerance` times
+$\int|\sigma|\,dV + V|\Sigma|$. A step that does not converge (or whose local
+integration fails) is divided by two, at most `max_cuts` times, and grows back after
+two converged steps; within a segment of the path, the steps before a step predict it
+(below). Each Newton correction is followed by a backtracking line search: the
+correction is halved (at most six times) until the merit
+$\|R_w\|^2/f^2 + \|R_E\|^2/s^2$ (the residuals relative to their scales) decreases. Strongly
+nonlinear behaviours (crystal plasticity with large Norton exponents, the onset of
+plastic flow) would otherwise make the full corrections diverge. On a composite of elastic spheres (25 %) in a viscoplastic matrix (71,263
+tetrahedra, 36,254 unknowns), a tension to 2 % in 20 steps then takes 3 or 4 iterations
+per step and 61 s on four cores, four times less than exact Newton iterations with
+multigrid (251 s), for the same curve.
+
+**The prediction of a step, the secant of the condensed block.** The Newton iterations
+of a step start from a prediction of its unknowns $(w, E_U)$. With the increments
+$\Delta_n$, $\Delta_{n-1}$ of the last two converged steps of the segment, of durations
+$\Delta t_n$, $\Delta t_{n-1}$, the increment over the step $\Delta t$ is predicted as
+
+$$\Delta = \frac{\Delta t}{\Delta t_n}\,\Delta_n
++ \frac{\Delta t\,(\Delta t + \Delta t_n)}{\Delta t_n + \Delta t_{n-1}}
+\Big(\frac{\Delta_n}{\Delta t_n} - \frac{\Delta_{n-1}}{\Delta t_{n-1}}\Big):$$
+
+the rate of the last step (first order), and the change of the rates of the last two
+steps, which are those of their middles (second order: the unknowns extrapolated as a
+parabola through the ends of the two steps, exactly for unequal steps). The second
+term is kept where it would have predicted the last step clearly better — an error
+below half that of the first order, itself below half of the increments, the errors of
+the fluctuation and of the macroscopic unknowns each relative to its increment
+(`nonlinear._second_order`; `prediction = 1` on a solver keeps the first order). In a
+steady plastic flow the first residual of a step is then three to four times smaller,
+and two corrections reach the tolerance where three were needed. A response that turns
+— the onset of yield, a crack that starts, a contact that closes, twins that start — is
+predicted at the first order: the second one overshoots, and steps are divided (18
+divided steps for 13 on the cleavage of a polycrystal where the second order was taken
+whenever it had been the closer of the two, a divided step where the grains of the
+template `homogenization_grain_fracture` debond).
+
+The block $S$ of the macroscopic unknowns kept with $Y$ is that of the tangents of an
+earlier linearization: a few steps after it was computed, the macroscopic unknowns
+converge by a factor 4 to 10 per iteration where the equilibrium gains a factor 100.
+It is updated by the secant of each correction that has brought the merit below
+$10^{-2}$ of what it was (a correction of the converging iteration, which its
+linearization describes): with $s = \delta E_U$ the step of the macroscopic unknowns
+and $y$ the change of their condensed residual $R_E + K_{Ew}\,y_0$ from this correction
+to the next, the BFGS update
+
+$$S \leftarrow S - \frac{S s\,s^T S}{s^T S s} + \frac{y\,y^T}{y^T s}$$
+
+of a symmetric block (Nocedal & Wright 2006), with Powell's damping (1978): $y$ is mixed with $Ss$ where
+$y^T s$ is not between a fifth of and five times $s^T S s$, so that $S$ stays positive
+definite and one update changes it by a bounded factor; Broyden's update (1965)
+$S \leftarrow S + (y - Ss)\,s^T/s^T s$ of a block that is not symmetric, its change
+bounded likewise. No secant is taken across two steps, nor from a correction that
+converges poorly: in the step where the twins of the template `homogenization_twinning`
+start, an update taken far from the solution raised the condition number of the block
+from 53 to 410, and the step was divided.
+
+Newton and linear iterations of the templates, before and after (the same curves to the
+tolerance of the equilibria, $10^{-6}$, where no step is divided):
+
+| Template | Newton iterations | Linear iterations | Divided steps |
+|---|---|---|---|
+| `homogenization_crystal_plasticity` (finite elements) | 200 → 170 | 5,510 → 3,905 | 0 |
+| `homogenization_viscoplastic` (finite elements) | 79 → 69 | 2,225 → 1,899 | 0 |
+| `homogenization_ductile_damage` | 133 → 120 | 12,059 → 9,352 | 0 |
+| `homogenization_crystal_plasticity_fft` | 149 → 129 | 3,535 → 2,678 | 0 |
+| `homogenization_slip_cleavage` | 479 → 436 | 22,128 → 19,584 | 34 → 26 |
+| `homogenization_twinning`, `homogenization_detwinning` | 133 → 131, 173 → 174 | 8,996 → 9,009, 9,000 → 9,014 | 0 |
+| `homogenization_cleavage`, `homogenization_crack_closure` | 288 → 305, 302 → 301 | 21,576 → 21,796, 10,631 → 10,503 | 13, 9 |
+| `homogenization_cleavage_band`, `homogenization_grain_fracture` | 341, 81 | 13,812 → 13,804 | 0 |
+
+What does not shorten these iterations, measured on the polycrystal of
+`homogenization_crystal_plasticity_fft` (6 linear iterations per solve in its elastic
+steps, 21 in its plastic flow): a reference medium of the Fourier preconditioner that
+follows the mean tangent (isotropic or not: 3,816 and 3,572 iterations for 3,535 — the
+iterations are those of the contrast between grains that flow along different
+directions, not of a mean stiffness that a homogeneous medium could follow); full
+tangents with GMRES, or the full integration of the voxels (the same residuals at each
+correction: the symmetrization and the F-bar terms are not what limits Newton's
+iteration); the condensation computed again at every correction; a copy of the
+tangents in single precision for the Krylov iterations (the application of the tangent
+is not bound by the memory on four threads).
+
+**Symmetric and full tangents** (`tangent`). The consistent tangents are symmetric to
+round-off (below $10^{-13}$ of their largest entries) for elasticity, von Mises and Hill
+plasticity without Armstrong–Frederick terms (isotropic and Prager hardening, Norton's
+flow), crystal plasticity in small strains without isotropic hardening (the slips of its
+active systems then solve a symmetric system, once scaled by the slopes of their flow
+rules), the learned potentials and standard models (§57) and the MFront
+behaviours that declare `@ProvidesSymmetricTangentOperator` (§36). The others are not:
+the Armstrong–Frederick hardening ($1.5\cdot10^{-2}$ once the backstresses have grown:
+they turn the direction of flow), the isotropic hardening of slip systems
+($5\cdot10^{-4}$, the latent hardening of one system by the slip of another) and the
+multiplicative crystal plasticity of finite strains ($10^{-3}$), porous plasticity
+($4\cdot10^{-3}$ for GTN, $2\cdot10^{-2}$ for Rousselier: the porosity grows with the
+volumetric flow), the learned perceptrons and recurrent networks (7 to 33 %) and the
+MFront behaviours that do not declare a symmetric tangent. By default (`tangent: auto`)
+a volume element whose laws are all symmetric keeps their symmetrized tangents and the
+conjugate gradients, unchanged to the bit; as soon as one law is not, every point keeps
+its full tangent (the kernels of the CPU and of the GPU skip their symmetrization, MGIS's
+tangents come whole), and the Krylov solvers (voxels; finite elements with multigrid)
+measure its asymmetry at each linearization, $a_g = \|C_g - C_g^T\|/\|C_g\|$ for the
+block-diagonal operator $C_g$ of the tangents of the points of each phase $g$,
+
+$$a_g^2 = \frac{\sum_{p\in g} w_p\,\|C_p - C_p^T\|^2}{\sum_{p\in g} w_p\,\|C_p\|^2},\qquad
+a = \max_g a_g\qquad
+\text{(Frobenius norms, } w_p \text{ the weights of the points)}:$$
+
+where $a$ is below $2\cdot10^{-2}$ (`nonlinear.ASYMMETRY`, below) they symmetrize the
+tangents for the conjugate gradients (to the bit those of `tangent: symmetric` in small
+strains); above it $K_{Ew}$ is computed as above and the corrections are solved by GMRES
+with deflated restarts and the preconditioners of the conjugate gradients, recycling
+their space from a solve to the next (§34). By finite elements,
+sparse LU factorizes the full tangent as it is (exact Newton iterations, whatever $a$),
+and GMRES on large systems is preconditioned by the multigrid of its symmetric part. The
+outputs report the largest $a$ and the linearizations solved with the full tangents
+(`asymmetry`, `full_tangents`). `tangent: symmetric` forces the
+symmetrized tangents (and conjugate gradients, MINRES after a direction of negative
+curvature), `tangent: full` the full ones. The stability analyses of
+`path_bifurcation` (§45) keep the symmetrized tangents: they follow the eigenvalues of
+the symmetric part. At a material point Newton's method solves the dense $6\times6$
+system with the exact tangents of the laws that are not symmetric (and of the learned
+and MFront laws), the same `tangent` option forcing either.
+
+Where the tangent is far from symmetric the full one is decisive. A small recurrent
+network (6 states, trained 20 epochs on 8 random walks of von Mises data) beside 25 % of
+stiff voxels ($4^3$), a tension to 0.4 % and back to 0.1 % with free lateral stresses,
+takes 47 Newton iterations and 819 linear ones with its full tangent, 148 and 2,631 with
+its symmetric part (a perceptron of 6 units: 43 and 757 against 124 and 2,561), for the
+same curve to $10^{-6}$; on a homogeneous image, and by finite elements beside an
+elastic phase, its symmetric part does not converge (a step divided six times on the
+image, ten by finite elements) where the full tangent converges without a division (on
+the image, along its material point to $7\cdot10^{-7}$). With exact
+Newton iterations the full tangents of crystals with a strong latent hardening (Franciosi's
+interactions, the collinear one 12.3; $Q = 100$ MPa, $b = 50$, nearly rate-independent)
+along a biaxial path that turns (11 then 22, the other stresses free) take a third fewer
+iterations: 44 and 47 against 72 and 79 at material points of two orientations, 35
+against 51 by finite elements for a single crystal and 53 against 64 for two grains (LU),
+for the same curves to $10^{-6}$. On voxels, where the macroscopic unknowns are corrected
+by quasi-Newton iterations and the equilibrium inexactly (to $\eta \ge 3\cdot10^{-4}$),
+the small asymmetries of morphoGen's own laws do not change the Newton iterations at the
+default tolerance (a polycrystal with slip hardening, GTN and Armstrong–Frederick
+composites, Rousselier at a high triaxiality: 30, 40, 37 and 89 against 30, 41, 37 and 87
+on $8^3$ voxels), for the same curves to $10^{-8}$; GMRES then takes about as many
+products by the tangent as the conjugate gradients (0.93 to 0.96 times), but on softening
+points (§34).
+
+**The threshold of `auto`.** Along these paths $a$ stays below $1.6\cdot10^{-2}$ for
+morphoGen's own laws ($1.2\cdot10^{-4}$ for the slip hardening, $3.9\cdot10^{-3}$ for the
+plastic phase of the Armstrong–Frederick composite, $4.6\cdot10^{-3}$ for GTN,
+$6.2\cdot10^{-3}$ for Rousselier, $1.6\cdot10^{-2}$ for the strong latent hardening above
+on $8^3$ voxels of 4 grains; over the whole volume elements of the composites
+$1.8\cdot10^{-3}$, $2.8\cdot10^{-3}$ and $3.7\cdot10^{-3}$), whose full tangents never save
+Newton iterations on voxels (the latent hardening: 153 iterations and 11 divided steps
+against 126 and 6; the softening GTN composite of §34: 61 against 50, on another
+solution), and reaches 0.21 for the learned perceptrons and recurrent networks beside
+stiff voxels (0.14 to 0.21 over the whole), whose full tangents take a third of the
+iterations (47 against 148, 43 against 124; 48 against 152 on $8^3$ voxels). Diluted
+among von Mises voxels (the law it learned) and 25 % of stiff ones, the recurrent network
+keeps fewer iterations with its full tangent down to the smallest fraction tried: 47 or
+48 against 74, 66, 63 and 61 at 7, 3.5, 1.6 and 0.6 % of the voxels, where the asymmetry
+of the whole volume element falls to $4.5\cdot10^{-2}$, $3.1\cdot10^{-2}$,
+$2.1\cdot10^{-2}$ and $1.3\cdot10^{-2}$ and would symmetrize it below about 1.5 % of the
+volume (a quarter more iterations), while that of its phase stays 0.21: `auto` keeps its
+full tangents at every fraction (48 Newton iterations at 1.6 and 0.6 %; one voxel of
+$5^3$, 0.8 %: 43 against 60, the whole at $1.5\cdot10^{-2}$). The threshold
+$2\cdot10^{-2}$ lies above all of morphoGen's laws and below the learned ones. Point by
+point,
+$\|C_p - C_p^T\|/\|C_p\|$ does not separate them: it reaches 0.14 at GTN points near their
+softening and 0.18 for the crystals with the strong latent hardening, points whose
+tangents are soft, against 0.20 to 0.35 for the learned laws. Computing $Y$ again at
+every Newton iteration of the full tangents (the exact Schur complement of the
+macroscopic block) saves 18 to 30 % of their Newton iterations on voxels (the learned
+networks 47, 43 and 48 to 35, the Armstrong–Frederick composite 37 to 27, GTN 40 to 33,
+the slip hardening 30 to 21, the latent hardening 153 to 121 with 9 divided steps
+instead of 11) for 36 to 91 % more products by the tangent (the solves of the columns of
+$K_{wE}$) and more time in every case: $Y$ keeps the refreshes above.
+
+**Validation.** The material point (`simulate_point`) follows the closed forms of
+uniaxial tension: linear isotropic and kinematic hardening to $10^{-15}$, Voce's
+saturation to $10^{-10}$, Norton's creep to $10^{-4}$, and the Armstrong–Frederick
+hardening at first order in the step. The consistent tangent matches finite differences
+to $10^{-4}$. A homogeneous volume element follows its material point (4- and 10-node
+elements, periodic and kinematic conditions) along a cyclic path mixing a strain, a
+shear stress and a change of temperature, to $2\cdot10^{-6}$ of the stresses; with
+linear behaviours one iteration gives the condensed solution to $10^{-14}$. A periodic
+laminate of an elasto-viscoplastic and an elastic layer follows the exact laminate
+response (uniform fields in each layer: equal in-plane strains, equal out-of-plane
+stresses) to $2\cdot10^{-6}$ of the stresses. Elastic spheres (20 %) in a viscoplastic
+aluminium matrix (template `homogenization_viscoplastic`) relax by 3.6 % in 100 s at
+2 % strain, and the matrix yields again in reverse during the unloading.
+
+## 32. Crystal plasticity (`homogenization.crystal`)
+
+**Slip systems.** A crystal slips on the systems $s$ of its lattice, of plane normal
+$n^s$ and slip direction $l^s$ (unit, orthogonal), given in the axes of the crystal and
+turned into those of the sample by its orientation ($v_{sample} = g^T v_{crystal}$,
+$\mathrm{crystal} = g\,\mathrm{sample}$, Bunge angles), like its elasticity:
+
+| family | planes, directions | systems |
+| --- | --- | --- |
+| `octahedral` | $\{111\}\langle 110\rangle$ (face-centred cubic) | 12 |
+| `cube` | $\{100\}\langle 110\rangle$ (cube slip of nickel-base superalloys) | 6 |
+| `bcc110` | $\{110\}\langle 111\rangle$ (body-centred cubic) | 12 |
+| `bcc112` | $\{112\}\langle 111\rangle$ (body-centred cubic) | 12 |
+
+**Behaviour** (Méric & Cailletaud 1991; Méric, Poubanne & Cailletaud 1991). The resolved
+shear stress $\tau^s = \sigma : m^s$, $m^s = \mathrm{sym}(l^s\otimes n^s)$, drives the
+viscoplastic slip
+
+$$\dot\gamma^s = \Big\langle \frac{|\tau^s - x^s| - r^s}{K} \Big\rangle^n
+\mathrm{sign}(\tau^s - x^s),$$
+
+with the kinematic hardening of each system $x^s = C\alpha^s$,
+$\dot\alpha^s = \dot\gamma^s - D\,\alpha^s|\dot\gamma^s|$, and the isotropic hardening
+
+$$r^s = \tau_0 + Q\sum_r h_{sr}\big(1 - e^{-b\,v^r}\big),\qquad \dot v^r = |\dot\gamma^r|,$$
+
+coupling the systems by the interaction matrix $h$. The parameters $\tau_0, Q, b, C, D,
+K, n$ belong to the families. $h$ is uniform (Taylor hardening) by default, or
+$[h_{self}, h_{latent}]$, or a full matrix; for the octahedral systems, six coefficients
+classify the pairs (Franciosi, Berveiller & Zaoui 1980): self, coplanar (same plane),
+collinear (same direction), Hirth locks (orthogonal directions), and, for the other
+pairs, a glissile junction when the junction $b^s \pm b^r$ lies in one of the two planes,
+a Lomer lock otherwise. Each system has 2 coplanar, 1 collinear, 2 Hirth, 4 glissile and
+2 Lomer interactions. In small strains, $\dot\varepsilon_p = \sum_s \dot\gamma^s m^s$
+and $\sigma = C : (\varepsilon - \varepsilon_{th} - \varepsilon_p)$ (finite strains:
+§33).
+
+**Implicit integration.** Backward Euler over a step gives
+$\alpha^s = (\alpha^s_n + \Delta\gamma^s)/(1 + D|\Delta\gamma^s|)$,
+$v^s = v^s_n + |\Delta\gamma^s|$ and, in small strains,
+$\tau^s = \tau^s_{tr} - \sum_r (m^s : C : m^r)\,\Delta\gamma^r$. The flow rule written as
+rates, $\Delta\gamma^s - \Delta t\,\phi^s = 0$, makes Newton's method stall when the
+elastic trial overstress is large: $\phi$ is a steep power, its Jacobian spans tens of
+orders of magnitude, and each iteration reduces the overstress by a factor $1 - 1/n$ at
+best. It is written instead as stresses, for the active systems
+($\Delta\gamma^s = \mathrm{sign}^s\,\delta^s$, $\delta^s > 0$):
+
+$$R^s(\delta) = \mathrm{sign}^s\,(\tau^s - x^s) - r^s - K\,(\delta^s/\Delta t)^{1/n} = 0.$$
+
+For a single system $R^s$ is convex and decreasing in $\delta^s$, its slope infinite at
+$\delta^s = 0$: Newton's method from below converges monotonically, the first
+iterations multiplying $\delta^s$ by large factors, however large the overstress. The
+active set starts from the systems whose slips over the step would exceed
+$10^{-15}$ (overstress above $K\,(10^{-15}/\Delta t)^{1/n}$), each from a slip that
+relaxes a tenth of its overstress at most; a system brought down to that floor by a
+negative residual leaves the set, and inactive systems whose overstress exceeds it join
+it, until the set is stable. A backtracking line search keeps the residual decreasing
+(a decrease of a slip is limited to a factor $10^{-3}$). The slips of the previous Newton
+iterate of the global problem, or of the previous step scaled by the ratio of the
+steps, start the iteration, which restarts from zero if it fails. When it still fails —
+many redundant systems loaded at once by a large overstress make the Jacobian nearly
+singular — the step is divided into 4, then 16 and 64 substeps along which the strain
+(the gradient in finite strains) varies linearly, each from the slips of the previous
+one: the strain of the end of each step is an internal variable. The exponentials
+$e^{-b\,v^r}$ of the isotropic hardening and of its derivative depend on the system $r$
+and on the $b$ of the family of $s$: they are computed once per family at each
+evaluation (12 instead of 144 for the octahedral systems), which makes the integration
+of a point 1.4 to 1.7 times faster with the same results to the bit.
+
+**The cost of a point.** What a point does not need is not computed, with the same
+results to the bit. A point whose systems all stay below their thresholds is evaluated
+once, without derivatives: the derivatives of the resolved stresses are computed with
+active systems only, with respect to the slips of these systems, and with respect to
+that of an inactive one where it starts. In small strains they are the constants
+$-m^s : C : m^r$, kept with the Schmid tensors of the grain, themselves kept from a
+point to the next of the same grain; the resolved stresses are summed over the systems
+that slip. The hardening is summed over the systems that have slipped, and a cleavage
+plane that has not opened has no exponential (§87). The correction that the line search
+accepts is evaluated with its derivatives: it is the next iterate, which is not
+evaluated again. The slips below which the systems do not start are kept for a time
+step.
+
+The work arrays of the kernels — of every law of the points (§31) — are allocated for
+each chunk of points (64 points or more, 128 chunks at most) before the parallel loop
+over the chunks, which then holds them as plain memory. Rows of arrays allocated inside
+the loop are objects whose references the compiled code counts, atomically, each time
+that a kernel takes one: a third to a half of the time of a crystal point, whose
+kernels take some forty rows at each evaluation of its slips.
+
+Evaluations of the points taken from runs of the templates, replayed on one thread
+(medians of the time per point, before and after; the stresses, the tangents and the
+internal variables are the same to the bit):
+
+| Points | Before | After | Ratio |
+|---|---|---|---|
+| iron polycrystal that cleaves (21 systems; 88 % of the points stay elastic) | 7.4 µs | 2.6 µs | 2.8 |
+| the same with a softer slip, first iterate of a step (90 % of the points flow) | 26.4 µs | 10.8 µs | 2.4 |
+| twins of magnesium (18 systems; all the points flow) | 15.8 µs | 8.7 µs | 1.8 |
+| nickel polycrystal in finite strains (12 systems; all the points flow) | 21.5 µs | 7.7 µs | 2.8 |
+| von Mises, small strains | 0.5 µs | 0.3 µs | 1.7 |
+| Hill's criterion, small strains | 3.2 µs | 2.4 µs | 1.3 |
+| GTN, finite strains | 8.0 µs | 6.4 µs | 1.25 |
+
+On four threads, the template `homogenization_crystal_plasticity_fft` runs in 148 s
+for 210 s (the integration of its points: 64 s for 123 s), `homogenization_cleavage` in
+36 s for 49 s, `homogenization_slip_cleavage` in 35 s for 60 s,
+`homogenization_twinning` in 46 s for 58 s, with the same curves to the last digit.
+
+**Consistent tangent.** The linearization of $R(\delta, \varepsilon) = 0$ on the active
+systems gives $d\delta = -J^{-1}\,\mathrm{sign}\,(C : m) : d\varepsilon$, $J =
+\partial R/\partial\delta$, and
+
+$$d\sigma = C : d\varepsilon - \sum_s (C : m^s)\,\mathrm{sign}^s\,d\delta^s,$$
+
+(the tangent of the last substep after substepping), whose symmetric part serves the
+conjugate gradients where the laws of a volume element are all symmetric, the whole one
+GMRES otherwise (§31: isotropic hardening makes it unsymmetric). It matches finite
+differences to $10^{-8}$ (small strains) and $3\cdot10^{-8}$ (finite
+strains).
+
+**Validation.** A single crystal pulled along $[001]$ flows with $N = 8$ equally active
+systems of Schmid factor $m = 1/\sqrt6$, along $[111]$ with 6 of factor $0.272$: at the
+strain rate $\dot\varepsilon$, without hardening, the flow stress is $(\tau_0 +
+K\,(\dot\varepsilon/(N m))^{1/n})/m$, recovered to $10^{-6}$. One step of 3 % uniaxial
+strain, far beyond the elastic limit with nearly all the systems loaded, is integrated
+(with substeps if need be). A
+homogeneous single crystal element follows its material point (small and finite
+strains, 4- and 10-node elements, periodic and kinematic conditions, a cyclic path with
+a shear stress and a change of temperature) to $2\cdot10^{-6}$ of the stresses. The flow
+stress of a polycrystal with random orientations lies between the estimates of Sachs
+(Schmid factor 1/2) and Taylor (factor 3.06). The template
+`homogenization_crystal_plasticity` (12 grains, 2,384 quadratic tetrahedra, 9,542
+unknowns) is pulled to 10 % in finite strains in 67 steps without division, 2.5
+iterations per step, in about 20 s on four cores. Its steps of 0.025 % resolve
+the elastic-plastic transition: the curve gives the modulus (212 GPa) and the 0.2 %
+offset yield stress (313 MPa). With 40 equal steps of 0.25 %, the first step straddles
+the yield (its secant modulus is 112 GPa) and the stress of the transition is too low,
+by 9 MPa (2.6 %) at 0.5 % (an offset yield stress of 301 MPa with the right modulus);
+the difference vanishes by 5 %, and the stress at 10 % is the same to $10^{-4}$.
+
+## 33. Finite strains (`homogenization.finite`)
+
+**Kinematics.** With `kinematics: finite` the equations of the periodic element are
+written on the reference configuration (total Lagrangian): the displacement gradient
+$H = F - I$ of each integration point, the first Piola–Kirchhoff stress $P$ (force per
+unit reference area) and the tangent $\mathbb A = \partial P/\partial F$; the nodal forces
+are $\int_{\Omega_0} P\cdot\nabla_0 N$, the stiffness
+$\int_{\Omega_0}\nabla_0 N\cdot\mathbb A\cdot\nabla_0 N$ (symmetrized for the conjugate
+gradients where the laws are all symmetric, §31), the coupling with the macroscopic gradient $\int\nabla_0 N\cdot\mathbb A$ and
+$\int\mathbb A$ (Hill's macro-homogeneity: $\bar P : \delta\bar F = \langle P :
+\delta F\rangle$).
+
+**The macroscopic gradient** is upper triangular, $\bar H_{21} = \bar H_{31} =
+\bar H_{32} = 0$: every gradient is one of them up to a rotation (its QR decomposition),
+which the behaviours ignore (they are objective). Its six components $\bar H_{11},
+\bar H_{22}, \bar H_{33}, \bar H_{23}, \bar H_{13}, \bar H_{12}$ are the macroscopic
+degrees of freedom, in the Voigt order of the small strains; their conjugates are the
+same components of $\bar P$. The shears $\bar H_{ij}$ ($i < j$) are simple shears, which
+linearize into the engineering shears of small strains. A component prescribed as a
+stress is a nominal traction on a face of the box: free components leave the faces free
+of tractions but for the reactions $\bar P_{21}, \bar P_{31}, \bar P_{32}$, which keep
+the material lines along the first axis along it and the planes normal to the third axis
+normal to it. Then a tension along any axis, the other components free, is a uniaxial
+Cauchy stress whatever the anisotropy of the volume element: the symmetry of
+$\bar\sigma = \bar P\bar F^T/\bar J$ (Hill's lemma) makes its other components vanish.
+The outputs add the Cauchy stress $\bar\sigma$ and the
+logarithmic strain $\tfrac12\ln(\bar F^T\bar F)$ (columns `TS` and `LE` of the curves),
+and the mean Cauchy stress of each phase, $\int P F^T dV_0 / \int J\,dV_0$.
+
+**Elastic and von Mises behaviours in the logarithmic strain space** (Miehe, Apel &
+Lambrecht 2002). The small strain behaviour of §31 (or the elasticity of §20) is applied
+to the logarithmic strain $\varepsilon = \tfrac12\ln C$, $C = F^TF$; its stress $T$ is
+conjugate to $\varepsilon$, and
+
+$$S = T : 2\frac{\partial\varepsilon}{\partial C},\qquad P = F S,\qquad
+dS = 2\,\frac{\partial\varepsilon}{\partial C} : \mathbb E_t : \frac{\partial\varepsilon}
+{\partial C} : dC + T : 2\frac{\partial^2\varepsilon}{\partial C^2} : dC,$$
+
+with $\mathbb E_t$ the consistent tangent of the small strain update. Elasticity is then
+Hencky's (the quadratic energy of the logarithmic strain, anisotropic for crystals: well
+behaved in compression, unlike Saint-Venant–Kirchhoff's), the plastic flow additive in
+$\varepsilon$ and isochoric, and the formulation reduces to the small strain one for
+small strains. In the eigenbasis of $C$ (eigenvalues $c_a$), $\varepsilon = f(C)$ with
+$f = \tfrac12\ln$ has the derivatives of a function of a symmetric tensor (Daleckii &
+Krein 1965; Bhatia 1997):
+
+$$\big(Df(C)[H]\big)_{ab} = f[c_a, c_b]\,\tilde H_{ab},\qquad
+\big(D^2f(C)[H, K]\big)_{ab} = \sum_c f[c_a, c_c, c_b]\,
+(\tilde H_{ac}\tilde K_{cb} + \tilde K_{ac}\tilde H_{cb}),$$
+
+with the divided differences $f[x, y] = (f(x) - f(y))/(x - y)$ and $f[x, y, z]$, which
+are the derivatives for equal eigenvalues: no special case is needed for repeated
+stretches. They are evaluated without cancellation from the eigenvalues of
+$C - I = H + H^T + H^TH$ (Jacobi's method): $f[x, y] = \log_{1p}(z)/(2z(1 + y))$,
+$z = (x - y)/(1 + y)$, by its series for $|z| < 10^{-4}$, and the second differences by
+their Taylor series about the mean when the three eigenvalues lie within $10^{-4}$; being
+symmetric in their arguments, they take 6 and 10 evaluations. As $dS$ is linear in the
+symmetric $dC$, the tangent takes $F\,dS$ for the six directions of $dC$ ($e_m\otimes
+e_n + e_n\otimes e_m$) and combines them for the nine of $dF = e_k\otimes e_l$, whose
+$dC_{mn} = \delta_{ml}F_{kn} + \delta_{nl}F_{km}$, with $dP = dF\,S + F\,dS$ (10 % faster
+than the nine directions of $dF$; Jacobi's method and the algebra of the six directions
+take most of the remaining quarter of a microsecond per point).
+
+**Thermal strains of these points.** The thermal strain is taken out of the logarithmic
+strain: the small strain behaviour sees $\varepsilon - \Delta T\,\alpha$ (the expansion
+tensor in the axes of the sample, turned by the orientation of each grain), and its stress
+$T$ is conjugate to the total $\varepsilon = \tfrac12\ln C$: the free energy
+$\psi(\varepsilon - \Delta T\,\alpha)$ is per unit reference volume, without a factor
+$J_{th} = \det F_{th}$, and $S = T : 2\,\partial\varepsilon/\partial C$ as above, the
+derivatives of $\varepsilon$ unchanged by the heating. Heated free, a point stretches by
+$U = \exp(\Delta T\,\alpha)$. For an isotropic expansion this is the multiplicative split
+$F = F_m F_{th}$, $F_{th} = \exp(\Delta T\,\alpha)$, with $S = F_{th}^{-1} S_m F_{th}^{-1}$
+($S_m$ the stress of the Green–Lagrange strain of $F_m$, the free energy per unit reference
+volume); for an anisotropic one the logarithms do not add,
+$\tfrac12\ln(F_{th}^{-T} C F_{th}^{-1}) \neq \tfrac12\ln C - \Delta T\,\alpha$ unless $C$
+and $\alpha$ commute, and the split is the additive one of the logarithmic strain. It is
+that of MFront's logarithmic strain framework, which the exports of §37 take
+(their mean coefficient converted), and that of the learned laws (§57). The crystals of
+finite strains subtract theirs from the elastic Green–Lagrange strain (below).
+
+**Crystal plasticity** is multiplicative, $F = F_e F_p$ (Mandel 1972; Kalidindi,
+Bronkhorst & Anand 1992), with the slip systems fixed in the intermediate configuration
+(isoclinic: the lattice keeps its initial orientation there, and turns with $F_e$):
+
+$$\dot F_p F_p^{-1} = \sum_s \dot\gamma^s\,l^s\otimes n^s,\qquad
+S_e = C : \big(\tfrac12(F_e^TF_e - I) - E_{th}\big),\qquad
+\tau^s = l^s\cdot (C_e S_e)\cdot n^s,$$
+
+the resolved shear stress being that of the Mandel stress $C_e S_e$, and
+$P = F_e S_e F_p^{-T}$. Backward Euler with the exponential map to second order,
+$F_p^{-1} = F_{p,n}^{-1}(I - G + \tfrac12 G^2)$, $G = \sum_s \Delta\gamma^s l^s\otimes
+n^s$, keeps $\det F_p = 1$ to third order. The local iteration is that of §32 with the
+exact derivatives $\partial\tau^s/\partial\Delta\gamma^r$; the tangent $\partial P/\partial
+F$ adds to the derivative at fixed slips $\sum_r (\partial P/\partial\Delta\gamma^r)\,
+d\Delta\gamma^r$, $d\delta = -J^{-1}\,\mathrm{sign}\,\partial\tau/\partial F$. The
+internal variables add $F_p^{-1}$, and the plastic strain is Green–Lagrange's,
+$\tfrac12(F_p^TF_p - I)$. The fields give the current orientations of the lattices,
+$g\,R_e^T$ ($R_e$: the rotation of the polar decomposition of $F_e$, averaged over the
+integration points of each element).
+
+**Validation.** The tangents match finite differences to $5\cdot10^{-9}$ (Hencky, von
+Mises) and $3\cdot10^{-8}$ (crystal), also with equal principal stretches; a rotation
+superposed on the deformation turns $P$ to $10^{-15}$. In tension, an isotropic Hencky material has
+the Kirchhoff stress $E\ln\lambda$ and the lateral logarithmic strains $-\nu\ln\lambda$;
+in simple shear (the component $\bar H_{12}$), the Cauchy stress $\mu\ln(FF^T)$, both to
+$10^{-9}$. A von Mises material pulled to 40 % has, as Kirchhoff stress against
+logarithmic strain, its small strain curve to $10^{-8}$. Homogeneous elements follow the
+material point (von Mises and crystal plasticity, periodic and kinematic conditions) to
+$3\cdot10^{-6}$ of the stresses, a heterogeneous elastic element at small strains the
+small strain solution, and a polycrystal pulled along an axis has a uniaxial Cauchy
+stress (other components below $10^{-6}$ of it) and lattice rotations of 0.4° on average
+(0.9° at most) at 1 %.
+
+**Caveats.** Linear tetrahedra lock under isochoric plastic flow (a warning is logged):
+use quadratic ones (`mesh.order: 2`). The tangent is symmetrized for the conjugate
+gradients where the laws are all symmetric (§31); under compressive stresses its geometric part may make the stiffness
+indefinite near instabilities (buckling of thin struts), where the sparse direct solver
+(`solver: direct`) is preferable.
+
+## 34. Loading paths on voxel images: the nonlinear FFT solver (`homogenization.fft_nonlinear`)
+
+**Discretization.** The voxels are the trilinear hexahedra of the FFT solver (§12); their
+$2\times2\times2$ Gauss points are the integration points of the behaviours (§31–33). The
+unknowns of a step are the periodic nodal fluctuation $w$ (three per voxel) and the
+components $E_U$ of the macroscopic strain prescribed as stresses, with the equations of
+the periodic element (§31): $R_w = \sum_e \int B^T\sigma = 0$ and
+$R_E = \int\sigma\,dV - V\Sigma_U = 0$. Pores have no integration points: as in the
+linear solver, no ersatz material is needed.
+
+**Newton–Krylov.** The iterations are those of §31 (condensation of the macroscopic
+block, inexact corrections, $Y = K_{ww}^{-1}K_{wE}$ refreshed after slow iterations, line
+search, division of the steps), shared with the finite elements; only the linear solver
+differs. Each system $K_t\,x = b$ is solved by conjugate gradients preconditioned by the
+inverse of the stiffness $K^0$ of a homogeneous elastic reference medium, applied in
+Fourier space (§12; the preconditioner is built once per path), from the previous $Y$ for
+the macroscopic coupling (Gélébart & Mondon-Cancel 2013; Kabel, Böhlke & Schneider 2014).
+$K_t$ is applied without assembly: the stress increments $C_t : B\,v$ at the 8 points of
+each voxel, then the nodal forces gathered node by node (no atomic operations). The point
+tangents of laws that are all symmetric are symmetrized (§31), so that conjugate
+gradients apply while they are positive definite; full ones are solved by GMRES (below,
+the composite of this paragraph forced onto the symmetrized tangents). Softening points
+make them indefinite (a GTN matrix with a weak
+hardening above a stress triaxiality of about 4: its voids grow faster than the matrix
+hardens), and $K_t$ with them: the conjugate gradients meet a direction of negative
+curvature, $p^T K_t\,p \le 0$, and their iterate may then leave a residual larger than
+the right-hand side (78 times on a porous composite whose lateral strains are held).
+MINRES (Paige & Saunders 1975), which minimizes the residual for a symmetric indefinite
+operator with the same positive definite preconditioner, then takes over from that
+iterate or from zero, whichever is better; it stops on the residual in the norm of the
+preconditioner and checks the Euclidean one, starting again while it is above the
+tolerance. On $8^3$ voxels of that composite (stiff spheres in GTN with a nucleation, a
+uniaxial strain of 2 %) the solves converge, no step is divided (two were) and the
+Newton iterations fall from 55 to 50; on $16^3$ voxels from 91 to 84 with five
+divisions instead of six, for twice the linear iterations. Positive definite tangents
+keep the conjugate gradients alone. The reference medium (the means of the extreme
+elastic moduli) is the best of those tried on that composite: a shear modulus halved or
+quartered, a doubled $\lambda_0$ or the moduli of the matrix alone take 10 to 30 % more
+linear iterations for the same Newton iterations. The divided steps of its path come
+from the line search: at the softening points the Newton corrections reach tens of
+times the converged strains (159 % where 5 % is reached), beyond the six halvings of
+the correction, and the local integration fails there; ten halvings spare one division
+of five for twice the linear iterations. The damage localizes, as GTN does without an
+internal length (its solutions depend on the voxels), which the micromorphic damage of
+§50 regularizes. The translations
+(the kernel of $K_t$) are removed by the zero frequency of the preconditioner; the
+right-hand sides lose the round-off of their mean, and nodal forces below $10^{-12}$ of
+the norm of their contributions (uniform stresses: a homogeneous medium) are zero.
+
+**Full tangents: GMRES.** With the full tangents of §31 the operator $K_t$ is not
+symmetric (the terms that B-bar and F-bar add are, being those of an energy) and its
+corrections are solved by GMRES (Saad & Schultz 1986),
+preconditioned on the right by the same Fourier inverse of $K^0$ (on the GPU too, its
+basis in the memory of the GPU): the residual it minimizes over each Krylov space is that
+of the system, which stops it at the relative residual of the conjugate gradients. The
+basis is orthogonalized by classical Gram–Schmidt (one sweep of the basis for all the dot
+products of a vector, summed by blocks of fixed size so that the sums do not depend on
+the threads), passed again where it cancels most of the vector (Daniel, Gragg, Kaufman &
+Stewart 1976: twice is enough), and the method restarts after 50 iterations
+(`solvers.GMRES_RESTART`: 51 vectors of the nodal unknowns, 1.2 kB per voxel, the size
+of the arrays of one or two of its 8 points). Its restarts are deflated (Morgan 2002,
+GMRES-DR; `solvers.GMRES_DEFLATE`): the next cycle starts from the harmonic Ritz vectors
+of the 20 harmonic Ritz values of least modulus, the eigenvectors of
+$H_m + h_{m+1,m}^2 H_m^{-T} e_m e_m^T$ ($H_m$ the square part of the Hessenberg matrix
+$\bar H_m$ of the cycle; a complex pair kept whole by the real and imaginary parts of its
+vectors), and from the residual of the cycle, to which their harmonic residuals are all
+parallel, so that the Arnoldi relation holds on them: with $P_{k+1}$ the orthonormal
+basis of the $k$ vectors and of the residual in the coordinates of the cycle and
+$W_{k+1} = V_{m+1} P_{k+1}$, $A M^{-1} W_k = W_{k+1}\,P_{k+1}^T \bar H_m P_k$ ($A$ the
+tangent, $M^{-1}$ the preconditioner). The approximate eigenvectors of the eigenvalues
+nearest zero, which a plain restart loses and the next cycle must find again (restarted
+GMRES stalls on them), stay in the space. The first block of the Hessenberg matrix of a
+deflated cycle is full (factorized by Householder reflections, its next columns by
+rotations), and the kept vectors replace the first ones of the basis, combined in place
+(on the GPU one thread per component, the sums in the order of the basis): the memory is
+that of the plain restarts. A solve that does not restart is that of the plain GMRES to
+the bit; after deflated restarts the residual that reaches the tolerance is computed
+again (one product) and a plain cycle follows if it is above it. GMRES was chosen over
+BiCGSTAB: each of its
+iterations is one product by the tangent and one by the preconditioner, and the residual
+it reaches is the least over the space they span, while BiCGSTAB takes two of each per
+iteration with no such optimality. On the nearly symmetric operators of morphoGen's laws
+GMRES takes about as many products as the conjugate gradients of the symmetrized
+operator, for the same Newton iterations (2,235, 1,129 and 1,250 against 2,414, 1,174 and
+1,338 on a GTN composite in tension, an Armstrong–Frederick composite and a polycrystal
+with slip hardening, $8^3$ voxels), and BiCGSTAB 1.3 to 1.4 times more than GMRES (3,145,
+1,498 and 1,793; 1,061 against 819 for the recurrent network of §31); GMRES does not
+break down, its residual decreases monotonically, and it is to nonsymmetric operators
+what MINRES is to the symmetric indefinite ones. Plain restarts cost where the solves
+need hundreds of iterations: at the softening points of a Rousselier matrix around stiff
+spheres ($8^3$ voxels, a triaxial strain), restarted GMRES takes 54,025 products with 30
+vectors, 41,068 with 50 and 19,149 with 120 (twelve solves stalling above their
+tolerance with 50), BiCGSTAB 29,679, the conjugate gradients and MINRES on the
+symmetrized tangents 9,763, for the same Newton iterations (89 and 87). With deflated
+restarts GMRES takes 11,064 products with 50 vectors (13,309 keeping 10 of them, 10,049
+keeping 30; 16,074 with 30 vectors keeping 10), no solve stalling, along the same curve:
+21 s instead of 48 s on the CPU (12 s for the conjugate gradients), 45 s instead of 175 s
+on the GPU (29 s), the same 11,064 products there (47,072 with plain restarts); on $6^3$
+voxels 3,792 against 6,919, and 4,454 for the conjugate gradients. An iteration of GMRES
+costs more than one of the conjugate gradients, its Gram–Schmidt passes growing with the
+basis: 1.3 ms with plain restarts and 1.5 ms with deflated ones against 0.8 ms on $8^3$
+voxels, 9.3 and 10.4 ms against 6.5 ms on $24^3$ voxels (the threads sweep vectors of two
+blocks or more: 15.7 and 21.9 ms on one thread).
+
+**Recycling.** From the first solve of a path that restarts on, GMRES recycles the space
+of its last deflated restart from a solve to the next (GCRO-DR: Parks, de Sturler, Mackey,
+Johnson & Maiti 2006; `solvers.Recycling`): the vectors $U$ of the harmonic Ritz values of
+least modulus and their images $C = A M^{-1} U$, orthonormal, which the Arnoldi relation
+of that restart gives without a product. Each later solve projects its residual out of
+$C$, builds the Krylov vectors $V$ of $(I - CC^T)\,A M^{-1}$ (orthogonal to $C$ by the
+same Gram–Schmidt passes, whose coefficients on $C$ complete the matrix of the cycle) and
+minimizes the residual over $[U, V]$: the least squares problem of GMRES, with a diagonal
+first block (the inverse norms of $U$) and the same rotations. Each of its full cycles
+keeps the harmonic Ritz vectors of $[U, V]$ with respect to its images (the solutions of
+$G^T G z = \theta\, G^T W^T V z$, $G$ the matrix of the cycle from $[U, V]$ to its image
+space $W$), combined in place with their images and the residual that starts the next
+cycle ($m + k + 2$ vectors at most, 72 instead of 51; $2k = 40$ kept between the solves).
+The columns of $Y$ reuse the images of the correction of their tangent; a new tangent
+computes them again ($k = 20$ products) if the last solve filled a cycle, and drops the
+space otherwise, so that the solves of a path that never restart are those of GMRES-DR to
+the bit and cost nothing more (the learned laws, the other laws of morphoGen). On $8^3$
+voxels the Rousselier composite takes 8,678 products instead of 11,064 (9,763 for the
+conjugate gradients and MINRES), for the same 89 Newton iterations and curve, 14.1 s
+instead of 17.2 s on the CPU and 40.1 s instead of 50.2 s on the GPU (the same products):
+its columns of $Y$ take 27 to 240 iterations instead of 88 to 454, the corrections of new
+tangents about as many; the localizing GTN composite above 3,312 instead of 4,263 (53
+Newton iterations instead of 61, the same solution; 6.1 s instead of 7.2 s, 16.0 s instead
+of 17.7 s on the GPU); on $6^3$ voxels 3,380 instead of 3,792 (23 solves recycled, 121
+products for the images). Recycling only between the solves of a same tangent (no image
+computed again) takes 8,510 and 3,775 products on $8^3$ voxels.
+
+**Stagnation.** On $16^3$ voxels the deflation barely helped (55,869 products against
+56,871 with plain restarts, 54,804 with 100 vectors keeping 40): 31 solves ran to their
+1,320 iterations above their tolerance, all in one step, the third (from 0.4 to 0.6 % of
+strain), whose 25 Newton iterations decreased the residual by a fifth before it was
+divided: 41,000 of the products. The tangents of that step are beyond the Krylov solvers:
+the preconditioned operator has dozens of eigenvalues of both signs near zero (34 of the
+harmonic Ritz values of 400 Arnoldi iterations have negative real parts, about 10 of 600
+on $8^3$ voxels; the least in modulus $1.2\cdot10^{-3}$, the largest 1.3), and its
+symmetric part as many. GMRES without restart reaches the tolerance $10^{-2}$ of a
+correction after 1,535 iterations and not the $3\cdot10^{-4}$ of a column of $Y$ in 3,000;
+GMRES-DR(80, 30) and (100, 40) stagnate at $1.3$ and $1.2\cdot10^{-2}$ (the restart length
+is not the cause); MINRES on the symmetrized tangent takes 2,600 iterations to $10^{-2}$,
+and its solution leaves 11 % of the residual of the full one (a fallback to it would not
+pay); reference media of halved or quartered moduli, or of other ratios, change MINRES by
+$-2$ to $+16$ % and leave GMRES-DR at 1.6 to $2.0\cdot10^{-2}$ (the indefiniteness lies in
+the softening voxels, which a homogeneous medium does not see); recycling does not help
+either. The conjugate gradients and MINRES stall there too (14 solves at 1,320
+iterations), that path leaving the step after 8 Newton iterations at a failed local
+integration. Along the paths GMRES therefore stops a solve whose residual has not halved
+over its last 8 cycles (`solvers.GMRES_STAGNATION`, 240 iterations: on these composites it
+stops the 35 solves that would end at their 1,320 iterations, after about 300, and none of
+the 95 that converge after restarts, up to 528 iterations; 6 cycles would stop three of
+these, 3 cycles eight), an inexact correction, and a step whose GMRES corrections stop
+above their tolerance at three Newton iterations in a row is divided
+(`nonlinear._STALLED`). On $16^3$ voxels the Rousselier composite then takes 14,947
+products instead of 55,869, for the same Newton iterations (127 and 128), divided steps
+(9) and curve (to $6\cdot10^{-7}$), against 35,244 for the conjugate gradients and MINRES
+(without dividing the steps 22,291, and 22,273 without recycling; with recycling alone
+47,395): 106 s instead of 819 s on the CPU (8 threads, on a machine shared with another
+job), 76 s instead of 508 s on the GPU (the same 14,947 products; 54,380 for GMRES-DR
+there). The GTN composite takes 8,887 instead of 13,655 (13,430 for the conjugate
+gradients, which reach the same curve on that grid; without dividing the steps 11,593,
+with recycling alone 10,697), 63 s instead of 87 s on the CPU and 101 s instead of 133 s
+on the GPU. Larger steps reproduce the stall on coarser grids: in four increments the
+Rousselier composite takes 7,501 products instead of 19,028 on $6^3$ voxels (21,293 for
+the conjugate gradients and MINRES, the same divided steps and stresses to $10^{-7}$;
+8,522 without recycling, 12,740 with recycling alone) and 13,948 instead of 24,692 on
+$8^3$ voxels (28,672), for the same Newton iterations and divided steps.
+
+The softening GTN composite above bifurcates at its third step (a strain of 0.6 %): from
+the same converged state, the symmetrized and the full tangents reach two solutions of
+the same increment, their residuals $2.5\cdot10^{-7}$ and $2.6\cdot10^{-7}$ of the nodal
+forces (the tolerance $10^{-6}$; $4.4\cdot10^{-9}$ and $3.6\cdot10^{-9}$ with a tolerance
+of $10^{-8}$, where the paths part at the same step towards the same two solutions),
+their fluctuations 60 % apart and their stresses 1.1 %. The symmetric part of the
+tangent operator of the fluctuations is positive definite at the solution of the
+symmetric path (its least eigenvalue, the translations aside, $1.0\cdot10^{-3}$ of the
+largest) and has a negative eigenvalue at that of the full one ($-3.0\cdot10^{-3}$, a
+real eigenvalue of the full operator too): the symmetric path finds the stable solution,
+GMRES on the full tangents an unstable equilibrium, which a minimal residual does not
+tell apart. Each path then stays on its branch ($\Sigma_{11}$ = 694 and 715 MPa at 2 %,
+the stresses 4.6 % apart). By default `auto` symmetrizes these tangents ($a \le
+3.8\cdot10^{-3}$ for the matrix, $1.7\cdot10^{-3}$ for the whole, §31) and follows the
+stable branch.
+
+**Locking: B-bar and F-bar.** A fully integrated trilinear voxel has 8 volumetric
+constraints for about 3 degrees of freedom: it locks under isochoric plastic flow. Elastic
+cubes (21.6 %, $E = 400$ GPa) in a plastic matrix ($E = 70$ GPa, $R_0 = 100$ MPa,
+$H = 200$ MPa) pulled to 2 % carry $\Sigma_{11} = 358$ MPa on $10^3$ voxels and 231 MPa on
+$20^3$ voxels with full integration, against 166 and 163 MPa with quadratic tetrahedra of
+the same geometry ($10^3$ and $15^3$ cells). By default (`integration: bbar`) the
+volumetric part of the measures is averaged over each voxel:
+
+* in small strains (B-bar, Hughes 1980), $\bar\varepsilon = \varepsilon +
+  \tfrac13(\langle\mathrm{tr}\,\varepsilon\rangle_e - \mathrm{tr}\,\varepsilon)\,1$ at each
+  point, $\langle\cdot\rangle_e$ the mean over the 8 points of the voxel;
+* in finite strains (F-bar, de Souza Neto, Perić, Dutko & Owen 1996),
+  $\bar F = \alpha F$ with $\alpha = (\bar J/J)^{1/3}$ and $\ln\bar J = \langle\ln
+  J\rangle_e$: the trace of the logarithmic strain is averaged, which is B-bar in the
+  logarithmic strain space.
+
+The forces are the derivatives of the energy $\Pi(u) = \sum_g w_g\,W(\bar F_g(u))$ (the
+variational form), so that the tangent is its second derivative, symmetric with symmetric
+point tangents. The stresses of the points are replaced by their conjugates: in small
+strains $s + \langle p\rangle_e 1$ (the deviator of the point, the mean pressure of the
+voxel); in finite strains
+
+$$P^* = \alpha\bar P + (\langle\tau\rangle_e - \tau)\,F^{-T},\qquad \tau = \tfrac13\alpha\,
+\bar P : F,$$
+
+$\bar P$ being the stress of the behaviour at $\bar F$ and $\tau$ the Kirchhoff pressure.
+Their derivatives in a direction $\delta u$ are, with $c = F^{-T}:\delta F$,
+$\delta\alpha = \tfrac13\alpha(\langle c\rangle_e - c)$ and
+$\delta\bar F = \alpha\,\delta F + \delta\alpha\,F$,
+
+$$\delta P^* = \delta\alpha\,\bar P + \alpha\,\mathbb A : \delta\bar F + (\langle\delta\tau
+\rangle_e - \delta\tau)\,F^{-T} - (\langle\tau\rangle_e - \tau)\,F^{-T}\delta F^T F^{-T},
+\quad \delta\tau = \tfrac13\big(\delta\alpha\,\bar P : F + \alpha\,(\mathbb A:\delta\bar
+F) : F + \alpha\,\bar P : \delta F\big).$$
+
+The macroscopic stress is the mean of the conjugate stresses (in small strains their
+means over each voxel are those of the stresses of the points). With B-bar the composite
+above carries 170, 161 and 157 MPa on $10^3$, $20^3$ and $30^3$ voxels (F-bar: 166, 157
+and 153 MPa of nominal stress), converging as the quadratic tetrahedra do.
+`integration: full` keeps the discretization of the linear solver: with linear behaviours
+one path then reaches the condensed linear solution.
+
+**Validation.** The tangent applied matrix-free, its coupling with the macroscopic strain
+and the macroscopic tangent match finite differences of the forces and of the integral of
+the stress to $10^{-6}$ (small and finite strains, B-bar, F-bar and full integration, an
+anisotropic heterogeneous image), and the operator is symmetric to $10^{-10}$. With the
+full tangents of a GTN matrix in a plastic state, the operator, the coupling and
+$K_{Ew}$ (the derivative of the integral of the stress by the fluctuation, voxels and
+finite elements) match finite differences to $10^{-6}$, the operator and the coupling not
+symmetric. The full tangents of every law on the GPU are those of the CPU to $10^{-10}$,
+and its GMRES follows the CPU's along paths (Armstrong–Frederick composites in small and
+finite strains, the recurrent network) to $10^{-6}$ of the stresses. A
+homogeneous image follows its material point to $2\cdot10^{-6}$ of the stresses (von
+Mises along a cyclic path mixing a strain, a shear stress and a change of temperature;
+single crystals in small and finite strains). With full integration and linear
+behaviours, a path gives the condensed linear FFT solution of a porous random image to
+$10^{-9}$. A periodic laminate of voxels follows its exact layer solution to
+$5\cdot10^{-8}$ of the stresses. A voxel polycrystal has its flow stress between the
+Sachs and Taylor estimates, and in finite strains a uniaxial Cauchy stress (the other
+components below $10^{-6}$ of it) and rotating lattices.
+
+**Cost.** A Voronoi polycrystal of 12 grains on $24^3$ voxels (110,592 points, 41,477
+unknowns) pulled to 2 % in 20 steps with crystal plasticity in small strains takes 65
+Newton iterations, 2,277 conjugate gradient iterations (about 30 per solve) and 25 s on 20
+threads (Intel i9-13900H); the integration of the crystals takes about half of it, the
+products of the tangent a fifth, the FFTs a twentieth. The template
+`homogenization_crystal_plasticity_fft` (20 grains, $24^3$ voxels, finite strains, 50
+steps to 5 %) takes 149 Newton iterations, 3,535 conjugate gradient iterations and 90 s,
+without any divided step. The memory is that of the points (the measure of strain, the
+stress, the tangent and twice the internal variables): about 1 kB per point for a crystal
+with 12 slip systems in small strains and 1.8 kB in finite strains, 8 points per voxel
+(about 2 GB for $64^3$ voxels in small strains).
+
+## 35. The FFT solvers on the GPU (`morphogen.gpu`, `homogenization.gpu`)
+
+**What runs on the GPU.** With `device: gpu` (or `auto`: the GPU when CuPy finds one;
+Okuta et al. 2017), the conjugate gradients of the FFT solvers (§12, §34) run on an
+NVIDIA GPU, in double precision, and so does everything that concerns the integration
+points of the loading paths: the iterates and residuals stay in its memory, and only the
+right-hand sides and the solutions cross the bus. Each product by the stiffness is a
+CUDA kernel compiled at run time (NVRTC), one thread per node gathering the forces of its
+8 voxels as the CPU kernels do, so that no atomic operation is needed. The
+preconditioner transforms the residual by real FFTs (cuFFT), multiplies each frequency by
+the inverse of the symbol of the reference medium ($3\times3$ blocks in elasticity,
+computed once on the GPU from the 27 blocks of its stencil) and transforms back. The dot
+products are reductions and the updates of the iterates fused element-wise kernels; no
+dense linear algebra (cuBLAS) is used.
+
+**Loading paths.** The arrays of the integration points (measures of strain, stresses,
+tangents, two sets of internal variables) stay on the GPU, where CUDA kernels compute the
+measures of the voxels (B-bar or F-bar), integrate the behaviours, replace the stresses by
+those conjugate to the measures, gather the nodal forces and apply the tangent operator of
+§34 with the columns of its coupling with the macroscopic strain. The behaviours (von
+Mises elasto-(visco)plasticity and Hill's criterion, porous plasticity of GTN,
+Rousselier and the elliptic criterion, crystal plasticity in small and finite strains,
+the space of the logarithmic strain) are ports, line by line, of the Numba kernels,
+which stay the reference, one thread per point: the local Newton iterations, the active sets and the
+substeps of a point run in its thread, with its work arrays in local memory (13 kB for 12
+slip systems). Each launch takes as many points as its duration allows (about 0.2 s,
+from $2^{10}$ to $2^{20}$ points), far below the watchdog of the display drivers of
+Windows even when the points take long. The Newton iterations of the periodic element,
+the condensation of the macroscopic block and the line search stay on the CPU; they
+exchange with the GPU the nodal unknowns and residuals (three values per voxel), the
+integrals of the stresses and the norms of convergence, and the outputs of each step take
+back the stresses, the measures and the cumulated plastic strain of the points (the whole
+state for the fields).
+
+**Agreement.** The linear solutions of the GPU equal those of the CPU to $10^{-10}$
+(apparent moduli, conductivity and a mixed thermo-elastic loading of a porous image),
+with the same numbers of iterations. The products by the tangent operators (small and
+finite strains, B-bar, F-bar and full integration, anisotropic crystals), the coupling
+columns and the solutions of the corrections agree to round-off (a few $10^{-15}$ of
+their largest values). Point by point, the behaviours of the GPU give the stresses and
+the internal variables of the Numba kernels to $10^{-15}$ of their largest values and the
+tangents to $10^{-12}$ (every behaviour, in small and finite strains, steps from zero,
+from the current iterate and from the previous step, changes of temperature, substeps);
+at strains where the integration fails, rounding may change the verdict at a few points
+(49 failures on the GPU for 47 on the CPU among 1,408 points with random gradients of
+0.16), which the division of the steps treats alike. The porous points (GTN with its
+nucleation and its coalescence, viscous GTN, Rousselier, the elliptic criterion) follow
+the Numba kernel to 10⁻¹² of the largest stresses and internal variables and 10⁻¹⁰ of
+the tangents, and the path of a porous matrix around an inclusion that of the CPU. The
+paths of a polycrystal with crystal plasticity, and of a composite with a viscoplastic
+matrix under a mixed loading with a change of temperature, give the same curves, phase
+averages and fields within the tolerance of the Newton iterations.
+
+**Cost.** `python examples/gpu_benchmark.py` on a laptop (Intel i9-13900H, 20 threads;
+NVIDIA RTX 3000 Ada laptop GPU, 8 GB; CuPy 14, CUDA 13), the kernels compiled:
+
+| Problem | Voxels | CPU | GPU | Speed-up |
+|---|---|---|---|---|
+| bulk modulus of a Boolean model of spheres (30 %, contrast 10) | 64³ | 1.41 s | 0.23 s | 6.1 |
+| | 96³ | 5.09 s | 0.76 s | 6.7 |
+| | 128³ | 11.1 s | 2.04 s | 5.4 |
+| | 160³ | 21.9 s | 3.39 s | 6.5 |
+| | 192³ | 38.6 s | 5.54 s | 7.0 |
+| | 256³ | 103 s | 29.4 s | 3.5 |
+| Voronoi polycrystal of 12 grains, crystal plasticity, 1 % in 10 steps | 24³ | 8.85 s | 5.56 s | 1.6 |
+| | 32³ | 21.8 s | 10.4 s | 2.1 |
+| | 48³ | 125 s | 44.0 s | 2.8 |
+| stiff spheres (20 %) in a GTN matrix (1 % of voids), tension to 1 % in 10 steps | 32³ | 11.5 s | 4.77 s | 2.4 |
+| | 48³ | 51.5 s | 14.9 s | 3.5 |
+| | 64³ | 161 s | 45.6 s | 3.5 |
+
+The linear solves gain 5 to 7 times up to $192^3$ voxels, and 3.5 times at $256^3$ (16.8
+M voxels, which still fit in the 8 GB of this GPU). The paths of the polycrystal gain 1.6
+to 2.8 times, those of the porous composite 2.4 to 3.5 times, with the same stresses,
+porosities and iterations. Before the crystal kernel computed the exponentials of its
+hardening once per family (§32), the paths of the polycrystal took 11.2, 27.6 and 123 s
+on the CPU and 7.8, 15.2 and 64.5 s on the GPU: on $48^3$ voxels (885,000 points), the
+integration of the crystals took then 47 s on the GPU against 113 s on the CPU in the
+same run, the conjugate gradients 17 s against 65 s: the
+integration is two thirds of the time of a path on the GPU, bound by its double precision,
+which this GPU computes at 1/64 of the rate of single precision (with 255 registers and
+13 kB of local memory per thread, neither the size of the blocks nor a limit on the
+registers changes its time). The first version of the backend, which integrated the
+behaviours on the CPU and copied the tangents to the GPU, took 136 s on the GPU for the
+same path. GPUs with full-rate double precision (A100, H100) should gain much more on the
+integration; this was not measured. The times of the CPU of this laptop vary from one run
+to the next (123 s, then 190 s on $48^3$ voxels before the faster crystal kernel; 125 s
+and 44 s, then 139 s and 50 s after it), so that these speed-ups are known only roughly.
+A porous composite whose lateral strains are held (a uniaxial strain, high stress
+triaxialities) made the conjugate gradients of some Newton iterations stall at the
+indefinite tangent of its softening points, which MINRES now solves (§34, on both
+devices); the benchmark pulls it with free lateral stresses.
+
+## 36. MFront behaviours (`homogenization.mfront`)
+
+**MFront and MGIS.** MFront, the code generator of TFEL (Helfer et al. 2015), translates
+behaviours written in its domain-specific languages (implicit schemes, the bricks of
+standard elasto-viscoplasticity, crystal plasticity, finite strain formulations) into C++.
+Compiled with its `generic` interface, they are loaded and integrated point by point by
+MGIS (MFrontGenericInterfaceSupport; Helfer et al. 2020), the library that TFEL provides
+for solvers. A material whose `mfront` key names a behaviour (a `.mfront` source,
+compiled on first use with `mfront --obuild --interface=generic` and cached by the
+SHA-256 of its text, or a compiled library and the name of its behaviour) has its points
+integrated by MGIS along the loading paths of §31 to §34: by finite elements, on voxels
+and at a material point, in small and finite strains. The rest of the solvers is
+unchanged: the periodic element and its macroscopic unknowns, Newton's method with its
+line search and divided steps, the outputs. The behaviour brings its own elasticity; the
+elastic constants of the material (`young` and `poisson`, or the stiffness of a crystal)
+remain those of the linear problems and of the reference medium of the FFT
+preconditioner. In small strains the behaviour is a standard strain-based behaviour. In
+finite strains it is a standard finite strain behaviour, loaded for the first
+Piola–Kirchhoff stress and its derivative with respect to the deformation gradient, the
+measures of the total Lagrangian formulation of §33, whatever its own strain measure
+(Hencky, Green–Lagrange...).
+
+**Conventions.** MGIS stores symmetric tensors in the order of TFEL, (11, 22, 33, 12, 13,
+23), which is that of Cast3M, Code_Aster and Abaqus but not the usual order of Voigt,
+(11, 22, 33, 23, 13, 12), with a factor $\sqrt2$ on their shear components (the
+normalization of Mandel, so that the scalar product of two of them is that of the
+tensors). morphoGen keeps the usual order, (11, 22, 33, 23, 31, 12), with engineering
+shear strains ($\gamma_{ij} = 2\varepsilon_{ij}$), and converts the components at the
+calls of MGIS only. The strain of a point goes to MGIS as $(\varepsilon_{11},
+\varepsilon_{22}, \varepsilon_{33}, \sqrt2\,\varepsilon_{12}, \sqrt2\,\varepsilon_{13},
+\sqrt2\,\varepsilon_{23})$, its stress comes back with its shear components divided by
+$\sqrt2$ and put in morphoGen's order, and the tangent $K$ of MGIS becomes the
+fourth-order tensor $\mathbb{C}_{ijkl} = K_{IJ} / (w_{ij}\,w_{kl})$ ($I$ and $J$ the
+indices of MGIS of $(ij)$ and $(kl)$; $w = 1$ on the diagonal and $\sqrt2$ off it), then
+morphoGen's Voigt matrix. Tensors of nine components (the deformation gradient $F$, the
+stress $P$) are ordered (11, 22, 33, 12, 21, 13, 31, 23, 32) by MGIS and row by row by
+morphoGen; $\partial P/\partial F$ follows the order of MGIS in its rows and its columns.
+These conventions were checked on compiled behaviours: an orthotropic law whose three
+shear moduli differ answers each slot of MGIS with its own modulus ($G_{12}$, $G_{13}$,
+$G_{23}$) and equals morphoGen's elasticity of the same stiffness to $10^{-15}$, in the
+axes of the crystal and turned; the strain at the onset of yield in shear, which the
+factors $\sqrt2$ set; the tangent of an isotropic law against its Voigt matrix; the
+derivative of the stress of a Saint Venant–Kirchhoff law against finite differences.
+
+**Crystals.** The behaviour of a crystal is written in the axes of its lattice (its
+orthotropic stiffness and its slip systems in the axes of the cube, say). With the
+rotation $g$ of its grain, which maps the sample axes to the crystal axes (§20), the
+strain of a point goes to the lattice as $g\,\varepsilon\,g^T$ ($g\,F\,g^T$ in finite
+strains, both configurations being turned), the stress comes back as $g^T\sigma\,g$
+($g^T P\,g$), and the tangent as a fourth-order tensor, $\mathbb{C}_{ijkl} =
+g_{pi}\,g_{qj}\,g_{rk}\,g_{sl}\,\mathbb{C}^{\mathrm{lattice}}_{pqrs}$. As morphoGen's own,
+the tangents are symmetrized for the conjugate gradients where the laws of a volume
+element are all symmetric (§31), and passed whole to GMRES otherwise, and to Newton's
+method at a material point. A behaviour has a symmetric tangent when it declares one
+(`@ProvidesSymmetricTangentOperator`): the `generic` interface does not export it, but
+MFront writes it in the traits of the behaviour (`isConsistentTangentOperatorSymmetric`
+of its tridimensional hypothesis) in the header it generates beside the library, which
+`declared_symmetric` reads (the elastic laws of the tests declare one, the implicit
+twins of von Mises and crystal plasticity do not, as their native twins are not
+symmetric either); a library without its header is taken as not symmetric. The grains
+of a material with an MFront behaviour keep their rotations whatever its elastic
+parameters (which serve the linear problems and the reference media only): orthotropic
+behaviours (MGIS's symmetry) are turned by them, isotropic ones are not.
+
+**State.** The two sets of internal variables of each point (at the start and at the end
+of the step) hold, for an MFront material: the plastic strain tensor and the cumulated
+plastic strain of the outputs, the change of temperature, then the gradients and the
+thermodynamic forces of MGIS, and its internal state variables. Tensors of nine
+components (the plastic deformation gradient of a multiplicative law, say) are stored
+minus the identity, so that zero is the natural state of every array. Before each
+integration the state at the start of the step is copied into the state $s_0$ of MGIS,
+and the end of the step is read from $s_1$: MGIS never updates its own states, so that
+the iterations of Newton's method, the divided steps and the restarts of a path behave as
+with morphoGen's behaviours. The cumulated plastic strain of the outputs is the internal
+variable named by `plastic_strain` (by default the glossary names `EquivalentPlasticStrain`
+or `EquivalentViscoplasticStrain`, when the behaviour has one; zero otherwise), and the
+plastic strain tensor, in small strains, the strain minus the elastic strain
+(`ElasticStrain`).
+
+**Temperature, properties, parameters.** The external state variable `Temperature` is the
+reference temperature of the material (`temperature`, 293.15 K by default) plus the change
+of temperature of the path. The other external state variables are constants of the
+material (`external_state_variables`), and so are the material properties of the
+behaviour (`material_properties`, all required). The parameters (`parameters`) are set on
+the behaviour, globally for its library in the process: materials that share a behaviour
+must agree on them.
+
+**Integration.** The points of each MFront material are integrated together by MGIS, with
+the consistent tangent, in its pool of threads (as many as Numba's). If an integration
+fails, the points of the material count as failures of the step, which is divided as for
+morphoGen's behaviours. The Numba and CUDA kernels of morphoGen's behaviours skip the
+points of the kind `MFRONT`, so that MFront and native materials mix in one problem. On
+the GPU (§35) the arrays of the MFront points are gathered to the host, integrated by
+MGIS and scattered back, the rest of the iterations staying on the GPU.
+
+**Twins.** Five behaviours written in MFront (`tests/mfront`) reproduce morphoGen's:
+
+* `VonMisesTwin`, with the brick of standard elasto-viscoplasticity: Hooke's law, the
+  Norton flow ($K = 50$, $n = 5$) of a von Mises criterion, linear and Voce isotropic
+  hardening ($R_0 = 100$ MPa, $H = 500$ MPa; $Q = 50$ MPa, $b = 20$), Armstrong–Frederick
+  and Prager kinematic hardening ($C = 20\,000$ MPa, $D = 200$; $C = 5\,000$ MPa);
+* `VonMisesHenckyTwin`, the same in the logarithmic strain space (`@StrainMeasure
+  Hencky`), the formulation of morphoGen's finite strains (§33);
+* `MericCailletaudTwin`, an implicit scheme of the crystal plasticity of §32 written
+  out: the cubic elasticity as an orthotropic stiffness, the 12 octahedral systems,
+  Norton flow, isotropic hardening with a uniform interaction matrix,
+  Armstrong–Frederick kinematic hardening on each system, its Jacobian by finite
+  differences;
+* `Elasticity`, isotropic elasticity whose $E$ and $\nu$ are material properties;
+* `OrthotropicElasticity`, orthotropic elasticity whose three shear moduli differ
+  ($G_{12} = 10\,000$, $G_{23} = 20\,000$, $G_{13} = 30\,000$ MPa), against morphoGen's
+  elasticity of the same stiffness: the order of the shear components.
+
+Against morphoGen's kernels along the same paths, the largest differences of the stresses,
+relative to the largest stress of each curve, are:
+
+| Case | Difference |
+|---|---|
+| material point, von Mises, cyclic tension to ±1 % | 2.1·10⁻¹¹ |
+| material point, von Mises, tension then reversed shear | 2.6·10⁻¹² |
+| material point, von Mises in the logarithmic space, tension to 30 % then shear | 5.4·10⁻¹³ |
+| material point, Méric–Cailletaud crystal, tension and compression, two orientations | 2.1·10⁻¹⁰, 2.2·10⁻¹⁰ |
+| material point, orthotropic elasticity, the six strain components, unrotated / turned | 1.4·10⁻¹⁶ / 4.9·10⁻¹⁶ |
+| FFT, composite of 8 × 7 × 9 voxels (B-bar), tension to 1 % and unloading | 9·10⁻¹⁴ (fields 1.7·10⁻¹³) |
+| FFT, the same to 15 % (F-bar, logarithmic space) | 1.1·10⁻¹⁴ |
+| FE, composite on tetrahedra, tension and unloading, periodic / kinematic conditions | 3.8·10⁻¹³ / 1.0·10⁻¹³ |
+| FE, the same to 5 % (logarithmic space), periodic / kinematic conditions | 8.6·10⁻¹⁵ / 1.7·10⁻¹⁵ |
+| FFT, polycrystal of 8 grains on 8³ voxels, tension to 1 % | 5.9·10⁻¹² |
+| FFT on the GPU, MFront points against the CPU, small / finite strains | 2.6·10⁻¹⁶ / 4.4·10⁻¹⁶ |
+
+The Newton iterations of the paths are the same in every case; what remains is the
+difference of the stopping criteria of the two local integrations.
+
+**Cost.** On the laptop of §35 (in WSL, 20 threads, on the CPU), ten steps of a path on
+24³ voxels (884,736 points), with the same Newton iterations:
+
+| Problem | morphoGen | MFront | Ratio |
+|---|---|---|---|
+| composite (30 % of hard voxels), von Mises, small strains, tension to 1 % | 11.1 s | 22.1 s | 2.0 |
+| the same in the logarithmic strain space, tension to 10 % | 19.6 s | 38.2 s | 1.9 |
+| polycrystal of 12 grains, Méric–Cailletaud, small strains, tension to 1 % | 23.7 s | 125 s | 5.3 |
+
+The rest of the iterations being the same, the difference is that of the integration of
+the points (measured before morphoGen's crystal kernel computed the exponentials of its
+hardening once per family, which made it 1.4 to 1.7 times faster, and before the savings
+of §32, *The cost of a point*, which made it two to three times faster again). On 16³ voxels of the polycrystal, the integration by MGIS takes three
+quarters of the time of the MFront points: its scheme is general, and the Jacobian of
+this twin is computed by finite differences, where morphoGen's kernel is written for its
+law; the copies between morphoGen's arrays and the states of MGIS, the conversions of the
+components and the rotations of the tangents take the remaining quarter. The von Mises
+twin, whose brick gives an analytical Jacobian, costs twice morphoGen's kernel.
+
+## 37. MFront sources of morphoGen's behaviours (`io.mfront`)
+
+**What is written.** `morphogen.io.mfront` writes the nonlinear materials of morphoGen as
+MFront behaviours, for the codes that integrate MFront behaviours through its interfaces:
+AMITEX_FFTP and Cast3M (`umat`), Abaqus (`abaqus`), Code_Aster, and MGIS (`generic`, as
+morphoGen itself, §36). The values of the material are constants of the source.
+
+* Von Mises elasto-(visco)plasticity: the brick `StandardElastoViscoPlasticity` of MFront,
+  with Hooke's law, the Norton flow of the von Mises criterion (`Plastic`, rate
+  independent, without viscosity), a `Linear` isotropic hardening ($R_0$, $H$) and a
+  `Voce` term ($R_0 = 0$, $R_\infty = Q$, $b$) for each nonlinear term, an
+  `Armstrong-Frederick` term ($C$, $D$) or a `Prager` term ($D = 0$) for each kinematic
+  term: the conventions of §31 ($X = \tfrac23 C a$, $\dot a = \dot\varepsilon_p - D a\,\dot
+  p$) are those of the brick. In finite strains, `@StrainMeasure Hencky`: the space of the
+  logarithmic strain of §33.
+* Porous plasticity (§49), the criterion of Gurson–Tvergaard–Needleman: the same brick
+  with its porous criterion `GursonTvergaardNeedleman1982` ($q_1$, $q_2$, $q_3$), the
+  hardening and the flows of von Mises (`Plastic`, `Norton`), and the porosity in its
+  implicit system (`porosity_evolution` with the `standard implicit scheme`, not its
+  staggered one; $\theta = 1$). The residuals of the brick are then those of morphoGen's
+  backward Euler: $\Delta\varepsilon_e - \Delta\varepsilon + (1 - f)\,\Delta p\,
+  \partial\sigma_*/\partial\sigma$ (the plastic strain normal to the potential, its
+  multiplier $(1 - f)\Delta p$ that of the equivalence of the plastic works for a criterion
+  homogeneous of degree 1), the flow rule, and $\Delta f - (1 - f)\,\mathrm{tr}
+  \Delta\varepsilon_p - \Delta f_n$, all at the end of the step; MFront's matrix stress
+  solves the same potential, $x = 1/\sigma_*$ in $\Sigma_{eq}^2 x^2 + 2 q_1 f^*
+  \cosh(\tfrac32 q_2 \Sigma_m x) - 1 - q_3 f^{*2} = 0$. The effective porosity is $f$
+  ($f_c = 1$, beyond any porosity) or Tvergaard and Needleman's coalescence: MFront's
+  $f^* = f_c + \delta\,(f - f_c)$ beyond $f_c$, $\delta = (f_u - f_c)/(f_r - f_c)$, reaches
+  the ultimate porosity $f_u = (q_1 - \sqrt{q_1^2 - q_3})/q_3$ at $f_r$; $f_u = 1/q_1$, and
+  $f_r = f_F$, when $q_3 = q_1^2$, otherwise $f_r$ is the porosity of morphoGen's slope
+  $(1/q_1 - f_c)/(f_F - f_c)$ ($q_3 > q_1^2$, no ultimate porosity: morphoGen's kernel,
+  below). The
+  constant nucleation from $p = 0$ is MFront's power law of exponent 0 (`PowerLaw
+  (strain)`, $f_n (p/e_n - 1)^0$ beyond $e_n = 10^{-200}$, integrated from $\max(p, e_n)$:
+  $f_n e_n$ short of $A\,\Delta p$, its maximum nucleated porosity 1). The brick's porosity
+  is a state variable whose initial value the solvers give: the source sets it to $f_0$
+  while $p = 0$ (before the matrix flows the porosity is $f_0$, the elastic contribution
+  to its growth being off), so that the natural state of its internal variables is zero,
+  as for morphoGen's other exports: the elastic strain, $f$, $p$, the rupture of the brick
+  and, with a nucleation, the nucleated porosity (9 or 10 variables). Its bounds differ
+  from morphoGen's: the brick keeps its porosity below 0.985 of its upper bound ($1$, or
+  $f_r$) and breaks the material (zero stress) beyond 0.984 of it, morphoGen keeps $f^*$
+  below $0.995/q_1$; both where the material has lost nearly all its strength. Not the
+  brick's, each for its reason (their sources hold morphoGen's kernel, below; only an
+  anisotropic expansion is refused): Rousselier's criterion (MFront's
+  `RousselierTanguyBesson2002`, $\Sigma_{eq}/((1 - f)\sigma_*) + \tfrac23 D_R f
+  \exp(\tfrac32 q_R \Sigma_m/((1 - f)\sigma_*)) = 1$, puts the matrix stress in place of
+  morphoGen's constant $\sigma_1$: homogeneous of degree 1, it is not §49's), the elliptic
+  one (no such criterion in the brick), Chu and Needleman's Gaussian nucleation (MFront
+  integrates the Gaussian exactly over a step, $\tfrac12 f_N(\mathrm{erf}((p + \Delta p -
+  \varepsilon_N)/(\sqrt2 s_N)) - \mathrm{erf}((p - \varepsilon_N)/(\sqrt2 s_N)))$, morphoGen
+  by backward Euler, $A(p + \Delta p)\,\Delta p$), the exponential one (none), a threshold
+  of the nucleation (the power law integrates from its threshold), the other tables of
+  the effective porosity, the kinematic hardening of §49 (MFront 5.1's brick: "kinematic
+  hardening rules are not supported when coupled with a porosity evolution"). Compiled
+  and integrated by MGIS
+  along triaxial paths of the six components that grow the porosity (from 0.01 to 0.055
+  in small strains, to 0.13 in finite strains), the laws follow the native kernels within
+  10⁻¹⁰ of the stress scale (7·10⁻¹¹ rate-independent with Voce terms, 5·10⁻¹¹ Norton,
+  7·10⁻¹¹ with the coalescence, 2·10⁻¹¹ with the nucleation, 5·10⁻¹¹ expanding, 3 to
+  5·10⁻¹¹ in finite strains; 2 to 7·10⁻¹¹ for the cases of the tests): the equations are
+  the same, only the tolerances of the two Newton methods differ. The AMITEX and Abaqus
+  inputs take the porous phases; called as AMITEX (umat) and Abaqus (abaqus) call them,
+  with the internal variables of MFront's examples starting at zero, a viscous GTN with
+  the coalescence and the nucleation follows the kernel within 5·10⁻¹¹ (7·10⁻¹¹ expanding,
+  in Abaqus).
+
+  The porous plasticities that the brick does not match hold morphoGen's own integration
+  of a point, as the crystals of finite strains: the C port of the kernels
+  (`behaviours.cu`, that of the GPU, which `tests/test_gpu.py` compares with the Numba
+  kernels point by point) compiled as host C++ in the source, its `porous_update` called
+  with the row of parameters of the porous point and its internal variables, so that the
+  law is morphoGen's by construction. A behaviour of the `Default` DSL: the strain
+  $\varepsilon + \Delta\varepsilon$, in TFEL's components ($\sqrt2$ times the shears, 12,
+  13, 23), is turned to morphoGen's (engineering shears, 23, 31, 12), the stress and the
+  consistent tangent of the kernel back to TFEL's ($\sqrt2$ for each shear index); in
+  finite strains `@StrainMeasure Hencky`, the update in the space of the logarithmic
+  strain as in §33 (the stress conjugate to it and its tangent, which MFront turns to the
+  Cauchy stress and the operator of the interface). The thermal strain is morphoGen's,
+  $\alpha(T + \Delta T - 293.15)$ (logarithmic in finite strains), in the source, so that
+  the abaqus interface takes these laws expanding in finite strains too. Their auxiliary
+  state variables: the elastic strain (small strains), the internal variables of the
+  kernel (`MorphogenState`: 10, and 6 per backstress), the cumulated plastic strain and
+  the porosity (18 or 12 without backstresses); their natural state, zero, is the porosity
+  $f_0$. Compiled and integrated by MGIS along the triaxial paths, which grow the porosity
+  from 0.01 to 0.06–0.14 (from 0.05 to 0.09–0.15, elliptic), Rousselier's criterion with
+  the Gaussian nucleation and, viscous, with the exponential one, both from thresholds,
+  the elliptic criterion (tables of the porosity) with Armstrong–Frederick and Prager
+  backstresses, GTN with a table of $f^*$, a threshold of the constant nucleation and a
+  backstress, and with the coalescence of $q_3 > q_1^2$ and two backstresses, expanding,
+  in small and finite strains, follow the native kernel to the roundoff: within
+  9·10⁻¹⁶ of the stress scale in small strains, 2 to 6·10⁻¹⁴ through MFront's logarithmic
+  strain, and with the same Newton iterations (42 to 45) in a tension whose free
+  components need the tangent (10⁻¹³). Called as AMITEX (umat) and Abaqus (abaqus,
+  expanding too) call them, Rousselier's criterion and GTN with a table of $f^*$ follow it
+  within 9·10⁻¹⁶.
+* Méric–Cailletaud crystal plasticity, in small strains: an implicit scheme of the
+  equations of §32, written out. The unknowns are the elastic strain and the slips, the
+  residuals $\Delta\varepsilon_e - \Delta\varepsilon + \sum_s \Delta\gamma_s m_s$ and
+  $\Delta\gamma_s - \Delta t\,\langle(|\tau_s - x_s| - r_s)/K_s\rangle^{n_s}\,
+  \mathrm{sign}(\tau_s - x_s)$, with $x_s = C_s(\alpha_s + \Delta\gamma_s)/(1 +
+  D_s|\Delta\gamma_s|)$ and $r_s = \tau_{0,s} + Q_s\sum_r h_{sr}(1 - e^{-b_s(v_r +
+  |\Delta\gamma_r|)})$; Newton's method with its Jacobian by finite differences, to
+  $10^{-13}$; then $\alpha_s$, the cumulated slips $v_s$ and $p$ ($\Delta p =
+  \sqrt{\tfrac23\,\Delta\varepsilon_p:\Delta\varepsilon_p}$). The elasticity of the crystal
+  is the nine orthotropic constants of its stiffness in its axes, from its compliance $S$
+  (morphoGen's Voigt order): $E_i = 1/S_{ii}$, $\nu_{12} = -S_{21}E_1$, $\nu_{23} =
+  -S_{32}E_2$, $\nu_{13} = -S_{31}E_1$, $G_{23} = 1/S_{44}$, $G_{13} = 1/S_{55}$, $G_{12} =
+  1/S_{66}$, given in MFront's order ($E_1$, $E_2$, $E_3$, $\nu_{12}$, $\nu_{23}$,
+  $\nu_{13}$, $G_{12}$, $G_{23}$, $G_{13}$); a stiffness that couples normal and shear
+  components is refused. The slip systems are morphoGen's, as their Schmid tensors $m_s
+  = \mathrm{sym}(l_s\otimes n_s)$ written in TFEL's components (11, 22, 33, then $\sqrt2$
+  times 12, 13, 23: §36), so that the families, the order of the systems, their
+  parameters and the interaction matrix are morphoGen's whatever MFront's own
+  crystallography, and $\tau_s = \sigma : m_s$ is the scalar product of the vectors of
+  $\sigma$ and $m_s$. The behaviour is orthotropic: the solver turns it to the axes of
+  each grain.
+
+* Méric–Cailletaud crystal plasticity in finite strains: morphoGen's own integration of
+  a point (`cp_finite`, §33: the slips solved with the exponential map to second order,
+  the substeps, $P$ and its consistent derivative $\partial P/\partial F$), wrapped in a
+  behaviour of the `DefaultFiniteStrain` DSL. The C port of the kernels for the GPU
+  (§35) is compiled for the host: its functions inline, its constants `constexpr` in the
+  namespace of the behaviour (as macros they would reach the headers of TFEL, whose
+  enumerations use some of their names), the constants of the material (the slip systems
+  in the axes of the crystal, the parameters of each system, the interaction matrix, the
+  stiffness) written after it. The internal variables of the kernel are an array of
+  auxiliary state variables (and the cumulated plastic strain, a variable of its own);
+  the Cauchy stress, $P F^T/J$, goes to MFront, and the tangent is $\partial P/\partial
+  F$ (`DPK1_DF`) of the kernel. MFront's brick of finite strain single crystals updates
+  $F_e$ with $I - \sum_s\Delta\gamma_s N_s$ renormalized by the cube root of its
+  determinant, which differs from §33 at the second order of the slips: hence the kernel.
+* Elasticity in finite strains, for the exports of finite strains: Hencky's (§33), the
+  stress conjugate to the logarithmic strain linear in it (`@StrainMeasure Hencky`),
+  with the Lamé coefficients or the nine orthotropic constants in the axes of the
+  crystal.
+* Learned laws (§57; `learning/mfront.py`): a material whose `learned` names a trained
+  model, its trained parameters constants of the source (their shortest decimal forms,
+  which read back to the bit) and the forward pass of the model and its consistent
+  tangent morphoGen's C++ port of the models (`learning/learned.cpp`, line by line from
+  their NumPy and Numba functions: the perceptron, the input-convex potential and its
+  Hessian, the gated recurrent unit, the Newton solve of the incremental potential of the
+  standard model and its Schur complement), in a behaviour of the `Default` DSL. In small
+  strains, the law of the strain. In finite strains, a law of the logarithmic strain with
+  `@StrainMeasure Hencky`, whose strain is $\tfrac12\ln C$ and whose stress is the $T$
+  conjugate to it: the very $T$ of the model, and its tangent $\partial T/\partial H$,
+  which MFront turns to the Cauchy stress and to the operator of the interface; a law of
+  the Green–Lagrange strain with `@StrainMeasure GreenLagrange` ($E$, $S$, $\partial
+  S/\partial E$). The state of the recurrent network and the internal variables of the
+  standard model are an array of auxiliary state variables (`LearnedState`, zero at the
+  natural state); the strain at the start of a step, an input of the recurrent network,
+  is MFront's `eto`, the strain that morphoGen's learned points keep. The thermal strain
+  is morphoGen's, $\alpha\,(T - 293.15)$ with $\alpha$ the expansion tensor in the axes of
+  the material (shear components too), taken out of the strain the model sees at the end
+  and at the start of the step; in finite strains out of $\tfrac12\ln C$, the split of the
+  Hencky points of the learned laws (§57). A law in the axes of its material (`oriented`,
+  the default) is orthotropic (`@OrthotropicBehaviour`; `@AbaqusOrthotropyManagementPolicy
+  MFront` in finite strains): the solver gives it the strain in the axes of each grain, as
+  for the crystals; a law in the axes of the sample is isotropic. Components: TFEL's (11,
+  22, 33, then $\sqrt2$ times 12, 13, 23) in the behaviour, morphoGen's Voigt order (11,
+  22, 33, 23, 31, 12, engineering shears of the strains) in the model and its port, as in
+  the sources of the porous kernel: $e_{V_i} = c_i\,\varepsilon_i$, $\sigma_i = c_i\,
+  s_{V_i}$, $D_{ij} = c_i c_j K_{V_i V_j}$ with $V = (0, 1, 2, 5, 4, 3)$ and $c = (1, 1, 1,
+  \sqrt2, \sqrt2, \sqrt2)$. The tangents of the potential and of the standard model are
+  declared symmetric (`@ProvidesSymmetricTangentOperator`), those of the perceptron and
+  of the recurrent network not (`@ProvidesTangentOperator`). A step of the standard model
+  that stops without converging keeps the last iterate, as morphoGen's points do; a
+  stress or a tangent that is not finite fails the integration. Refused: a law of the
+  Green–Lagrange strain that expands, in finite strains (its split of the Hencky points,
+  $E_m = (\exp(2 H_m) - I)/2$, is not written: train the law of the logarithmic strain),
+  and a law in the axes of the sample with an anisotropic expansion (the orientations of
+  the grains would turn the expansion, not the law). The command `morphogen mfront`, the
+  AMITEX exports and the Abaqus inputs take the learned phases as the others.
+
+  Compiled and integrated by MGIS, the four models (small networks, their parameters
+  moved off their start, set up on the orthotropic crystal of §57, whose three shear
+  moduli 60, 40 and 20 GPa differ) follow morphoGen's integration of the same laws at a
+  material point along paths of the six components to the round-off: $4.5\cdot10^{-17}$
+  to $5.6\cdot10^{-16}$ of the stress scale in small strains, $4.8\cdot10^{-15}$ to
+  $1.9\cdot10^{-14}$ through MFront's Hencky strain and $9\cdot10^{-16}$ to
+  $6.2\cdot10^{-15}$ through its Green–Lagrange strain, heated (by 60 K in small strains,
+  600 K in finite strains: $\alpha\Delta T$ up to 1.8 %) and turned by (30°, 50°, 70°). In
+  tensions whose free components need the tangent, the potential and the standard model
+  take the same Newton iterations as morphoGen's points (their stresses within
+  $3\cdot10^{-16}$ to $2.8\cdot10^{-13}$). The tangents of the compiled laws, from states
+  of the models off zero and heated, are the central differences of their stresses in
+  MGIS's components ($\partial\sigma/\partial\varepsilon$; $\partial P/\partial F$ in
+  finite strains) to $2.6\cdot10^{-12}$ to $1.3\cdot10^{-10}$; those of these perceptrons
+  and recurrent networks are far from symmetric (7 to 33 % of their largest entries), so
+  that Newton's method with their symmetric part, which MGIS through morphoGen gave its
+  solvers, did not solve their free components; MGIS through morphoGen now passes the
+  tangents that are not declared symmetric whole (§36), and the tensions of the four
+  models at a material point take the iterations of morphoGen's own learned points, as
+  on voxels beside a stiff phase (with GMRES, the perceptron and the recurrent network;
+  their symmetric parts, forced, take more iterations or fail). The shear order: the linear law of the
+  crystal (the perceptron's network silenced, its linear term fitted) answers TFEL's
+  slots 12, 13 and 23 with $2G_{12}$, $2G_{13}$ and $2G_{23}$ (40, 80 and 120 GPa: the
+  $\sqrt2$ of both components), the other shear entries zero, and turned, the shears
+  23, 31 and 12 of the sample give the stresses of morphoGen's turned law. Called as
+  AMITEX (umat: the coefficients and the axes of each zone of a polycrystal, the numbers
+  of coefficients and internal variables of MFront's example of Cast3M) and Abaqus
+  (abaqus: the `*ORIENTATION` of the sections; in finite strains the axes of the
+  orthotropic laws in their first six state variables) call them, the learned phases of
+  the exports give morphoGen's curves: $2.6\cdot10^{-16}$ to $1.2\cdot10^{-15}$ (umat) and
+  1.5 to $4\cdot10^{-13}$ (abaqus, whose input writes the axes with twelve digits) in
+  small strains, $1.7\cdot10^{-15}$ to $8.8\cdot10^{-15}$ and up to $9\cdot10^{-13}$ in
+  finite strains (`tests/test_learning_mfront.py`).
+
+**Thermal expansion** is exported in small strains: `thermal_expansion` of the Hooke
+potential of the brick (von Mises; Hill's criterion also takes three principal values in
+the axes of the sample, which MFront then restricts to three dimensions), and
+`@ComputeThermalExpansion` of the crystals (one coefficient, or three principal values
+in the axes of the crystal, which the orientations of the grains turn as they turn
+morphoGen's tensor); a tensor with shear components in those axes is refused. Its two
+reference temperatures (of the expansion and of the initial geometry) are MFront's
+defaults, 293.15 K, the natural temperature of morphoGen's MFront behaviours, to which
+MGIS adds the change of temperature of the paths: MFront's `α (T - 293.15)` is then
+morphoGen's `α ΔT`. Compiled and integrated by MGIS, a viscoplastic von Mises cycle, Hill's
+criterion with an orthotropic expansion along the six components of a path, and a cubic
+crystal with an orthotropic expansion in two orientations follow the native kernels
+within 10⁻⁸ while the temperature changes (by up to 100 K: a thermal stress `E α ΔT` of
+tens of MPa). In finite strains the coefficients differ: MFront's is a mean one, its
+Hencky brick stretching by `1 + α ΔT` (with F held, its thermal stress is that of
+`ln(1 + α ΔT)` to eight digits), morphoGen's that of the logarithmic strain `α ΔT`. The
+brick gets the mean coefficient whose stretch is `exp(α ΔT)`, `(exp(α θ) - 1) / θ` with
+`θ = T - 293.15`, written by its series (five terms, without the singularity at θ = 0):
+von Mises and Hill with an orthotropic expansion then follow the finite kernels within
+10⁻¹¹ along a tension and a shear over 600 K. The crystals and Hencky's elasticity of
+finite strains, whose sources hold morphoGen's own kernels, compute its logarithmic
+thermal strain `α ΔT` themselves: a turned crystal and Hencky's elasticity, isotropic and
+cubic, follow the kernels within 10⁻⁸ over 600 K. The Abaqus inputs start their nodes
+at 293.15 K when a material expands (`*INITIAL CONDITIONS, TYPE=TEMPERATURE` on the
+node set `ALL_NODES`; Abaqus starts them at 0 otherwise), so that their steps give
+absolute temperatures, 293.15 K plus morphoGen's change of temperature: the MFront
+laws count their expansion from there, `*EXPANSION` from the initial temperature:
+CalculiX, its step at 393.15 K, gives an isotropic grain and a turned anisotropic one,
+each with its expansion (three principal values in the axes of the crystal), the
+stresses of morphoGen for a homogeneous strain and a heating of 100 K (to its printed
+digits, 10⁻⁵).
+Called as Abaqus calls them (TEMP from 293.15 K, and DTEMP), von Mises, a turned
+crystal and Hill's criterion, each expanding, follow the kernels within 10⁻⁸ along the
+six components of a path whose temperature changes by 60 K; in finite strains, Hencky's
+elasticity (isotropic: 4·10⁻¹⁵; cubic, turned: 2·10⁻¹²) and a turned crystal (6·10⁻¹¹)
+over 600 K. MFront's abaqus interface has no stress-free expansion in finite strains
+(its handler of the expansion is null there: the law fails at the first increment,
+PNEWDT < 1, even at a constant temperature), so the inputs refuse the brick's expanding
+laws of finite strains (von Mises, Hill, GTN); morphoGen's own sources (the crystals,
+Hencky's elasticity, the porous kernels, the learned laws) subtract their thermal strain
+themselves and are not concerned. The AMITEX_FFTP exports refuse every expanding
+phase written as an MFront law: their loadings carry no change of temperature.
+
+**State variables.** The elastic strain (6), then the back strains of the kinematic terms
+(6 each) and the cumulated plastic strain (von Mises), or the slips, the cumulated slips
+and the kinematic variables of the systems and the cumulated plastic strain (crystals):
+$7 + 6k$ and $7 + 3N$ internal variables, as the interfaces `umat` and `abaqus` count
+them in three dimensions; in finite strains, those of the kernel and $p$ (crystals),
+none (elasticity). The learned laws: the state of the recurrent network (`hidden`
+values) or the internal variables of the standard model (`internal`), none for the
+perceptron and the potential, in small and finite strains.
+
+**Agreement.** Compiled with the `generic` interface and integrated through MGIS (§36),
+against morphoGen's kernels along the same paths (the largest differences of the
+stresses, relative to the largest stress):
+
+| Behaviour | Differences |
+|---|---|
+| von Mises, viscous, two Voce and two kinematic terms: cyclic tension with shear / tension to 30 % then shear (logarithmic space) | 1.9·10⁻¹¹ / 5.2·10⁻¹³ |
+| von Mises, rate-independent, Voce and Armstrong–Frederick terms (the same paths) | 1.8·10⁻¹¹ / 2.8·10⁻¹² |
+| von Mises, perfect plasticity (the same paths) | 2.4·10⁻¹² / 4.1·10⁻¹² |
+| octahedral systems, Franciosi's interactions, three orientations | 2.6·10⁻¹⁰, 1.1·10⁻¹⁰, 5.5·10⁻¹¹ |
+| octahedral and cube systems with their own parameters, three orientations | 3.2·10⁻¹⁰, 2.4·10⁻¹⁰, 3.0·10⁻¹⁰ |
+| {110} and {112} systems of bcc crystals (24), isotropic elasticity, three orientations | 8.5·10⁻¹⁰, 9.1·10⁻¹¹, 2.5·10⁻¹⁰ |
+
+The paths take the same steps, except one that the MFront scheme of the 24 bcc systems
+divided once (its flow rule is written as rates, which morphoGen's kernel avoids, §32);
+the curves agree at the times of both.
+
+**AMITEX.** The nonlinear materials of an AMITEX export are these MFront behaviours,
+compiled by the script of the export with the `umat` interface, the interface of Cast3M
+that AMITEX calls (the library `mfront/src/libUmatBehaviour.so`, the laws
+`umat<behaviour>`). Their coefficients are those that this interface imposes in three
+dimensions: YOUN, NU, RHO, ALPH (isotropic behaviours), or the nine orthotropic constants,
+the axes V1, V2 of the material (the first two rows of the rotation of each grain, a
+value per zone, as the N1, N2 of `elasaniso`), RHO and ALP1, ALP2, ALP3 (orthotropic
+behaviours); no thermal expansion, internal variables zero at the start. MFront's
+example of Cast3M (`castem/<behaviour>.dgibi`) confirms the numbers of coefficients and of
+internal variables. Called as AMITEX calls the laws of this interface (the components in
+AMITEX's order xx, yy, zz, xy, xz, yz with engineering shear strains, the coefficients of
+the material file, `DROT` the identity), an orthotropic elasticity with three distinct
+shear moduli gives morphoGen's turned stiffness ($6\cdot10^{-16}$), and the exported
+crystal morphoGen's kernel along a path of the six strain components ($10^{-10}$ at
+three orientations). AMITEX itself was not run. The unit strains of the apparent
+stiffness are not exported with nonlinear materials, whose runs follow loading paths.
+
+In finite strains, the crystal of morphoGen's kernel in an MFront source gives the curves
+of the kernel: $2.5\cdot10^{-12}$ to $4.4\cdot10^{-12}$ along a path of the six components
+of the gradient, $2.2\cdot10^{-12}$ to $1.6\cdot10^{-10}$ in a tension whose other
+components are free (octahedral systems with Franciosi's interactions; octahedral and
+cube systems; two orientations), with the same Newton iterations of the material point,
+which the consistent tangent of the source gives.
+
+**The user's MFront laws.** A material with its own MFront behaviour (its `mfront` key)
+goes to AMITEX and Abaqus inputs too: its source, compiled with the interface of the code
+(MGIS describes it: its symmetry, its material properties in the order of their
+declaration, its internal state variables), its parameters in `<behaviour>-parameters.txt`
+in the directory of the runs (which the compiled code reads). For AMITEX (`umat`), the
+coefficients that the interface imposes come first: the elastic constants of the material,
+its density, no thermal expansion, unless the behaviour has material properties of their
+glossary names (`YoungModulus`, ...), which the interface merges into them; then the other
+material properties of the behaviour; at least one internal variable. For Abaqus, the
+material properties of the behaviour are the constants (one at least), its internal
+variables `*DEPVAR` (none without them), and a material per phase,
+`ABAQUSBEHAVIOUR_<B>_3D_PHASE<p>` (the dispatcher ignores what follows the hypothesis; the
+name of the behaviour has no underscore). Behaviours of the kinematics of the export
+given by their source (in finite strains, written in the deformation gradient or with
+Hencky's or Green–Lagrange's strain measure), without external state variables but the
+temperature. MFront's examples (of Cast3M and
+Abaqus) confirm the numbers of coefficients and internal variables of an isotropic law
+without material properties, an orthotropic crystal and a law whose moduli have glossary
+names with a material property of its own; called as AMITEX and Abaqus call them (each
+zone, the axes of the orientations), the laws give morphoGen's integration of the same laws
+through MGIS, a parameter of the crystal changed by its file.
+
+**Abaqus.** The Abaqus inputs of conforming meshes and of voxel meshes (`.inp`, read by
+CalculiX too) define the materials of the phases. The elastic ones: `*ELASTIC` (isotropic: $E$, $\nu$;
+crystals: the 21 constants of `TYPE=ANISOTROPIC` in the axes of the crystal, D1111,
+D1122, D2222, D1133, D2233, D3333, D1112, D2212, D3312, D1212, D1113, D2213, D3313,
+D1213, D1313, D1123, D2223, D3323, D1223, D1323, D2323: Abaqus's components 11, 22, 33,
+12, 13, 23 and engineering shear strains, from morphoGen's 11, 22, 33, 23, 31, 12),
+`*EXPANSION` and `*DENSITY` (when a material expands, the nodes start at 293.15 K and the
+steps give absolute temperatures: see the thermal expansion of the MFront sources). The
+nonlinear ones are these MFront behaviours, compiled with
+the `abaqus` interface (their sources in `<stem>_mfront`, the command in the header of the
+input): a behaviour `B` is the material `ABAQUSBEHAVIOUR_B_3D`, that the dispatcher of
+MFront (its `umat.cpp`) splits at its underscores into the library
+`libABAQUSBEHAVIOUR.so` and the function `B_3D`, so that the names of the behaviours have
+none; with `*DEPVAR` (the internal variables above) and `*USER MATERIAL, CONSTANTS=1`, a
+zero, because the interface asks one constant of laws without material properties (the
+values are in the source). The sections of the grains of polycrystals carry their
+`*ORIENTATION` (rectangular, the axes [100] and [010] of the crystal, the first two rows of
+its rotation), in whose axes Abaqus gives the strains to the laws and the elastic
+constants apply.
+
+The voxel meshes of polycrystals (the labels of their grains and the orientations of
+these) have a section per grain, with its orientation. CalculiX (2.17), under a homogeneous
+strain of a box of tetrahedra in two grains and of voxels (8 integration points each) in
+two grains, gives the stresses of morphoGen in both: an isotropic grain, and a grain of 21
+distinct
+anisotropic constants turned by its orientation (CalculiX prints its stresses in the axes
+of the orientation; turned back to the axes of the sample, they agree to the digits it
+prints, $10^{-6}$). Called as Abaqus calls the laws of the `abaqus` interface (the
+components 11, 22, 33, 12, 13, 23 in the axes of the orientation of the section, with
+engineering shear strains, the constant and the internal variables of the input), the
+MFront laws of an input give morphoGen's curves along a path of the six strain components:
+$1.3\cdot10^{-12}$ (von Mises), $8.4\cdot10^{-11}$ and $3.2\cdot10^{-11}$ (a crystal with
+Franciosi's interactions, two orientations). Abaqus itself was not run.
+
+**Finite strains.** The AMITEX exports and the Abaqus inputs of finite strains
+(`kinematics="finite"`; in a run, the kinematics of its paths) take every phase but
+the voids as an MFront law of finite strains: Hencky's elasticity for the elastic
+ones (the native laws of AMITEX and `*ELASTIC` are other elasticities in finite
+strains), von Mises in the space of the logarithmic strain, crystals by morphoGen's
+kernel, the user's laws of finite strains. AMITEX: `Small_Perturbations` false, the
+loadings of the paths the nine components of the displacement gradient and of the
+nominal stress (morphoGen's gradient is upper triangular: the lower triangle is
+prescribed zero); its laws receive the deformation gradients at the start and the end
+of each increment (`DFGRD0`, `DFGRD1`) and return the Cauchy stress. The `umat`
+interface handles the strain measures of the laws by functions of its own:
+`umat<behaviour>_malls` computes the logarithmic strain of the laws of Hencky's measure
+from the gradients and converts the stress conjugate to it (`_frst`: Green–Lagrange's
+strain), while the laws written in the deformation gradient (the crystals) are
+`umat<behaviour>`. Abaqus (steps with `NLGEOM=YES`): MFront's abaqus interface takes
+the orthotropic laws of finite strains only with their axes in their first six state
+variables (`@AbaqusOrthotropyManagementPolicy MFront`, which morphoGen's sources
+declare for the abaqus interface alone and the user's orthotropic laws must declare)
+and the deformation gradients in the axes of the sample: the sections of the laws of
+finite strains have no orientation, and `*INITIAL CONDITIONS, TYPE=SOLUTION` gives each
+grain the axes [100] and [010] of its crystal (the first two rows of its rotation),
+then zeros: as many values for every set, the largest number of state variables of
+the input, seven on the line of the set and eight on each following line, as Abaqus
+reads them. Called as AMITEX calls them (NDI 2, the gradients in Fortran's order, the
+coefficients and the axes of each zone) and as Abaqus calls them (NDI 3, JSTEP(3) = 1,
+the state variables of the initial conditions), along a path of the six components of
+the gradient whose principal axes turn, the laws give morphoGen's Cauchy stress:
+$3.5\cdot10^{-15}$ (Hencky, isotropic), $2.4\cdot10^{-14}$ to $2.7\cdot10^{-14}$ (Hencky,
+a cubic crystal in three grains), $1.1\cdot10^{-13}$ (von Mises, two Voce and two
+kinematic terms) and $2.2\cdot10^{-12}$ to $3.9\cdot10^{-12}$ (crystal plasticity, three
+grains) through `umat`; the same through `abaqus`, up to $2.9\cdot10^{-11}$ for the
+turned crystals, whose axes the input writes with twelve digits. MFront computes the
+logarithmic strain of these interfaces in a setting it calls Eulerian, built on the
+eigenvectors of $C$: von Mises with kinematic hardening pulled to 30 % then sheared
+follows the curves of §33 to $3.3\cdot10^{-13}$. The user's laws (von Mises in Hencky's
+space, Saint-Venant–Kirchhoff's elasticity written in the deformation gradient with its
+moduli as material properties, an orthotropic Hencky elasticity with three distinct
+shear moduli) give their integration through MGIS: $1.7\cdot10^{-16}$ to
+$8.5\cdot10^{-13}$. AMITEX and Abaqus themselves were not run.
+
+## 38. Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors
+
+After Torquato's *Random Heterogeneous Materials* (2002).
+
+**Dense packings of hard spheres** (`hardcore_spheres`, `method: lubachevsky_stillinger`;
+Lubachevsky & Stillinger 1990). Random sequential addition saturates near 0.38 for
+equal spheres (§3). Beyond, the spheres of a hard-sphere fluid grow: an event-driven
+molecular dynamics in a periodic box, the radii $r_i(t) = s(t)\rho_i$ growing linearly,
+$s(t) = s_0 + \gamma t$, from the positions of a random sequential addition of the
+spheres shrunk to a fraction of at most 0.25, the largest first (drawn late among
+polydisperse spheres, a large one may find no room left), with Gaussian velocities of
+the mean radius per unit time. Two spheres at the offset $d$ and the relative velocity $u$ touch when
+$|d + u\tau| = (\sigma + \dot\sigma\tau)$, $\sigma = s(\rho_i + \rho_j)$, $\dot\sigma =
+\gamma(\rho_i + \rho_j)$: the smallest positive root of $a\tau^2 + 2b\tau + c = 0$, $a =
+u\cdot u - \dot\sigma^2$, $b = d\cdot u - \sigma\dot\sigma$, $c = d\cdot d - \sigma^2$,
+computed as $c/(-b + \sqrt{b^2 - ac})$. At a contact the normal relative velocity $u_n$
+becomes $2\dot\sigma - u_n$: momentum is kept and the gap opens as fast as it closed,
+which heats the fluid; its velocities are rescaled to the initial temperature after every
+$5n$ events. Each sphere has one event, its next collision or the crossing of a face of
+its cell (cells of edge at least the largest final diameter), kept in a binary heap;
+collision counts discard the predictions made stale by the collisions of the partners,
+and the positions are updated lazily. The growth stops when the spheres reach their
+radii, plus half the minimal gap (the fraction is that of the radii, exact), or the
+generation fails when the packing jams first (the scale grows by less than $10^{-10}$ of
+itself over four rounds of $5n$ events). The rate $\gamma$ is the growth of the radii per
+unit time over the thermal speed: fast growths jam random packings, slow ones let equal
+spheres order. Measured (1000 equal spheres): 0.60 in 320 events per sphere (1.1 s), jams
+at 0.641 for $\gamma = 0.01$, 0.647 for 0.002 and 0.620 for 0.05 (the maximally random jammed
+state is near 0.64, Torquato, Truskett & Debenedetti 2000); lognormal radii of
+coefficient of variation 0.2 jam at 0.651; about $3\cdot10^5$ events per second. Tested:
+no overlap beyond $10^{-12}$ of the radius (the cell lists against all the pairs), the
+fraction on voxels, the contact peak of $g(r)$, the minimal gap, jamming, non-periodic
+samples.
+
+**Penetrable spheres with impenetrable cores** (`penetrable_spheres`; the cherry-pit, or
+penetrable-concentric-shell, model of Torquato 1984). Each sphere of radius $R$ has a core
+of radius $\lambda R$ that no other core overlaps: the cores are placed by random
+sequential addition (or grown by the algorithm above), the shells interpenetrate.
+$\lambda = 0$ gives independent centres, $\lambda = 1$ hard spheres. With the reduced density
+$\eta = \rho E[V]$, the fraction of the cores is $\lambda^3\eta$, and that of the union lies
+between $1 - e^{-\eta}$ (fully penetrable) and $\eta$ (hard spheres), both reached at the
+limits. Tested: the two limits on voxels, the cores of $\lambda = 0.5$ apart and the fraction
+between the bounds (0.506 for $\eta = 0.6$, between 0.451 and 0.6), cores packed to 0.47
+(beyond random sequential addition) by the growth.
+
+**Stochastic reconstruction** (`reconstruction`; Yeong & Torquato 1998). A periodic
+lattice of cells of edge `cell_size`, of the volume fraction of the target (the cells of
+phase 1 drawn at random), is annealed: swaps of a cell of phase 1 and a cell of phase 0,
+accepted by Metropolis' rule for
+$$E = \sum_a\sum_{r=1}^{R}\big(S_a(r) - S^*_a(r)\big)^2
++ w\sum_a\sum_{r=1}^{R}\big(L_a(r) - L^*_a(r)\big)^2,$$
+the two-point probability $S$ and the lineal-path function $L$ of phase 1 along the axes
+$a$ of the lattice. Removing phase 1 at the position $i$ of a line removes the pairs
+$I(i+r) + I(i-r)$ at the lag $r$, and a run of $l$ cells of phase 1 holds $(l - r)_+$
+segments of $r + 1$ cells: a swap changes the counts of the two lines of each axis
+through its cells only, by the runs on both sides of each cell, so that its energy costs
+$O(R)$ per axis. The temperature starts where half the swaps that raise the energy are
+accepted and is multiplied by `cooling` after every tenth of a sweep; the annealing stops
+when the energy falls below the tolerance, or after a sweep without an accepted swap.
+The targets: a Debye random medium, $S_2(r) = p^2 + p(1-p)e^{-r/a}$ (Debye, Anderson &
+Brumberger 1957; specific surface $-4S_2'(0) = 4p(1-p)/a$, integral range $8\pi a^3$); a
+realization of another model on the same lattice; or an image file, its descriptors
+measured at its voxels and interpolated at the lags of the lattice. Measured on $32^3$
+cells: a Debye medium ($p = 0.3$, $a$ two cells) reaches its $S_2$ to $10^{-4}$ (the energy
+from $7\cdot10^{-2}$ to $5\cdot10^{-9}$, 4 s); a Boolean model of spheres reconstructed from its
+$S_2$ alone has its $S_2$ to $10^{-4}$ but a lineal-path function off by 0.016, both to
+$10^{-4}$ with $w = 1$ — $S_2$ does not determine a microstructure.
+
+**Stealthy hyperuniform germs** (`voronoi`, `germs: stealthy`; Uche, Stillinger &
+Torquato 2004, Batten, Stillinger & Torquato 2008). A point pattern is hyperuniform when
+its structure factor vanishes as $k \to 0$, stealthy when it vanishes on a ball $0 < |k| \le
+K$. Its $n$ points in a periodic box are moved from uniform random positions to a ground
+state of $\Phi = \sum_{k \in Q}|\rho(k)|^2$, $\rho(k) = \sum_j e^{ik\cdot x_j}$ on the wave vectors $k =
+2\pi m/L$ of the box with $0 < |k| \le K$, one of each pair $\pm k$; the gradient is $\partial\Phi/\partial
+x_j = 2\sum_k k\,(\operatorname{Im}\rho(k)\cos k\cdot x_j - \operatorname{Re}\rho(k)\sin k\cdot x_j)$
+(L-BFGS). The complete shells of wave vectors up to $\chi\cdot 3(n - 1)$ are constrained,
+$\chi$ the stealthiness: ground states are disordered for $\chi < 1/2$. Measured: $S(k)$
+below $10^{-27}$ on the constrained wave vectors (200 points in 0.2 to 0.6 s, 1000 in
+19 s); the Voronoi cells of 300 such germs at $\chi = 0.3$ have volumes of coefficient of
+variation 0.038, against 0.4245 for Poisson germs (0.4239 in theory): disordered but
+nearly as regular as a crystal. Non-periodic samples take the stealthy germs of the
+enlarged window, a fixed number of them.
+
+**Descriptors** (`analysis.correlation`). The lineal-path function $L(z)$ (Lu & Torquato
+1992), the probability that a segment lies in the phase, along the axes, from the runs of
+the lines ($L(0) = p$; for the pores of a Boolean model of spheres, $(1-p)e^{-\theta\pi R^2
+z}$, measured to 0.003 on $128^3$ voxels); the two-point cluster function $C_2(r)$
+(Torquato, Beasley & Chiew 1988), the probability that two points lie in the same
+cluster (face-connected, merged across periodic faces), $C_2 \le S_2$; the pore-size
+function (Prager 1963), the law of the distance $\delta$ from a point of a phase to the other
+phase: its exceedance $F(\delta)$, density and moments, $\delta$ the distance between voxel
+centres less half a voxel — exact for interfaces along the axes, of the first order
+otherwise (the pores of a Boolean model of spheres, $F(\delta) = e^{-\theta\frac43\pi((R +
+\delta)^3 - R^3)}$, have a mean pore size 4 % low for spheres of 6.4 voxels); and, for point
+patterns in periodic boxes, the radial distribution function $g(r)$ and the structure
+factor $S(k) = |\sum_j e^{-ik\cdot x_j}|^2/N$ on the wave vectors of the box (separable along
+the axes), whose limit $S(k \to 0) = 0$ defines hyperuniformity (Torquato & Stillinger
+2003): 1 for Poisson points, $2\cdot10^{-28}$ for a cubic lattice below its first Bragg peak.
+
+## 39. Random sets probed by structuring elements (`analysis.random_sets`, `analysis.topology`)
+
+The measures of mathematical morphology of the appendix of a
+thesis (Dirrenberger 2012, "Basics of mathematical morphology", after D. Jeulin's
+courses at the École des Mines de Paris; Matheron 1975; Serra 1982).
+
+**Structuring elements.** A compact set `K` placed at every point `x` probes a set `A`:
+the dilation `A ⊕ Ǩ = {x : K_x ∩ A ≠ ∅}` ("does `K` hit `A`?") and the erosion
+`A ⊖ Ǩ = {x : K_x ⊂ A} = (A^c ⊕ Ǩ)^c` ("is `K` inside `A`?"); the opening
+`(A ⊖ Ǩ) ⊕ K` and the closing `(A ⊕ Ǩ) ⊖ K`. `dilation`, `erosion`, `opening` and
+`closing` take balls (radius), segments and pairs of points along a direction of the
+grid (`(1, 0, 0)`, `(1, 1, 0)`, `(1, 1, 1)`...), and cubes (edge).
+
+**Choquet capacity.** A random closed set is characterized by `T(K) = P(K ∩ A ≠ ∅) =
+1 − Q(K)`; for an ergodic set, `T(K)` is the volume fraction of `A ⊕ Ǩ` in one
+realization (`choquet_capacity`). Periodic images are probed on the torus, others by
+minus sampling (only the positions where `K` lies in the box). Particular elements:
+`T({x}) = p`; pairs of points give the covariance, `T({0, h}) = 2p − C(h)`; segments
+the lineal path of the complement, `Q(l) = L_{A^c}(l)`; balls the spherical contact
+distribution `H_s(r) = 1 − Q(B_r)/q`, the distribution of the distance from a point of
+`A^c` to `A` (`Capacity.contact_distribution`; segments give the linear one). Balls go
+through the Euclidean distance map of the complement (all radii at once), segments and
+pairs through products of shifted indicators, cubes through separable minimum filters.
+
+Closed forms. The Boolean model of primary grain `A'` and intensity `θ` has
+`T(K) = 1 − exp(−θ E|A' ⊕ Ǩ|)`: for spheres of radius `R`, balls of radius `r` give
+`|A' ⊕ Ǩ| = (4/3) π (R + r)^3` and segments of length `l` the sphere swept along the
+segment, `(4/3) π R^3 + π R^2 l` (`BooleanSpheres.choquet_capacity`). For Poisson fibres
+of radius `R` on isotropic Poisson lines of length density `L_V`, the lines hitting a
+convex body of surface `S` are Poisson of mean `L_V S/4` (Cauchy), and those hitting
+the fibres hit `A' ⊕ Ǩ`: `T(B_r) = 1 − exp(−L_V π (R + r)^2)`, `T(l) = 1 − exp(−L_V
+(π R^2 + π R l/2))` (`PoissonFibers.choquet_capacity`). Measured (96³ voxels, spheres
+of 5.8 voxels): `−log Q(l)/−log q = 1 + 3l/4R` within 3 % along x and (1, 1, 1);
+`−log Q(B_r)` follows `(R + r)^3` with an effective radius a third of a voxel smaller
+than `R` (the digital dilation of the digitized set: the outer voxel centres lie inside
+the spheres), 0.7 voxel at 8 voxels; Poisson fibres likewise, by minus sampling.
+
+**Morphological covariance.** A grey-level image `Z` (a random function) is probed by
+its erosion by pairs of points: `K(h) = E[min(Z(x), Z(x + h))]`
+(`morphological_covariance`, the dilation `E[max]` too); for a binary image it is the
+covariance. For a Gaussian field of mean `m`, standard deviation `s` and correlation
+`ρ(h)`, `K(h) = m − s √((1 − ρ(h))/π)`: measured within 0.02 `s`.
+
+**Minkowski functionals.** In `R^3`, `W_0 = V`, `3W_1 = S`, `3W_2 = M = (1/2) ∫ (1/R_1 +
+1/R_2) dS` and `3W_3 = 4π χ` (`χ = N − G`, components minus genus). `minkowski` gives
+their densities `V_V`, `S_V`, `M_V` and `χ_V`; `M_V = 2π χ_A` (Crofton), `χ_A` the Euler
+characteristic per unit area of the plane sections normal to the three axes, counted
+like `χ` in 3D (pixels − pairs of 4-neighbours + 2 × 2 blocks; exact on average for
+isotropic structures, the mean of three planes otherwise). `minkowski_curves` gives the
+four densities of the excursion sets `{Z > u}` of a grey-level image. Closed forms:
+Miles' formulae for Boolean models of convex grains, `S_V = q θ S̄`, `M_V = q (θ M̄ −
+(π^2/32) θ^2 S̄^2)`, `χ_V = q (θ − θ^2 M̄ S̄/4π + π θ^3 S̄^3/384)`; Adler's Gaussian
+kinematic formulae for the excursions of a Gaussian field of unit variance and second
+spectral moment `λ = −ρ''(0)` (`1/l^2` for `exp(−h^2/2l^2)`): `S_V = (2/π) √λ e^{−u²/2}`,
+`M_V = λ u e^{−u²/2}/√(2π)` and `χ_V = λ^{3/2} (u^2 − 1) e^{−u²/2}/4π^2`. Measured
+(96³ voxels, `l` = 4 voxels, `u` = −1, 0, 1): `S_V` within 1 %, `M_V` and `χ_V` within
+6 % of their scales. For Boolean spheres of 5 to 10 voxels, `S_V` within 4 % and `M_V`
+5 to 10 % low: spheres closer than a voxel touch on the image; their `χ_V`, a
+difference of nearly equal terms, varies by a factor of two between realizations and is
+not a check of the estimator. One ball of 20 voxels: `M` within 1 % of `4πR`.
+
+**Topology.** `betti_numbers` gives `b0` (6-connected components), `b2` (cavities: the
+26-connected components of the complement that do not reach the faces) and, by
+Euler–Poincaré, `b1 = b0 + b2 − χ` (independent tunnels, the "connectivity" of bone
+morphometry; `connectivity_density` = `b1/V`), for the box seen as a part of space;
+checked on a solid torus (1, 1, 0), a spherical shell (1, 0, 1), two balls (2, 0, 0)
+and two joined tori (1, 2, 0). Configurations and the command line: the measures
+`minkowski` (`V_V`, `S_V`, `M_V`, `chi_V`) and `betti`.
+
+**Fabric.** Along a direction `d`, test lines cross the boundary of a phase `P_L(d)` times
+per unit length, and its mean intercept length `MIL(d) = 2 V_V / P_L(d)` is the mean
+length of its chords along `d` (`4 V_V / S_V` over isotropic lines, §21). The MIL of an
+affine image `A X` of an isotropic structure follows an ellipsoid (`P_L(d)` is
+proportional to `|A^{-1} d|`); `fabric_tensor` fits `1 / MIL(d)^2 = d · M · d`
+(Whitehouse 1974; Harrigan & Mann 1984) by least squares over the 13 directions of the
+grid (the axes, the face and the body diagonals, in physical units for anisotropic
+voxels) and gives the principal MILs `1/√m_i` (decreasing), their axes, their ratios to
+the smallest (`c/a`, the degree of anisotropy of Degdeg & Dirrenberger) and
+`DA = 1 − MIL_min / MIL_max`. Harrigan and Mann's MIL, `1 / P_L`, differs by the factor
+`2 V_V`: the ratios and the axes do not depend on it, and both phases share them.
+Checked (96³ voxels): Boolean spheres, `DA` = 0.02, the MIL along the axes equal to the
+mean chords; the same voxels with spacings 1, 1.5 and 2, an affine image, ratios 2.05
+and 1.54 along z and y (2.4 % above the stretch: the anisotropy of the digital
+estimator, as for the spheres). The copper foam of §42 (two realizations, 25 µm
+voxels): with their covariance shape factors (1.22, 3.22) for the seeds, pore MIL
+ratios 1.19 and 2.82, against 1.34 and 1.80 for the tomography (BoneJ, Doube et al.
+2010): the reference model is more elongated than the real foam, as they found; with
+their MIL shape (1.34, 1.80), 1.29 and 1.69, within 4 and 7 % of the tomography, the
+pores slightly rounder than their seeds. Configurations and the command line: the
+measure `anisotropy` (`mil_1` to `mil_3`, decreasing, and `degree_of_anisotropy`).
+
+**Hole effect.** The covariance of a cellular phase passes through a first minimum below
+its plateau `p²` before reaching it, at a lag of the order of the cell radius along the
+direction: Degdeg & Dirrenberger take the lags along the three axes as a second measure
+of the aspect of the cells. `covariance_minima` gives, along each axis, the first local
+minimum of the covariance after it falls below `p²` (the lag refined by the parabola
+through three lags; NaN where there is none) and the ratios of the lags. Checked: the
+egg crate `cos(2πx/16) cos(2πy/24) cos(2πz/32) > 0`, minima at half the periods (exact,
+the covariance vanishing there); lamellae, a minimum across them, none along them. The
+copper foam of §42 (solid, two realizations): with the covariance shape factors (1.22,
+3.22) for the seeds, minima at 132–134, 161–162 and 415–434 µm, ratios 1.21–1.22 and
+3.14–3.23, the shape factors of the seeds, which the covariance of the cells follows
+while their MIL (1.19, 2.82) falls below them; the tomography gives 122, 150 and 394 µm
+(a shallow minimum along x, near 350 µm in their model). With the MIL shape (1.34,
+1.80): ratios 1.33 and 1.75–1.78. In small samples the lag of a shallow minimum is
+noisy (`b/a` from 1.12 to 1.56 over realizations of a box of about ten cells), the MIL
+much less (1.16 to 1.19). The measure `covariance_minima` (`covariance_minimum_x`, `_y`,
+`_z`).
+
+**Stereology.** `section_sizes` gives the sections of a phase by the planes of voxels
+normal to an axis (8-connected pixels, equivalent radii `√(A/π)`): on periodic images
+each section once, whole across the faces; on others the sections cut by the frame are
+dropped and the others weighted by `n1 n2 / ((n1 − 1 − w1)(n2 − 1 − w2))`, `w` their
+extents in pixels (Miles–Lantuéjoul), which leaves the counts unbiased. `separate`
+splits touching sections by a watershed of their distance map (Meyer's flooding) from
+its maxima of prominence at least half a pixel (a union-find over the pixels in
+decreasing distance), in the manner of the binary watershed of Fiji that Degdeg &
+Dirrenberger used. A plane normal to `n` at the distance `d` from the centre of the
+ellipsoid `x · M x = 1`, `M⁻¹ = R diag(a², b², c²) Rᵀ`, cuts it in an ellipse of area
+`π abc (s − d²)/s^{3/2}`, `s = n · M⁻¹ n`: for uniformly placed particles the
+equivalent radius `r = κ a √(1 − u²)`, `u` uniform over `[−1, 1]`, follows the law of a
+sphere, `F(v) = 1 − √(1 − v²)` for `v = r / κa`, with `κ = √(λ1 λ2) / ŝ^{1/4}` and
+`ŝ = n · R diag(1, λ1², λ2²) Rᵀ n` for the shape factors `λ1 = b/a`, `λ2 = c/a`
+(`section_scales`), and the planes cut the particles in proportion to their height
+`H = 2 a √ŝ`. On classes of width `δ`, the 3D class `I` (`κ a = I δ`) gives sections in
+the 2D class `J ≤ I` with the probability `P_IJ = (√(I² − (J − 1)²) − √(I² − J²)) / I`
+(the Scheil–Schwartz–Saltykov matrix, `saltykov_matrix`), and `unfold_sections` inverts
+`N_A,J = Σ_I P_IJ H_I N_V,I` from the largest class (Saltykov 1967) as Degdeg &
+Dirrenberger: in each direction the sections up to the 99th percentile `r_max` of their
+radii fall in `bins` classes, the `classes` largest 3D classes have the short semi-axes
+`(I / bins) r_max / κ`, their densities are averaged class by class over the
+directions, and the number of classes minimizes the L1 error of refolding the mean
+through each direction. The shape enters only through `κ` and `H`: the mean section
+radius over `κ`, `(π/4) m2/m1` of the short semi-axes, is the same in every direction
+for the right shape (`shape_consistency`), and the common value of `r_D⁴ ŝ_D` is a
+linear system in the squared shape factors (`consistent_shape`; ill-conditioned for
+axes far from those of the grid). Checked: exact sections of spheres of three sizes,
+and of turned ellipsoids 1 : 1.3 : 2 in three directions, the densities within 3 % and
+one scale; with their Table 1 and Eq. (4), the ratio varies by 6.9 % for the MIL shape
+and 33.6 % for the covariance shape between the directions (7 and 34 % in the paper)
+and is constant for 1 : 1.400 : 2.065 ("about 1.00 : 1.40 : 2.07"); hard spheres of
+6, 8 and 10 voxels, at least 2 voxels apart lest their sections touch on the image:
+sections within 1 % of `2 r̄ N_V` per unit area, `a_max` within 1 % of 10 voxels; the
+frame weights exact on average over the offsets of a lattice of discs. On the copper
+foam of §42 (pores, the watershed, sections above 54.3 µm as theirs, 25 µm voxels):
+the shape consistent with the sections is 1 : 1.16 : 2.80 with the covariance seeds
+and 1 : 1.27 : 1.70 with the MIL seeds, the MIL shape of the image (1.19, 2.82 and
+1.29, 1.69) rather than that of the seeds; with nine classes the recovered short
+semi-axes span 112–188 and 100–167 µm against 87–145 µm for the seeds, and the numbers
+per unit volume are 35 and 13 % below those of the seeds (22.1 and 36.1 per mm³): the
+chain measures the pores, larger than their seeds (the cells of a packing of fraction
+0.6 are `(1/0.6)^{1/3}` = 1.19 times larger), not the seeds.
+
+## 40. Couplings: diffusion, thermal oxidation, ageing, hygromorphs (`coupling`)
+
+Properties that evolve with chemical ageing (Ernault,
+Dirrenberger, Richaud & Fayolle 2019; Vibert, Dupont, Dirrenberger et al. 2024) and the
+coupling of diffusion with mechanics (Mou, Dirrenberger & Le Duigou 2025).
+
+**Transient diffusion** (`transient_diffusion`). The activity `u` of the mobile species
+(relative humidity, oxygen pressure over its outside value) is continuous across
+interfaces; a phase holds `c = S u` (`S` its solubility) and lets it through with the
+permeability `P = D S`: `S ∂u/∂t = ∇·(P ∇u) − k S u` (`k` a first-order consumption).
+Finite volumes on the voxels, the conductance of a face the harmonic mean of `P` over a
+voxel (exact for layers in series), exposed faces held at `u` (a value or a function of
+time) half a voxel from their centres, the other faces impermeable or periodic;
+implicit Euler, the first interval in geometrically growing steps (the `√t` start),
+sparse LU up to 4096 voxels (one factorization per length of step), Jacobi-preconditioned
+conjugate gradients beyond.
+Checked: a slab against Crank's series (`slab_uptake`, `slab_profile`: Crank 1975,
+eq. 4.17 and 4.18), `M/M∞` within 2 % from `t = 0.002 L²/D` and the profile within
+0.005; a periodic plate of 40³ voxels exposed on z equal to the line within 1e-6;
+partition between phases of solubilities 1 and 5 (`c = S` at equilibrium). The
+homogenized diffusivity and swelling of a microstructure are those of the thermal
+problems: `Material(conductivity=D S, expansion=β)`. In configurations, a `diffusion`
+section (`phases` with their diffusivities, solubilities and consumptions, `exposed`
+faces, an `activity` constant or piecewise linear in time, output `times`, `fields`)
+runs it on the voxel image of each realization: the uptake curve
+(`<stem>_diffusion.csv`: the mean concentration, its ratio to saturation and the mean
+of each phase), the concentration fields (`.vti`), the relative uptakes in the table of
+results (template `diffusion`: hollow fibres in a polymer).
+
+*With FEniCSx* (`coupling.fenicsx`, Linux or WSL): `swelling(mesh, phases, times,
+exposed=...)` solves the same diffusion on a tetrahedral mesh (Lagrange elements of the
+order of the mesh, `S du/dt = div(D S grad u)`, the exposed faces held at the activity,
+implicit Euler with one MUMPS factorization per length of step), and at each output time
+the free swelling of the sample: `div σ = 0`, `σ = C(ε − β c I)`, free of tractions, held
+by 3-2-1 supports at three corners of its box; `strip_curvature` fits the deflection of
+the mid-plane of a strip (positive towards its lower face). Checked (WSL): the uptake of
+a slab within 2 % of Crank's; uniform saturation gives `u = β S (x − x_A)` to 1e-10 (no
+stress); a strip of two layers whose upper one swells (`h1 = 0.04`, `h2 = 0.06`,
+`E1/E2 = 3`, quadratic tetrahedra) bends more and more as the moisture enters from its
+upper face, to Timoshenko's curvature within 0.3 % at saturation. In finite strains
+(`kinematics="finite"`): `F = F_e F_s` with the swelling stretch `F_s = (1 + β c) I`
+(Mou et al. use the same decomposition), Saint Venant–Kirchhoff's law of `F_e` per unit
+volume of the swollen state, `P = (1 + β c) F S_e`; SNES Newton iterations, each output
+reached by continuation of the concentration field (a quarter first, increments grown
+by half on success, halved on failure). `arc_curvature` fits a circle to the deformed
+mid-plane. Checked: a strip three times longer (`κL ≈ 1.3`) curls into an arc of
+curvature within 5 % of Timoshenko's (3 % swelling strains), its end coming closer by
+0.223 for a geometric shortening of the chord of 0.221; in small strains it moves by
+0.019. (The Flory–Huggins chemical potential of gels is not included.)
+
+*Oxidation stresses* (`oxidation_stresses`, FEniCSx), the method of Ernault et al. (2019),
+who did it in plane strain with Abaqus: the amide profile of the diffusion-limited
+oxidation of a plate (`ClosedLoopOxidation.profile`, the thin-film value at the surface)
+is given to each element at its depth below the nearest exposed face; a `PropertyLaw` of
+the amide concentration gives its Young's modulus and its shrinkage (`expansion`, a
+strain); the free sample (3-2-1 supports, Poisson's ratio 0.37 as theirs) is solved in
+linear elasticity under these eigenstrains, and its element stresses returned. Checked
+(WSL): a plate 3 mm thick oxidized on both faces for 240 h at 110 °C, at its centre,
+against the free symmetric laminate `σ(z) = E(z)/(1 − ν) (ε0 − ε*(z))`,
+`ε0 = <E ε*>/<E>`, within 5 %: tension in the oxidized skin, compression in the core.
+With an illustrative law (shrinkage 1 % and modulus 2.4 to 4 GPa over 2 mol/l of
+amides; their measured correlations are figures of the paper), the skin is in tension
+at 8.8 MPa after 111 h and 29.4 MPa after 240 h. The depth to the nearest face
+underestimates the oxidation of corners (two faces); the behaviour is elastic, not
+their elasto-plastic one.
+
+**Thermal oxidation** (`ClosedLoopOxidation`). The closed-loop scheme of Colin and
+Verdu: `POOH → 2P• + P=O + V` (k1), `P• + O2 → POO•` (k2), `POO• + PH → POOH + P•` (k3),
+`P• + P•` (k4), `POO• + P•` (k5) and `POO• + POO• → inactive + γ6 P=O + O2` (k6)
+terminations, the amides `P=O` tracing the oxidation, the sites `PH` consumed by the
+propagation; in thick samples `∂[O2]/∂t = D ∂²[O2]/∂z² − k2[P•][O2] + k6[POO•]²` with
+`[O2] = S p` on the faces (Henry). Defaults: Ernault et al.'s constants for DGEBA/IPDA
+at 110 °C in air (k1 = 1e-5 s⁻¹, k2 = 1e6, k3 = 2.25, k4 = 2.5e10, k5 = 2.25e10,
+k6 = 2e3 l mol⁻¹ s⁻¹, γ6 = 0.5, [PH]0 = 5.8 and [POOH]0 = 1e-3 mol/l,
+S = 2.3e-7 mol l⁻¹ Pa⁻¹, D = 7.3e-13 m²/s). `thin_film` integrates the homogeneous
+kinetics (Radau), `profile` the diffusion-limited oxidation of a plate (method of
+lines on half the thickness, sparse Jacobian). Results: amides 0.29 and 0.87 mol/l
+after 111 h and 240 h of a thin film (measured: about 0.2 and 0.7), the fastest
+oxidation near 200 h, after which the sites run out (as observed); a 3 mm plate keeps
+an oxidized layer of 120 to 150 µm (the depth where the amides fall to a tenth of
+their value near the face; about 200 µm observed), its core below 5 % of the surface.
+
+**Ageing laws** (`PropertyLaw`, `graded_materials`, `Hydrolysis`). Measured
+correlations (Ernault et al.: the volumetric shrinkage and Young's modulus against the
+amide concentration; Vibert et al.: the properties of papers against the degree of
+polymerization, which fall faster below DPc ≈ 750) are piecewise linear tables of the
+tracer, constant beyond. `graded_materials` bins the tracer field of each ageing phase
+into classes of equal width, each a phase with the law at its middle, so that all the
+solvers and exports take it; a shrinkage or swelling `ε*` is the expansion of the
+graded phases under a unit change of temperature. Checked: equal stiffnesses give the
+apparent expansion of the mean eigenstrain (exact). `Hydrolysis` is Ekenstam's law,
+`1/DP(t) − 1/DP(0) = k t` with Arrhenius' `k`, the scissions `DP(0)/DP − 1` and the time
+to a given DP (the critical one by default).
+
+**Hygromorph plates** (`Multilayer`, `Layer`). A free multilayer, isotropic layers
+(plane stress) with swelling `β_x`, `β_y` per unit concentration, moisture entering
+through a face by Fick's law across the thickness (finite volumes, the activity
+continuous between layers, implicit Euler), the swelling strains `β c(z, t)` as
+eigenstrains: the laminate theory `[A B; B D][ε0; κ] = [N*; M*]` gives the mid-plane
+strains and the curvatures `κx(t)`, `κy(t)` of the free plate, the bending sequence of
+Mou et al.'s analytical model (its Föppl–von Kármán selection of cylindrical shapes at
+large deflections is left to finite element models, their FEniCS simulations).
+Checked: a bilayer of equal Poisson's ratios swelling uniformly equals Timoshenko's
+bimetal curvature (1925) to 1e-9; the uptake of one layer equals Crank's; an active
+layer swelling more along y bends the plate more along y, monotonically to the curvature
+of saturation.
+
+*Orthotropic layers and layers from microstructures.* A layer may give its plane-stress
+stiffness `Q` (3 x 3, components xx, yy, xy, engineering shear) and a shear swelling
+`beta_xy`: the laminate matrices `A`, `B`, `D` are then 3 x 3 and the free plate may twist
+(`deformation(..., full=True)`: the shear strain and `κxy`). `Layer.from_microstructure`
+takes them from a microstructure (an image or a mesh) by periodic homogenization: `Q` is
+the inverse of the in-plane block of the apparent compliance, `beta` the in-plane block of
+the apparent expansion (each material giving its swelling strain per unit concentration
+as `expansion`), the diffusivity through the thickness the apparent conductivity across it
+(each material giving its permeability `D S`) over the mean solubility of the phases: the
+chain microstructure → layers → bending of a 4D-printed hygromorph. Checked: a layer of
+fibres along x bends across them, as the same layer turned by 90° bends along (the
+curvatures exchanged to 1e-12), and twists with fibres at 45°; a homogeneous image gives
+its material back; a laminate of layers normal to the thickness gives `Q = Σ φ Q_i` and
+the harmonic mean of the permeabilities across it (exact, to 1e-6).
+
+## 41. The FEniCSx solver (`homogenization.fenicsx`)
+
+After the demos of J. Bleyer's COMET-FEniCSx,
+`solver="fenicsx"` (configurations `homogenization:
+solver: fenicsx`, the command line `--solver fenicsx`) solves the finite element
+problems of tetrahedral meshes with dolfinx 0.11 and dolfinx_mpc 0.11.
+
+*What FEniCSx does.* The weak forms are written in UFL on the same tetrahedra
+(dolfinx's mesh made from the corner nodes, so that the Lagrange elements of the order
+of the mesh have their nodes at morphoGen's, matched by coordinates): elasticity
+`∫ ε_v(v)·C ε_v(u) = −∫ ε_v(v)·C (E − ΔT α) + ∫ (Σ n)·v` in Voigt notation with
+engineering shears (`C`, `α` cellwise constant tensors from the material table, oriented
+crystals included), conduction `∫ ∇v·K∇T = −∫ ∇v·K G − ∫ (q·n) v`; the macroscopic strain
+or gradient, stress or flux and the change of temperature are `Constant`s of one compiled
+form. Periodic fluctuations: one geometric constraint of dolfinx_mpc slaves every node of
+the upper faces of the box (edges and corners included) to its image on the lower faces,
+so that no slave has a slave master; a node inside the box holds the translations (holding
+a master, such as a corner, breaks the condensation of dolfinx_mpc 0.11: the field stays
+periodic but leaves equilibrium, its energy above `Σ:E`). Kinematic, static and mixed
+conditions hold the very degrees of freedom that morphoGen's own solver constrains
+(`_constraints`: the boundary nodes, the 3-2-1 supports of SUBC, the faces of MBC).
+PETSc solves with MUMPS (up to `DIRECT_LIMIT` = 300 000 unknowns, each factorization kept
+for the loadings of the same constraints) or with conjugate gradients preconditioned by
+GAMG beyond.
+
+*What morphoGen does.* The problems are subclasses of its finite element problems: only
+the field of a native loading comes from FEniCSx, so that the averages, energies,
+statistics of the phases, condensation of mixed loadings (`superpose`), apparent tensors
+and RVE studies are evaluated identically, and the two solvers are interchangeable.
+
+*Checks* (WSL, `tests/test_fenicsx.py`): random two-phase meshes, P1 and P2, apparent
+stiffness and thermal expansion under periodic, kinematic and static conditions, mixed
+conditions for triaxial and shear strains, the stress statistics of the phases, apparent
+conductivities, `homogenize` end to end, and a polycrystal of four oriented cubic grains
+(copper) under periodic and kinematic conditions: all equal to morphoGen's own solver
+within 1e-8 (the KUBC and SUBC stiffnesses within 1e-15). Without FEniCSx (Windows) a
+problem raises an error that gives the `conda install` command, and these tests are
+skipped.
+
+## 42. Foams as level sets of distance fields (`level_set_foam`)
+
+The level-set tools of Degdeg & Dirrenberger (2026, an
+anisotropic open-cell copper foam), after Sonon, François & Massart (2012, 2015) and
+Kilingar, Sonon & Massart (2019).
+
+*Seeds.* Non-overlapping ellipsoids aligned with the axes, of short semi-axis `a` drawn
+from `seed_radius` and shape factors `b/a`, `c/a` (`aspect`): in the space
+`y = (x, y/(b/a), z/(c/a))` they are spheres of radii `a`, packed densely by the
+Lubachevsky–Stillinger algorithm (or by random sequential addition, `packing: rsa`,
+looser but possible in smaller boxes) to `packing_fraction`; the stretch back gives a
+packing of aligned ellipsoids, the affine image of that of spheres (Degdeg &
+Dirrenberger drop theirs into a container with a physics engine, rotations disabled).
+
+*Distance fields.* Each seed defines `D_i(x) = Σ_m (x_m − x_im)²/r_im² − 1` (−1 at its
+centre, 0 on its surface), and `D_N1 ≤ D_N2 ≤ D_N3 ≤ D_N4` are the four smallest at `x`
+(from the 16 nearest centres in the y-space by a periodic k-d tree, more where four
+could hide beyond them). The foam is the region `Φ ≤ 0` of
+
+`Φ = O_p − t O_s − K_c O_k`, `O_p = (D_N3 + D_N2)/2 − D_N1`, `O_s = √(c1 ξ⁴ + c2 ξ² + 1)`,
+`O_k = min(0, (δ² − w²)/2w)` with `δ = (D_N3 − D_N2)/2` and `w = t O_s`.
+
+`O_p` vanishes on the edges of the tessellation (`D_N1 = D_N2 = D_N3`) and grows
+linearly away from them between equal seeds (differences of squared distances), so
+that the struts have triangular, Plateau-border cross-sections of width `∝ t O_s`;
+`K_c` bends their sides (`0 < K_c < 1`: concave, drained liquid foams; `K_c < 0`:
+convex, as the copper foam), the fraction growing with `t` for `K_c < 1`. The position
+`ξ` along a strut (0 at mid-span, 1/2 at the nodes) comes from `D_N4 − D_N3`, which
+vanishes at the nodes, normalized by its largest value `m` near the axis of the strut
+(the strut of the three nearest seeds; `O_p ≤ 1`), found on a grid of about eight
+voxels per short semi-axis at generation and stored with the realization:
+`ξ = (1 − (D_N4 − D_N3)/m)/2`. `A(ξ) = c1 ξ⁴ + c2 ξ² + 1` is the cross-sectional area
+normalized by its mid-span value (Jang et al. 2008): 4.375 at the nodes for `c1 = 50`,
+`c2 = 1`, i.e. 2.1 times wider. Closed cells (`cells: closed`) add the walls
+`(D_N2 − D_N1)/2 ≤ t_w`. `volume_fraction` solves for `t` by bisection on the
+generation grid; `level_set` gives `Φ a/2` (about a distance near the surface), so that
+the foam is meshed conformingly like the other models.
+
+*Checks.* On Kelvin's cells (seeds on a body-centred cubic lattice): edge points
+solid, seeds and face centres void, `ξ` = 0 at mid-span and 1/2 at the nodes within
+0.02, the width of a strut unchanged at mid-span and more than 1.3 times wider near a
+node with `c1 = 50`, `c2 = 1`; concave, flat and convex sections in increasing
+fractions; a solved fraction within 0.006, percolating in the three directions; closed
+cells, one pore per seed. The copper foam of Degdeg & Dirrenberger (`a` uniform from
+87.1 to 145.2 µm, `b = 1.22a`, `c = 3.22a`, `K_c = −0.7`, `c1 = 50`, `c2 = 1`,
+`t` solved for their tomographic solid fraction 0.261, 25 µm voxels, a 3 mm periodic
+box): mean local ligament thickness 73.7 and 74.7 µm ± 24 µm over two realizations,
+against 72.8 µm in their model and 71.1 ± 21.1 µm measured, the thickness not being
+fitted; pore chords 1.17 and 2.74 times longer along y and z than along x (shape factors
+of the seeds 1.22 and 3.22). The value of `t` that gives 0.261 here, 0.48, differs from
+theirs (0.285): `t` scales the normalized fields and depends on the implementation (the
+normalization of `ξ`, their surfaces extracted inclusion by inclusion and assembled
+with CGAL), which is why both fix it by the solid fraction.
+
+*Calibration on sections.* The stereological chain of §39 measures the pores, larger than
+the seeds that make them (the cells of a packing of fraction `φ` are `φ^{-1/3}` times
+larger than its seeds): seeds given the sizes it recovers make pores too large.
+`calibrate_seeds` scales the seeds, and with `fit_shape` changes their shape factors,
+until the mean radii of the sections of the pores by the planes normal to the axes,
+measured as the target (the watershed, the smallest sections dropped), match it:
+Gauss–Newton steps in `log s`, `log b/a` and `log c/a` with the Jacobian of ellipsoids,
+`log r_D = log s + log κ_D` with `κ_x = √(bc)/a`, `κ_y = √(c/a)` and `κ_z = √(b/a)`, each
+foam generated with the same seed and `t` solved for the solid fraction; a fixed shape
+stops when the scale settles, its misfit left in the residual. Checked: on the sections
+of a foam of seeds 1 : 1.3 : 1.8, round seeds 20 % too small come back within 3 % of the
+scale and 4 % of the shape factors in about four foams (another realization, 64³
+voxels). The copper foam on their Table 1 (170.8, 146.0 and 119.9 µm normal to the a, b
+and c axes of the seeds, sections above 54.3 µm, 25 µm voxels, a 3 mm box): with their
+covariance shape the best scale is 0.835 (seeds of 73 to 121 µm instead of 87 to 145
+µm), the sections then 5 % and 15 % too large and 13 % too small along the three axes,
+since no scale makes up for a shape that does not fit them; with the shape fitted too,
+three foams reach the three radii within 0.8 %, for seeds of 76 to 126 µm of shape
+1 : 1.54 : 2.24, whose image has the MIL ratios 1.46 and 2.04 (1.34 and 1.80 for the
+tomography) and its covariance minima at 115, 181 and 260 µm (122, 150 and 394 µm):
+the sections, the MIL and the covariance of the real foam are not those of one
+ellipsoidal shape of seeds.
+
+## 43. The nonuniform transformation field analysis (`homogenization.ntfa`)
+
+The NTFA of Michel & Suquet (2003, 2004), a reduced model of
+the nonlinear response of a periodic voxel microstructure whose phases follow the von
+Mises model of §31 with isotropic and kinematic hardening (rate-independent or Norton
+viscous).
+
+*Modes.* The plastic strain of each plastic phase `r` is sought as
+`ε_p(x) = Σ_k ξ_k μ_k(x)`, the modes `μ_k` supported by `r`. `train_ntfa` computes them
+from snapshots: full-field simulations along training paths
+(`NonlinearFFTProblem`, `integration: full`, the plastic strain of every voxel at the
+end of every step), whose proper orthogonal decomposition phase by phase (an SVD of the
+snapshots, weighted so that the Euclidean product is the double contraction of strain
+tensors) gives orthogonal modes; snapshots of rank one (uniform fields) give one mode.
+Each mode is normalized as Michel & Suquet's, `<μ_eq>_r = 1` (`μ_eq` its von Mises
+equivalent strain): a mode concentrated where the stress has reached the yield stress
+then has a reduced stress equal to it. (The quadratic normalization `<μ:μ>_r = 3/2`,
+`normalization="rms"`, delays yielding: errors 16 to 18 % against 7 to 9 % on the
+example below at 16³ voxels.)
+
+*Influence.* Linear elastic solves on the same voxels (the FFT solver of §16: trilinear
+voxels, full integration) give the strain fields `A_j` of the six unit macroscopic
+strains and `D_k` of the modes taken as eigenstrains (the element loads
+`−∫ B^T C μ_k`), so that `ε = A E + Σ D_k ξ_k` and `σ = C(ε − ε_p)`:
+
+`Σ = L E + Σ_k ρ_k ξ_k`, `τ = a E + d ξ`, `τ_k = <σ : μ_k>_r`,
+
+with `L = <C A>` (the apparent stiffness), `ρ_k = <C (D_k − μ_k)>`,
+`a_kj = <C A_j : μ_k>_r` and `d_kl = <C (D_l − μ_l) : μ_k>_r`. Hill's lemma gives
+`ρ_k = −c_r a_k` and the symmetry of `c_r d` (checked to 1e-8).
+
+*Reduced laws.* The law of each phase is written for its reduced variables:
+`f_r = ‖τ_r‖ − R0 − R(p_r)`, `Δξ_r = Δp_r τ_r/‖τ_r‖`, `p_r` the cumulated reduced plastic
+strain, with `f_r = 0` (plasticity) or `Δp_r = Δt <f_r/K>^N` (Norton): for one uniform
+mode, exactly the law of the phase. Each step is integrated by backward Euler: Newton's
+method on the reduced variables, the unknowns `q_r` of the active phases (`Δp_r`, or the
+viscous overstress `K (Δp_r/Δt)^(1/N)`, better conditioned near the yield surface) and
+the free macroscopic strains (mixed control), with an analytic Jacobian and
+backtracking; the active set is corrected until consistent (unloading phases elastic).
+*Kinematic hardening.* Each Armstrong–Frederick term `(C_k, D_k)` of a phase has a
+reduced backstress `x_k` (a vector over its modes): `f_r = ‖τ_r − x_r‖ − R0 − R(p_r)`
+with `x_r = Σ_k x_k`, `Δξ_r = Δp_r (τ_r − x_r)/‖τ_r − x_r‖`, and over a step
+`x_k = (x_k^n + C_k Δξ_r)/(1 + D_k Δp_r)` (backward Euler; `D_k = 0`: Prager): for one
+uniform mode, exactly the backstress of the phase (`X = (2/3) C ε_p` gives `x = C ξ`).
+Checked: uniform fields along a load-reverse-reload cycle within 1e-7 (1e-6 with
+viscosity, the tolerance of the full field); a stiff sphere in a matrix with
+Armstrong–Frederick hardening, trained on one cycle, along two cycles of another
+amplitude: largest error 4.9 %, 0.9 % at the end.
+
+No field is computed online; `local_fields` rebuilds the strain, plastic strain and
+stress fields of a reduced state (`keep_fields=True`), `save` and `load` store the model.
+The mean stress and strain of every phase follow from phase averages of the influence
+fields (their weighted sums are the macroscopic ones, to 1e-8). In configurations,
+`homogenization: ntfa: {training: {paths}, modes, save, full_field}` trains the model
+on the voxel image and follows the `paths` with it (`<name>.ntfa`), the full field too
+with `full_field: true` (`homogenize(..., ntfa=...)`; template `homogenization_ntfa`).
+
+*Checks* (`tests/test_ntfa.py`). One phase: the reduced model is the full field to the
+tolerance of the latter, with or without viscosity, along a load-unload path. A stiff
+sphere (fraction 0.11) in an elasto-plastic matrix (yield 100 MPa, linear and Voce
+hardening), 20³ voxels, six modes trained on uniaxial tension and shear: `L` equal to
+the apparent stiffness of the FFT solver (1e-9); largest errors on the stress of 2.5 %
+(tension), 4.3 % (shear) and 7.7 % just after the reversal of a load-unload cycle (2.7 %
+at its end), the lateral stresses free. The errors fall with the resolution of the
+image (tension: 14 % at 8³, 6.4 % at 16³, 1.9 % at 24³, 2.3 % at 32³): the full field
+yields at the eight Gauss points of each voxel, the modes are voxel means. A loading
+direction absent from the training (shear after tension alone) is not represented by
+the modes: the paths of training must span those of use. An evaluation of the exact
+local laws on the voxels with the plastic increments projected on the modes was tried
+and dropped: no more accurate at these resolutions (3.2 % at 32³), slower and fragile
+at the elastic-plastic switches.
+
+## 44. Bloch waves in periodic cells (`homogenization.bloch`)
+
+A Bloch wave `u(x) = û(x) exp(i k·x)`, `û` periodic, is a free vibration of the periodic
+medium at the wave vector `k`: `u(x + n∘L) = u(x) exp(i k·(n∘L))` for the periods
+`n∘L` of the cell. On a cell meshed by tetrahedra (4 or 10 nodes; an image is cut into
+six tetrahedra per voxel by the Kuhn triangulation of its grid, `voxel_tet_mesh`, whose
+opposite faces match), it ties each node of the upper faces to its image on the lower
+ones: `w = T(k) w_masters`, the periodic map of the fluctuations (§25; the
+interpolation of non-matching faces included), each of its weights times the phase
+`exp(i k·(n∘L))` of the period `n∘L` between the node and that master (rounded from
+their positions, so that edges and corners take the phases of two or three periods).
+The angular frequencies are those of the Hermitian problem
+`T(k)^H K T(k) φ = ω² T(k)^H M T(k) φ`, `K` the stiffness of the cell and `M` its
+consistent mass, `∫ ρ N_i N_j dV`: `ρ V (1 + δ_ij)/20` for 4-node elements, and for
+10-node ones the exact integrals of the products of their shape functions,
+`∫ λ0^a λ1^b λ2^c λ3^d dV = 6 V a! b! c! d! / (a + b + c + d + 3)!` (420 `M/ρV`: 6 and 1
+between corners, −4 and −6 between a corner and an edge through it or not, 32, 16 and
+8 between edges, identical, adjacent or opposite). The lowest frequencies come from
+shift-invert Lanczos on the real form `[[A, −B], [B, A]]` of the Hermitian matrices
+`A + iB` (each frequency twice: ARPACK's symmetric Lanczos instead of its nonsymmetric
+Arnoldi, three times faster), below a negative shift that keeps the translations of
+`k = 0` (three zero frequencies) out of the factorization, itself ordered by minimum
+degree on `A + Aᵀ` (a quarter of the fill of SuperLU's default ordering, six times
+faster on a cell of 6³ voxels). `band_structure` follows the
+edges of the irreducible Brillouin zone of an orthorhombic cell (Γ–X–M–Γ–R by default,
+corners in units of `π/L` per axis, `brillouin_path`); `BandStructure.gaps` gives the
+ranges between two bands where no wave propagates along the path (complete band gaps
+when the path holds the extrema of the bands), `plot` draws them. Void phases are left
+out, as for the static problems.
+
+Checked: a homogeneous isotropic cell (`E = 1`, `ν = 0.25`, `ρ = 1`, `L = 1`, 4³ voxels,
+10-node elements) against the folded branches of a homogeneous medium, `ω = c_T |k + G|`
+(twice) and `c_L |k + G|` for the reciprocal vectors `G ∈ 2π Z³`: the ten lowest
+frequencies within 0.64 % at X, 0.37 % at `k = π (0.3, 0.2, 0.1)` and 0.26 % at Γ (8 to
+14 % with 4-node elements); a bilayer (`E` 1 and 10, `ρ` 1 and 2, layers of 1/2)
+against Rytov's relation for the waves along its normal, `cos(qL) = cos(ω d1/c1)
+cos(ω d2/c2) − ½ (Z1/Z2 + Z2/Z1) sin(ω d1/c1) sin(ω d2/c2)`, `Z = ρ c`, for the
+longitudinal and the (twice) transverse waves: the ten lowest bands within 0.4 % at
+`qL = π` and `π/2`, the first gap along Γ–X between the bands 3 and 4 (the edges of the
+first longitudinal and second transverse branches at X). A simple cubic array of stiff
+heavy cubes in a soft matrix (Young's modulus 100 and density 10 times those of the
+matrix, Poisson's ratios 0.3 and 0.35, volume fraction 0.30, 6³ voxels) has a complete
+gap between the bands 6 and 7, from 0.60 to 1.15 times `2π c_T / L` (`c_T` of the
+matrix), in four minutes along Γ–X–M–Γ–R (33 wave vectors).
+
+## 45. Post-bifurcated patterns by group theory (`symmetry`, `homogenization.frames`,
+`homogenization.bifurcation`)
+
+The method of Azulay & Combescure (2024) and of the thesis of R.
+Azulay (2023): the patterns that a periodic architectured material may adopt after
+buckling, predicted from the symmetry of its cell alone, before any nonlinear
+computation.
+
+*Symmetry group.* A cell of `n1 × n2` primitive cells has the symmetries `g = (R, t)`, `x
+↦ R(x − c) + c + t` modulo its lattice: the point group `P` of the primitive cell (about
+`c`) and its inner translations, `G = P ⋉ (Z_n1 × Z_n2)`, generated by closure from a
+rotation, a mirror and the two primitive translations, and known by its multiplication
+table (`symmetry.Group`). A macroscopic strain `E` restricts it to the elements with `R E
+Rᵀ = E`: the symmetry of the problem is that of the material and of its loading.
+
+*Irreducible representations without tables.* Where Azulay used GAP, the real irreps are
+computed: a random symmetric matrix `A` averaged over the regular representation, `S =
+Σ_g R(g) A R(g)ᵀ`, commutes with the group, so that its eigenspaces are, generically,
+irreducible subspaces; their characters `χ(g) = tr(Qᵀ R(g) Q)` tell the irreps apart,
+each kept with its orthogonal matrices `D(g) = Qᵀ R(g) Q`, of real, complex or
+quaternionic type as `⟨χ, χ⟩` = 1, 2 or 4. The isotypic projector of any orthogonal
+representation `T` is `P_μ = d_μ / (|G| ⟨χ, χ⟩) Σ_g χ_μ(g) T(g)`.
+
+*Equivariant branching lemma.* An isotropy subgroup `H` of an irrep whose fixed-point
+subspace is one-dimensional, `dim Fix(H) = (1/|H|) Σ_h tr D(h) = 1`, carries a branch of
+bifurcated solutions of symmetry `H` (Vanderbauwhede 1980; Golubitsky et al. 1988).
+Instead of running over the subgroups (Azulay's Algorithm 1), the fixed-point subspaces
+are the intersections of those of the elements (the null spaces of `D(g) − I`); each line
+among them is the fixed-point subspace of its stabilizer, an axial isotropy subgroup, and
+its conjugates `g H g⁻¹`, the same pattern turned or shifted, form a class
+(`axial_subgroups`).
+
+*Patterns.* The group acts on the fluctuations of a frame by `T(g)`: the nodes permuted,
+their displacements turned by `R` and their rotations multiplied by `det R`. The pattern
+of an axial subgroup `H` of the irrep `μ` is the displacement of `Fix(H) ∩ V_μ` (the
+range of the commuting projectors `P_H = (1/|H|) Σ_h T(h)` and `P_μ`, translations
+removed) that minimizes the elastic energy `uᵀ K_e u` at unit norm, the eigenvector of
+the smallest eigenvalue of `K_e` reduced to that subspace (Azulay's argument on the
+incremental energy at a point of linear buckling). The order of the bifurcations along
+the principal path comes from the linear buckling `(K_e + λ K_g) φ = 0` of the loading,
+solved in each isotypic subspace where the matrices are block-diagonal: the lowest `λ` of
+each irrep, the multiplicity of the first point, and the irrep of its modes, which their
+projections on the isotypic subspaces also identify (`post_bifurcation`;
+`Bifurcation.figure` draws the patterns as the tables of the paper).
+
+*Frames.* `Frame.lattice_of` builds cells of honeycomb, triangular, square and kagome
+lattices of Euler–Bernoulli beams, each wall cut into elements: axial `EA/L` and cubic
+Hermite bending, and the consistent geometric stiffness `N/30L [36, 3L, 4L², −L², …]` of
+the transverse motion under the axial force `N`, whose values for a macroscopic strain
+come from the periodic linear problem (displacement `E X + w`, `w` and `θ` periodic).
+
+Checked: a cantilever of four beams buckles at `π² EI / 4H²` within 1e-4. The honeycomb
+in a 2 × 2 cell: `G = D6 ⋉ (Z2 × Z2)` of order 48, ten real irreps of dimensions 1, 1, 1,
+1, 2, 2, 3, 3, 3, 3 and the axial classes of their Table 3, 17 for the symmetry-breaking
+irreps, the orders of the subgroups and the sizes of the classes included (for T2: D2 ×
+Z2, three subgroups of order 8, C6, four of order 6, and D2, six of order 4, the
+alternating-band, flower and butterfly modes I, III and II). Under equibiaxial
+compression the first bifurcation is triple and its modes lie in T2 alone (projections 1
+there, 0 elsewhere), as in the thesis, at the axial force `N L²/EI = 3.6505` of the walls
+(converged in the elements per wall; the primitive cell buckles at `π²`, its joints
+turning alike and its walls in double curvature, within 1.3e-7 with 32 elements per wall;
+a 3 × 3 cell at 4.149, so that the 2 × 2 cell is the critical one); the lowest load of
+the isotypic blocks is that of the whole cell to 1e-10, and the patterns are fixed by
+their subgroups and lie in their isotypic subspaces to 1e-10. Under uniaxial compression
+normal to the vertical walls the group falls to `D2 ⋉ (Z2 × Z2)`, of order 16 with ten
+irreps, and the first point is double, as in the thesis (modes I and II together). The
+method leaves the size of the cell to the user (see below), lists the branches of the
+lemma only (a sufficient condition) and does not assess their stability; the frames are
+plane, continua are treated below.
+
+*Size of the cell.* `Frame.bloch_buckling` gives the load factors of the Bloch modes `u(x
++ A s) = u(x) exp(i k · A s)` of a primitive cell at any wave vector, each beam crossing
+the cell getting the phase of its period (Geymonat, Müller & Triantafyllidis 1993): their
+smallest over the Brillouin zone gives the critical wavelength, hence the cell of the
+patterns that the group-theoretic method takes as an input (the cell of `n × n` primitive
+cells holds the wave vectors `(m1 b1 + m2 b2) / n`). Checked: for the honeycomb under
+equibiaxial compression the lowest load over a 24 × 24 grid of the zone is at its three M
+points, `N L²/EI = 3.6508`, that of the 2 × 2 cell, whose triple point they are; Γ and
+its images give the primitive cell.
+
+*Continua.* `post_bifurcation` also takes a tetrahedral mesh or a voxel image (six
+tetrahedra per voxel, the Kuhn triangulation of its grid) with its materials. The
+fluctuations are the displacements of the master nodes of the periodic map, turned by `R`
+alone; the geometric stiffness is the initial-stress matrix `δ_ij ∫ ∇N_a · σ⁰ ∇N_b dV`
+(4- or 10-node elements, at the Gauss points) of the stress `σ⁰` of the periodic linear
+solution under the macroscopic strain; mechanisms (zero-energy modes besides the
+translations, such as the rotation of a bar about its axis) are left out of the buckling
+and of the patterns. The group is detected on the mesh (`mesh_symmetries`): the
+operations of the cube about the centre of the box that map it onto itself, combined with
+translations by multiples of half a primitive cell, kept when they map every element onto
+an element of the same phase; the Kuhn triangulation has the symmetries of the cube and
+the translations by even numbers of voxels, so that primitive cells of even sizes keep
+their translations. The isotypic subspaces are built without dense projectors (their
+dimension the trace of `P_μ`, their basis the range of `P_μ` applied to random vectors,
+orthonormalized through the Gram matrix of the sample), and the group (closure and table)
+and the lattice of fixed-point subspaces (batched intersections) are computed by arrays,
+so that cells of thousands of dofs and groups of hundreds of elements take seconds.
+
+Checked: a periodic square bar of 2 × 2 voxels (10-node elements, `ν = 0`) buckles in one
+wavelength, in either direction and phase (a quadruple point), at 0.945, 0.963 and 0.974
+times Timoshenko's load for lengths of 12, 16 and 20 voxels (Euler's reduced by the
+shear, `κ = 5/6`), the gap closing with the slenderness. A simple cubic lattice of bars
+(cells of 4 voxels, bars of 2): the group `O_h` of order 48, its ten irreps and the 17
+axial classes of the symmetry-breaking ones (O, T_d and T_h; D4 and D2d; D4h; C4v, D3 and
+C2v; C4h, S6 and C2h; C4v, C3v and C2v; D3d and D2h), a pattern for each class of the
+irreps present among the displacements (A1u has none in the coarsest mesh), the patterns
+fixed by their subgroups on every node of the mesh, and a triple first point under
+hydrostatic compression whose modes lie in one irrep (projections 1 and 0); the same
+lattice in a 2 × 2 × 2 cell: a group of 384 elements, 40 irreps, 109 axial classes and a
+sextuple first point in an irrep of dimension 6, in 25 s; a random image keeps the
+identity alone.
+
+*Along nonlinear paths* (`path_bifurcation`: the method in finite
+strains with nonlinear behaviours). The linear buckling about the linear prestress gives
+way to the stability of the principal path itself. The cell (a mesh or a voxel image) is
+loaded along a path (`LoadingPath`: strains or stresses prescribed per component) by the
+periodic element of the nonlinear solver (section on loading paths), in finite strains
+with its behaviours (Hencky elasticity, von Mises elasto-(visco)plasticity, crystal
+plasticity, MFront laws). At each converged step its consistent tangent — in finite
+strains `∫ ∇N · ∂P/∂F · ∇N dV₀`, whose geometric part is the initial stress of the current
+state; for plasticity the tangent of the loading branch, Hill's comparison solid as the
+steps shrink — is reduced to the master nodes of the periodic map, the macroscopic
+components whose stresses are prescribed condensed, `K_ww − K_wE K_EE⁻¹ K_Ew` (invariant
+components touch the trivial irrep only), and projected on each isotypic subspace. Along
+the principal path, which keeps the symmetry of the cell and of the path (the group
+restricted to the operations that leave the prescribed strains, the prescribed stresses
+and the choice between them invariant), the tangent commutes with the group: each block
+loses its positive definiteness on its own, and the first block whose lowest eigenvalue
+changes sign marks the first bifurcation, at the root of the parabola through its last
+three values; its multiplicity is the number of eigenvalues that cross in the step (each
+repeated `d_μ` times in its block), and the patterns of the axial classes are the softest
+modes of `Fix(H) ∩ V_μ` for the tangent of the step nearer to it. The mechanisms of the
+natural state (the zero-energy modes of the elastic stiffness besides the translations,
+as above) are left out from the start: the rotation of a column about its axis would
+otherwise cross zero at once. A switch of branch perturbs the nodes along the critical
+pattern — those of the faces of the box along these faces only, an equivariant change
+that keeps the cell periodic and the imperfection in the subspace of the pattern — by 1
+to 2 % of the cell (smaller, the transition is so abrupt that Newton's method may fall
+back onto the principal branch, which remains an equilibrium), and follows the path
+again, recording the amplitude of the pattern in the fluctuation at each step. Frames
+stay linear (no large rotations of beams).
+
+Checked: periodic columns of 2 × 2 voxels (4-node elements, Hencky, `ν = 0`) 24, 48 and
+96 voxels long bifurcate along the finite-strain path at 1.115, 1.029 and 1.007 times the
+strain of their linear buckling (3.6, 0.96 and 0.25 %), in the same irreps with four
+modes: a correction of about three times the critical strain (the geometric and material
+nonlinearity of the prebuckling state) that vanishes with it; with 10-node elements the
+48-voxel column at 0.572 % (Euler: 0.571 %). A square array of circular holes (porosity
+0.5, cells of 12 voxels, one layer, 4-node elements, Hencky with `ν = 0.3`) in plane-strain
+uniaxial compression, the lateral stress free: the first bifurcation, at a nominal strain
+of 6.1 % (the lateral strain +1.1 % by then), is simple, in a one-dimensional irrep whose
+primitive translations act by −1 (period doubling): the holes turn into alternating,
+mutually orthogonal ellipses, the pattern of Mullin et al. (2007) and Bertoldi et al.
+(2008); on the bifurcated branch (an imperfection of 2 % of the cell) the amplitude of the
+pattern grows by three orders of magnitude, the stress levels off within 1 % and the
+lateral strain turns negative (−7.6 % at a compression of 15 %), the negative Poisson's
+ratio of these structures. The specimen 1 of Bertoldi et al. (`d/l = 8.67/9.97`, porosity
+0.594), a nearly incompressible Hencky solid (`ν = 0.49`, `K/μ = 50` as the Mooney–Rivlin
+fit of Sperling et al. 2023: `c1 = 0.55`, `c2 = 0.3`, `K = 55` MPa), 10-node elements, the
+2 × 2 cell meshed conforming to its holes and mirrored (`mirrored_mesh`, section 11: its
+group of 32 operations exact), in uniaxial strain as the infinite layer of Sperling et al.
+(periodic with a fixed horizontal period: the lateral strain held): the same simple point
+and pattern at 4.60, 4.18, 3.35 and 2.99 % for elements of 0.08, 0.065, 0.05 and 0.04 of
+the cell (60 000 to 181 000 dofs, 1 to 8 min), extrapolating to 2.3–2.6 %, against 2.25 %
+for their first-order homogenization; with the lateral stress free, 6.2 % (elements of
+0.08). Cells of 24 voxels (porosity 0.604, 24 000 dofs) had bifurcated at 1.47 % with the
+lateral stress free: their staircase thins the ligaments, whose bending sets the critical
+strain (as the square of their thickness), and that value had been set against the uniaxial
+strain of the reference. With the diagonal mirrors on the mesh (4/mmm, 64 operations for
+the 2 × 2 cell of holes of porosity 0.5, 4-node elements of 0.1, `ν = 0.3`), equibiaxial
+compression keeps the whole group and uniaxial compression half of it (the swap of the
+axes no longer leaves the loading invariant): the first bifurcation is simple, in a
+one-dimensional irrep, into the alternating ellipses in all three cases, at a nominal
+strain of 9.3 % in uniaxial stress (the lateral strain +2.0 %), 7.8 % in uniaxial strain
+and 4.1 % on each axis in equibiaxial compression, which loads the ligaments of both
+directions; the linear buckling of the same mesh under equibiaxial compression finds the
+same irrep at 3.3 % (the prebuckling nonlinearity delays the finite-strain point). A simple cubic array of spherical holes (porosity 0.4, 4-node elements of 0.12, one cell, 8 800 dofs) on a mesh with its 48 operations: under hydrostatic compression its linear buckling comes first in a three-dimensional irrep (multiplicity 3) at 8.1 % on each axis, while its finite-strain path stays stable within the period of the cell up to 13 % on each axis (it densifies), and in uniaxial strain (the 16 operations of 4/mmm left by the loading) up to 15 %; the modes that double the period need a cell of 2 x 2 x 2, whose 384 operations the dense bases of the isotypic subspaces did not get through in 30 min (split by its translations below, it buckles first at 7.5 % on each axis, doubling the period). Bertoldi's specimen 1 in equibiaxial compression with the diagonal mirrors (10-node elements of 0.1, 48 000 dofs): 3.0 % on each axis, the same irrep and pattern.
+A column of von Mises elastoplastic material (yield strain
+0.3 %, hardening `E/2`) bifurcates at the onset of yield (0.29 % with 10-node elements,
+its tangent-modulus load being below the yield stress) before its elastic counterpart
+(0.57 %); a copper crystal along [001] (octahedral slip from 100 MPa) once it slips
+(0.39 %, at 255 MPa against 245 MPa by Schmid's law), before its elastic counterpart
+(1.0 % with 4-node elements).
+
+*Cells of several primitive cells.* The dense bases of the isotypic subspaces grow as the
+square of the cell, and the group with it: 384 operations for a cubic cell of 2 x 2 x 2.
+Its translations `T` (by a primitive edge along some axes) are a normal subgroup of the
+group, `G = T ⋊ P` (`P` the point operations about the centre, `T ≅ Z₂^r`), whose
+characters `χ_k(t) = ±1` are those of the wave vectors `k` of components 0 or `π/a`: Γ,
+X, M and R of a cubic cell. The fluctuations of `k`, periodic or antiperiodic on the
+primitive cell along each axis, have the sparse orthonormal basis of the orbit sums
+`B_k = Σ_t χ_k(t) e_t(i) / sqrt|T|` over the nodes `i` of a primitive cell (the orbits of
+`T` are free), in which every matrix that commutes with `G` is block-diagonal
+(`post_bifurcation(bloch=True)`, by default beyond `DENSE_LIMIT` dofs). A point
+operation carries `k` to `p·k`, of character `χ_k(p⁻¹ t p)` (read from the group
+table): the wave vectors fall into stars, and the little co-group `P_k` of each acts on
+its fluctuations by `M_p = B_kᵀ T(p) B_k`. By Clifford's theory (Mackey's little-group
+method), the irreps of `G` are induced from `T ⋊ P_k`, `μ = Ind(χ_k ⊗ σ)`, one for each
+star and irrep `σ` of `P_k`: they are identified by Frobenius reciprocity,
+`Σ_{t, p ∈ P_k} χ_k(t) χ_σ(p) χ_μ(t p) ≠ 0`, every irrep of `G` found once
+(otherwise the analysis falls back on the dense bases, as for non-symmorphic groups).
+The dimension of `μ` is `d_σ` times the arms of the star, its multiplicity that of `σ`
+among the fluctuations of `k`, and its isotypic subspace the images of that of `σ` by
+the operations `g_a` that carry `k` to the other arms, on each of which the stiffness
+matrices are the same block. The buckling of each irrep is solved in that block, of the
+size of the fluctuations of a primitive cell divided among the irreps of `P_k`, one at a
+time; the patterns of the irreps of the first bifurcation (`patterns="critical"`, the
+default; `"all"`), in the coordinates of the blocks of the arms, where an element `h`
+carries arm `a` to arm `b` by the matrix `χ_k(t) qᵀ M_p q` of `g_b⁻¹ h g_a = t p`, and
+are lifted to the cell. `wave_vectors` gives the arms of the star of an irrep, from the
+restriction of its character to `T`: its patterns double the period along the axes where
+`k_i = π/a`. On the lattice of bars in a cell of 2 x 2 x 2 (384 operations, 1 296 dofs),
+the loads, multiplicities, first bifurcation and the energies and loads of the 110
+patterns are those of the dense bases within 2·10⁻¹⁴ (5 s against 18 s): the bars buckle
+first in the star of X, a six-dimensional irrep that doubles the period along one axis.
+The cubic cell of spherical holes of 2 x 2 x 2 (porosity 0.4, 4-node elements of 0.12:
+98 688 tetrahedra, 60 696 dofs, `ν = 0.3`) under hydrostatic compression is analysed in
+4 min on a shared machine: it buckles first at 7.55 % on each axis, below the 8.15 % of
+the single cell (whose fluctuations are those of Γ), in a three-dimensional irrep of
+multiplicity 471 carried by the star of M, `k = (π/a)(1, 1, 0)` and its images: its
+patterns double the period along two axes. Their axial classes are D4h with 4 of the 8
+translations (a single arm: antiperiodic along two axes, periodic along the third), Th
+with 2 (the three arms together, invariant under the centring translation `a(1, 1, 1)`)
+and D4h with 2; then come irreps of R at 7.88 %, of M at 7.92 % and of X at 7.98 %. In
+uniaxial strain along the third axis (128 operations, 3 min), it buckles first at 15.9 %
+in a one-dimensional irrep of the wave vector `(π/a)(1, 1, 0)` normal to the load (D4h
+with 4 translations: the period doubled across the load only), that of R following at
+15.93 % and the irreps of Γ, those of the single cell, from 16.5 %.
+
+*Effective stiffness of large and random frames* (`homogenization.networks`, for the fibre
+networks and open foams of §23). `SpaceFrame.macroscopic_stiffness` solves the periodic
+problem on dense matrices, for cells of a few primitive cells; `frame_stiffness` (the
+method `effective_stiffness` of both frames) solves it on the sparse stiffness of the
+fluctuations, assembled from the matrices of all the beams at once (stretching `EA/L`,
+torsion `GJ/L` and the cubic Hermite bending above, in global axes and per unit stiffness,
+so that new stiffnesses of the beams are a weighted sum), the translations held at the
+first node, factored once (SuperLU) for the six unit strains (three in the plane). The
+convention is morphoGen's Voigt order 11, 22, 33, 23, 31, 12 with engineering shears (11,
+22, 12 in the plane, per unit area), that of `engineering_constants`; the Mandel form is
+`W C W`, `W = diag(1, 1, 1, √2, √2, √2)`. The energy of the solutions `u_I` per unit volume,
+`C_IJ = (1/V) Σ u_I · K_e u_J`, is the sum of the parts stored in the stretching, bending and
+torsion of the beams, each positive semi-definite, which give the energy split of any
+strain (`FrameStiffness.split`, the fraction of axial energy of Shahsavari & Picu 2015). The
+affine estimate is the stretching of affinely deformed beams (Cox 1952), `C_aff = (1/V) Σ
+EA L N Nᵀ`, `N = (n₁², n₂², n₃², n₂n₃, n₃n₁, n₁n₂)`, and the non-affinity of a strain `E` the
+mean square non-affine motion of the ends of the beams over their mean square length, `Γ =
+Σ |w_j − w_i|² / (|E|² Σ l²)`: the measure of Head, Levine & MacKintosh (2003) and
+Hatami-Marbini & Picu (2008) at the scale of the segments. That of the nodes themselves,
+`⟨|w − w̄|²⟩`, grows with the size of a plane cell (0.22 and 0.43 of the square of the
+mean length for 500 and 2000 nodes of a Delaunay network, the fluctuations of a random
+medium in two dimensions), and taken relative to the length of each beam it is dominated
+by the shortest. Without bending and torsion the rotations are left out (a truss), refused
+when it has mechanisms (a pivot below `10⁻¹²` of the largest: `5·10⁻¹⁹` for a Voronoi
+truss; the beams of a connected frame have none, and the short edges of Poisson–Voronoi
+foams stiffen some dofs `10¹⁶` times), as are disconnected frames. Checked: the four
+lattices of struts against the dense path within `1.4·10⁻¹⁵` (0.004 s against 0.43 s for
+the octet cell), and from the frameworks of their lattices (`Framework.lattice`) within
+`4.4·10⁻¹⁵`; the plane frames against closed forms within `1.2·10⁻¹⁴`: the regular
+honeycomb of walls of thickness `t` (length and depth 1) with rigid joints, `E = (4/√3) E_s
+t³ / (1 + 3t²)`, `ν = (1 − t²)/(1 + 3t²)` (Masters & Evans 1996), a fraction `3t²/(1 + 3t²)` of
+stretching energy; the triangular lattice, whose nodes, centres of symmetry, do not
+fluctuate (non-affinity 0) while the strain turns its chords against the joints, which
+adds `12EI/L` per unit chord rotation to the affine estimate: `E = (2/√3) E_s t · 3(1 +
+t²)/(3 + t²)`, `ν = (1 − t²)/(3 + t²)`; a slender Delaunay network (150 points) against its
+truss computed independently from the compatibility matrix of its framework (dense least
+squares), within `6.4·10⁻¹⁵`, and beams of radius `10⁻³` within `1.7·10⁻⁴` of it (their
+bending).
+
+*Timoshenko beams* (`shear_coefficient` of `from_framework`, `lattice_of` and
+`network_stiffness`; the attribute `shear` of both frames). For Ban et al.'s cases of §23,
+the frames take shear-deformable beams as an option: a transverse shear stiffness `κGA`
+per beam, its coefficient `κ` given per beam or Cowper's (1966) for solid sections
+(`cowper_coefficient`: `6(1 + ν)/(7 + 6ν)` for a circle, `10(1 + ν)/(12 + 11ν)` for a
+rectangle; `G = E/2(1 + ν)`). Each bending plane takes the exact two-node Timoshenko
+stiffness (Przemieniecki 1968), `EI/L³(1 + Φ) [12, 6L, (4 + Φ)L², (2 − Φ)L², …]` with `Φ =
+12EI/(κGA L²)` and `θ` the rotation of the section, exact for beams loaded at their ends
+whatever their subdivision. Its bending is a uniform curvature, `(EI/L)(θ₁ − θ₂)²`, free of
+shear force, plus the rotation of the chord `a = (θ₁ + θ₂)/2 − (v₂ − v₁)/L` of stiffness
+`k_a = 12EI/L(1 + Φ)`, the bending `L/12EI` and the shear `1/(κGA L)` compliances in
+series: the energy of the chord rotation splits between bending and shear as `1 : Φ`
+(`FrameStiffness.shear`, the part `shear` of `split`). The buckling takes the consistent
+geometric stiffness of the same interpolation (Friedman & Kosmatka 1993), `N/30L(1 + Φ)²
+[36 + 60Φ + 30Φ², 3L, (4 + 5Φ + 2.5Φ²)L², −(1 + 5Φ + 2.5Φ²)L², …]`, the work of the axial
+force on the slope of the axis, which tends to Engesser's reduced load `P_E/(1 + P_E/κGA)`
+as the elements refine (Timoshenko & Gere 1961). Without a shear stiffness (`shear` None,
+the default) the beams are those of Euler–Bernoulli, `Φ = 0`, and every result above is
+unchanged (the same arrays to the last bit with `κGA = ∞`). For the softening of
+non-identical beams (§23), the stiffness of a Timoshenko beam is concave in its `EI` and
+its `κGA`, `k_a'' = −2k_aΦ/(1 + Φ)²` per unit factor of either, which adds `U·K_i''U/V` to
+the second derivatives; the mode `area` scales `EA` and `κGA` together (the area of a
+general section). Checked: the stiffness and geometric matrices against the energy of the
+interpolation integrated numerically, within `4·10⁻¹⁶`; a cantilever deflects by `PL³/3EI +
+PL/κGA` and turns by `PL²/2EI` under a tip force, a fixed–fixed beam by `PL³/192EI +
+PL/4κGA` under a central force, to round-off (4 and 2 elements), and an oblique strut in
+space alike in both planes; the buckling load of a cantilever (`κGA = 3EI/L²`) within
+`2·10⁻⁴` and `1.2·10⁻⁵` of Engesser's with 16 and 64 elements; `Φ = 4.8·10⁻¹³` within
+`1.8·10⁻¹³` of Euler–Bernoulli; the regular honeycomb, whose walls bend as guided beams,
+gains the shear compliance of its walls, `E = (4/√3) E_s t³/(1 + Φ + 3t²)`, `ν = (1 + Φ −
+t²)/(1 + Φ + 3t²)`, `Φ = E_s t²/(κG_s)`, its energy split as `1 : Φ : 3t²` between bending,
+shear and stretching (Masters & Evans with the shear deflection of the walls; Gibson &
+Ashby 1997, §4.3, correct thick walls in the same way, a coefficient we could not compare,
+the book not being at hand), and the triangular lattice, whose chords turn against the
+joints with the stiffness `12EI/L(1 + Φ)`, takes `t²/(1 + Φ)` for `t²` in its closed form,
+both within `2.4·10⁻¹³` (`t` from 0.02 to 0.2, `κ = 5/6` and Cowper's); the struts in space
+against the dense path within `1.1·10⁻¹⁵`, the parts summing to the stiffness. Thick
+struts (radius 0.08 of the cubic cell, Cowper's `κ`) lose 28 % of the modulus of the
+Kelvin lattice to shear, 7 % of the body-centred cubic one and 1 % of the octet.
+
+*Rigid joints* (`rigid_joints` of `from_framework` and `network_stiffness`; the attribute
+`rigid` of both frames). In a continuum the struts merge in the nodes, where they neither
+bend nor stretch (§23, the frames against the FFT solver). As an option the beams of a
+framework end rigidly at their joints: a beam from node 1 to node 2, of axis `e`, is rigid
+over `a₁` and `a₂` from them (`rigid_joints` radii of the beam: one value or one per bar)
+and flexible over `l' = l − a₁ − a₂`, whose ends move with the rigid arms of their nodes,
+`u₁ + θ₁ × a₁e` and `u₂ − θ₂ × a₂e`, the rotations unchanged: its stiffness is `Tᵀ K(l') T`,
+`K(l')` that of the flexible part (Euler–Bernoulli or Timoshenko, `Φ = 12EI/(κGA l'²)`)
+and `T` the motion of the arms (`[e]×` blocks), so that a rigid motion of the beam stores
+no energy. The affine estimate takes the extension of a beam on its flexible part, `EA
+L²/l'`. On the shortest beams (edges shorter than their two rigid ends, inside their
+nodes) the ends are scaled down to leave `FLEXIBLE_LIMIT` (0.1) of the beam flexible. Only
+the effective stiffness of the sparse problem takes them (and the softening of §23); the
+dense paths (stiffness, axial forces, buckling, Bloch waves) refuse such frames. Checked:
+the triangular lattice, whose nodes do not turn, takes `EA/l'` and `12EI/l'³(1 + Φ')`,
+`E = (2/√3) E_s t (l/l') · 3(1 + τ)/(3 + τ)`, `ν = (1 − τ)/(3 + τ)` with `τ = t²(l/l')²/(1 +
+Φ')`, within `4.4·10⁻¹⁶` (`t` from 0.02 to 0.2, `a/l` = 0.05 and 0.2, Euler–Bernoulli and
+`κ = 5/6`); random frames (Delaunay and Voronoi frameworks in space, a Delaunay network in
+the plane, `a` = 1.5 and 2 radii, both beams) against the same frames whose beams are
+split in three, the end segments `10⁷` times stiffer, within `2.4·10⁻⁸` to `5.2·10⁻⁷` (the
+compliance left in the stiff segments), 18 to 48 % from the frames without rigid ends;
+the cubic lattice stiffer by `l/l'` exactly, at its affine estimate.
+
+## 46. Cohesive zone elements (`fracture.cohesive`)
+
+*Laws.* The separation `δ = u⁺ - u⁻` of the two sides of an interface (normal `n` from side
+`-` to side `+`, `δ_n = δ · n`, `δ_s = δ - δ_n n`) gives the traction per unit area of the
+reference interface. The bilinear mixed-mode law (Camanho & Dávila 2002; Turon et al.
+2006) has a penalty `K`, onset tractions `N`, `S` and fracture energies `G_Ic`, `G_IIc`:
+with `λ = sqrt(<δ_n>² + |δ_s|²)` and the mixity `B = |δ_s|² / λ²`, the separations of onset
+and failure follow the criterion of Benzeggagh & Kenane, `λ0² = δn0² + (δs0² - δn0²) B^η`,
+`λf = (δn0 δnf + (δs0 δsf - δn0 δnf) B^η) / λ0`, and the damage `d = λf (λ - λ0) / (λ (λf -
+λ0))` keeps its largest value; `t = (1 - d) K δ`, but `t_n = K δ_n` in compression. The
+work of a separation at a fixed mixity is then `G_Ic + (G_IIc - G_Ic) B^η` (checked at 1e-4
+for B = 0, 0.3, 1). The exponential law of Ortiz & Pandolfi (1999) uses the effective
+opening `δ = sqrt(<δ_n>² + β² |δ_s|²)` and the envelope `e σc (δ/δc) exp(-δ/δc)` (`G_c = e σc
+δc`), unloading along the secant to the origin; its history is the largest opening. These
+are the debonding laws of Z-mat (Needleman's exponential, Crisfield's bilinear).
+
+*Elements.* The interface elements join the faces of two linear tetrahedra (six nodes,
+three Gauss points on the mid-surface). In small strains their frame is that of the
+reference faces and their tangent `Bᵀ D B`, `D` the derivative of the law (by central
+differences, from the history of the start of the step: the consistent tangent of the
+implicit update). In finite strains the frame is that of the current mid-surface `x̄ = X +
+(u⁻ + u⁺)/2` and the tangent the derivative of the forces of the element by central
+differences, which includes the rotation of the frame: an opened interface turned rigidly
+keeps its forces turned with it (checked to 1e-9), which the small strain element does not.
+The bulk is linear elastic in small strains, a compressible neo-Hookean solid in finite
+strains (`P = μ (F - F^-T) + λ ln J F^-T`, total Lagrangian), with tetrahedra of 4 or 10
+nodes.
+
+*Elements of six nodes a side.* Between two 10-node tetrahedra (section 76) the interface
+elements take the six nodes of each face: the separation is `δ(ξ) = Σ N_a(ξ) (u_a⁺ - u_a⁻)`
+with the functions of the quadratic triangle, as the displacements of the two sides. The
+tractions are integrated at the six points of the rule of degree 4 of the triangle
+(Dunavant 1985): the three-point rule, enough for the area, would leave openings without
+traction, since three points hold nine of the eighteen components of the separation. The
+normal, the tangents and the area element are those of each point, `a = ∂x/∂ξ`, `b =
+∂x/∂η`, `n = a × b / |a × b|`, `dA = |a × b| dξ dη`: the faces may be curved, as those of
+the meshes whose nodes lie on the interfaces of the phases. A mesh of 10-node elements
+is opened by its corners (the insertion below), and the mid-edge nodes of the two lips
+are made again where they were. Checked (`tests/test_cohesive.py`): a bar without
+Poisson's effect debonds with the loads of the 4-node elements at every step, in small
+and finite strains (homogeneous fields are in both spaces); the interface elements of a
+sphere meshed with elements of its radius have its area within 0.03 % on the curved
+faces and 6 % less on the flat ones, and a rigid translation `δ` of the sphere in its
+matrix, through an interface of stiffness `K`, takes the force `K δ` times that area to
+round-off. The behaviours of the points (section 51) keep 4-node elements.
+
+*Insertion.* The faces to open (between phases, or chosen by their centroids) are split by
+duplicating their nodes: around each node, the elements are grouped by the faces through
+that node by which they stay connected (union-find), and each group gets a copy, so that
+an open crack keeps its front closed and an inclusion is detached all around.
+
+*Solution.* The prescribed displacements grow with a load factor; Newton's method (sparse
+direct solves, a backtracking line search) is restarted with half the step when it fails.
+Softening interfaces have limit points where an element fails at once, beyond which no
+equilibrium neighbours the current one under the prescribed displacements; the viscous
+regularization of Gao & Bower (2004), the load factor as time, `d = (d_n + Δt/ζ d∞) / (1 +
+Δt/ζ)`, lets the step divisions pass them (the damage being slowed, the tangent stays
+positive), the solution tending to the rate-independent one with `ζ`.
+
+*Calibration and checks.* The cohesive zone is `l_cz = M E G / T²` long (`M` = 1 after
+Hillerborg, 9π/32 after Rice; Turon et al. 2007), and three elements in it need `T =
+sqrt(9π E G / (32 N_e l_e))`. The double cantilever beam is compared with the corrected
+beam theory (Williams 1989; Linke & Lammering 2023): `P = 3 E I d / (2 (a + χ h)³)` with `a =
+a0` until the crack grows, then `a = (9 d² E I / (4 w G))^(1/4) - χ h`, `χ = sqrt(E / (11 S) (3
+- 2 (Γ / (1 + Γ))²))`, `Γ = 1.18 E / S`. Checked: a bar debonds at `N A` with the work `G_Ic
+A` in small and finite strains; a beam of 60 × 2 with arms of 4 (six tetrahedra per voxel
+of 1, `E = 1000`, `G_Ic = 0.5`, `T = 5`: a cohesive zone of 20 elements) reaches the peak
+load of the beam theory within 1 %, and its loads and crack lengths during the propagation
+within 8 % and 1.5 (the coarse linear tetrahedra are 17 % too stiff in bending). With
+10-node tetrahedra twice as large (two across each arm, as many nodes), the loads of the
+propagation are within 3 % and the crack lengths within 0.4; the 4-node elements of that
+size, which do not bend, are 16 % above the peak load and 24 % off along the propagation.
+
+## 47. Cracks: conforming meshes and XFEM (`fracture.lefm`)
+
+*Cracks.* A planar crack is the zero of `φ`, the signed distance to its plane, where `ψ`,
+the signed distance to its front within the plane, is negative: a straight front (an edge
+or through crack) or a circular one (a penny). It grows by moving its front, `ψ - δa`.
+
+*Conforming meshes (Z-cracks).* The body is meshed conforming to the plane of the crack
+(MMG through its level set, whose interface it may snap by a fraction of the background
+spacing, or any mesh with faces on the plane), and the faces between its two sides behind
+the front are opened by duplicating their nodes (section 46): free crack faces. The
+nodes of the crack surface of a mesh by MMG within half an edge of the front are moved
+onto it (section 48), so that the opened faces end on the front. Each step of a
+propagation meshes the body again for the new crack, as Z-cracks does (Chiaruttini, Feyel
+& Rannou); without singular elements, the energy release rate of linear tetrahedra
+approaches the exact one as they shrink at the front (0.76, 0.89, 0.90 of the handbook
+value for an edge crack of 4.5 with elements of 1, 0.5 and 0.25).
+
+*Quadratic elements and quarter points* (`conforming_work(..., order=2)`). The opened
+mesh is made of 10-node tetrahedra, whose loads are the consistent ones of faces of six
+nodes, and the mid-edge nodes of the edges that leave the front (one end on it: the
+nodes that the two lips share) are moved to a quarter of the edge from the front
+(`quarter_points`; Henshell & Shaw 1975, Barsoum 1976). Along such an edge of length
+$L$, with $s$ the coordinate of the element from the front, the position is $r = L s^2$
+when the mid-edge node stands at $L/4$: the quadratic displacement $u_0 + c_1 s + c_2
+s^2$ is $u_0 + c_1 \sqrt{r/L} + c_2\, r/L$, the leading terms of the fields of a crack,
+and its strain grows as $1/\sqrt{r}$. These are isoparametric elements with curved (here
+unevenly divided) edges, computed by the kernels of section 76; their volume element
+vanishes at the front, where no integration point lies. The same edge crack with
+elements of 1: 0.76 of the handbook value with 4-node elements, 0.93 with 10-node ones
+and their mid-edge nodes at the middles, 0.99 with the quarter points
+(`tests/test_lefm.py`). The XFEM, whose branch functions carry the same term, and the
+mixed-mode analyses of section 48 keep 4-node elements.
+
+*XFEM* (Moës, Dolbow & Belytschko 1999; Sukumar, Moës, Moran & Belytschko 2000). The
+displacement of linear tetrahedra is `u = Σ N_i u_i + Σ_J N_i (H(φ) - H(φ_i)) a_i + Σ_T N_i
+Σ_k (F_k - F_k(x_i)) b_ik` (shifted enrichments, zero at the nodes): the jump at the nodes
+of the elements that the crack cuts through behind its front (set J), the branch functions
+`F = √r (sin θ/2, cos θ/2, sin θ/2 sin θ, cos θ/2 sin θ)`, `r = sqrt(φ² + ψ²)`, `θ = atan2(φ,
+ψ)`, at the nodes of the elements containing the front and within `tip_radius` of it (set
+T), with the gradients of the level sets interpolated in each element. The enriched
+elements are integrated on the sub-tetrahedra of their two sides (a plane cuts a
+tetrahedron into a tetrahedron and a prism, or two prisms, each prism into three
+tetrahedra), four points each, optionally refined by midpoints near the front; the
+standard block stays that of the exact one-point stiffness of linear tetrahedra. The
+enriched dofs of a support take the constraint of its standard dof of the same component
+only (constraining all of them glues the crack on a face where only one component is
+held).
+
+*Energy release rate.* Under prescribed forces the potential energy is `-W/2`, `W = fᵀ u`,
+so that `G = (W(a + δ) - W(a - δ)) / (2 (A(a + δ) - A(a - δ)))`, the areas those of the
+crack inside the body: the opened faces, or the sections of the cut elements clipped by
+`ψ = 0`. With XFEM both sizes of a difference must keep the front in the same layer of
+elements, or the change of the enriched nodes biases the difference (5 % when the front
+crosses a line of nodes). Checked on an edge crack of 4.5 in a plate of 16 × 32 in
+tension (`ν = 0`, elements of 1): XFEM gives 1.02 (0.99 with refined sub-tetrahedra) of the
+handbook factor `F(a/W) = 1.12 - 0.231 α + 10.55 α² - 21.72 α³ + 30.39 α⁴` of Tada, Paris and
+Irwin, and the stress intensity factors along a growth of 3 within 4 %.
+
+*Propagation.* The front advances by steps, `K = sqrt(E' G)` in mode I, the cycles of each
+step given by Paris' law, `ΔN = δa / (C K^m)`, or the load factor of Griffith's criterion,
+`sqrt(G_c / G)`, `G` growing as the square of the load. Mixed modes, kinked paths and
+finite strains: section 48.
+
+## 48. Mixed-mode cracks in 3D, in small and finite strains (`fracture.mixed`)
+
+*Cracks and meshes.* A planar crack (section 47), or a kinked one: a straight front along
+an axis `t`, its path in the planes normal to the front a polyline from the mouth (on the
+boundary) to the front, `φ` the signed distance to the polyline (its first and last
+segments extended), `ψ` the distance beyond the front along the last segment; it grows by
+a new segment at the angle of kinking. MMG meshes the body conforming to the path (the
+level set `φ`); the nodes of the crack surface within half an edge of the front are then
+moved onto it within the surface, unless an element around them would keep less than
+20 % of its volume, a triangle of the surface less than 20 % of its area, or a node of a
+face of the box would leave it. The opened faces then end on the front, as in the meshes
+of Z-cracks, whose front lies along edges; otherwise the faces opened by the sign of `ψ`
+at their centroids make a zigzag that lengthens or shortens the crack locally by a
+fraction of an element: `G` scattered by ±7 % between nearly identical kinked cracks on
+meshes of 0.75 (±0.7 % with the front on the edges).
+
+*The body.* Linear elasticity in small strains; in finite strains the compressible
+neo-Hookean solid `W = μ/2 (I1 - 3) - μ ln J + λ/2 (ln J)²` (total Lagrangian, the solver
+of section 46), loaded by prescribed displacements (a value per node allowed) and dead
+loads; the lips free or in frictionless contact (a penalty `t_n = K min(δ_n, 0)` on
+interface elements of the lips, in the current frame in finite strains).
+
+*G-θ* (Destuynder & Djaoua 1981; the domain form of Li, Shih & Needleman 1985). For a
+virtual advance `θ` of the front, tangent to the lips and zero on the loaded boundary, the
+energy-momentum tensor `Σ = Hᵀ P - W I` (`H` the displacement gradient, `P` the first
+Piola-Kirchhoff stress, both of the reference configuration; Eshelby 1975) is free of
+divergence in a homogeneous hyperelastic body, and `∫ Σ : ∇θ dV = ∫ G θ · d ds`: exact in
+finite strains, Rice's J-integral in small strains. `θ = q(r) w(s) d`, `q` 1 within `r_in`
+of the front (an element: the discrete front lies in it), linear to 0 at `r_out` (four
+elements), within the reach of the lips: `r_out` at most the distance to the mouth or to
+the last kink (beyond it `θ` would cross the lips of the previous segment, whose term `∫ W
+θ · N dS` the integral misses). The weights `w` are 1 (the mean of `G`) or the hat
+functions of stations along the front: `∫ G φ_k ds = Σ_l G_l ∫ φ_k φ_l ds`, a system with
+the mass matrix of the front, gives `G(s)` (stations at least two elements apart; closer,
+the hats resolve the zigzag of the elements). `Hᵀ P` rather than `Fᵀ P`: they differ by
+`∫ P : ∇θ`, zero in equilibrium if `θ` vanishes on the loaded boundary, but not where the
+front ends on a face with a component of the displacement held (antiplane slabs). Checks
+on the edge crack of 4.5 in the plate of 16 × 32 (`ν = 0`, voxel meshes): `K_I` 0.85, 0.95,
+0.98 of the handbook value of Tada, Paris and Irwin with elements of 1, 0.5 and 0.25,
+less than 1 % from the domain, `G` within 3.3 % of the compliance of the advance of the
+front (`-dΠ/dA` at fixed forces); antiplane shear (the in-plane displacements held, which
+the antiplane field satisfies exactly): `G` within 5 % of the solution of the strip, `K_III
+= τ sqrt(π a) sqrt(2W/(π a) tan(π a / 2W))`, `K_III` within 0.9 %, uniform along the front.
+
+*Interaction integrals* (Yau, Wang & Corten 1980; Moran & Shih 1987). With the same `θ`, the
+cross term of the energy-momentum tensors of the body and of an auxiliary field, `M = ∫
+(σ_ij u'_i,k + σ'_ij u_i,k - σ'_ij ε_ij δ_kj) θ_k,j dV`, the asymptotic field of a unit
+factor of mode I or II (plane strain, Williams) or III (antiplane) in the axes `(d, n, t)`
+of the front, gives `K_I = E' M_I / 2`, `K_II = E' M_II / 2`, `K_III = μ M_III` (`E' = E / (1
+- ν²)`, the isotropic elasticity of the material at the front); the auxiliary gradients by
+central differences of the analytic displacements at the centroids (on their side of the
+crack), their stresses by Hooke's law. Two corrections of the discrete integral: the mean
+rotation of the domain is removed from the displacement gradient (it adds nothing to the
+continuous integral, but the auxiliary stress is not in discrete equilibrium: the rigid
+rotation set by the supports gave `K_II = 3·10⁻⁴ K_I` in pure mode I); lips in contact
+carry tractions, whose work in the auxiliary fields, `∫ t · (∇u' θ) dS` over the lips
+(three points per face), is subtracted. Frictionless, it concerns the mode I only, which
+lips closed at the front do not have: `K_I ≥ 0` (the singular integrand of the lips near
+the front is the least accurate part). The factors are those of the interaction
+integrals; `G` of the G-θ method is shared in the proportions `K_I² / E'`, `K_II² / E'`,
+`K_III² / 2μ` (in small strains it converges with their sum: 1 % apart with elements of
+0.5). The fit of the jumps of the lips by `sqrt(r)` was left: on linear tetrahedra it
+underestimates the factors by 10 to 16 %, unequally between the modes (the share of
+`G_II` 8 % low, not converging), against 0.5 to 2 % for the interaction integrals. Along a
+curved front the auxiliary fields, those of a straight front in the turning axes of the
+nearest point of the front, are neither compatible nor balanced (the radial displacements
+of a ring stretch it: strains of the order of `r / R` of the singular ones), and the
+divergence of the cross tensor is added, `∫ (σ_ij (u'_i,kj - ε'_ij,k) + σ'_ij,j u_i,k) θ_k
+dV` (Gosz & Moran 2002; the derivatives of the auxiliary fields by central differences),
+zero along a straight front, where it is skipped: on a penny crack of radius 1 in shear
+(meshes of 0.25, domains of 0.35 to 1), `K_II` went from 0.60-0.79 of the solution of
+Kassir & Sih, varying with the domain, to 1.01-1.03, and `K_I`, `K_III` are within
+1.01-1.06 (the gradients of the auxiliary displacements along the turning axes,
+compatible but further from balance, gave worse factors). Behind the front the auxiliary
+fields of an element are those of its side of the crack, the angle continued across the
+plane of the crack: a step of the differences across the plane, from an element flat
+along the lips (a centroid 3.5·10⁻⁴ from the plane, for steps of 5·10⁻⁴), differenced the
+two sides of the auxiliary displacement and gave `K_II = +2.0` instead of -0.4 on one of
+the meshes of a kinked crack (the path then zigzagged), and the lips moved by the mesh
+put some centroids across the plane. Checks:
+in-plane shear of the plate (pure mode II by antisymmetry) within 1.2 % of the energy;
+tension and shear superposed, the factors add up exactly and `G` within 10⁻³ of the sum of
+the energies of the modes, shared within 0.5 % (I) and 2 % (II); compression and shear
+with contact, the lips do not interpenetrate and the factors are those of the shear alone
+within 1 %.
+
+*Finite strains.* The modes do not separate in finite strains (the near-tip fields differ
+from those of linear elasticity): the interaction integrals take the stress and the
+displacement gradient turned back by the rotation `R` of the polar decomposition of the
+mean deformation gradient around the front, `Rᵀ P` and `Rᵀ F - I`, an estimate of the
+mixity of the remote field, objective by construction (`R' = Q R` under a superposed
+rotation `Q`). Checks on the plate pulled by clamped grips (`ν = 0.3`): `G` that of small
+strains at small loads (0.1 %), 8 % lower at a nominal strain of 5 % and there within 1.8 %
+of the energy of the body (the agreement of small strains); under a superposed rotation
+of the grips (20° or 35°), the deformation turned within 10⁻⁶, `G` and `K_I` equal within
+10⁻⁶, `K_II` and `K_III` below 10⁻⁵ `K_I`, while small strains give a `G` off by orders of
+magnitude.
+
+*Kinking and propagation.* The direction of the largest hoop stress `σ_θθ ∝ cos(θ/2) (K_I
+cos²(θ/2) - 3/2 K_II sin θ)` (Erdogan & Sih 1963), `θ = 2 atan((K_I - sqrt(K_I² + 8 K_II²)) /
+(4 K_II))` towards the normal `n` (-70.5° in pure mode II); mode III, which twists the
+front into facets, is not represented: the path is extruded along the front. Each step
+meshes the body again for the kinked crack, solves it and advances the front by an
+increment in that direction, the cycles by Paris' law with `ΔK = sqrt(E' G)`. Checks: the
+edge crack in tension and shear (`τ / σ = 0.7`) kinks at -41°, after which `K_II / K_I`
+falls from 0.52 to -0.1 (0.40 without the kink); the path then turns towards the normal
+of the largest principal stress (-27°): -41°, -32°, -28°; `G` of the kinked crack within 2
+% of `Σ K² / E'` and within 5 % of the energies of the body for the crack shorter and
+longer by an element, each meshed for itself (on one mesh, whose front zigzags for the
+other lengths, the differences scatter by 5 to 10 %).
+
+Not yet: fronts that twist (the facets of mode III) or curve (other than circles),
+friction on the lips, anisotropic materials at the front (the auxiliary fields of Stroh).
+Plasticity at the front: section 51.
+
+## 49. Porous plasticity: Gurson-Tvergaard-Needleman, Rousselier, compaction (`homogenization.porous`)
+
+*The model* (the `porous_plastic` behaviour of Z-mat; Besson, Cailletaud, Chaboche &
+Forest 2010). The matrix, the real material, has the flow stress `σ*` defined from the
+macroscopic stress and the porosity `f` by a potential `φ(σ, σ*, f) = 0`, a function of
+the mean stress `Σm` and of the von Mises stress `Σeq`:
+
+* Gurson-Tvergaard-Needleman: `(Σeq / σ*)² + 2 q1 f* cosh(3 q2 Σm / 2σ*) - 1 - q3 f*² = 0`,
+  solved for `σ*` by a scalar Newton iteration (the potential decreases with `σ*`;
+  bracketed from the `σ*` of the current point at the points of the line search); the
+  effective porosity `f*` a piecewise linear function of `f` (Tvergaard and Needleman's
+  coalescence: `f*` grows with the slope `(1/q1 - fc) / (fF - fc)` beyond `fc`), kept below
+  `0.995 / q1`, where the surface has nearly vanished (a broken point keeps a residual
+  strength of the order of a percent); its hydrostatic yield is `Σm = 2 σ* / (3 q2) acosh((1
+  + q3 f²) / (2 q1 f))`;
+* Rousselier (Rousselier 1987; the modified criterion of Z-mat, `q2`): `σ* = Σeq / (1 - f)
+  + D σ1 f exp(q2 Σm / ((1 - f) σ1))`, explicit, which grows the voids in pure shear, with
+  a vertex on the hydrostatic axis;
+* elliptic: `σ*² = C(f) Σeq² + F(f) I1²` (Abouaf 1985 and Abouaf, Chenot, Raisson & Bauduin
+  1988 for the hot isostatic pressing of powders; Green 1972; Shima & Oyane 1976), `C` and
+  `F` tables of the porosity (`C = 1`, `F = 0` for the dense matrix).
+
+The overstress `σ* - R(p)` of the matrix flows by Norton's law, `ṗ = <(σ* - R) / K>^N`, or
+plastically, `σ* = R(p)`, `R = R0 + H p + Σ Q (1 - exp(-b p))`; the plastic strain is normal
+to the potential, `ε̇p = Λ̇ ∂σ*/∂σ`, at the rate of the equivalence of the plastic works,
+`(1 - f) σ* ṗ = σ : ε̇p`. The porosity is the growth porosity of an incompressible matrix,
+`ḟg = (1 - f) tr ε̇p`, plus the nucleated one, `ḟn = A(p) ṗ` (constant, the Gaussian of Chu
+& Needleman 1980, `A = fN / (sN sqrt(2π)) exp(-((p - εN)/sN)² / 2)`, or exponential, none
+below a threshold of `p`). At `f = 0` the three criteria are von Mises.
+
+*Kinematic hardening* (Besson & Guillemer-Neel 2003, their extension of the Gurson and
+Green models; Besson, Cailletaud, Chaboche & Forest 2010, chap. 7), for GTN and the
+elliptic criterion, the potentials homogeneous of degree 1 in the stress. The potential is
+that of the relative stress `σ - X`, `X = Σ X_i`, with the Armstrong-Frederick terms
+`Ẋ_i = 2/3 C_i ε̇p - D_i X_i ṗ` (`D_i = 0`: Prager) of the matrix strain rate `ṗ`; the
+plastic strain is normal to the potential at `σ - X` and the work equivalence is that of
+the relative stress, `(1 - f) σ* ṗ = (σ - X) : ε̇p` (`Λ̇ = (1 - f) ṗ`). As `tr ε̇p = ḟg / (1 -
+f)` is not zero, the backstresses have a hydrostatic part, `tr Ẋ_i = 2/3 C_i tr ε̇p - D_i tr
+X_i ṗ`, and the mean stress of the potential is `Σm - tr X / 3`: the voids grown under a
+hydrostatic tension move the surface towards the tensile mean stresses, which harden it
+there and make a compressive mean stress yield earlier (a hydrostatic Bauschinger effect),
+as the deviatoric part moves it along the deviator like that of the von Mises points. At
+`f = 0` without nucleation the model is von Mises's with the same kinematic terms.
+Rousselier's potential, whose exponential term has the constant stress `σ1` (not
+homogeneous), takes none (refused). MFront 5.1's brick refuses kinematic hardening rules
+with a porosity evolution ("not supported when coupled with a porosity evolution"): the
+MFront export refuses these laws.
+
+*Integration* (Aravas 1987). The trial stress of the elastic predictor is corrected along
+its invariants, `Σm = Σm_tr - K Δεv` and `Σeq = Σeq_tr - 3 μ Δεq`, the deviator keeping the
+direction `n` of the trial one (isotropic potentials), with `Δεp = Δεv / 3 I + Δεq n`: four
+unknowns (`Δεv`, `Δεq`, `Δp` or the viscous stress over `K`, `f`) solve the normality
+`Δεv ∂σ*/∂Σeq = Δεq ∂σ*/∂Σm`, the flow, the equivalence of the works and the porosity.
+Newton's method takes the analytical Jacobian of the four equations with a line
+search: the normality needs the second derivatives of `σ*`, which for GTN come from the
+implicit function theorem on its potential `Φ(Σeq, Σm, σ*, f*) = 0` (`σ*_ab = -(Φ_ab +
+Φ_aσ σ*_b + Φ_bσ σ*_a + Φ_σσ σ*_a σ*_b) / Φ_σ`), in closed form for Rousselier's and the
+elliptic criteria, with the slopes of the tables of `f*`, `C` and `F`, of the hardening
+and of the nucleation; the consistent tangent solves the same Jacobian with the
+derivatives of the equations by the trial invariants. The iteration starts from the
+cutting-plane step `Λ = (σ* - R) / (K S_m² + 3 μ S_q² + R' dp/dΛ)` (`S_m`, `S_q` the
+derivatives of `σ*` at the trial stress): the radial estimate of von Mises overshoots the
+hydrostatic correction of a steep GTN surface by a factor of two at high triaxiality and
+stalls Newton's method. The equations are scaled by the stresses of the trial state, not
+by `σ*`, whose exponential term of Rousselier reached 1.7·10¹⁰ for a trial mean stress of
+4 GPa (a step of 1 % of finite strain) and spoiled the finite differences that the
+Jacobian took then.
+The porosity stays non negative and falls by at most 90 % per iteration: as `F(f)`
+vanishes the elliptic surface grows without bound, and full density is approached, not
+passed. At Rousselier's vertex the normality gives way to `Σeq = 0`. The consistent
+tangent comes from the sensitivities of the solution to the trial invariants (`dσ = dΣm I
++ 2/3 dΣeq n + 2 μ Σeq / Σeq_tr (dε_dev - 2/3 (n : dε_dev) n)`), symmetrized as that of the
+von Mises points where the laws of a volume element are all symmetric: the porosity makes
+it slightly unsymmetric (10⁻⁵ to 4·10⁻³ of its norm), so that porous points keep their
+full tangents by default (§31).
+With backstresses the implicit Armstrong-Frederick terms, `X_i = θ_i (X_i,n + 2/3 C_i Δεp)`,
+`θ_i = 1 / (1 + D_i Δp)`, keep the update scalar: the relative stress is the relative trial
+stress `σ_tr - Σ θ_i X_i,n` (its deviator `ξ*`, von Mises stress `J*`, mean stress `m*`)
+corrected along its invariants with the moduli `3 μ + c` and `K + 2c/9` (`c = Σ θ_i C_i`),
+`Σeq = J* - (3 μ + c) Δεq`, `Σm = m* - (K + 2c/9) Δεv`, its deviator in the direction `n =
+3/2 ξ* / J*`, which `Δp` alone sets. The four unknowns and equations stay; their invariants
+depend on `Δp` too, through `dJ*/dΔp = n : Σ D_i θ_i² X_i,n`, `dm*/dΔp = Σ D_i θ_i² tr X_i,n
+/ 3` and `dc/dΔp = -Σ D_i θ_i² C_i`, in the analytical Jacobian. In the tangent the trial
+invariant of the deviator is `J*` (`dJ* = n : ds_tr`), the deviator `s = s_tr - 2 μ Δεq n`,
+and the direction turns with the increment, `dn = 3/(2 J*) (dξ* - 2/3 (n : dξ*) n)`, `dξ* =
+ds_tr + Σ D_i θ_i² X_i,n dΔp`. The backstresses are internal variables of the points, 6 each
+after the matrix stress, with their hydrostatic parts; the CUDA port carries them.
+In finite strains the update works in the space of the logarithmic strain (section on
+finite strains), where the plastic volume change is `ln J_p`. The FFT solvers on the GPU
+(§35) integrate the porous points with a CUDA port of the same update, its inner
+iteration of `σ*` and its analytical Jacobian included.
+
+*Checks.* GTN yields under a hydrostatic stress at the closed form within 10⁻¹² and
+softens as its voids grow; dense (`f = 0`), the three criteria give the von Mises
+response of the same hardening and Norton flow (within 10⁻⁷ of the yield stress); the
+growth porosity follows `(1 - f) Δtr εp` at every step within 10⁻¹²; in pure shear GTN
+grows no void and the nucleated porosity is that of the integral of Chu and Needleman's
+Gaussian within 1 %; the isostatic compaction of the elliptic criterion stays on its
+surface, `3 sqrt(F(f)) |Σm| = R0`, along the densification within 10⁻⁸ (the mean Kirchhoff
+stress in finite strains), and die compaction densifies at a smaller lateral stress; the
+tangents are those of central differences within 10⁻⁸ (small strains) and 10⁻⁸ to 10⁻⁹
+(`dP/dF`); the Jacobian of the equations and their derivatives by the trial invariants
+are those of central differences within 10⁻⁵ (each criterion, the nucleations,
+Norton's flow, Rousselier's vertex); a superposed rotation of `F` turns `P` within
+10⁻¹⁵ and leaves the internal variables within 10⁻¹³; a material point of GTN with the coalescence of a table goes down
+to a vanishing stress without dividing a step. In the volume elements (finite elements,
+FFT) each porous phase reports its mean porosity, and the element fields their porosity.
+With kinematic terms: dense, GTN and the elliptic criterion are the von Mises kernel of the
+same Armstrong-Frederick terms along a turning cycle (stresses within 8·10⁻¹³ of `R0`,
+backstresses 1.4·10⁻¹³ of `R0`, plastic strains 7·10⁻¹⁵, tangents 4·10⁻¹³ of `E`); with
+`f0 = 0.01` the reverse yield of a tension-compression cycle comes at 153 MPa after a
+forward stress of 438 MPa, 438 MPa for the isotropic hardening of the same saturation;
+under a hydrostatic strain Prager's backstress has the mean `2/9 C tr εp` (10⁻¹²), the
+mean stress yields on the shifted surface (`Σm - tr X / 3` at GTN's hydrostatic yield of
+the current porosity within 10⁻¹⁵) and hardens (953 MPa against 728 MPa softening without
+it), the porosity grows less (0.0162 against 0.0175); the tangents are the central
+differences within 2·10⁻⁹ along paths that turn and grow (GTN) or close (elliptic) the
+voids, `dP/dF` within 10⁻⁵, the Jacobian and its trial derivatives (`m*`, `J*`) within
+10⁻⁵; the GPU gives the points of the CPU to round-off (§35).
+
+*Z-mat* (`homogenization.zmat`): `***behavior porous_plastic [modifier]` with one
+`**porous_potential` (`*porous_criterion gurson`, `rousselier`, `modified_rousselier`,
+`elliptic`; `*flow`; `*isotropic_hardening`; `*strain_nucleation`), its coefficients
+numbers, `fs = f`, or tables of the porosity (`C f` then rows `value f`), the initial
+porosity from `*initialize_variable f`, the kinematic hardening of GTN and the elliptic
+criterion with the bricks of `gen_evp` (`*kinematic nonlinear` `C` `D`, `*kinematic linear`
+`C`, named `X1`, `X2`...; Z-set itself was not at hand: the syntax is that of `gen_evp`).
+Not yet: Hill's shear anisotropy, several potentials and their interactions (`Hf`, `Hp`),
+the broken behaviour, crack-like nucleation, the other criteria (Cam clay,
+Fleck-Kuhn-McMeeking, Zhang-Niemi). The MFront export (§37) takes all the porous
+plasticities: GTN with MFront's brick where it is morphoGen's, the others (Rousselier's
+and the elliptic criteria, the Gaussian and exponential nucleations, the thresholds of the
+nucleation, kinematic hardening) with morphoGen's porous update in the source (the CUDA
+port of the GPU, compiled as host C++).
+
+## 50. Micromorphic continua: the microfoam model and micromorphic damage (`micromorphic`)
+
+*Mixed elements.* The displacement on the ten nodes of quadratic tetrahedra, the
+generalized degrees of freedom (the nine components of the microdeformation, or a scalar)
+on their corners, one order lower: with equal orders the penalty on the relative
+deformation `∇u - χ` locks (a gradient constant in each element against a continuous
+linear field). Four Gauss points (degree two), where the internal variables live; the
+degrees of freedom numbered node by node, the sparse pattern from the node graph, the
+element matrices (66 × 66 with the full microdeformation) added in place by chunks
+computed in parallel. Newton's method with a line search and divided steps; the LU
+factors (SuperLU) may be kept while each iteration divides the residual by more than
+four (hardening bodies), never through a bifurcation: with stale tangents a softening bar
+converged once to a diffuse branch instead of the localized one. The dense rows make the
+direct solver the cost (7 s per factorization for 18 000 degrees of freedom; incomplete
+LU preconditioners met zero pivots).
+
+*Microfoam* (Dillard, Forest & Ienny 2006; the model is named so in the article, whose
+file on S. Forest's page is `microfoam06.pdf`). Small strains; orthotropic elasticity;
+the anisotropic compressible criterion `σ_eq² = (3c/2) σ' : H : σ' + F (P : σ)²` (Hill's
+when `F = 0`, the elliptic criterion of powders and foams when `H = 1`, `P = 1`; Badiche
+et al. 2000), associative flow, Voce hardening; the implicit update reduced to one scalar
+equation, `σ = (C⁻¹ + λM)⁻¹ : (ε - ε^p_n)` and `σ_eq(λ) = Y(p_n + λ σ_eq(λ))` (`λ = Δp /
+σ_eq`), solved by a safeguarded Newton method, with its consistent tangent. The
+micromorphic continuum (Eringen & Suhubi 1964, Mindlin 1964; Forest & Sievert 2003):
+`ε`, `e = ∇u - χ` and `K = ∇χ` with the power `σ : ε̇ + s : ė + S ⋮ K̇`, the balances
+`div(σ + s) = 0` and `div S + s = 0`, `s = λ_s tr(e) 1 + 2μ_s e^sym + 2μ_c e^skew` and
+`S_ijk = l_c² (λ δ_ij K_llk + 2μ K_ijk)`. Checks: the article's Table 2 gives the plastic
+contraction ratios 0.485 and 0.467 in tension along RD, 0.170 and 0.223 along TD (its eq.
+8: 0.49, 0.47, 0.17, 0.22); the tangents of the point and of the elements within 10⁻⁸ and
+10⁻¹⁰ of finite differences; a bar along `x2` (`ν = 0`, `F = c/2`: one-dimensional) with
+`χ22` held at an end follows `1 - exp(-ωx)` within 0.3 %, `ω² = k_s E_t / ((k_s + E_t) A
+l_c²)` (`k_s = λ_s + 2μ_s`, `A = λ + 2μ`), in elasticity (`E_t = E`) and for the
+increments of linear hardening (the article's Appendix A, its (A.6) when the moduli are
+those of elasticity; three times longer here); in softening (`E_t < 0`) a band of the
+predicted sine arc, its width at 5 % of the top 0.86 of `2π / |ω|` (`2 acos(-0.9) / π =
+0.857`), the same on two meshes (0.412, 0.400) and twice as wide for twice the length.
+The hole size effect (the article's figures 6 to 8): a quarter of a nickel foam plate
+(half-width 6 R, half-thickness 0.4 R with its mid-plane, symmetry planes and free faces:
+nearly plane stress; the components of `χ` odd under each reflection held on its plane)
+pulled along TD to 0.02: the strain concentration at the equator is 5.47 in the classical
+continuum, 3.47, 2.35 and 1.59 with `l_c = 0.1` mm for R = 4, 1 and 0.5 mm, and the stress
+concentration 1.25 for R = 1 mm (the article's figure 8: 1.2). The article finds R = 4 mm
+close to the classical field and the strain almost homogeneous for R ≤ 1 mm: our mesh
+(2274 elements, edges of 0.15 R at the hole) resolves `l_c / R = 0.025` poorly and keeps
+more concentration at R = 1 mm. Not done: the cracked panels of its section 5 (a softening
+branch is provided, but the article's is not given in closed form), the microstrain and
+Cosserat reductions.
+
+*Microfoam in finite strains* (`kinematics="finite"`, `micromorphic.finite`; Forest &
+Sievert 2003, Forest 2009). Total Lagrangian. The behaviour of a point acts on the
+logarithmic strain `ε = ½ ln C` and its conjugate stress `T` as on the small strain and
+the Cauchy stress (§33, after Miehe, Apel & Lambrecht 2002): the orthotropic elasticity,
+the criterion, the flow and the hardening unchanged, the plastic strain additive in `ε`
+and `tr ε^p` the logarithm of the plastic change of volume (the densification of the
+foam); `S = T : 2 ∂ε/∂C`, `P = F S`, their derivatives by the first and second divided
+differences of `½ ln` at the eigenvalues of `C`. The microdeformation `χ = 1 + χ̃` (the
+degrees of freedom `χ̃`, zero at rest) maps the directions of the cells from the reference
+configuration to the current one, and a superposed rotation turns it as `F`, and its
+gradient `G = Grad χ` too: the Lagrangian relative deformation `Υ = χ⁻¹ F` (`e = Υ - 1`)
+and microdeformation gradient `K = χ⁻¹ G` are objective and reduce to `∇u - χ̃` and `∇χ̃`
+in small strains; the energy `½ e : D : e + ½ K ⋮ A ⋮ K` keeps the moduli of small
+strains. Its derivatives by `F`, `χ` and `G` are exact (`χ⁻ᵀ s`, `-χ⁻ᵀ (s Υᵀ + S : Kᵀ)`
+and `χ⁻ᵀ S`), its Hessian (45 × 45 at a point) their central differences (the energy is
+rational in `χ`), the vector and matrix of an element `Bᵀ g` and `Bᵀ H B` with the linear
+map `B` of its 66 degrees of freedom to `(F, χ, G)` at a point. Checks: the gradient of
+the micromorphic energy within 1.4·10⁻¹⁰ of finite differences, invariant under a
+superposed rotation (4·10⁻¹⁴); `P` the derivative of the elastic energy within 6·10⁻¹⁰,
+its tangent within 3·10⁻¹⁰; the tangents of the elements within 2·10⁻⁹ (every point
+plastic, micromorphic and classical); a superposed rotation turns the forces within
+5·10⁻¹⁵ and leaves the internal variables unchanged; displacements of 10⁻⁷ give the
+forces of small strains within 7·10⁻⁷. A block of the nickel foam compressed to half its
+height (`examples/microfoam.py`): along TD its volume falls to 0.656, `0.5^0.61` (the
+plastic contraction ratios 0.17 and 0.22 of the logarithmic strains; lateral stretches
+1.13 and 1.16, the relative density from 0.035 to 0.053), along RD to 0.962 only (0.49
+and 0.47); the microdeformation follows the deformation, `χ = F` within 10⁻¹⁵; small
+strains give `1 + tr ε` = 0.696 and 0.972 and less than half the nominal stress (2.42
+MPa against 6.31 along TD, 6.25 against 16.7 along RD). The hardening of the article
+grows with `p`, not with the density: the steep rise of the stress when the cells of a
+densified foam come into contact is not in the model.
+
+*Micromorphic damage* (Forest 2009; Peerlings, de Borst, Brekelmans & de Vree 1996). A
+scalar micromorphic `χ` with `ψ = (1 - d(κ)) w(ε) + H/2 (χ - ε_eq)² + H ℓ²/2 |∇χ|²`, `a =
+H (χ - ε_eq)`, `b = H ℓ² ∇χ` and `div b - a = 0`: `χ - ℓ² Δχ = ε_eq` whatever `H`; `κ = max
+χ`, `d = 1 - (κ0 / κ) (1 - α + α exp(-β (κ - κ0)))`, the modified von Mises equivalent
+strain (de Vree et al. 1995). The stress is that of Peerlings et al., `(1 - d) C : ε`: the
+derivative of `ψ` adds `-H (χ - ε_eq) ∂ε_eq/∂ε`, the stiffness of a penalty that does not
+degrade, and with `H = E` a bar then damaged throughout instead of localizing (stress
+locking). Finite strains: the compressible neo-Hookean `w` and the equivalent strain of
+the Green-Lagrange strain. Checks: the tangents within 10⁻⁸ of finite differences
+(damage growing, both kinematics, with and without the coupling); a bar with a weaker
+zone: the band of `κ` (its width at half maximum) and the softening curve the same on two
+meshes, wider for twice the length, the same in finite strains, `d → 1`; a notched plate
+(a notch of 0.3, `ℓ = 0.08`): the band of damage crosses the ligament and the
+force-displacement curves of elements of 0.05 and 0.04 agree within 2 % (peaks 0.712 and
+0.726). A uniform bar damages diffusely before it localizes (it reaches `κ0` everywhere at
+once; the damage zone of the implicit gradient model widens, Geers et al. 1998), and a
+load step that carries every point beyond the threshold at once may pick another band:
+the bar localized at its end in finite strains until its weak zone damaged alone first.
+
+*Micromorphic ductile damage* (`micromorphic.ductile`; Forest 2009; the implicit gradient
+ductile models of Engelen, Geers & Baaijens 2003). Von Mises elasto-(visco)plasticity of
+the effective stress `σ̃ = C : (ε - ε^p)`, `R(p) = σ0 + H p + Σ Q_i (1 - exp(-b_i p))`,
+rate-independent or with Norton's overstress `σ̃_eq - R = K ṗ^(1/N)`: the radial return,
+its consistent tangent and `∂p/∂ε = 2μ θ n` (`θ = 1 / (3μ + R' + ∂V/∂Δp)`). A scalar
+micromorphic `χ`, the counterpart of `p`, with the generalized balance `H (χ - p) - div(H
+ℓ² ∇χ) = 0`: `χ - ℓ² Δχ = p` and `∇χ · n = 0`, the nonlocal cumulated plastic strain of
+the ductile models; `κ = max χ`, `d = d_max (1 - exp(-(κ - κ0) / κ_c))` and `σ = (1 - d)
+σ̃` (as in the damage model, the derivative of the energy would add a stiffness that does
+not degrade). The plasticity hardens and stays a stable local problem; the softening
+comes from the damage, nonlocal through `χ`: the band of damage has the width that `ℓ`
+sets, and a crack is the band where `d` reaches `d_max`. In finite strains the plasticity
+acts on the logarithmic strain, `P = (1 - d) P̃` and `∂p/∂F` pulled back alike. The
+tangent is not symmetric (`∂d/∂χ` in the balance of momentum, `∂p/∂ε` in the equation of
+`χ`); a viscous step lasts its fraction of the `duration` of `run`. The iterations of a
+step start from the increment that the last converged tangent predicts for the
+prescribed one (`K_ff Δu_f = -K_fd Δu_d`, the `predictor` of `run`): from the converged
+values with only the prescribed ones moved, the elements along the pulled end yielded
+and the iterations stalled, the steps divided down to 10⁻³ of the load (in small and
+finite strains alike, the tangents exact); after a failure the step starts again from
+the converged values (at the onset of the localization, the iterations from the predictor
+failed even for steps of 4·10⁻⁵ of the load). Checks: the tangent of the point within
+5·10⁻¹¹ of finite differences and `∂p/∂ε` within 2·10⁻¹⁰ (viscous: 3·10⁻¹¹), the
+tangents of the elements within 4·10⁻⁹ and 1.5·10⁻⁸ (small, finite: every point plastic
+and damage growing). A bar (`E = 200`,
+`ν = 0`, `σ0 = 0.4`, 0.36 in a weaker zone of 0.1 at its middle, `H = 10`, `κ0 = 0.002`,
+`κ_c = 0.02`, `ℓ = 0.05`) pulled to 0.02: the band of `κ` (its width at half maximum)
+0.150, 0.127 and 0.121 on elements of 0.05, 0.025 and 0.0125 (converging at second
+order: elements of `ℓ/2` at most), the plastic zone 0.079 and 0.077 on the two finer
+meshes, their softening curves within 3.4 %, `d` 0.987 (`d_max = 0.99`): the bar is
+cracked, its stress 9 % of the peak; 1.9 times as wide for `ℓ = 0.1` (0.258, 0.239 and
+0.234); in finite strains (plastic strains of 29 % in the band) 0.120 and 0.111, the
+softening curve within 5 % of small strains. With a weaker zone of 0.38, the rest of the
+bar yields before the zone damages, and its free end damaged too in finite strains
+(elements of 0.05): a band at a boundary where `∇χ · n = 0` is half a band (Simone,
+Askes & Sluys 2004). The notched plate of the damage model's check (a notch of 0.3, one
+layer of voxels: nearly plane stress), here with `E = 200`, `ν = 0.3`, `σ0 = 0.4`, `H =
+10`, `ℓ = 0.1`, `κ0 = 0.002` and `κ_c = 0.02`, pulled to 0.03 in finite strains
+(`examples/microfoam.py`): the ligament yields
+before the peak, then two bands leave the notch tip at about 45°, the shear bands of plane
+stress (the damage follows `p` alone, without the triaxiality of void growth), and cross
+the ligament to the gripped corners, `d` up to 0.95 along them; elements of 0.05 and 0.04
+give the peak forces 0.298 and 0.305 (2.2 %) and the final ones 0.093 and 0.092 (15 and
+26 minutes on the shared machine).
+
+*Triaxiality* (`triaxiality`; Rice
+& Tracey 1969, Johnson & Cook 1985, Lemaitre 1985). The damage may follow, rather than `p`,
+the plastic strain weighted by the triaxiality `η = σ̃_m / σ̃_eq` of the effective stress (in
+finite strains, of the stress conjugate to the logarithmic strain, nearly Kirchhoff's): `ė =
+w(η) ṗ` and `χ - ℓ² Δχ = e`, `w = ε_f(1/3) / ε_f(η)` the ratio of the strains to failure in
+uniaxial tension and in the current state, so that `e` is the plastic strain of uniaxial
+tension that would damage as much and `κ0`, `κ_c` keep their meaning in tension (`w(1/3) =
+1`). `"rice_tracey"`: `w = exp(β (η - 1/3))`, the growth rate of a void in a perfectly
+plastic matrix (`β = 3/2`); `"johnson_cook"`: `ε_f = D1 + D2 exp(D3 η)`, the triaxial factor
+of their law (0.05, 3.44 and -2.12 for their 4340 steel); `"lemaitre"`: `w = R_ν = 2/3 (1 +
+ν) + 3 (1 - 2ν) η²`, the triaxiality function of the elastic energy that drives the damage;
+`"none"`: `e = p`, the law above. The increment `Δe = w(η) Δp` takes the triaxiality at the
+end of the step (backward Euler), and the consistent tangent `∂e/∂ε = w ∂p/∂ε + Δp w'(η)
+∂η/∂ε` with `∂η/∂ε = (∂σ̃_m/∂ε - η ∂σ̃_eq/∂ε) / σ̃_eq`, pulled back to `∂e/∂F` in finite
+strains as `∂p/∂F` was. Checks: `∂e/∂ε` of the point within 10⁻¹⁰ of finite differences
+for the three laws, the tangents of the elements within 3·10⁻⁸ (Rice & Tracey's weight,
+small and finite strains); `e = p` in uniaxial tension and `e / p = w(0)` in pure shear,
+0.607 for Rice & Tracey, 0.500 for Johnson & Cook's steel and 0.867 for Lemaitre (`ν =
+0.3`); the bar above with Rice & Tracey's weight (uniaxial tension) has the same band and
+softening curve within 5 %. The notched plate in plane strain (one layer of voxels, `u_z =
+0` at every node; `E = 200`, `ν = 0.3`, `σ0 = 0.4`, `H = 10`, `ℓ = 0.125`, `κ0 = 0.002`,
+`κ_c = 0.02`; the notch 0.3 deep and 0.1 wide at mid-height), the bottom held and the top
+pulled to 0.016 in small strains (`examples/ductile_triaxiality.py`), on elements of 0.0625
+and 0.05: the triaxiality ahead of the notch is about 0.7 (at most 0.9 and 1.0). Without the
+triaxiality, the damage spreads over the ligament, most at the root of the notch and on the
+far side that the grips stretch (`d` up to 0.75; the most damaged element of the sections
+`x` = 0.4, 0.5, 0.6 and 0.7 at `|y - 0.5|` = 0.03, 0.09, 0.34 and 0.48 on elements of
+0.0625), and the plate keeps 68 % of its peak force; with Rice & Tracey's weight, the damage
+concentrates ahead of the notch about the mid-plane and a band of full damage runs from the
+notch across the ligament, mode I (the most damaged element of the sections `x` = 0.4 to 0.8
+within 0.031 of the mid-plane; `d > 0.9` to `x` = 0.78 and 0.81 on the two meshes, 69 % and
+73 % of the ligament, the slopes of these elements against `x` -0.07 and -0.11), the force
+falling to 13 % and 12 % of the peak. The band is as wide as `ℓ` makes it (`d > 0.9` within
+0.27 and 0.33 of the mid-plane), `ℓ` an eighth of the plate: a sharp crack, and the shear
+bands at 45° that the plastic strain alone follows (the nearly plane-stress plate above),
+need `ℓ` and the elements several times smaller against the plate, beyond these runs. The
+peak forces 0.332 and 0.339 (2.0 %) with the triaxiality, 0.340 and 0.348 (2.1 %) without,
+the final ones 0.044 and 0.040, 0.230 and 0.235 (2 and 4 minutes with the triaxiality on the
+shared machine). The first cracked elements, at a pull of 0.012, are on the mid-plane just
+ahead of the notch (`x` ≈ 0.41); in finite strains, at the same place, the peak and final
+forces within 0.3 % and 1.1 % of small strains (0.4 % and 1.4 % without the triaxiality).
+Pulled to 0.025, the ligament is broken with the triaxiality (3.6 % and 3.3 % of the peak),
+not without (45 %, `d` up to 0.92); the damaged zone has then widened across the plate, the
+spreading of the implicit gradient models of a constant length (Geers et al. 1998).
+
+## 51. Cracks in inelastic solids, in small and finite strains (`fracture.bulk`)
+
+*The bulk.* The crack solvers (cohesive zones, cracks opened on conforming meshes, kinked
+cracks: sections 46 to 48) take the behaviours of morphoGen's points as their bulk
+(`bulk="points"`; automatically for inelastic phases, and for anisotropic ones in finite
+strains): von Mises elasto-viscoplasticity (Lemaitre & Chaboche; in finite strains in the
+space of the logarithmic strain, Miehe, Apel & Lambrecht 2002), crystal plasticity
+(Méric & Cailletaud; multiplicative in finite strains, the slip systems and the elasticity
+of each grain turned by its orientation, which `insert_interfaces` now keeps), porous
+plasticity (section 49: the ductile damage of metals by the growth of their voids, GTN or
+Rousselier; its plastic strain enters the free energy as that of von Mises points, the
+hardening of its matrix counted as dissipated), MFront laws through MGIS, and Hencky's
+elasticity for the elastic phases in finite strains. An edge crack in a GTN plate (`f0 =
+0.01`, a matrix yielding at 1/1000 of the modulus): the voids grow at the tip, `J_work >
+J_free > J_tip`, the same in small and finite strains within 1 %. One point
+per linear tetrahedron, integrated implicitly from the internal variables of the last
+converged step, with its consistent tangent (the kernels of the nonlinear homogenization,
+`homogenization.nonlinear` and `homogenization.finite`), assembled with the interface
+elements into the Newton iterations of section 46; the internal variables are committed
+when a step converges (a divided step starts again from them), and the load factor is the
+time of the viscous laws (or the loading lasts `duration`). The solver reports the works of
+each step, of the loads (reactions and dead loads), of the bulk and of the interfaces
+(trapezoidal rule), which add up within the residual of Newton's method. Checks: points
+that never yield give the elastic solution (to 10⁻¹⁶ in small strains; within 0.04 % of the
+neo-Hookean solid in finite strains at a strain of 0.3 %, Hencky's elasticity differing at
+second order).
+
+*Driving forces.* For a virtual advance `θ` of the front (section 48), three energy-momentum
+tensors:
+
+* with the work density `w = ∫ P : dF`, accumulated at the converged steps: `J_w = ∫ (Hᵀ P -
+  w I) : ∇θ dV / ∫ w ds`, Rice's J of the deformation theory of plasticity: independent of the
+  domain for proportional loading of a deformation-theory material, the release of the work
+  of the loads at fixed displacements `-dW/dA` (Begley & Landes 1972: the areas under the
+  load-displacement curves of two crack lengths), the parameter of elastic-plastic fracture
+  mechanics under monotonic loading;
+* with the free energy `ψ` (elastic, and stored by hardening: `fracture.bulk`): `Div (Hᵀ P -
+  ψ I) = -∂ψ/∂α · ∇α` does not vanish where the internal variables `α` vary, so that `J_ψ =
+  ∫ (Hᵀ P - ψ I) : ∇θ dV / ∫ w ds` changes with the domain inside the plastic zone;
+* the driving force at the tip, `J_tip = J_ψ - ∫ (∂ψ/∂α · ∇α) · θ dV / ∫ w ds` (the
+  configurational force of Simha, Fischer, Shan, Chen & Kolednik 2008; Maugin's material
+  forces), with `∂ψ/∂εᵖ = -σ` (`-T` conjugate to the logarithmic strain), `∂ψ/∂p = R(p)`,
+  `∂ψ/∂X = 3 X / 2C` for von Mises points, `∂ψ/∂Fₚ⁻¹ = Fᵀ Fₑ Sₑ` and `∂ψ/∂α = C α` for
+  crystals, the gradients of the internal variables from their projection on the nodes
+  (volume-weighted means of the elements around each node, the lips apart): independent of
+  the domain, and smaller than `J_w` by the shielding of the plastic zone, the energy
+  dissipated and stored there.
+
+For elastic bodies the three are the G-θ of section 48. Checks on the edge crack of 4.5 in
+the plate of 16 × 32 (elements of 1; von Mises, a yield strain of 10⁻³ and a linear
+hardening of E/20, pulled by its grips to 3 × 10⁻³: most of the plate yields): `J_w` 0.076,
+0.080, 0.081 for domains of 3, 4 and 5 elements, within 3 % of the release of the work of
+the loads between crack lengths of 4 and 5 (0.079); `J_ψ` 0.072, 0.070, 0.069, decreasing
+with the domain; `J_tip` 0.0711, 0.0705, 0.0704 (within 1 %), 13 % below `J_w`; a free energy
+of 0.71 for a work of 2.41. In finite strains the same within 1 % (small strains on the
+whole).
+
+*Crack growth.* Cohesive zones (section 46) in an elasto-viscoplastic bulk in finite
+strains: a plate of 8 × 8 with a cohesive ligament ahead of an edge crack of 2 (strength
+E/100, `G_c` = 0.2; yield E/250, hardening E/20, Norton's viscosity): the peak load 16 %
+below that of the elastic plate; the bulk dissipates 1.89 and the interfaces 1.43, so that
+the dissipation per unit of cracked area rises from 0.40 (the elastic plate: `G_c` and the
+energy released by its unstable failure, damped by the viscous regularization) to 0.55,
+the R-curve of bulk plasticity; loading 100 times faster raises the peak load (viscous
+overstress). Intergranular cracking: four grains of a cubic crystal with octahedral slip
+(an orientation each), their boundaries cohesive, pulled across one of them: only that
+boundary breaks; the grains slip before (a cumulated slip of 0.3 %) and dissipate 0.6 of
+the work of the interfaces, which lowers the peak load by 16 % against crystal elasticity.
+
+*Remeshed propagation* (`fracture.ductile`). Each point of the mesh of the next crack (the
+centroid of an element; a node for the displacement) is located in an element of the old
+mesh (barycentric coordinates among the elements of the nearest centroids), the lips of
+the old crack apart: behind its front, a point takes only the values of the elements of
+its own side (that of its element in the new mesh, of the elements around a node). The
+internal variables, the committed stress and the dissipated part of the work density
+(`w - ψ`) move by the element found (`"nearest"`: the identity onto the same mesh) or by
+the means of the elements around each old node interpolated at the point
+(`"projection"`), both conservative where the new elements nest in the old ones; the
+`Fp⁻¹` of crystals is made isochoric again (the means of isochoric tensors are not). The
+displacement is interpolated (exact for the old field), the committed strain measure is
+that of the moved displacement, and the work density is the moved dissipation plus the
+free energy of the new state (moving the work itself left it inconsistent with the new
+elastic fields: the `J_w` of a moved state 35 % low). The moved state, not in equilibrium
+on the new mesh, is brought to it at the load of the transfer by Newton's method over a
+vanishing time (no viscous flow; the plastic correction of the points in one step from the
+moved state), which dissipates nothing: the moved dissipation is kept, and the free energy
+is that of the equilibrium. Adding instead the work of the correction from the moved
+stresses (the trapezoidal rule of the steps) made the dissipation of finite strains, whose
+free energy follows the interpolated displacement and its errors at the tip, 33 % (onto
+the same mesh) to 57 % (onto a refined one) too large and their `J_w` vanish; committing
+first the stresses of the points at the moved displacement (two steps) made the two
+kinematics agree but locked in the plastic flow of those errors (`J_tip` 21 % instead of
+13 % below the source onto the same mesh, 64 to 70 % instead of 37 to 42 % onto a refined
+one). The loading then resumes (`CohesiveProblem.run(initial=..., start=...)`,
+`solve_crack(initial=...)`). Checks on the hardening plate (elements of 1, pulled to three
+times the yield strain): onto the same mesh, `"nearest"` is the identity (displacements
+within 2·10⁻⁸ of their largest value, the tolerance of Newton's method; internal
+variables within 5·10⁻¹⁰, the dissipation within 10⁻¹⁵ and `J_tip` within 2·10⁻⁸) and
+the loading continued to 1.5 times gives the `J_w` and the dissipation of the loading in
+one go within 10⁻⁸; `"projection"` smooths the plastic strains of the tip (`J_tip`
+13 % lower, `J_w` 8 %) and keeps the dissipation exactly, in small and finite strains
+alike (their driving forces within 0.5 %); for a cubic crystal with octahedral slip
+(slips of 2·10⁻³), `|det Fₚ⁻¹ - 1|` reaches 4·10⁻⁷ by the means and 10⁻¹⁵ once made
+isochoric (10⁻¹⁰ in the integration of the points), the dissipation kept. Onto elements
+of 0.5 (Kuhn's triangulation nests them in the old ones): the dissipation exactly by both
+methods, the mean plastic strain within 4 and 6 % (the fine mesh corrects the equilibrium
+of the coarse one), the equilibrium in 10 and 15 iterations (13 and 17 in finite strains,
+the same figures within 1 %); right after the transfer `J_w` is 34 to 35 % and `J_tip` 38
+to 43 % below those of the fine mesh loaded from rest (it carries the coarse plastic field
+until new flow overwrites it), at 1.5 times the load 15 to 16 % and 20 to 21 % below, the
+dissipation within 0.1 %.
+
+*Ductile growth* (`propagate_ductile`). The body is loaded by steps of the load factor; once
+`J_tip` reaches the toughness, or the porosity of the GTN points within 1.5 element of the
+front a critical value (the local approach of ductile fracture, Rousselier 1987, Pineau
+2006), the front advances by an increment in the direction of kinking (the interaction
+integrals, elastic estimates), the body is meshed again, its state moved and brought to
+equilibrium, and the criterion is checked again before the load grows (under dead loads,
+the crack may advance again at once). The new front is rounded to 10⁻¹⁰ (`KinkedCrack.
+grown`): MMG meshes cracks that differ by 6·10⁻¹⁴ differently (8687 and 8885 elements),
+whose angles of kinking then differ by 0.4°, so that a growth was not reproducible across
+loads. Checks: elastic, the angles of `propagate_kinked` exactly (-41.372°, 10.314°,
+2.272° for the edge crack in tension and shear), the first advance at the first load step
+beyond `sqrt(G_c / G(1))` (`J_tip / G_c = 1.042` at 1.25 for 1.225).
+
+The far driving force of the resistance curve is `J_ψ` on the domain (the `J_far` of Simha
+et al. 2008: `J_tip` plus the shielding of the internal variables inside the domain), not
+`J_w`, which counts the dissipation of the wake. On the viscoplastic plate below, at
+initiation, the three hardly depend on the domain (`J_w` 0.047 to 0.050, `J_ψ` 0.038,
+`J_tip` 0.042 to 0.044 over rings of 1-3 to 3-7); after an advance of 4.5, `J_w` goes from
+0.030 to 0.068 over the same rings and `J_ψ` from 0.046 to 0.069 (more of the wake
+enclosed), while `J_tip` stays within 0.033 to 0.035. Resistance curves of the plate of
+16 × 32 (elements of 1) of a viscoplastic metal (yield strain 10⁻³, linear hardening
+E/20, Norton's K = E/1000 and n = 5, the load factor as the time) pulled by its grips (a
+mean strain of 1.9·10⁻³ per unit of load), its crack of 4.5 growing straight by 1.5 once
+`J_tip` reaches 0.03, by load steps of 0.25: advances at the load factors 1, 1.25, 1.5 and
+1.75 (`J_tip` 0.031 to 0.042, the overshoot of a load step), `J_far` (rings of 1 to 4
+elements) 0.038, 0.0445, 0.0475, 0.0476 by `"nearest"`, a rise of 25 % to a steady state
+after two advances as the wake builds up, and 0.038, 0.046, 0.050, 0.0505 by
+`"projection"` (its smoothing of the wake at each remeshing: `J_tip` 0.037 to 0.038 at the
+advances, `J_far` 4 to 6 % higher); finite strains give the same within 0.6 % (both
+transfers). Without viscosity the plate needs more load (advances at 1, 1.5, 2 and 2.5,
+`J_ψ` 0.033 to 0.064). By the porosity at the tip (GTN points, `f0 = 0.01`, a critical
+porosity of 0.0105): advances at 0.5, 0.75 and 1.25 (porosities of 0.0108 to 0.0112 at
+the advances), as the voids of each new tip must grow again.
+
+*Remeshed polycrystals.* The crack meshes of a polycrystal (`crack_mesh(..., grains=)`, a
+tessellation: `with_grains`) carry its grains: each element in the cell of its centroid
+(`mesh.cell`), the orientations of the cells (`mesh.orientations`), kept by the opened
+mesh; MMG cuts one level set, that of the crack, so that the grain boundaries are
+staircases of element faces, whose steps shrink with the elements (a mesh conforming to
+the boundaries as well would need the multi-material remeshing of the polycrystal mesh by
+the crack's level set). The transfer then works grain by grain: a point is located among
+the elements of its own grain, and projected on the nodes from them alone (the nodes of a
+boundary have a value per grain), so that the slips, the hardening and the `Fp⁻¹` of the
+slip systems of a grain, in the axes of its lattice, never mix with those of a neighbour
+(a state set to the grain of each point comes back as the grain of each new point, to
+10⁻¹⁵, by both methods). The elastic estimates of the interaction integrals, which steer
+the kinking, take the isotropic moduli of the Voigt-Reuss-Hill means of a crystal (the
+anisotropy of the grain at the tip is not in the auxiliary fields). The crystals were
+turned by their grains in the points only, not in the elastic bulk of small strains: the
+material table of `CohesiveProblem` and of the stresses of `CrackSolution` now takes the
+grains and their orientations too (a polycrystal of crystal elasticity had a `G` of 0.314 by the elastic
+bulk, its crystal unturned, against 0.588 by the points; now 0.58831 by both, the
+displacements within 5·10⁻¹⁵). Checks on twelve columnar grains of a cubic crystal (`C11,
+C12, C44 = 168, 121, 75` GPa, octahedral slip from 60 MPa, random orientations: section 6
+of `examples/fracture.py`) in a plate of 8 × 8 × 0.5 in plane strain, its crack of 2.5
+from the middle of its left edge growing by 1 once `J_tip` reaches 0.6 N/mm (elements of
+0.4, 7228 tetrahedra; load steps of 10⁻³ of the grip displacement; the nearest transfer):
+in small strains the crack advances at the load factors 0.005, 0.005 and 0.006, and its
+fourth configuration reaches the toughness at 0.006 too (`J_tip` of 0.84, 0.66, 0.78 and
+0.62: a nearly unstable growth under fixed grips), its tip going from grain 1 into grain 5
+and then into grain 11, kinking by -0.5°, +4.2°, -10.8° and +8.0° (the larger deflections
+on either side of the boundary between grains 5 and 11, where the heterogeneity of
+elasticity and slip gives the fields a mode II); `J_far` (0.69 to 0.83) is 2 % below
+`J_tip` at the first advance and 6 to 16 % above it once the crack has grown. Finite
+strains follow the same path (the same loads and grains, kinks of -0.5°, +4.0°, -9.9° and
++7.4°, `J_tip` within 6 % of that of small strains), the strains remaining small at these
+loads (a nominal strain of 1.5·10⁻³).
+
+*Remeshed morphologies.* The crack meshes of a morphology (`crack_mesh(..., morphology=)`)
+carry its phases, those of the materials (`mesh.phase`), and the sides of the crack apart
+(`mesh.side`, kept by the opened mesh): the solvers take their materials by phase (elastic,
+or the points of this section, in small and finite strains), the lips are opened between
+the sides, never along the interfaces of the phases, and the sides of the elements for the
+auxiliary fields and the transfers are those of `mesh.side`. Two meshes of the phases:
+
+* staircases (`with_phases`): the crack mesh of the box, each element in the phase of the
+  morphology at its centroid (its point queries for two phases, otherwise a voxel image),
+  as the grains above;
+* conforming (`conforming=True`): the background mesh of the box (six tetrahedra per cube of
+  `h/2`) is cut by MMG along the level set of the morphology without remeshing
+  (`phase_mesh`, once for all the cracks of a growth), then each crack cuts it along its
+  plane and MMG remeshes it in its multi-material mode (`cut_mesh`: each phase split into
+  its two sides, `LSReferences` of `mmg3d`), so that the elements conform to the
+  interfaces of the phases and to the crack. Cutting the plane on this background mesh,
+  rather than on a remeshed mesh of the phases, keeps it as on the crack meshes of a
+  homogeneous body: on a plate of 16 × 16 × 1 with an edge crack of 4.5 and a cylinder of
+  radius 2 (elements of 0.5), the nodes of the crack surface lie within 0.042 of the plane
+  (0.083 cut on a remeshed mesh of the phases, whose values of `φ` near zero are moved away
+  from it by a fifth of edges twice as long), the opened area is 4.5 to 10⁻⁶, and with the
+  same material in both phases `K_I` is within 0.17 % of that of the homogeneous crack mesh
+  (1.6 % on the remeshed one); the phases of the centroids agree with the morphology but
+  for 0.08 % of the elements, the cylinder is 1.5 to 2 % small (polygons inscribed in the
+  level set of the grid, remeshed within `h/20`).
+
+The elements of void phases are removed (`voids`: pores; `without_voids`, which drops the
+parts of less than 1 % of the largest that they leave apart and refuses a body that falls
+apart), so that the walls of the pores are free faces; the front is snapped as above, the
+nodes of the interfaces of the phases and of the walls of the pores staying in place. The
+curved interfaces cost elements: a cube of 10 of about 48 hard-core spheres of radius 1
+(elements of 0.68) gives 295 000 tetrahedra in 50 s with the sizes of the conforming meshes
+(`hausdorff = h/20`, `min_size = h/10`), 62 000 in 21 s with `h/5` and `h/3`, against 40 000 in
+4 s for the crack mesh of the box. Equal materials give the homogeneous body: exactly on
+the staircases (`K_I`, `K_II`, `G`, and the three J of a hardening plate to 10⁻⁹), within 1 %
+(`K_I`) and 2 % (`G`) on the conforming meshes.
+
+*The material at the front.* It is that of the elements in which most points of the front
+lie (the element whose centroid is nearest the front may be a small one of an inclusion on a
+refined interface: 0.3 behind a front in the matrix, a stiff sphere then gave `K_I` four
+times too large). The interaction integrals and their `G`, and `J_tip`, take `θ` zero
+beyond `r_in` at the nodes outside its material (the nodes of its interfaces with the
+others, in the others, and on the walls of the pores): in the continuum, `∫ Σ : ∇θ dV` over
+the material of the front is then `J_tip` with no term of its boundary, the configurational
+forces of the inclusions and of the pores (the inhomogeneity term `C_inh = J_tip - J_far`
+of Simha, Fischer, Kolednik & Chen 2003) left out, and the auxiliary fields, those of the
+material at the front, are in equilibrium in the whole domain; `J_w` and `J_ψ` keep their
+whole domain, the far J with these forces. The
+internal variables are projected on the nodes material by material, which keeps the
+interfaces out of their gradients. Checks on the plate of 16 × 16 × 1 in tension
+(unit tractions, `E = 1000`, `ν = 0.3`), a cylinder of radius 1.5 beside the path, its centre
+1 ahead of the tip and 2.5 above the crack (within the domain of the integrals), elements
+of 0.4, 0.5 and 0.65: a pore turns the crack towards itself by +14.2°, +13.9°, +14.0° (the
+crack-face tractions of Kirsch's hole weighted by `1/sqrt(a - x)` give +15.7°; the whole
+domain gives +14.8°, +15.2°, +15.4°), a soft cylinder (`E/10`) by +10.9°, +10.7°, +10.8°, the
+same material leaves it within 0.5° of straight, and a stiff one (`10 E`) turns it away by
+-8.6°, -8.5°, -8.2° (the whole domain: -8.5°, -8.0°, -7.1°), as cracks are attracted by
+compliant inclusions and holes and repelled by stiff ones (Erdogan, Gupta & Ratwani 1974;
+Bush 1997); at the tip `G` exceeds that of the domain by the pore (0.0639 against 0.0619:
+anti-shielding) and falls below it by the stiff cylinder (0.0334 against 0.0341: shielding).
+Pulled by grips in finite strains (elements of 0.75), equal materials give the plate
+exactly, the stiff and soft cylinders turn the crack by -8.9° and +13.9° (shielding and
+anti-shielding alike), and with a hardening matrix (yield strain 10⁻³, hardening `E/20`)
+and the stiff cylinder, `J_w`, `J_ψ`, `J_tip` (0.059, 0.043, 0.054) and the kink (-6.0°)
+are within 1 % of those of small strains. A hole further ahead first repels the crack: the cylinder of radius 2 centred 4 ahead and
+2.5 above gives -4.5° (Kirsch: -3.9°), the tractions of the hole on the faces behind the
+tip having the other sign until the tip comes beside it.
+
+*Growth.* A front grown into a pore goes through it (`through_voids`): its last segment is
+lengthened by halves of the increment until most points of the front, and of the lips a
+quarter of the increment behind it, lie in elements again, the crack then emanating from
+the far wall (a pore of radius 1 on the path, entered at 1.5 beyond a tip 1 before it: the
+front comes out at 0.75 beyond its far wall). The state moves material by material between
+the meshes of two cracks (the phases of one material alike; with the grains, grain and
+material both): a state set to the phase of each point comes back as the phase of each new
+point to 10⁻¹², by both methods, and the nearest transfer onto the same mesh is the
+identity. Ductile growth through a morphology: a viscoplastic matrix (yield strain 10⁻³,
+hardening `E/20`, Norton's K = 1 and n = 5) and a stiff elastic cylinder (`10 E`, radius 1.5,
+centred 2 ahead of the tip and 2.5 above it), pulled by its grips, its crack advancing by 1
+once `J_tip` reaches 0.03 (elements of 0.75): advances at the load factors 1, 1.5 and 2,
+kinking by -0.4°, -9.7° (beside the cylinder) and +10.5°, the tip 0.18 below the plane of
+the crack (the same material in both phases: within 0.4° of straight).
+
+In the interface (tab Fracture), the propagation takes a morphology of the workspace with
+the materials of its phases (E and ν, or void: the pores), on a slab about the middle of z
+in plane strain (a sixteenth of the width at most, the path that of its section), meshed by
+elements of `a/9` conforming to the phases (the interfaces followed with `h/5` and `h/3`):
+on a periodic cube of 10 of hard-core spheres (radius 1, 20 %, stiff), a slab of 0.625
+meshed in 32 000 tetrahedra, the mesh of its phases takes 2.6 s and each crack 9 s (its cut
+7.8 s, its solution 1.2 s, its integrals 0.3 s): the six advances of the defaults in 72 s
+(68 s with the spheres as pores, the crack turned towards one; 74 s for a gyroid of two
+materials). A gyroid whose phase 0 is void falls apart in that slab (a network cut by a
+thin slab), and is refused; in a slab of 2.5, its crack runs through a pore at the fifth
+advance (107 s). The phase at each tip, the path over the
+phases, their interfaces and the walls of the pores outlined in the video, `J_tip` and the
+far J of each advance and the resistance curve show the crack going through the
+microstructure. The cohesive interfaces of a morphology leave its pores out the same way.
+
+*Toughness of the phases and of their interfaces* (`fracture.toughness`). The cracks through
+a morphology feel the toughness `Γ` of each phase (its material) and of the interfaces between
+two phases (one value for all of them, or a value per pair), as the brick-and-mortar of nacre
+and the plies of Bouligand structures turn cracks along their weak interfaces and tough
+phases hold them back. Each advance is the candidate of the largest `G(θ) / Γ(θ)`, in the
+plane of growth through the middle of the front:
+
+* the bulk: the kink of the largest hoop stress by one increment, its toughness that of the
+  toughest solid phase along it (sampled every eighth of an element from the front): the
+  phase at the front, or a tougher one that the advance enters;
+* the interfaces with a toughness, where one lies within an increment ahead: where the front
+  lies on an interface (two of its phases within a quarter of an element of the front, ahead
+  of it) or meets one straight ahead (the first change of phase along the direction of the
+  crack within the increment, refined by bisection; on an interface, along two rays a quarter
+  of an element on either side of it, so that a junction ahead is found), the chords of one
+  increment from that point to the transitions of the phases on the circle of one increment
+  around it, kept where the phases 0.15 increment apart on their two sides (half an element
+  on staircase meshes) are those of the interface along them, in the senses within 90° of
+  the direction of the crack (and 5°): the crack goes on to the interface and turns along it,
+  and follows a curved interface by its chords. A chord along which that pair of phases
+  changes, at a junction (a head joint meeting the interface between two layers of a
+  brick-and-mortar), stops there, or, within half an increment, the branches of the junction
+  are probed in turn; a path that would turn back on itself (a point of it ahead of the plane
+  of its new front, whose faces would not be opened) is left out.
+
+The phases at points are those of a morphology given (its point queries, a function of
+points, or a voxel image of it made once) or of the elements of the crack mesh containing
+them (the interfaces of the conforming meshes, the staircases of the others). `G(θ)` is that
+of the first-order factors of a kink of infinitesimal length (Cotterell & Rice 1980), `k_I(θ)
+= cos³(θ/2) K_I - 3 sin(θ/2) cos²(θ/2) K_II` and `k_II(θ) = sin(θ/2) cos²(θ/2) K_I + cos(θ/2)
+(1 - 3 sin²(θ/2)) K_II` (the hoop and shear stresses of the asymptotic field on the ray `θ`:
+`k_II` vanishes in the direction of Erdogan & Sih, where `k_I` is largest), `G(θ) = (<k_I>² +
+k_II²) / E' + K_III² / 2μ` (a closed kink releases nothing of mode I), from the factors of the
+interaction integrals: the bulk keeps the driving force of the crack, `G` of the G-θ method
+(`J_tip` of an inelastic bulk), and each interface takes it in the proportion of its
+first-order `G(θ)` to that of the kink of the bulk, so that the choice between them is that of
+the first-order factors and the bulk alone is the growth of section 48 (one toughness for all
+the phases without interfaces runs the code of before, the same results to the last digit).
+At a fixed load (`propagate_kinked(toughness=)`) the critical load factor of each crack is
+`sqrt(Γ / G)` of its advance (small strains); by load steps (`propagate_ductile`) the advance
+happens once the largest ratio reaches 1: inside a phase, `J_tip` against the toughness of
+the phase at the front. In pure mode I a kink at ±90° releases `G / 4`: a crack normal to the
+interface of two alike phases deflects into it when `Γ_i / Γ_b < 1/4` (He & Hutchinson 1989:
+0.26 for their kinks, α = β = 0); along an interface parallel to the tension, in pure mode
+II, it keeps to it rather than kink back by -70.5° (which releases 4/3 of `G`) while `Γ_i /
+Γ_b < 3/4`.
+
+The deflections by 90° showed that the signed distance to a kinked crack gave the points
+nearest a kink the side of one of its segments, which holds below 90° only: beyond the end of
+a segment slightly tilted before a kink of 90°, the side flipped along the extension of the
+segment, a level set that opened a second crack through the body (a crack area of 26.2 for
+6.75, the body in two parts, a `G` of -240). The points nearest a kink now take the side of
+the sum of the normals of its two segments (the pseudo-normal of Bærentzen & Aanæs 2005), the
+same as before below 90°.
+
+Checks on the plate of 16 × 16 × 1 in tension (unit tractions, `E = 1000`, `ν = 0.3`, the edge
+crack of 4.5 at mid-height), the same elasticity in all the phases, staircase meshes and the
+interfaces of the morphology given:
+
+* He & Hutchinson: the plate in two alike halves, their interface normal to the crack 0.75
+  ahead of its tip (increments of 1, elements of 0.5): the directions along the interface at
+  ±90°, their `G` 0.245 and 0.255 of that of the bulk (`1/4 ∓ K_II/K_I`, `K_II/K_I = 0.005`;
+  0.27 and 0.24 from the staircase of the mesh alone, its chords turned by 2.8° and 2.1°, and
+  ±90° on a crack mesh conforming to it); with `Γ_i / Γ_b = 0.15` the crack goes on to the
+  interface and turns along it at the critical load 3.80 (4.95 through it), then follows it,
+  and with 0.4 it goes through, straight. Trial cracks, the kinks solved on their own meshes
+  (elements of 0.25 in a slab of 0.25, the crack ending at the interface): a kink of 0.25 at
+  90° has `k_I` and `k_II` of 0.365 and 0.364 times the `K_I` of the crack (0.354 to first
+  order), and the energy release rates of the kinks along the interface and through it are in
+  the ratios 0.244, 0.228 and 0.200 for kinks of 0.25, 0.5 and 1 (the means of the two senses;
+  the first order: 0.247 and 0.253), tending to 1/4 as the kink shortens: a kink of a fifth of
+  the crack is less favourable than the first-order factors tell (0.20 instead of 1/4).
+* a tough inclusion: a disc of radius 1 centred 2.3 ahead of the tip, four times tougher than
+  the matrix (increments of 0.75, elements of 0.5): the critical loads of the three cracks
+  4.95, 9.08 and 6.92 against 4.95, 4.54 and 3.46 without it, the advance into the disc
+  needing twice the load (`sqrt(4)`): the crack held back where the plate alone grows
+  unstably. By load steps of 0.25 (`Γ` = 0.05 and 0.2, elements of 0.75): the advances at 1.25,
+  2.0 and 2.0 against 1.25 three times, the crack running through the disc once in it. A
+  viscoplastic plate (yield strain 10⁻³, hardening `E/20`, Norton's K = 1 and n = 5) pulled
+  by its grips, its crack growing straight by 0.75 once `J_tip` reaches 0.03 in the matrix
+  and 0.12 in a disc of the same metal (load steps of 0.5): the advance into the disc at the
+  load factor 2.5 (`J_tip` = 0.167) against 1.5 through the plain plate, the first advances
+  at 1.0 alike.
+* layers of 2 normal to the crack, their interfaces weak (`Γ_i / Γ_b = 0.1`; elements of 0.5,
+  increments of 0.75): the crack landing on the first interface turns along it at the
+  critical load 2.17 (3.46 through it) and follows it (2.57, 2.24): a path of 3 for an extent
+  of 1.5 along x, deflected by 1.5; strong interfaces (1.0) leave it straight (within 0.02).
+  On elements of 0.75 the interface lies within the increment one advance earlier: the crack
+  goes on to it and turns along it at once.
+* a brick-and-mortar of alike bricks (layers of 2 along x, bricks of 3 along y shifted by half
+  a brick, in three phases so that all their boundaries are interfaces, of 0.1; elements of
+  0.5, increments of 0.6): the crack turns along the first interface between layers, stops at
+  a junction (y = 9), goes on to the head joint of the next layer (y = 10.5) and turns into it
+  along x (its mode II making that more favourable than straight on), and at the next
+  interface between layers (x = 8) turns along it again: a staircase of 6.6 for an extent of
+  3.5 along x, deflected by 3.1, the path of nacre's toughening; strong interfaces leave it
+  straight (within 0.05). The deflected crack has a third of the `G` of the straight one,
+  shielded by its deflection, but its weak interfaces need still less: its critical loads go
+  from 2.44 at the deflection to 0.84 to 1.06 along the head joint and beyond, against 3.90
+  to 1.61 through the bricks.
+
+In the interface (tab Fracture), the propagation through a morphology takes the toughness of
+its phases (in their order; blank: the toughness for all) and of their interfaces (blank: none,
+the growth of before); its table gives for each advance the bulk or an interface, what it
+meets, its toughness, its ratio `G / Γ` and the critical load (at a fixed load), the values the
+advances along interfaces, the deflections and the length of the path against its extent, and
+the path figure draws the advances along interfaces and marks the deflections. A laminate of
+layers of 1 normal to the crack (a slab of 0.75, elements of 0.6), its interfaces ten times
+weaker than its alike phases: the crack turns at once along the first interface, 0.29 ahead
+(16 s for two cracks); layers of 1 and 1.5 of toughness 3 and 1 (elements of 0.5), their
+interfaces of 0.15: the crack in a tough layer goes on to the interface 0.51 ahead and splits
+the laminate along it, 3.75 in five advances, its critical load falling from 1.97 to 0.76. On
+the periodic cube of 10 of hard-core spheres above, the defaults run in 82 s with the
+toughness of the phases (1 and 4, tough stiff spheres) and of their interfaces (0.2), against
+87 s without them on the same machine (its crack meets no sphere in that slab within its six
+advances, its critical loads falling from 2.31 to 0.79): the candidates of a crack take a
+fraction of a second, its meshing and solution several seconds. The element containing a
+point is sought among the elements of the 24 nearest centroids, then of 128 and 512: a crack
+along a conforming interface, whose extension MMG cuts along the interface too, leaves flat
+elements there whose centroids are far, and the first search alone missed the interface
+ahead of the front.
+
+Limits: the integrals are those of the material at the front only beyond `r_in` from the
+other materials (a front within an element of an interface takes them in, uncorrected); the
+auxiliary fields are those of a crack in a homogeneous body: a crack along an interface
+between two materials takes those of the material where most of its front lies (the
+oscillating field of an interface crack, Dundurs' α and β, and the factors of He & Hutchinson
+for dissimilar materials are not represented: the competition of deflection and penetration
+is that of alike materials with the factors of the material at the front); the first-order
+kinked factors leave out the finite length of the kink (0.20 instead of 1/4 for a kink of a
+fifth of the crack, above) and the T-stress; the interfaces are found in the plane of growth
+through the middle of the
+front (straight fronts, the path extruded along them); the deflected crack gains no
+toughness behind its tip (no bridging, friction or pull-out of the bricks); staircase meshes
+coarser than the inclusions may put the front in the wrong phase; conforming meshes need the
+level set of a two-phase morphology (others have staircases); the grain boundaries of
+polycrystals are still in the domains of their integrals.
+
+Not done: quadratic elements (linear tetrahedra lock under isochoric plastic flow, so that
+the plastic fields are too stiff; the interface elements of six nodes match linear faces);
+driving forces of MFront laws other than `J_w` (no free energy: no growth by `J_tip`
+either, and their work moves as it is); crack meshes conforming to the grain boundaries,
+cohesive grain boundaries ahead of a remeshed crack; nonlocal (gradient, micromorphic)
+damage and plasticity in these solvers.
+
+## 52. Views and measures of the level sets (`viz.sections`)
+
+A section is sampled on its plane, not cut from a voxel image of the volume: a grid one
+cell thick whose cell centres are, bit for bit, those of the slice of the voxel grid of
+the same pixels (``resolution`` pixels along the longest edge of the plane; the plane at
+the centre of the voxel that holds ``lower + f L``, so that ``f = 1/2`` is the middle
+slice and ``f = 0`` and ``1`` the first and last), so that a section of 2048 × 2048
+pixels needs memory for its plane only (about 0.1 GB, against 8.6 GB for the voxel image
+of the cube in bytes). Each model evaluates its level set ``φ`` (negative in phase 1) and
+its phases at these points; dead leaves, whose kernels wrap over the grid, are sampled
+on a cell as thick as the box, and coatings computed through the distance transform of
+voxels fall back to the voxel image (coarser beyond 256³ voxels). The boundaries are
+anti-aliased by the coverage of phase 1 in each pixel,
+
+    c = clip(1/2 - φ / (|D_u φ| + |D_v φ|), 0, 1),
+
+with ``D`` the larger one-sided difference of ``φ`` to the neighbouring pixels along the
+two directions of the plane: exact for interfaces along the axes, independent of the
+scale of ``φ`` (signed distances, Gaussian fields, concentrations), and partial for the
+features thinner than a pixel. The colours of the phases are blended by ``c``.
+
+The measures of a level set on a grid of spacing ``h``: the volume fraction is the mean
+of the smoothed Heaviside of ``-φ / h``, and the specific surface the area of the zero
+level set (marching cubes) per unit volume, or without scikit-image the coarea formula
+``S_V = <δ_h(φ) |∇φ|>``. The smoothed Heaviside overestimates the volume of convex
+curved objects by about ``0.39 (h/R)²`` (a sphere of radius ``R``) and more on thin
+struts (a level-set foam: +2.3 % at 128 cells per edge); checks: a single sphere within
+0.03 % (volume and surface, inside the box and across its periodic faces), a laminate
+exactly, hard-core spheres within 0.3 % of the exact values of their realization, the
+voxel (Crofton) measures of TPMS, Gaussian excursions, Boolean spheres and strut
+lattices within 0.5 % (volume) and 0.8 % (surface) at 256³ — the voxel estimate being
+itself biased by 3 to 5 % on laminates and blocky structures.
+
+## 53. Identification of a behaviour (`homogenization.identification`)
+
+The parameters ``q`` of a behaviour (a subset of ``E``, ``ν`` and those of its von Mises
+plasticity: ``R0``, ``H``, the isotropic terms ``Q``, ``b``, the kinematic terms ``C``,
+``D``, Norton's ``K``, ``n``, the coefficients ``hill11`` … ``hill31`` of Hill's criterion
+(§54); or those of its porous plasticity: its matrix, the initial
+porosity ``f0``, Gurson's ``q1``, ``q2``, the coalescence ``fc``, ``fF``, Rousselier's
+``σ1``, ``D``, the elliptic ``C``, ``F``, the nucleation) are identified on reference responses of loading paths,
+as ``Zopt`` identifies those of ``Zsim``: the material point of the parameters
+(``simulate_point``: homogeneous strain and stress, the components prescribed as
+stresses solved for by Newton's method) follows the path of each reference ``r``, and
+
+    q* = argmin Σ_r (w_r / W) (1 / n_r) Σ_k Σ_c (σ_c(t_k; q) − σ_c^r(t_k))² / max |σ^r|²,
+
+over the times ``t_k`` of each reference and the components ``c`` compared (by default
+the one that varies most), the simulated stresses interpolated linearly in time between
+the steps of the material point; ``n_r`` is the number of values compared in the
+reference, ``w_r`` its weight and ``W = Σ_r w_r``: each reference counts by its weight
+whatever its number of points (one reference alone gives the mean square of its relative
+gaps), and the gap reported is the square root of that weighted mean. The unknowns are
+``x = ln q`` (the parameters stay positive, their scales balanced), bounded within
+``span`` decades of their starting values, and the minimum is found by the trust-region
+reflective method of SciPy (``least_squares``, derivatives by finite differences, each
+evaluation a material point per reference); a material point whose Newton iterations
+fail returns residuals of 10³ for its reference, which steer the search away. A
+reference is the macroscopic response of a loading path of a morphology (its curves and
+its path: the macroscopic law of the morphology), a material point, or the points
+``(ε, σ)`` of a test along a monotonic strain, placed in time by the strain of the path.
+Several references inform parameters that one path leaves nearly undetermined: in a
+monotonic tension the isotropic term ``Q (1 − exp(−b p))`` and the backstress
+``(C / D) (1 − exp(−D p))`` add up, two exponentials of the cumulated plastic strain that
+cannot be told apart when ``b`` is close to ``D``, whereas the reversal of a cycle shows
+the backstress alone (the Bauschinger effect: the reverse yield at ``X − R`` rather than
+``−R``). Likewise Gurson's ``q1`` and ``q2`` act through the mean stress, ``2 q1 f
+cosh(3 q2 Σm / 2σ*)``: a tension (triaxiality 1/3) barely sees ``q2``, a uniaxial strain
+(the lateral strains held: a triaxiality that grows with the elastic confinement) or the
+stress ratios of unit cells do; calibrating Gurson's model on the macroscopic responses of
+a porous morphology under several triaxialities, as Tvergaard (1981) and Faleskog, Gao
+and Shih (1998) did on unit cells, is this identification on several references, ``f0``
+being the volume fraction of the voids (held: ``q1 f`` enters the criterion as a product,
+so that ``f0`` freed trades off against ``q1``); the interface compares the stress
+components of each run that vary by more than a tenth of the largest variation (the
+lateral stresses of a uniaxial strain).
+
+Checks: the yield stress, the linear hardening and the isotropic term of a cycle
+(±1 % strain) recovered to 10⁻⁵ from starting values 50 % off (relative gap below 10⁻⁷), the
+Young modulus of a curve of one component; the yield stress and the isotropic term of a
+tension recovered to 10⁻⁴ through the interface (from the curves of a material point,
+and to 10⁻³ from its points as those of a test); the five parameters ``R0``, ``Q``,
+``b``, ``C``, ``D`` of a tension and a cycle in shear followed together recovered to 10⁻⁵
+from values 40 % off (to 10⁻⁴ through the interface, from two material points of its
+workspace); two tensions of different yield stresses giving a yield stress between them,
+nearer to the one weighted three times, and a reference whose points are each given twice
+the same identification; ``q1``, ``q2`` and ``f0`` of a tension and a uniaxial strain
+of a Gurson material recovered together to 10⁻⁴ from values 30 to 50 % off. A von Mises
+law identified on the
+response of a matrix with stiff spheres takes a Young modulus above that of the matrix
+and halves the gap of its starting values (the law cannot follow the spread plastic
+flow of the composite exactly).
+
+The macroscopic law of a morphology runs in one go (`macroscopic_law`; the tool "Macroscopic
+law of a morphology" of the interface, by FFT on its voxels or finite elements on its
+conforming mesh, in small or finite strains): its responses under a monotonic tension along
+each axis and a shear in each plane chosen (the other stresses free), each compared on its
+loaded component, and a law estimated on them as the start (`law_start`): Young's modulus
+and Poisson's ratio of the first increment of the first tension (of a shear alone: its
+shear modulus and ν = 0.3), the yield stress at 70 % of the stress at its end (a shear
+times √3), the linear hardening of the slope of the second half of its curve (in ``p``,
+a shear over √3). Fitted: those four and, for Hill's law (§54), the coefficients of the
+loadings run but the first, which stays 1, since the coefficients and the yield stress
+share one scale. With cycles, each loading goes on to the opposite strain in twice the
+increments: the Bauschinger effect of the morphology (its reverse yield) calls for a
+backstress ``(C, D)`` in the law, started with half of the hardening and saturating over
+the strain of the loading, and fitted with the rest (the kinematic hardening of a von
+Mises material taken as the morphology recovered to 10⁻⁵). Gurson's law of a porous
+morphology takes the von Mises matrix of its phase and, as its porosity, the fraction of
+its voids, and fits q1 and q2 (from Tvergaard's 1.5 and 1) with the elastic constants on
+loadings of several stress triaxialities: a tension (1/3), a tension whose lateral
+strains are held (``confined11``: the triaxiality grows with the plastic flow) or a
+hydrostatic one, compared on their three normal stresses, as Tvergaard (1981) and
+Faleskog, Gao and Shih (1998) calibrated the model on unit cells; a GTN material taken as
+the morphology gives back its q1 and q2 (10⁻⁵). A Hill material taken as the morphology gives back its nine parameters
+(10⁻⁶); the layers of two plastic phases of yield stresses 1 and 2 (the interface, 4³
+voxels) halve their gaps and find their shear across the layers weaker than in their
+plane (``h31 > 1.5 h12``).
+
+## 54. Hill's anisotropic plasticity (`homogenization.behaviours`)
+
+The plasticity of §31 may take Hill's quadratic criterion (Hill 1948) in the form of Z-set's
+``*criterion hill`` in place of von Mises's: on an isotropic elasticity, with the same
+hardenings (``R(p)``, the Armstrong-Frederick backstresses, Norton's viscosity),
+
+    f = J_H(σ − X) − R(p) − R0,   J_H(σ − X) = sqrt(3/2 s : M : s),   s = dev(σ − X),
+
+with ``M = diag(h11, h22, h33, h12, h23, h31)`` acting on the components of the deviator
+(``3/2 s : M : s = 3/2 (h11 s11² + h22 s22² + h33 s33²) + 3 (h12 s12² + h23 s23² + h31
+s31²)``): von Mises when the six coefficients are 1. The coefficients are given by their
+components (``hill: {11: …, 22: …, 12: …}``, 1 where not given; Z-set's ``hill1`` …
+``hill6`` in that order, 11, 22, 33, 12, 23, 31). The yield stress is ``R0 sqrt(6 / (4 h11
++ h22 + h33))`` in tension along 1 (and its permutations along 2 and 3) and ``R0 / sqrt(3
+h12)`` in shear in the plane 12; the coefficients ``F``, ``G``, ``H``, ``L``, ``M``,
+``N`` of Hill's paper and of TFEL follow from them (§36). The flow is normal, ``ε̇p = ṗ n``
+with ``n = ∂J_H/∂σ = 3/2 dev(M s) / J_H`` (a deviator: the flow keeps the volume), so that
+``σ : ε̇p = J_H ṗ``: in tension along 1 the lateral plastic strains are in the ratio of the
+components 22 and 33 of ``dev(M s)``, the Lankford coefficient of the criterion.
+
+The normal no longer follows the trial stress, and the radial return of von Mises (one
+scalar equation) gives way to the closest point projection: backward Euler over a step
+solves, for the plastic strain increment ``Δεp`` and ``Δp``, the seven equations
+
+    Δεp − Δp n(σ − X) = 0,   J_H(σ − X) − R(p) − R0 − K (Δp / Δt)^(1/N) = 0,
+
+with ``σ = C : (ε − ε_th − εp − Δεp)`` and the backstresses in closed form, ``X_k = θ_k
+(X_k^n + 2/3 C_k Δεp)``, ``θ_k = 1 / (1 + D_k Δp)`` (rate-independent: without the
+viscous term). Newton's method runs in Mandel's notation (shears times √2, so that ``a :
+b`` is a dot product and ``J_H² = x · A x`` with ``A = 3/2 P M P``, ``P`` the deviatoric
+projector), from the plastic increment of the elastic predictor along its normal, with a
+backtracking line search on the scaled residuals; with a viscosity the unknown is the
+viscous stress over ``K``, ``(Δp / Δt)^(1/N)``, as for von Mises. The Jacobian at
+convergence gives the consistent tangent (Simo & Taylor 1985): the derivatives of the
+residuals with respect to the strain, ``(−Δp (∂n/∂σ) C, n : C)``, solved with it give
+``dΔεp/dε``, and ``dσ/dε = C − C : dΔεp/dε``, symmetrized like that of von Mises (whole
+with Armstrong-Frederick terms, §31). The
+internal variables are those of von Mises (``εp``, ``p``, the backstresses), so that the
+finite element and FFT solvers, small and finite strains (§33: the logarithmic strains of
+the same update) and the fracture tools take Hill's points as they take von Mises's;
+the GPU (§35) integrates them with a CUDA port of the same update, the NTFA (§43)
+refuses them, and the MFront sources of §37 write them as orthotropic behaviours in the
+axes of the sample (the criterion ``Hill`` of MFront's brick, with TFEL's ``F`` … ``N``
+from the coefficients; ``write_zmat`` writes them for Z-set).
+
+Checks: the coefficients all 1 give von Mises's radial return to 10⁻¹² along a cycle of
+tension and shear with isotropic and kinematic hardenings, rate-independent and viscous
+(two independent integrations); with six distinct coefficients the stress saturates at
+the yield stresses of the criterion in tension along each axis and in shear in each plane
+(10⁻⁹: the components 12, 23 and 31 told apart) and the lateral plastic strains of a
+tension are in the ratio of the deviator of ``M s``, the total flow incompressible; the
+tangent equals the finite differences of the stress, symmetrized, to 10⁻⁷ (two kinematic
+terms, one linear, rate-independent and viscous); homogeneous voxels and elements follow
+their material point in small and finite strains; the CUDA update gives the stresses,
+tangents and internal variables of the Numba one to round-off, point by point, in small
+and finite strains; the translations of a Z-mat file with
+``*criterion hill`` by the native kernels and by MFront's brick agree to 10⁻⁸ (WSL), and
+so do the MFront source of a Hill material compiled for MGIS (six components, small and
+finite strains) and called as AMITEX and Abaqus call it (with the axes of the sample); the
+coefficients ``h11``, ``h22``, ``h33`` and ``h12`` of a law recovered by the identification
+(§53) from von Mises's on tensions along the three axes and a shear, each tension giving a
+combination ``4 h11 + h22 + h33`` of the normal coefficients.
+
+## 55. Percolation thresholds (`analysis.percolation`)
+
+**Criteria.** A phase percolates along an axis when one of its components, through 6
+(faces), 18 (and edges) or 26 (and corners) neighbours, joins the two faces normal to the
+axis inside the box: the flags of `connected_components` and the measures
+`percolates_<axis>` (the periodic merging of components changes their number and sizes,
+not these flags). On a periodic image `percolation_threshold` asks instead whether a
+component wraps around the box: the components labelled inside the box are joined by the
+pairs of neighbours across the faces, each with the shift $s \in \{-1, 0, 1\}^3$ of the
+box it reaches, and a union-find keeps the box $t$ of the copy of each component relative
+to that of its root (as Newman & Ziff (2001) follow the displacements of the sites); a
+pair within one component whose copies differ, $w = t_u + s - t_v \neq 0$, closes a cycle
+around the torus, and the component tiles into a cluster unbounded along the axes where
+$w_i \neq 0$, an infinite cluster of the periodic medium. Neither criterion implies the
+other: a staircase joins the faces normal to $x$ without wrapping, a helix through the
+faces wraps along $x$ and $y$ with no component joining them. `axis` takes one axis, or
+`"any"` or `"all"` of the three.
+
+**Forest fire.** `burn(image, phase, axis)` is the burning algorithm of Herrmann, Hong &
+Stanley (1984), the forest fire of Stauffer & Aharony (1994): the phase voxels of the face
+at 0 normal to the axis catch fire at time 0, and at each step the fire spreads to the
+unburnt phase voxels among the 6, 18 or 26 neighbours of those burning, the transverse
+directions wrapping around a periodic image, never the axis. The phase percolates along
+the axis when the fire reaches the opposite face, at the step $t$ that is the chemical
+distance between the faces, the number of steps of the shortest path through the phase:
+$n - 1$ for a straight channel $n$ voxels long, $2n - 3$ for a staircase through faces
+and $n - 1$ through edges, $n + m - 2$ for a corridor $m$ voxels across the box and $n$
+through its periodic faces (the tests). A compiled breadth-first search queues each voxel
+once (flat indices; the offsets of the neighbours precomputed, flat for the voxels off the
+faces; one array of times, $-1$ in the unburnt phase) and stops at the end of the step at
+which the opposite face is reached, unless `full` asks for the whole clusters lit on the
+face and their burning times; `front[t]` counts the voxels that catch fire at step $t$.
+It costs the voxels burnt, where the labels label the whole image: on $128^3$ voxels
+through faces, 6 ms against 45 ms below $p_c$ (0.30), 9 ms against 47 ms at $p_c$ (the
+fire across in 486 steps), 17 against 49 at 0.33 and 30 against 53 at 0.40 (31 against
+61 for the wrapping on periodic images). With `method="fire"`, `percolation_threshold`
+takes it as the criterion: face to face along the axis, through the transverse faces of a
+periodic image, a cluster crossing the slab that the image tiles transversally. On open
+boundaries it decides exactly as the labels (the same bisection, 0.3162 on $48^3$ voxels;
+checked on 200 small lattices, and against scipy's components of the graph wrapping
+transversally on periodic ones). On periodic images the wrapping implies it: along the
+lift of a cycle winding around the box along the axis, whose coordinate along the axis
+changes by at most one a step, the stretch from the last visit to $kn - 1$ before the
+first to $kn + n - 1$ stays within $[kn, kn + n - 1]$, a path from face to face of one
+box; not conversely (the staircase), so that the estimate of the fire lies at or below
+theirs, 0.3084 against 0.3162 on $48^3$ voxels (seed 0).
+
+**Estimator.** For a family `generate(fraction, rng)` of images (site percolation, each
+voxel in the phase with probability $p$; a Boolean model at a volume fraction), $P_N(f)$
+is the fraction of $N$ images that percolate, and the threshold is where $P_N$ crosses
+1/2: from bounds on either side of 1/2 ($P_N$ rising or falling), the bracket is halved
+until it is narrower than `tol`, and the estimate is its middle. Realization $i$ gets the
+same random stream at every fraction (common random numbers, seeds
+`SeedSequence(entropy, spawn_key=(..., i))`): a family that grows with $f$ for a given
+stream, such as `rng.random(shape) < p`, percolates above a threshold $f_i$ of its own,
+$P_N$ is monotone, and the estimate is the median of the $f_i$ (the
+$\lceil N/2 \rceil$-th smallest: $P_N = 1/2$ counts as percolating).
+
+**Finite-size bias.** On images $L$ voxels across, the $f_i$ spread over a window of
+width $\propto L^{-1/\nu}$ ($\nu \approx 0.88$ in 3D; Stauffer & Aharony 1994), and the
+1/2-crossing of a criterion lies off $p_c$ by a shift of the same order, whose sign
+follows the crossing probability at $p_c$: below 1/2 along one axis and for all three
+(the estimate above $p_c$), nearer 1/2 for any axis. The estimate is $p_c +
+O(L^{-1/\nu})$, with a statistical error of the spread over $\sqrt N$. On site
+percolation of the simple cubic lattice, $p_c = 0.3116080$ through faces (Lorenz & Ziff
+1998) and $0.0976$ through 26 neighbours (Kurzawski & Malarz 2012), 9 realizations of
+$48^3$ voxels give 0.3162 along $x$, open or periodic, and 0.0998 (seed 0, the tests);
+over four seeds, the shift is about +0.003 along one axis (+0.0025 through 26
+neighbours), -0.002 for any axis (+0.0005) and +0.006 for all three, the median of 9
+spreads by 0.003 (0.002) from seed to seed, and single realizations by 0.007 (0.005 on
+$64^3$ voxels). For a Boolean model of spheres ($\varphi_c = 0.2895$ in the continuum;
+Rintoul & Torquato 1997) the voxels add a bias of their own: spheres closer than about a
+voxel touch on the image (as for the Euler characteristic, §21), which lowers the
+threshold, to 0.27 on $64^3$ voxels of a periodic box 16 radii across (4 voxels per
+radius) and 0.28 on $96^3$ voxels (6 per radius), and to 0.26 on $96^3$ voxels of a box
+24 radii across (4 per radius: the bias of the voxels, not that of the box, dominates).
+
+The command `morphogen percolation CONFIG` estimates the threshold of the model of a run
+configuration against one of its parameters (the volume fraction by default:
+`analysis.percolation.family_from_config` draws the realizations in its domain and
+voxelizes them on its grid), and the tool "Percolation threshold" of the tab Statistics
+that of the model of a morphology of the workspace, with the curve of the probabilities
+against the fraction; `--method fire` and the field "algorithm" of the tool take the
+forest fire as the criterion.
+
+The finite-size scaling (`analysis.percolation.percolation_scaling`) extrapolates the
+threshold to the infinite medium. Near p_c the probability that a box L voxels across
+percolates depends on the fraction through (p − p_c) L^{1/ν} only (Stauffer & Aharony
+1994, ch. 4), so that it crosses 1/2 at p½(L) = p_c + a L^{−1/ν}. The amplitude a depends
+on the criterion, the shape of the box and its boundaries: it is positive for one pair of
+faces of an open cube (joined at p_c with a probability below 1/2), larger for the three
+pairs, and slightly negative for any pair. The realizations' thresholds spread over a
+width of the same order, and p½, their median under common random numbers, scatters by
+about √(π/2) times that spread over √(realizations). The thresholds of several sizes are
+fitted by least squares weighted by L^{2/ν}, the inverse variance of p½, with ν = 0.8765
+(0.8765(16), Ballesteros et al. 1999; 0.88 in Stauffer & Aharony; universal, shared by the
+lattices and by continuum percolation) or with ν fitted too. The variance of p_c adds that
+of the fit, from its residuals, to that of the bisection (width²/12 per threshold). The
+extrapolation trades the shift of the largest box for an amplified scatter, and pays where
+the shift exceeds the scatter. For the sites of the cubic lattice from 16 to 48 voxels
+(forest fire, tolerance 0.002), the three pairs of faces of an open cube are joined at p_c
++ 0.008 on 48³ voxels, and 9, 25 or 99 realizations extrapolate within 0.0034, 0.0022 or
+0.0015 of p_c = 0.3116 (the scatter over 16 seeds, which the standard error matches). One
+pair of faces, joined at p_c + 0.0036, needs a hundred realizations or more for as clear a
+gain, and four sizes leave ν undetermined (1.0 ± 1). For the model of a configuration
+(`family_from_config(..., sized=True)`, `morphogen percolation --sizes`, the field "box
+sizes" of the tool), the box grows at the voxel size of the configuration, its domain
+scaled: refining the grid of a fixed domain would converge to the threshold of that
+domain, not to p_c, and the parameters of the model must be intensive. For periodic
+images, the measure `connectivity` also reports the wrapping of phase 1 around the box
+along each axis (`wraps_x`, `wraps_y`, `wraps_z`; `analysis.connectivity.wrapping`), which
+is the percolation of the periodic medium. It sits beside the joining of the faces inside
+the box (`percolates_*`), which neither implies it (a staircase) nor follows from it (a
+helix).
+
+**Two dimensions.** A planar image (one voxel along $z$, the 2D images of morphoGen)
+percolates in its plane, along $x$ or $y$ (`"any"` and `"all"` over these two, never
+trivially along $z$), through 4 (`connectivity` 4, or 6: the faces of a voxel one voxel
+thick are its edges) or 8 (8, 18 or 26) neighbours, by the labels and by the fire. On a
+rectangle of the square lattice the phase joins the sides normal to $x$ through 8
+neighbours exactly when the other phase does not join those normal to $y$ through 4 (the
+matching lattices of Sykes & Essam 1964; checked on 300 rectangles), whence $p_c = 1 -
+0.592746 = 0.407254$ through 8 neighbours for $p_c = 0.59274621(13)$ through 4 (Newman &
+Ziff 2000). A square is joined at $p_c$ with the probability 1/2 in the scaling limit (by
+the same duality; Ziff 1992), and its 1/2-crossing lies off $p_c$ by much less than the
+spread of the realizations: over four seeds, 99 realizations by the fire give $p_c -
+0.0019 \pm 0.0010$ on $64^2$ sites, $-0.0004 \pm 0.0020$ on $128^2$ and $+0.0004 \pm
+0.0012$ on $256^2$ through 4 neighbours, $+0.0004$, $+0.0002$ and $-0.0004$ ($\pm 0.002$)
+through 8, the labels deciding as the fire. The exponent is $\nu = 4/3$ (exact; den Nijs
+1979, Nienhuis 1982), the default of `percolation_scaling` for planar images: the
+realizations' thresholds spread as $L^{-0.72}$ from 32 to 256 sites ($L^{-3/4}$), squares
+from 32 to 256 sites (49 realizations, six seeds) extrapolate within 0.002 of $p_c$ ($a
+\approx 0$), and rectangles twice as long as wide, joined the long way (with a probability
+below 1/2 at $p_c$), cross 1/2 above $p_c$ by 0.006 on 256 sites across ($a \approx 0.36$)
+and extrapolate within 0.002 of it, as their standard error (0.0018). A fitted $\nu$ stays
+loose (1.6 ± 0.5 through 4 neighbours, 1.0 ± 0.15 through 8, from 8 sizes of 24 to 256
+and 99 realizations). The sized family of a configuration one voxel thick grows in its
+plane.
+
+**Anisotropy.** Along a direction $n$ (in physical units for anisotropic voxels; in the
+plane of a planar image), `burn_along` lights the fire across the core of the box along
+$n$: the cylinder (in 2D the square) of the voxels whose centres lie within $R$ of the
+axis through the centre of the box along $n$ and within $R$ of the centre along it, $R =
+D/(2\sqrt 2)$ for the diameter $D$ of the ball inscribed in the box (its smallest edge).
+This equilateral cylinder of the inscribed ball is congruent for every direction, so that
+a medium isotropic in law crosses alike along all (up to the voxels of the core) and the
+differences between directions are those of the medium, not of the box: the planes of
+the box normal to a diagonal touch it at corners only, and a rotated image, resampled,
+would change the topology of the phase. The phase voxels of the core within a step of a
+neighbour of crossing its lower cap catch fire (one layer along an axis, as the face of
+`burn`; ties, systematic along the diagonals, decided alike), and the phase percolates
+along $n$ when the fire reaches those of the upper one, at the chemical distance across
+the core. The core lies inside the box (the periodicity unused), spans $1/\sqrt 2$ of its
+smallest edge and has the aspect of a cube (of a square, crossed at $p_c$ with the
+probability 1/2); a direction and its opposite cross alike. The chemical distance follows
+the metric of the lattice, which is not isotropic: through 4 neighbours a diagonal of the
+square lattice is crossed by many staircases of one length, which the phase seldom blocks
+all (on sites at $p = 0.65$ on $128^2$, 1.03 times the distance across the full core along
+the diagonals against 1.34 along the axes). `directional_percolation` gives, along each
+direction, the crossing, the chemical distance and the geometric tortuosity, which
+compares them: as `geometric_tortuosity`, the mean Euclidean length of the shortest paths
+through the phase (26 neighbours, 8 in 2D) from the lower cap to the voxels of the upper
+one they reach, over that across the full core. Its detours stay a little cheaper along
+the diagonals, whose steps they replace by shorter ones: 1.12 along the axes and 1.07 to
+1.08 along the diagonals there (1.06 and 1.03 at $p = 0.8$; on $48^3$ sites at 0.4, 1.17
+to 1.18, 1.11 and 1.09 to 1.10 along the axes, the face and the body diagonals). The
+measure `directional_percolation` reports the crossings and tortuosities along the
+lattice directions (`percolates_1-10`, `tortuosity_1-10`: 4 directions in 2D, 13 in 3D).
+
+For a family, `percolation_anisotropy` bisects each realization (seeded as by
+`percolation_threshold`) along every direction to a threshold of its own, the directions
+bracketed alike sharing the images (a direction's thresholds do not depend on the others
+bisected), and the thresholds are their medians (the estimate of `percolation_threshold`),
+with the standard errors $\sqrt{\pi/2}\, s/\sqrt N$ of the median of $N$ normal values of
+standard deviation $s$; samples beyond the bounds are $\pm\infty$ (layers never percolate
+across). The directions are compared within each realization (common random numbers): the
+deviations are the medians of the differences of a realization's thresholds from their
+mean over the directions, and the ratio is that of its thresholds along the directions of
+the extreme deviations, with the standard errors of these paired differences. A difference
+of the medians along two directions would keep the scatter they share, the same
+realization tending to be the median of both: on $32^3$ sites of the cubic lattice and 15
+realizations it put the threshold along $y$ four (paired) standard errors below the others.
+The threshold tensor $T$, $p(n) = n \cdot T \cdot n$, is fitted by least squares to the
+paired thresholds (the median of the realizations' means plus the deviations; diagonal on
+the axes alone), its eigenvalues (with the standard errors of the tensors of the
+realizations projected on its principal directions, the shared scatter included) and
+principal directions summarizing the anisotropy. In the infinite medium a homogeneous
+medium of a finite range of correlation percolates from one threshold along every
+direction, its infinite cluster unbounded along all; a box crosses sooner along the
+elongation of the clusters, along which it is shorter in units of their correlation
+length, and the thresholds of a box $L$ across differ by the order of their shift from
+$p_c$, $L^{-1/\nu}$: the anisotropy of percolation of a specimen or an RVE of that size,
+which vanishes with it unless the medium is disconnected along some directions.
+
+Site percolation of the square lattice ($128^2$, 49 realizations; through 4 or 8
+neighbours, along the 4 lattice directions or 8 sampled), of the cubic lattice ($48^3$, 25
+realizations, the 13 lattice directions), Boolean discs (the sections of spheres of a slab
+one voxel thick, $128^2$, 25 or 49 realizations, three seeds) and Boolean spheres ($48^3$,
+25) have paired deviations within 1.7 standard errors and ratios within theirs of 1 (1.000
+± 0.006 on the square lattice; thresholds 0.587 to 0.593 there, 0.318 to 0.324 on the
+cubic lattice). Sites of $2 \times 1$ voxels (clusters elongated along $x$; $128^2$, 49
+realizations) cross at 0.570 along $x$, 0.607 along $y$ and 0.589 to 0.590 along both
+diagonals (alike, by the symmetry about $x$), deviations of $-6.8$ and $+6.4$ standard
+errors along the axes and within 1.3 along the diagonals, the ratio $1.064 \pm 0.008$ and
+the tensor smallest along $x$. Layers of sites separated by walls of the other phase
+($48^3$, 25 realizations) percolate along the layers (0.53 to 0.54, below the 0.5927 of a
+layer, any of about 17 sufficing) and along the body diagonals, within 45° of them (0.567
+to 0.574), never across nor at 45° (infinite thresholds, the tensor undefined). Boolean
+fibres aligned along $x$ (radius 0.5, length 6 in a box of 12, $48^3$ voxels, 25
+realizations) cross from a volume fraction of 0.099 along $x$ against 0.40 to 0.42 across
+(ratio $5.0 \pm 0.8$; eigenvalues 0.087, 0.40 and 0.45, the first along $x$), and their
+sections (strips, $192^2$) from 0.25 against 0.90 (ratio $3.5 \pm 0.4$). The command
+`morphogen percolation CONFIG --directions axes|lattice|N` and the field "anisotropy" of
+the tool "Percolation threshold" (a rose of the thresholds against the angle in 2D, bars
+per direction in 3D, with the quadratic form of the tensor) give them.
+
+**Critical exponents of the effective properties.** Above $p_c$ the conductivity of the
+percolating phase grows as $K \propto (p - p_c)^t$ and its elastic moduli as $(p -
+p_c)^f$, the other phases insulating or void; the exponents are universal for lattices
+and for continuum models whose contacts have no singular distribution: $t \approx 2.0$
+($2.003 \pm 0.047$, $t/\nu = 2.276$; Gingold & Lobb 1990) and $f \approx 3.75$ in 3D, $t
+\approx 1.30$ ($t/\nu = 0.9745 \pm 0.0015$; Grassberger 1999) and $f \approx 3.96$ in 2D
+(the bond-bending model; Sahimi 1994), whose moduli vanish at the threshold of the
+connectivity; networks of central forces become rigid above it, at a threshold of their
+own and with exponents of their own (Jacobs & Thorpe 1995; Arbabi & Sahimi 1993), as the
+voxels of the solvers do (below). In the Swiss cheese (a conducting matrix around
+overlapping spherical voids) the narrow necks of the matrix between the voids, whose
+widths have a density finite at zero, raise them in the continuum: $t + 1/2$ and $f +
+5/2$ in 3D, $f + 3/2$ in 2D, $t$ unchanged in 2D (Halperin, Feng & Sen 1985).
+`percolation_exponent(generate, sizes, threshold)` measures $t$ or $f$ by the
+finite-size scaling at the threshold: at
+$p_c$, in boxes $L$ across, the correlation length is cut by $L$ and the mean property
+over the realizations scales as $\langle K \rangle \propto L^{-t/\nu}$ ($L^{-f/\nu}$;
+Derrida & Vannimenus 1982). For each box size (at least 3; the sized family of
+`percolation_scaling`, `family_from_config(..., sized=True)` for a configuration) the
+realizations are drawn at the threshold, the phase conducting with $K = 1$ (bearing with
+$E = 1$, $\nu = 0.3$) and the other phases at `contrast` times its properties; the
+periodic FFT solver (§12, on the GPU with `device="auto"`, §35) gives the conductivity
+along the axis, or the modulus $C_{xxxx}$ of a uniaxial strain along it (all the moduli
+share $f$; Young's modulus would take six solutions). The logarithms of the means are
+fitted against $\ln L$ by least squares weighted by their inverse variances, $(s /
+\sqrt N)^2 / \langle K \rangle^2$, and the slope times $\nu$ (0.8765 in 3D, 4/3 in 2D) is
+the exponent; its standard error is that of the weights, scaled by the root of the
+reduced chi-square of the residuals when it exceeds 1 (corrections to scaling), and
+`threshold_stderr` adds the error that the threshold's own leaves: the same images (common
+random numbers) at $p_c \pm \sigma$ give two more exponents, half of whose difference is
+`threshold_error`. A sweep (`fractions`, above $p_c + \sigma$) fits $\ln \langle K \rangle$
+against $\ln(p - p_c)$ on every size, for comparison. The finite-size scaling is the
+choice of the literature: every box contributes at the threshold, where the property is
+critical, and the corrections are those of $L$ alone, where a sweep needs boxes much
+larger than the correlation length over a window that ends with the critical region, so
+narrow on images of a few hundred voxels that its exponent drifts with it (Kirkpatrick
+1973 found $t = 1.6 \pm 0.1$ in 3D from such sweeps). Its price is the threshold, on
+which the slope depends: an error $\sigma$ shifts $\ln \langle K \rangle$ by about
+$\sigma\, \partial_p \ln \langle K \rangle \propto \sigma L^{1/\nu}$, more in the largest
+boxes.
+
+*The threshold of the solver.* The trilinear voxels of the FFT solvers join two voxels
+through the nodes they share, a face, an edge or a corner: on $8^3$ voxels a staircase of
+voxels touching at their corners conducts along $x$ as $2.6 \cdot 10^{-3}$ (through
+edges $7.8 \cdot 10^{-3}$, a straight channel $1/64 = 1.6 \cdot 10^{-2}$) and bears a
+uniaxial strain with $7.2 \cdot 10^{-4}$ ($3.9 \cdot 10^{-3}$, $1.6 \cdot 10^{-2}$), and
+in 2D a diagonal of pixels conducts as $1/16$ against $1/8$ for a row. The conductivity
+of the solver percolates through 26 neighbours (8 in 2D), and its threshold is that of
+`percolation_scaling` with `connectivity=26` (the criteria extrapolate alike: the fire
+face to face, faster than the wrapping of the labels on large planar images, 3.3 s on
+$512^2$ pixels against 10 ms). In elasticity a corner is a ball joint and an edge a
+hinge, about which the voxels turn: the moduli vanish where the joined voxels become
+rigid, between the thresholds through 26 and 6 neighbours (8 and 4 in 2D), which no
+connectivity gives and `rigidity_threshold` finds from the moduli (below). The corner
+contacts lower the thresholds of the voxel images well below those of the continuum:
+periodic Boolean discs of radius 4 pixels (squares of 64 to
+512, 49 realizations, the fire, tolerance 0.002) percolate from an area fraction of $0.600
+\pm 0.005$ through 8 neighbours and $0.633 \pm 0.006$ through 4 (continuum 0.6763; Mertens
+& Moore 2012), the matrix around such discs from $0.367 \pm 0.006$ through 8 (continuum
+$1 - 0.6763 = 0.3237$), spheres of radius 3 voxels (cubes of 24 to 96) from a volume
+fraction of $0.186 \pm 0.004$ through 26 neighbours and $0.245 \pm 0.004$ through 6
+(continuum 0.2895).
+
+*The rigidity threshold.* Only a face (an edge in 2D) welds two voxels: the clusters
+welded by their faces are rigid bodies, pinned together at the corners and edges between
+them, and the moduli of the phase, the others void, do not vanish when bodies and joints
+make a rigid network around the periodic box. This is the rigidity percolation of a
+network of central forces (bodies and joints, or bars and joints; Jacobs & Thorpe 1995),
+whose threshold lies above that of the connectivity, where the bond-bending forces of the
+elastic lattices of the literature make every connected cluster rigid and the two
+thresholds coincide. `rigidity_threshold(generate, sizes, lower, upper)` finds it from the
+moduli: a realization bears when its modulus $C_{xxxx}$ of a uniaxial strain along the
+axis, the other phases void (`contrast` 0), exceeds the `cut` (of the Young's modulus
+of the phase); the fraction $p_{1/2}(L)$ at which half the realizations of the
+boxes $L$ voxels across bear is bisected as for the connectivity (with common random
+numbers, the median of the realizations' own thresholds; the realizations of
+`percolation_scaling` from the same seed) and extrapolated as $p_{1/2}(L) = p_c + a
+L^{-1/\nu}$ by its fit. The criterion is that of the moduli themselves, from the energy
+of each solution, $\langle \sigma : \varepsilon \rangle$, which equals the stress average
+$\langle \sigma_{xx} \rangle$ at the exact solution but is stationary: an upper bound of
+the modulus whose error is of second order in that of the solution, where the stress
+average's is of first order. A realization does not bear when its energy is at or under
+the cut; above it, it bears when its stress average agrees with its energy within half of
+it (the modulus resolved), and otherwise (`unresolved`) when two more solutions, the
+element matrices perturbed at their round-off ($2.2 \cdot 10^{-16}$ of their entries),
+leave the energy within 1 % (the voxels factorized; by the FFT solver, whose iterations
+stop short of the round-off, when its stress average exceeds the cut). The criterion
+wants solutions that have resolved the soft modes of the floppy images: the voxels
+factorized iterate to $10^{-10}$ (`SOLVER_TOLS`; $10^{-8}$ for the FFT solver), and an
+energy that bears under $1000$ times the cut is decided again by a solution at
+$10^{-11}$, near the floor of the residual ($3 \cdot 10^{-12}$ to $1.2 \cdot 10^{-11}$;
+`confirmed`). At $10^{-8}$, the tolerance of the first 3D measurements by the energies
+(below), one to three iterations leave floppy images at energies of $10^{-13}$ to $2
+\cdot 10^{-8}$ whose stress averages agree with them, which bear by the cut $10^{-12}$:
+23 of 32 realizations of $32^3$ to $80^3$ voxels of the sites of the cubic lattice bore
+from fractions lower by 0.0003 to 0.003 than at $10^{-10}$, where such energies fall to
+$10^{-21}$ to $10^{-14}$. At $10^{-10}$ a few keep $10^{-12}$ to $3 \cdot 10^{-11}$, their
+stress averages and their perturbations at the round-off agreeing with them (the
+iterates, not the mechanisms, carry them), and fall under the cut at $10^{-11}$ ($7
+\cdot 10^{-15}$ to $6 \cdot 10^{-13}$ on $64^3$ and $80^3$ voxels) or take stress averages
+of the opposite sign (unresolved, then scattered by the perturbations), while a modulus
+of $2.0 \cdot 10^{-12}$ on $64^3$ voxels stays to three digits at $10^{-11}$ and
+$10^{-12}$. The moduli of the
+realizations that bear spread down to that round-off on the large boxes, without the gap
+of the small ones (below): the cut is the round-off of the moduli of the solver,
+$10^{-8}$ by the FFT solver and $10^{-12}$ by the voxels factorized (`CUTS`), and a cut
+too high biases $p_{1/2}(L)$ up as the moduli come down with the box. A cut that is a
+multiple of a contrast $\delta$ would not do either: the realizations that do not bear
+then take $\delta$ times an
+enhancement that rises steeply as they approach their own rigidity (up to 650 on $32^2$
+pixels and 4,400 on $64^2$), while those that have just become rigid bear as little as $2
+\cdot 10^{-6}$ ($32^2$), which leaves no multiple of $\delta = 10^{-8}$ between the two.
+The median is robust where the moduli spread over decades and needs no exponent; the
+crossing of the curves $L^{f/\nu} \langle C(p) \rangle$ presupposes $f$, the exponent
+sought, and averages moduli that scatter by tens of percent. The images are decided
+without the solver when they can be: no component wrapping around the box along the axis
+through 26 neighbours (8 in 2D), the phase does not bear (its components translate
+freely); a component joined by faces (6; 4) wrapping, it bears; and, the moduli growing
+with the stiffness of the voxels, an image that contains a bearing image of the same
+realization bears, one contained in a floppy one does not (the images of a family growing
+with the fraction). The solutions near the threshold take up to $45 L$ iterations, beyond
+the default bound of the solver, $20 L + 1000$: the moduli take $50 L + 1000$, here and
+in `percolation_exponent`.
+
+*The solver of the voxels.* Near the rigidity threshold, void around, the Fourier
+preconditioner of a homogeneous medium is a poor one: its energy spreads the displacements
+of the voxels over the void, while the clusters pinned at their corners and edges turn
+about them at energies that vanish with their rigidity. At $p_r$ the conjugate gradients
+take 1,310 to 2,665 iterations on $64^2$ pixels (2.8 to 7.8 s, on the CPU and the GPU
+alike, the GPU at 420 to 465 MHz on these small solutions) and 7,000 to 7,400 on $128^2$,
+most stopping at the bound with residuals of $3 \cdot 10^{-5}$ (52 to 58 s on the CPU, 16
+to 17.5 s on the GPU); in 3D they do not converge (sites of the cubic lattice at $p_r$: on
+$12^3$ voxels 957 iterations to the bound, 1,600, with residuals up to $2 \cdot 10^{-4}$,
+0.9 to 2 s on the CPU and 1.9 to 5.6 s on the GPU; on $16^3$ every realization at the
+bound, 1,800), the moduli off by up to 16 % and floppy realizations above the cut ($1.5
+\cdot 10^{-8}$ on $12^3$ voxels, $7 \cdot 10^{-8}$ on $128^2$ pixels, $2 \cdot 10^{-15}$
+and $2 \cdot 10^{-11}$ solved exactly). With `solver="fe"` (`--solver fe`, the field
+"solver" of the tool) the same trilinear voxels are assembled on those of the phase, the
+operator of the FFT solver as a sparse matrix on their nodes (the stiffness and
+conductivity tensors of the two agree to $10^{-8}$, planar or not, the other phase void or
+soft), and solved by conjugate gradients preconditioned by the sparse factorization
+(SuperLU, the pivots on the diagonal) of the matrix shifted by $10^{-12}$ of its mean
+diagonal (`homogenization.voxel_fe`). The floating and floppy clusters make the matrix
+singular (at least 400 mechanisms on $24^3$ voxels at $p_r$), but the loads are orthogonal
+to its null space, which the shifted factorization maps onto itself: it only
+preconditions, the iterates stay in the range, and one to three iterations suffice (0.08
+to 0.15 s on $64^2$ pixels, 0.6 s on $128^2$, 4 s on $256^2$, 0.04 s on $12^3$ voxels,
+0.09 s on $16^3$, 0.35 s on $24^3$, 1.3 to 2 s on $32^3$), the floppy moduli within $6
+\cdot 10^{-10}$ of zero up to $64^2$ pixels and $32^3$ voxels (larger planar boxes:
+below). A larger shift is not safer: at $10^{-10}$ one image of $24^3$ voxels in 558
+stalled at a residual of $5 \cdot 10^{-7}$ after 2,200 iterations (its modulus off by
+0.1 %), which $10^{-12}$ solves in 3 iterations to $10^{-8}$ and 10 to $10^{-10}$, the
+iterations restarting from the true residual every 100. The smoothed-aggregation multigrid
+of the finite elements, the translations for near-null modes, does not converge on these
+matrices (4,200 iterations, residual $6 \cdot 10^{-3}$, on $64^2$ pixels at $p_r$). Only
+the voxels that bear are assembled (`load_bearing`, exact): cut at the nodes that alone
+join them, the voxels fall into parts meeting at single nodes, which form a tree, any part
+translating as a whole to follow the node by which it hangs; a part through which no cycle
+winds around the box along the axis takes the macroscopic strain as a rigid translation
+of its lift, single-valued, and bears nothing, whether it dangles, floats or lies between
+parts that bear (79 to 82 % of the voxels of the sites of the cubic lattice at $p_r$ are
+kept, 75 to 79 % of the degrees of freedom, 15 to 25 % of the time saved; the parts hinged
+at two nodes, an edge, may bear as bars and stay). The factors fill in with the fraction
+of the voxels: on one process, otherwise idle, the factorization of the voxels that bear
+takes 0.30 s on $32^3$ voxels at $p_r$, 1.1 s on $48^3$ (0.10 GiB) and 3.5 s on $64^3$
+(0.24 GiB), the assembly 0.1 to 0.9 s, finding the voxels that bear 0.1 s on $64^3$ and
+0.7 s on $96^3$ (2.5 s on $64^3$ while the union of their parts, a plain forest, grew
+chains as long as the parts), but 2.8 s on $48^3$ voxels at a fraction of 0.15,
+12.8 s at 0.17 and 122 s (1.28 GiB) at 0.2096, the upper bound of the first bisections,
+whose images far above $p_r$ made their 7 s per solution on $40^3$ voxels and 30 s on
+$48^3$: the bisection of the rigidity threshold now tries its bounds last, only when the
+bracket reaches them. The ordering is minimum degree on $A^T + A$, the matrix symmetric
+(diagonal pivots: 1.2 million entries in 0.45 s on $24^3$ voxels at $p_r$, against 3.8
+million in 1.2 s by COLAMD, 1.8 million in 1.0 s by minimum degree on $A^T A$, and 13.7
+million in 12.8 s by a nested dissection by planes of nodes, which cut through the sparse
+random structure that minimum degree follows). The factors of one image of a bisection do
+not precondition the next, a few hundred voxels apart (500 to 2,500 iterations on $48^3$
+voxels without converging, against new factors and one iteration in 0.7 to 3.7 s): the
+voxels added or removed change the mechanisms, which the shifted factors amplify by the
+inverse of the shift. A planar box costs about as much as a cubic one of as many degrees
+of freedom (Boolean discs of 4 pixels of radius at 0.61: 4.8 s on $256^2$ pixels, 22 s
+on $512^2$, the machine loaded), and on a dense phase ($p = 0.5$) 12.8 s on $16^3$ voxels,
+where the FFT solver takes 53 iterations and 0.14 s, more than 8 min and 3.6 GB on $32^3$
+(73 iterations, 0.81 s on the CPU, 0.27 s on the GPU); a contrast assembles every voxel
+(more than 6 min on $24^3$ voxels at $p_r$ with $10^{-8}$, where the FFT solver stops at
+its bound, 2,200 iterations, in 4.3 s on the GPU). Better near the rigidity threshold with
+void around but not everywhere, it is not the default. SuperLU commits its first guess of
+the fill, 20 times the entries of the matrix in four arrays (37 bytes per entry: 9.1 GiB on
+$64^3$ voxels at $p_r$, 31 GiB on $96^3$), of which the factors fill 1.5 to 1.8 times the
+entries in 3D and 2.1 to 2.4 in 2D: Windows charges the untouched pages against the commit
+of the machine, and a factorization that fails for want of memory does not free its arrays
+(SciPy 1.18), so that the processes of the measurements below ran with the commit of each
+factorization limited (a job object of the process) between the guesses of 2.5 and 5
+times the entries, which SuperLU meets by halving its guess (the same factors; processes
+of 2.9 GiB on $64^3$ voxels and 5.5 GiB on $80^3$).
+
+For the sites of the square lattice (96 realizations, $16^2$ to $256^2$ pixels, tolerance
+0.0035, the voxels factorized), $p_{1/2}(L) = 0.4409$, 0.4566, 0.4597, 0.4566, 0.4597,
+0.4597, 0.4628, 0.4628 and 0.4597 extrapolate to $p_r = 0.4627 \pm 0.0016$ ($\nu = 4/3$;
+$0.4623 \pm 0.0015$ with the $\nu = 1.21 \pm 0.06$ of central-force rigidity percolation
+in 2D, Jacobs & Thorpe 1996; $0.4618 \pm 0.0019$ without the $16^2$ and $24^2$ pixels), a
+quarter of the way from the threshold of the connectivity through 8 neighbours, $1 -
+0.5927 = 0.4073$, to that through 4, 0.5927 (32 realizations of $16^2$ to $64^2$ pixels by
+the FFT solver gave $0.4647 \pm 0.0056$; on the same images the two solvers decide alike).
+Those moduli were stress averages, at the cut $10^{-8}$: the floppy ones stayed within
+$3 \cdot 10^{-12}$ of zero up to $24^2$ pixels and $2.2 \cdot 10^{-10}$ on $64^2$, the
+rigid ones above $2.2 \cdot 10^{-4}$ on $16^2$, $8.1 \cdot 10^{-8}$ on $64^2$ and $1.3$ to
+$1.8 \cdot 10^{-8}$ from $96^2$, where the gap closes. On the same realizations (the 96 of
+each size at the five fractions tried near $p_{1/2}$, 0.455 to 0.4675, all joined through 8
+neighbours and none through 4: 1,920 solutions at the tolerance $10^{-10}$ on $96^2$ to
+$256^2$ pixels), the 927 whose stress averages stray from their energies by more than half
+of these are floppy: their stress averages lie between $-6.1 \cdot 10^{-7}$ and $-8 \cdot
+10^{-14}$ and their energies between $10^{-21}$ and $3.7 \cdot 10^{-9}$ (one at $2 \cdot
+10^{-7}$), their mechanisms taking displacements of 50 to $7 \cdot 10^5$ for a unit strain,
+which the round-off of the element matrices, the same in every voxel, strains. Solved again
+to the floor of the residual ($4 \cdot 10^{-15}$ to $3 \cdot 10^{-11}$), the stress
+averages stay where they were ($-1.30 \cdot 10^{-7}$ at $10^{-10}$ as at $5 \cdot
+10^{-12}$ for an image of $128^2$ pixels whose mechanisms take $2 \cdot 10^5$), and with
+the element matrices perturbed at their round-off (four perturbations of the 89 solutions
+between $10^{-10}$ and $10^{-6}$ by either estimate) the energies of the 48 floppy ones
+scatter by 17 to 50 %, those of the 41 others by $1.4 \cdot 10^{-3}$ at most, their stress
+averages within 30 % of their energies, and the voxels that bear alone (`load_bearing`)
+give these energies to 4 digits. The energy decides as the stress average did in 1,919 of
+the 1,920: the other, on $192^2$ pixels, bears by its energy, $1.02 \cdot 10^{-8}$, which
+the perturbations leave unchanged, against a stress average of $7.3 \cdot 10^{-9}$; the
+floppy image at $2 \cdot 10^{-7}$ ($256^2$ pixels, its mechanisms at $7 \cdot 10^5$) is
+unresolved by its stress average, $-6 \cdot 10^{-7}$, and does not bear by the round-off
+(1.5 to $2.4 \cdot 10^{-7}$). Four rigid images of $256^2$ pixels have moduli under the
+cut, $1.3 \cdot 10^{-10}$ to $8 \cdot 10^{-9}$ resolved within 6 %: from these sizes the
+moduli of the realizations that have just become rigid reach below $10^{-8}$, as in 3D
+(below). The
+connectivity and the inclusions decided 64 % of the images on $16^2$ pixels and 22 % on
+$256^2$; the sizes took 7 s to 7 min (15.5 min in all) with ten processes on the CPU,
+shared with other jobs, the solutions at most 34 iterations. The FFT solver took 1 to 9
+min per size up to $64^2$ pixels with 32 realizations, and its boxes of $96^2$, whose
+solutions reach the bound of 5,800, were stopped after 40 min.
+
+By the energies at the cut $10^{-12}$, at the tolerance $10^{-10}$ with the confirmations
+(above), 400 realizations of $16^2$ to $128^2$ pixels and 300 of $192^2$ and $256^2$, each
+bisected to its own threshold (to 0.0031 on $16^2$ down to 0.0005 on $256^2$, its images
+nested, decided by the energies: 22,404 solutions, 25 of them confirmed and 3 of these
+under the cut or scattered at $10^{-11}$), give $p_{1/2}(L) = 0.4397$, 0.4564, 0.4547,
+0.4559, 0.4595, 0.4611, 0.4614, 0.4617 and 0.4612 (standard errors 0.0028 on $16^2$ to
+0.0003 on $256^2$, by resampling the realizations), flat from $96^2$ on: the form $p_c +
+a L^{-3/4}$ does not fit them ($\chi^2 = 34$ for 7 degrees of freedom, $0.4635 \pm
+0.0007$), the exponent fitted does ($p_c + a L^{-\theta}$, $\theta = 1.5 \pm 0.2$), and
+they extrapolate to $p_r = 0.4617 \pm 0.0004$ ($0.4617 \pm 0.0003$ from $32^2$; the means
+$0.4620 \pm 0.0003$, and $0.4617 \pm 0.0002$ from $32^2$). The widths of the
+realizations' thresholds, 0.047 to 0.0043 on $16^2$ to $256^2$, fall as $L^{-0.879 \pm
+0.017}$: $\nu = 1.14 \pm 0.02$, near the $1.21 \pm 0.06$ of central-force rigidity
+percolation in 2D (Jacobs & Thorpe 1996) and far from the 4/3 of the connectivity. The
+shares that bear at $p_r$, 0.525, 0.520, 0.498 and 0.553 ($\pm 0.025$ to 0.029) on $96^2$
+to $256^2$ pixels, stay at about one half from $96^2$ on, where the medians stop moving:
+the median sits near the crossing of the shares, its leading term
+$L^{-1/\nu}$ nearly cancels, and the corrections of the small boxes, whose shares at $p_r$
+run 0.59 to 0.65, make the drift from $16^2$ to $64^2$. The first measurement, $0.4627 \pm
+0.0016$, lies within its error: its medians, bisected to 0.0035 between fractions 0.0031
+apart, took the three values 0.4566, 0.4597 and 0.4628 from $24^2$ on, and its fit
+assumed $\nu = 4/3$, while the energies decide as the stress averages did (above).
+
+For the sites of the cubic lattice the first measurement (96 realizations, $8^3$ to
+$32^3$ voxels, bisected between 0.0976 and 0.2096 down to 0.00175, the stress averages at
+the cut $10^{-8}$, the shift $10^{-10}$) gave $p_{1/2}(L) = 0.1370$, 0.1317, 0.1335,
+0.1317 and 0.1317 and $p_r = 0.1307 \pm 0.0009$. By the energies, with 192 realizations
+of $8^3$ to $48^3$ voxels bisected between 0.1046 and 0.1606 down to 0.000875 (tolerance
+0.0015, the bounds tried last), $p_{1/2}(L) = 0.13916$, 0.13566, 0.13304, 0.13216,
+0.13129, 0.13041 and 0.13041 extrapolate to $p_r = 0.12904 \pm 0.00029$ at the cut
+$10^{-12}$ ($\nu = 0.8765$; $0.12861 \pm 0.00031$ with $\nu = 1$, $0.12904 \pm 0.00035$
+without the $8^3$ voxels, $0.12913 \pm 0.00045$ without the $8^3$ and $12^3$; $\nu$
+fitted, $0.12901 \pm 0.0011$ and $\nu = 0.88 \pm 0.29$), and to $0.13018 \pm 0.00032$ at
+the cut $10^{-8}$, whose $p_{1/2}(L)$ are the same up to $24^3$ voxels and a step of the
+bisection higher from $32^3$ (0.13216, 0.13129 and 0.13129): the moduli of the
+realizations that bear spread without a gap from $10^{-4}$ down to $10^{-14}$, resolved by
+their stress averages (on $40^3$ voxels near $p_{1/2}$, 137 of the 375 solutions resolved
+lie between $10^{-14}$ and $10^{-8}$; at $10^{-10}$ with the confirmations none bears under
+$1.2 \cdot 10^{-12}$, below), while the energies of the floppy ones stay under $1.5 \cdot
+10^{-11}$. The threshold lies between those of the connectivity through 26 and
+18 neighbours, $0.0975 \pm 0.0008$ and $0.1383 \pm 0.0009$ for realizations of the sites
+wrapping around boxes of $16^3$ to $64^3$ voxels (`percolation_scaling`, 96 realizations),
+and far below that through the faces, 0.3116: the corners alone, ball joints, hold the
+voxels (one pinned at three corners not in a line is held). Maxwell's count of the
+constraints, $p\,(6 \cdot 6 + 12 \cdot 5 + 8 \cdot 3)/2$ shared faces, edges and corners
+against the 6 degrees of freedom of a voxel, balances at $p = 0.1$ ($p\,(4 \cdot 3 + 4
+\cdot 2)/2 = 3$ at 0.3 in 2D), below the rigidity thresholds measured, as such counts are:
+they ignore the redundant constraints of the clusters welded by their faces. The sizes
+took 4 s to 6.7 min (12 min in all, 16 processes on the CPU, the laptop on mains): 286 to
+891 solutions per size, 0 to 7 of them unresolved and decided by the round-off, at most 6
+iterations but one image of $32^3$ voxels whose iterations stalled at a residual of $2.5
+\cdot 10^{-7}$ after 300 (unresolved, decided by the round-off), the stress averages of
+the images that bear within half of their energies. The boxes of $64^3$ voxels, 4 s per
+factorization alone but 34 s with ten processes sharing the memory bandwidth, were stopped
+after their first fraction (11 min). The FFT solver does not converge on these images
+(above).
+
+Those solutions stopped at the tolerance $10^{-8}$, where floppy images bear by the cut
+(above). At $10^{-10}$ with the confirmations, 1,725 realizations of $8^3$ to $80^3$
+voxels (200 of each size, 300 of $32^3$ and 25 of $80^3$), each bisected to its own
+threshold (to 0.0025 on $8^3$ down to 0.0002 on $80^3$: 10,111 solutions, 252 of them
+confirmed and 39 of these under the cut or scattered at $10^{-11}$), give $p_{1/2}(L) =
+0.1356$, 0.1338, 0.1332, 0.1316, 0.1321, 0.1314, 0.1313, 0.1309 and 0.1308 on $8^3$ to
+$80^3$ voxels (standard errors 0.0019 on $8^3$ to 0.00015 on $64^3$, 0.0003 on $80^3$)
+and means 0.1374, 0.1334, 0.1333, 0.1316, 0.1316, 0.1313, 0.1312, 0.1308 and 0.1309,
+which extrapolate to $p_r = 0.1304 \pm 0.0002$ ($\nu = 0.8765$, $\chi^2 = 5.6$ for 7
+degrees of freedom; 0.1304 without the $8^3$ and $12^3$ voxels, $0.1300 \pm 0.0003$ from
+$32^3$; the means $0.1303 \pm 0.0001$, $0.1302 \pm 0.0002$ from $32^3$; the exponent
+fitted, 0.1300 to 0.1304 with errors of 0.0002 to 0.0005; the shares of $48^3$, $64^3$
+and $80^3$ voxels cross at 0.1302); the widths of the realizations' thresholds, 0.024 on
+$8^3$ to 0.0014 on $64^3$ (0.0009 on $80^3$), fall as $L^{-1.38 \pm 0.03}$ ($L^{-1.32 \pm
+0.04}$ from $16^3$: $\nu = 0.76 \pm 0.03$, under the 0.8765 of the connectivity). At
+$10^{-8}$ the same realizations bear from fractions lower by 0.0003 to 0.003 (23 of 32 on
+$32^3$ to $80^3$ voxels), and 24 to 57 realizations of $32^3$ to $80^3$ voxels give
+$p_{1/2} = 0.1312$, 0.1301, 0.1298 and 0.1294, which extrapolate to $0.1285 \pm 0.0004$,
+the 0.12904 of the measurement above: the bias grows with the box (their medians 0.0010
+lower on $64^3$ voxels and 0.0013 on $80^3$), as the share of the images left floppy
+near the cut does. The shares that bear at $p_r$, 0.39, 0.38, 0.35, 0.40, 0.36, 0.33,
+0.31, 0.37 and 0.36 on $8^3$ to $80^3$ voxels ($\pm 0.03$, $\pm 0.1$ on $80^3$), stay at
+about a third, as at a threshold, while at 0.12904 they fall from 0.38 to 0.11 on $64^3$
+and to none of the 25 of $80^3$: the threshold of the first measurement lay 0.0014 low,
+which its falling share showed and which steepened its exponent (below). The sizes took
+13.4 h of processes (seven to nine at a time, with the moduli below).
+
+For Boolean discs of 4 pixels of radius (nested in the fraction, a Poisson process thinned,
+64 realizations of $32^2$ to $256^2$ pixels, tolerance 0.0015, the cut $10^{-12}$),
+$p_{1/2}(L) = 0.5906$, 0.6056, 0.6056, 0.5944, 0.6169, 0.6006 and 0.6069 extrapolate to
+$p_r = 0.608 \pm 0.006$ ($0.607 \pm 0.005$ with $\nu = 1$), between their thresholds
+through 8 and 4 neighbours, $0.596 \pm 0.003$ and $0.624 \pm 0.005$ (the same family, 49
+realizations of $64^2$ to $512^2$ pixels by the fire); for Boolean spheres of 3 voxels of
+radius (64 realizations of $24^3$ to $48^3$ voxels) $p_{1/2}(L) = 0.2244$, 0.2219, 0.2144
+and 0.2131 extrapolate to $p_r = 0.202 \pm 0.004$ ($0.200 \pm 0.004$ with $\nu = 1$),
+between their thresholds through 26 and 6 neighbours, $0.1815 \pm 0.0025$ and $0.236 \pm
+0.004$ ($24^3$ to $96^3$ voxels, 49 realizations), the $p_{1/2}(L)$ within 0.007 of those
+through 26 neighbours at the same sizes (0.2317, 0.2255 and 0.2114 on $24^3$, $32^3$ and
+$48^3$). Unlike the sites, which meet mostly at single corners, the grains meet at several
+nodes, which brace them, and at the resolution of 3 or 4 voxels per radius no neck is
+narrower than a node: their connectivity and inclusions decided 73 to 98 % of the images
+(9 to 122 solutions per size), the floppy moduli stayed under $2.3 \cdot 10^{-13}$ and the
+rigid ones above $1.1 \cdot 10^{-7}$, six decades apart, and the sizes took 4 s to 5.6
+min with eight processes.
+
+*The contrast.* With the other phases at $\delta$ times the properties of the phase
+(`contrast`, $10^{-8}$ by default; 0: void), the property follows the crossover of Efros
+& Shklovskii (1976) and Straley (1976), $\langle K \rangle = L^{-t/\nu} \Phi(\delta
+L^{(t+s)/\nu})$, $s$ the exponent of a superconducting phase (0.73 in 3D, 1.30 in 2D):
+at $p_c$ it shifts the mean by about $\delta (L/\ell)^{(t+s)/\nu}$ of itself, $\ell$ the
+size of the grains, and a sweep within $\delta^{1/(t+s)}$ of $p_c$; at $10^{-8}$, below
+$10^{-3}$ and 0.002 for boxes up to 40 grains across in 3D and 300 in 2D, where
+$10^{-6}$ would shift the means of spheres 32 radii across by 5 %. The realizations that
+do not percolate conduct as $\delta$ times an enhancement, known to the tolerance of the
+solver only, and count for little in the mean. The conjugate gradients converge with the
+same iterations at $10^{-8}$ and $10^{-6}$ as for voids (308 to 400 on $64^3$ voxels of
+spheres at 0.26, 150 to 200 on $256^2$ pixels of discs at 0.66, the GPU taking 0.8 and
+0.3 s); dilute phases take many more (sites of the cubic lattice at their threshold
+through 26 neighbours, 0.0976, need 800 to 1,000 iterations on $32^3$ voxels and more
+than 2,280 on $64^3$, the default bound; 480 to 610 at $10^{-4}$).
+
+*Measurements.* On the GPU of §35, at the thresholds above, the contrast $10^{-8}$,
+squares of 64 to 512 pixels (48 realizations each) and cubes of 24 to 96 voxels (32):
+
+| family (conducting phase) | threshold | $t$ | universal |
+|---|---|---|---|
+| discs, radius 4 pixels (inverted Swiss cheese, 2D) | $0.5997 \pm 0.0054$ (extrapolated) | $1.13 \pm 0.16 \pm 0.21$ | 1.30 |
+| | $0.6001 \pm 0.0011$ (mean of the crossings) | $1.13 \pm 0.16 \pm 0.04$ | |
+| matrix around such discs (Swiss cheese, 2D) | $0.3672 \pm 0.0063$ (extrapolated) | $1.80 \pm 0.15 \pm 0.24$ | 1.30 |
+| | $0.3715 \pm 0.0028$ (mean of the crossings) | $1.58 \pm 0.14 \pm 0.13$ | |
+| spheres, radius 3 voxels (inverted Swiss cheese, 3D) | $0.1861 \pm 0.0040$ (extrapolated) | $2.37 \pm 0.36 \pm 0.32$ | 2.0 |
+
+(statistical error, then that of the threshold). The exponents lie within 0.6 to 1.8 of
+their combined errors of the universal values, measured to 0.2 to 0.5 only. The
+threshold weighs most: the slope moves as $dt/dp_c \approx -40$ for the discs (1.43 at
+0.5943, 1.01 at 0.6051, 1.30 at 0.5967) and for their matrix (1.96 at 0.3609, 1.47 at
+0.3735), $-80$ for the spheres (2.71 at 0.1821, 2.07 at 0.1901, 2.0 at 0.191), so that
+$t$ within 0.05 wants $p_c$ within 0.001 in 2D and 0.0006 in 3D. In 2D the crossings
+of squares are unbiased ($a \approx 0$, above), and the mean of
+their estimates, weighted by $N L^{2/\nu}$, is a tighter threshold than the extrapolation
+with a free amplitude: for the discs seven of them (49 and 149 realizations, 64 to 512
+pixels, tolerance 0.001 for the latter) give $0.6001 \pm 0.0011$, where $t$ follows from
+the means interpolated in $\ln \langle K \rangle$ between the three thresholds computed.
+The means themselves scatter: their relative standard errors are 14 to 24 % in 2D and 35
+to 54 % in 3D (the property at $p_c$ is broadly distributed, many realizations not
+percolating), and their logarithms leave residuals of $\pm 0.17$ (discs) to $\pm 0.3$
+(spheres), so that the root of the reduced chi-square scales the statistical errors. A
+sweep of the discs over $p = 0.62$ to 0.75 (0.02 to 0.15 above $p_c$) gives $0.79 \pm
+0.09$, $0.95 \pm 0.10$, $1.23 \pm 0.08$ and $1.26 \pm 0.04$ ($\pm 0.08$ to 0.10 from the
+threshold) on $64^2$ to $512^2$ pixels: the effective exponent of the window rises with
+the box towards 1.30, the smaller boxes cutting the correlation length near $p_c$, and
+reaches it within its errors on 128 radii. The runs took 7 min (discs, with the sweep: 7
+fractions), 5 min (their matrix) and 11.5 min (spheres, at most 1,096 iterations), a
+solution about 2 s on $512^2$ pixels at the threshold (440 iterations).
+
+*The elastic exponent.* At the rigidity thresholds above, void around, the voxels
+factorized, give
+
+| family (bearing phase) | threshold | $f$ | $f/\nu$ | bond bending |
+|---|---|---|---|---|
+| sites of the square lattice (2D), $16^2$ to $256^2$ pixels | $0.4617 \pm 0.0004$ (rigidity, energies at $10^{-10}$) | $3.01 \pm 0.10 \pm 0.06$ | $2.26 \pm 0.07 \pm 0.05$ | 3.96 ($f/\nu = 2.97$) |
+| the same, $32^2$ to $256^2$ | | $3.28 \pm 0.08 \pm 0.10$ | $2.46 \pm 0.06 \pm 0.07$ | |
+| sites of the square lattice (2D), $16^2$ to $256^2$ pixels | $0.4627 \pm 0.0016$ (rigidity, stress averages at $10^{-8}$) | $2.88 \pm 0.12 \pm 0.23$ | $2.16 \pm 0.09 \pm 0.17$ | |
+| discs, radius 4 pixels (inverted Swiss cheese, 2D), $32^2$ to $256^2$ | $0.608 \pm 0.006$ (rigidity, extrapolated) | $3.20 \pm 0.19 \pm 0.24$ | $2.40 \pm 0.14 \pm 0.18$ | |
+| sites of the cubic lattice (3D), $8^3$ to $80^3$ voxels | $0.1304 \pm 0.0002$ (rigidity, energies at $10^{-10}$) | $3.93 \pm 0.08 \pm 0.08$ | $4.48 \pm 0.09 \pm 0.09$ | 3.75 ($f/\nu$ about 4.3) |
+| the same, $16^3$ to $80^3$ | | $4.15 \pm 0.15 \pm 0.14$ | $4.73 \pm 0.17 \pm 0.16$ | |
+| sites of the cubic lattice (3D), $8^3$ to $32^3$ voxels | $0.1307 \pm 0.0009$ (rigidity, stress averages) | $3.23 \pm 0.30 \pm 0.25$ | $3.69 \pm 0.34 \pm 0.29$ | |
+| sites of the cubic lattice (3D), $8^3$ to $48^3$ voxels | $0.12904 \pm 0.00029$ (rigidity, energies at $10^{-8}$) | $4.58 \pm 0.19 \pm 0.07$ | $5.23 \pm 0.22 \pm 0.08$ | |
+| spheres, radius 3 voxels (inverted Swiss cheese, 3D), $24^3$ to $48^3$ | $0.202 \pm 0.004$ (rigidity, extrapolated) | $4.65 \pm 0.59 \pm 0.05$ | $5.30 \pm 0.67 \pm 0.06$ | |
+
+(statistical error, then that of the threshold, half the change of the slope over $p_r \pm
+\sigma$; $\nu = 4/3$ and 0.8765). The sites at $10^{-10}$, with the confirmations, are
+realizations of their own (400 of $16^2$ to $128^2$ pixels, 300 of $192^2$, 200 of
+$256^2$; 400 of $8^3$ to $32^3$ voxels, 300 of $40^3$, 200 of $48^3$, 100 of $64^3$ and 20
+of $80^3$), their moduli solved at five fractions about $p_r$ in 2D and six in 3D (0.4600
+to 0.4640, 0.1287 to 0.1312), from the top down, those under a fraction where they do
+not bear vanishing, and the logarithms of the means interpolated to the threshold: 11,050
+and 7,023 solutions, 1.6 h and 3.8 h of processes. In 2D the slope rises with the box:
+between successive sizes $f/\nu = 1.55$ ($16^2$ to $24^2$), 1.95, 2.09, 2.84, 2.21, 2.52,
+2.65 and $2.93 \pm 0.68$ ($192^2$ to $256^2$), the power law over all the sizes leaving
+$\chi^2 = 28.5$ for 7 degrees of freedom, $2.39 \pm 0.05$ from $24^2$ and $2.46 \pm 0.06
+\pm 0.07$ from $32^2$; with a correction to scaling, $\langle C \rangle = A L^{-f/\nu} (1 +
+B L^{-\omega})$, $f/\nu = 2.63 \pm 0.07 \pm 0.08$ for $\omega = 1$ ($B = -10$, $\chi^2 =
+1.9$ for 6), 2.55 and 2.51 for $\omega = 1.5$ and 2, the data not fixing $\omega$ (fitted,
+$0.2$, $f/\nu = 2.9 \pm 2.7$); at the threshold of the first measurement, 0.4627, the
+same moduli give $2.15 \pm 0.06$ over all the sizes, its $2.16$, and at 0.4635 ($\nu =
+4/3$ imposed) $2.07$ to $2.21$. The typical moduli of those that bear, $\exp \langle \ln C
+\rangle$, scale alike ($2.51 \pm 0.06$, $2.67 \pm 0.08$ from $32^2$). In 3D the power law
+fits all the sizes ($\chi^2 = 6.4$ for 7): $f/\nu = 4.48 \pm 0.09 \pm 0.09$, $4.60 \pm
+0.13$ from $12^3$, $4.73 \pm 0.17 \pm 0.16$ from $16^3$, $4.77 \pm 0.27$ from $24^3$ and
+$4.27 \pm 0.43$ from $32^3$, between successive sizes 4.27, 3.86, 4.38, 5.72, 4.73, 2.75,
+5.08 and $4.50 \pm 3.25$ ($64^3$ to $80^3$, 20 realizations), with a correction $4.85 \pm
+0.21 \pm 0.18$ ($\omega = 1$, $B = -4.3$, $\chi^2 = 3.9$ for 6, which one more parameter
+does not lower significantly), 4.78 and $4.73 \pm 0.17$ for $\omega = 1.5$ and 2, $4.8 \pm
+1.1$ with $\omega$ fitted (1.25); the typical moduli give $4.92 \pm 0.11$. At the
+threshold of the first measurement, 0.12904, the same moduli steepen as its did: $5.04 \pm
+0.18$ over all the sizes ($\chi^2 = 19.6$ for 7), 5.73 from $16^3$, 6.15 from $24^3$; at
+$p_r$ they do not. At $p_r$ the moduli of the realizations scatter by 2.4 to 4 times their
+means on $8^3$ to $80^3$ voxels (relative standard errors of the means of 12 % on $8^3$ to
+36 % on $64^3$ and 68 % on $80^3$), a third of them bearing.
+
+The first measurements: the sites by the stress averages with 64 realizations per size, 3
+min and 1 min with ten processes on the CPU, at most 100 and 300 iterations; by the
+energies at $10^{-8}$, 128 realizations of the cubic lattice and 64 of the discs and
+spheres, 16.5, 5.6 and 6.2 min with eight processes each, two runs sharing the CPU, at most
+500 iterations. In 2D the slope moves as
+$df/dp_c \approx -146$ (3.08 at 0.4612, 2.62 at 0.4643) and rises without the smallest
+boxes ($2.98 \pm 0.16 \pm 0.28$ without $16^2$, $3.13 \pm 0.17 \pm 0.34$ without $16^2$
+and $24^2$; $f = 2.61$ with $\nu = 1.21$), the realizations scattering by 1.3 to 2.6 times
+their means (standard errors of 16 to 33 %) and the logarithms of the means leaving
+residuals of up to $\pm 0.35$; 48 realizations of $16^2$ to $64^2$ pixels by the FFT
+solver gave $2.47 \pm 0.21 \pm 0.34$ at its threshold, 0.4647, within the errors. In 3D
+$df/dp_c \approx -270$ (3.44 at 0.1297, 2.93 at 0.1316), $3.33 \pm 0.47 \pm 0.32$ without
+the $8^3$ voxels and $4.04 \pm 0.52 \pm 0.34$ ($f/\nu = 4.6 \pm 0.7$) without $8^3$ and
+$12^3$, the realizations scattering by 1.9 to 3.5 times their means, the residuals up to
+$\pm 0.36$. By the energies at the threshold of the energies, $0.12904$, $f = 4.58 \pm
+0.19 \pm 0.07$ on $8^3$ to $48^3$ voxels ($df/dp_c \approx -240$: 4.64 at 0.12875, 4.50 at
+0.12933), $4.64 \pm 0.31 \pm 0.07$ without the $8^3$ voxels, $4.84 \pm 0.39 \pm 0.07$
+without $8^3$ and $12^3$ and $5.68 \pm 0.55 \pm 0.20$ on $24^3$ to $48^3$, the realizations
+scattering by 2.8 to 5.4 times their means (standard errors of 25 to 48 %), while the
+share of those that bear at the threshold falls from 33 % on $8^3$ voxels to 16 % on
+$48^3$: the slopes steepen as a threshold too low makes them ($df/dp_c \approx -690$ on
+$24^3$ to $48^3$), by as much as a shift of 0.001, the distance between the thresholds of
+the two cuts, so that no correction to scaling can be told from the threshold's error. The
+first measurement, 3.23 at 0.1307 on $8^3$ to $32^3$, differs by its threshold (0.4 by
+$df/dp_c$) and its boxes. The discs give $f = 3.20 \pm 0.19 \pm 0.24$ ($df/dp_c \approx
+-38$; $3.44 \pm 0.20 \pm 0.27$ without $32^2$), 0.8 combined errors from the sites of the
+square lattice, and the spheres $4.65 \pm 0.59 \pm 0.05$ on $24^3$ to $48^3$ voxels (8 to
+16 radii), within the errors of the sites of the cubic lattice: at a fixed resolution the
+voxels do not resolve the necks narrower than a voxel, the grains meeting at the nodes,
+edges and faces of the voxels as the sites do, and the exponents stay those of the
+voxels, as $t$ did (above). The abstract of Halperin, Feng & Sen (1985) states that the
+exponents of the conductivity, the elastic constants and the permeability of continuum
+Swiss-cheese models, the medium around randomly placed spherical holes, are
+significantly larger than their lattice counterparts, except the conductivity in 2D, and
+gives no value; that of Feng, Halperin & Sen (1987) gives none either (variational and
+scaling bounds on the raised exponents, of bonds whose strengths are widely distributed);
+neither abstract mentions the inverted Swiss cheese, the grains bearing, measured here.
+The bond-bending lattices, every connected cluster of which is rigid, have $f
+\approx t + 2\nu$ (the bending of the singly connected bonds; Kantor & Webman 1984) at the
+threshold of their connectivity. As their abstracts give them, bond bending has $f/\nu$
+about 4.3 in 3D (Arbabi & Sahimi 1993, part I) and $f \approx 3.75$ (Sahimi & Arbabi 1993,
+part II, for the physical gels it describes), and central forces on the bcc lattice $f/\nu
+\approx 2.1$, "distinctly different" (part I); the 2D bond-bending 3.96 is that of Sahimi
+(1994) quoted above, not read again here. In 3D the voxels' $f/\nu = 3.69$ of the
+stress averages lay 1.4 combined errors below the bond-bending 4.3, and that of the
+energies at $10^{-8}$, $5.23 \pm 0.22 \pm 0.08$, 4.0 above it, steepening as the smallest
+boxes were left out because its threshold lay 0.0014 low. At $10^{-10}$ with the
+confirmations, $f/\nu = 4.48 \pm 0.09 \pm 0.09$ on $8^3$ to $80^3$ voxels lies 1.4
+combined errors above the bond-bending 4.3 and 18 above the central-force 2.1 of the bcc
+lattice, and $4.73 \pm 0.17 \pm 0.16$ from $16^3$ or 4.73 to $4.85 \pm 0.28$ with a
+correction to scaling 1.8 to 2.0 above 4.3: in 3D the exponent of the voxels' rigidity is
+that of bond bending within two errors, not that of central forces. In 2D $f/\nu$ rises
+from 2.26 over all the sizes to $2.46 \pm 0.09$ from $32^2$ and $2.63 \pm 0.11$ with a
+correction, 3 to 8 combined errors below the bond-bending 2.97, the slope between the two
+largest boxes $2.93 \pm 0.68$: still rising, it does not tell, and no central-force
+exponent was read for comparison. Their thresholds, distinct from those of the
+connectivity, and the exponents of their widths, $\nu = 1.14 \pm 0.02$ in 2D (1.21 ± 0.06
+for central forces) and $0.76 \pm 0.03$ in 3D, against 4/3 and 0.8765 for the
+connectivity, make the rigidity of the voxels, rigid bodies pinned at their corners and
+hinged at their edges, a percolation of its own, as for central-force networks, whose
+ratio $f/\nu$ is in 3D that of bond bending: neither class as these lattices define them
+(with the $\nu$ of the widths, $f = 3.4 \pm 0.2$ in 3D against the bond-bending 3.75, and
+$3.0 \pm 0.1$ in 2D with the correction). By the FFT solver (the previous measurement, on $24^2$ pixels at 0.4647, 16
+realizations), the contrast $10^{-8}$ raised the mean by $4 \cdot 10^{-5}$ of that of
+void, $10^{-6}$ by 0.4 % and $10^{-4}$ by 30 %, the realizations that do not bear taking
+$\delta$ times 14 to 58, and the solutions reached $45 L$ iterations near $p_r$ (1,703 on
+$48^2$ pixels, 2,885 on $64^2$), hence the bound of $50 L + 1000$ of the moduli; its sizes
+of $16^2$ to $64^2$ took 3 to 12 min on the CPU (the GPU of the laptop, saturated by
+twelve processes and then throttled to 210 MHz, ran slower than the CPU on these boxes).
+
+*What the laptop leaves out.* The boxes span 16 to 128 radii in 2D and 8 to 32 in 3D;
+the corrections to scaling show in the residuals, and the boxes of 24 and 32 voxels (8
+and 11 radii) are small for the 3D exponent. Within an hour of the GPU, $t$ is known to
+0.2 (2D) and 0.5 (3D), the threshold's part reducible by a few hundred realizations of its
+crossings (cheap: the fire costs 10 ms on $512^2$ pixels), the statistical part by a few
+hundred realizations of the property per size (half the error for four times the time).
+The elastic exponent is measured on the sites of the square and cubic lattices, on boxes
+of 16 to 256 pixels and 8 to 80 voxels, and on discs and spheres of 32 to 256 pixels and
+24 to 48 voxels, by the voxels factorized: the FFT solver takes $45 L$ iterations near the
+rigidity threshold in 2D and does not converge in 3D (above). The energies decide on the
+large boxes, the cut at their round-off, once the iterations have resolved the soft modes
+(the tolerance $10^{-10}$ and the confirmations at $10^{-11}$); with nine processes
+sharing the memory bandwidth a solution takes 10 to 25 s on $64^3$ voxels near $p_r$
+(1.5 to 5 s alone), 60 to 90 s on $80^3$, and 35 to 60 s on $96^3$ with two of them (27
+s alone), and SuperLU's guess of the fill, committed though untouched, bounds the
+processes on large
+boxes (above), so that the $80^3$ voxels have 25 realizations of their thresholds and 20
+of their moduli and the $96^3$ none, the $384^2$ and $512^2$ pixels none either. In 3D
+the exponent is that of bond bending within two errors (above); the $80^3$ voxels weigh
+little in it (a mean known to 68 %), and more realizations of $64^3$ to $96^3$ voxels
+would tell whether the correction to scaling that the fits allow (4.48 to 4.85) is there.
+In 2D the slope still rises at $256^2$ pixels ($2.93 \pm 0.68$ between the two largest
+boxes), and the $\nu$ of the widths, 1.14 rather than 4/3, makes the extrapolation of the
+threshold rest on boxes from $96^2$ on, where its median no longer moves: boxes of $384^2$
+and $512^2$ pixels (13 s per solution of $512^2$ with eight processes) would tell both. The
+thresholds of the discs and spheres want more realizations (64 here, within 0.006 and
+0.004), and their energies the tolerance $10^{-10}$. The
+3D Swiss cheese percolates at a matrix fraction of 0.034 in the
+continuum (Elam, Kerstein & Rehr 1984), whose necks no voxel resolves at the sizes that
+fit in the 8 GB of the GPU; on
+voxels the grid cuts the distribution of the widths of the necks, which brings the
+exponents back to those of lattices, and its continuum $t + 1/2$ (Halperin, Feng & Sen
+1985) is out of reach, as is the 2D $f + 3/2$. In 2D, where the continuum keeps $t$, the
+matrix around discs of 4 pixels gives $1.58 \pm 0.19$, 1.5 combined errors above 1.30:
+more realizations would tell whether its necks, a few pixels wide near $p_c$, still
+raise it on these boxes.
+
+The command `morphogen percolation CONFIG --sizes L1,L2,... --rigidity [--cut C]` gives
+the rigidity threshold over the sizes; `--exponent thermal|elastic` extrapolates the
+threshold over the sizes (for $t$ through 26 neighbours and wrapping around the box by
+default, for $f$ by the moduli as `--rigidity` does; refused when it leaves the bounds
+within its error), or takes `--threshold` and `--threshold-stderr`, then fits the
+exponent over the same sizes, with a sweep over `--fractions`, the other phases at
+`--contrast`, by the FFT solver on `--device` or, with `--solver fe`, by the voxels
+factorized. The field "rigidity threshold" of the tool "Percolation threshold" (with its
+cut) draws the shares of the realizations that bear and their moduli against the
+fraction, with the finite-size scaling; the field "critical exponent" draws the means of
+the boxes against their size on logarithmic axes with the fitted power law, at the
+rigidity threshold for $f$ when none is given; the field "solver" chooses between the
+two.
+
+## 56. Affine anisotropy of the models (`models.affine`)
+
+Every model whose isotropy is a choice rather than its meaning takes the same field
+`anisotropy`: its realization is the image $x = A y$ of a realization $y$ of the isotropic
+model, with $A = g^T \mathrm{diag}(s)\, g$, stretches $s$ along principal axes (the rows of
+the Bunge rotation $g$ of `euler`, §20). The stretches are normalized to $s_1 s_2 s_3 = 1$:
+the map preserves volumes, so that volume fractions, numbers per unit volume, object
+volumes, integral ranges (an integral of the covariance over lags, $dh = \det A\, dh'$) and
+topological numbers (Euler densities, faces per cell, coordinations) keep their values,
+and `theory()` keeps exactly those; specific surfaces, curvatures, radii and lengths
+change and are dropped. The image of a stationary isotropic set by $A$ is stationary,
+with covariance $C(h) = C_0(|A^{-1} h|)$ and mean intercept lengths $\mathrm{MIL}(d) =
+\mathrm{MIL}_0 / |A^{-1} d|$: $1 / \mathrm{MIL}^2 = d \cdot A^{-T} A^{-1} d /
+\mathrm{MIL}_0^2$ is exactly the ellipsoid of the fabric tensor (§39), of principal axes
+those of $A$ and principal MILs in the ratios of $s$. The images of the models: aligned
+ellipsoids of semi-axes $s_i r$ for the Boolean, hard-core and cherry-pit spheres (a
+hard-core packing maps to a hard-core packing), the tessellation of the stretched space
+mapped back for Voronoi and Laguerre (the classical anisotropic tessellation: the Voronoi
+cells of the metric $A^{-T} A^{-1}$), leaves and transparent leaves of ellipsoids, grains
+of Johnson–Mehl growth with ellipsoidal fronts (a directional growth kernel), aggregates of
+an anisotropic diffusion, Cox spheres in mapped aggregates, TPMS and strut lattices of
+stretched periods (struts of elliptic sections). The Gaussian field puts the metric in its
+covariance, $\rho(|A^{-1}h|)$, whose spectral density at $k$ is that of the isotropic field
+at $A^T k$: the modes of the box are weighted by $\exp(-\ell^2 |A^T k|^2 / 2)$, cut at
+$|A^T k| \le 6/\ell$. The open foam keeps its own construction (germs tessellated in the
+stretched box, struts of circular sections), its elongation `anisotropy` along `axis`
+now also given in the common schema. Models already anisotropic by construction keep
+their own parameters: fibres (orientation distributions), laminates, Bouligand plywoods,
+nacre, honeycombs and wood, osteons, foams of aligned seeds (`level_set_foam`, `aspect`).
+
+**Periodicity.** The image of a box periodic with periods $L_i e_i$ has periods $A L_i
+e_i$: it tiles space with the same box only when $A$ is diagonal in the box axes (Euler
+angles that are multiples of 90°, or a turn about the axis of two equal stretches). The
+isotropic model is then generated in the box of edges $L_i / t_i$ ($t = \mathrm{diag}\,A$),
+periodic, and its image on the grid of the same shape is that of the anisotropic structure
+(spacings $h_i / t_i$ onto $h_i$: an exact map of grids, which only relabels the voxels;
+models of cells need whole cells in that box, e.g. stretches 1 : 2 : 4 map the cubic
+cells of a box onto cells 0.5, 1 and 2 times as long). Other principal axes need a
+non-periodic domain, and are refused otherwise; the model is then generated in the
+bounding box of the preimage of the domain (numbers of cells refer to that box), two-phase
+structures are voxelized exactly by point queries at the preimages of the voxel centres,
+and grains, several phases and level sets by sampling a preimage grid of spacing the voxel
+size over the largest stretch (interfaces within half a voxel: 95 % of the labels of a
+turned Voronoi tessellation agree with the exact cells). The Gaussian field, which applies
+the metric to its own modes, takes any principal axes in periodic boxes.
+
+**Checks.** Without anisotropy the voxel images, labels, theories and configurations of
+the fifteen models are those of the previous version, bit for bit (periodic and not). In
+periodic boxes the images are those of the isotropic models in the preimage box, for each
+model, through JSON round trips. With stretches $1 : 1 : 2$ the correlation lengths along
+the axes (the lags where the normalized covariance falls to 1/2) are in the ratios
+$1 : 1 : 2$ within 4 % (Boolean and hard-core spheres, two-phase Voronoi cells, dead leaves,
+the Gaussian excursion, whose covariances along the axes are $C_0(h / s_i)$ within 0.012),
+and the mean chords too within 5 %, except for dead leaves, whose visible parts keep slivers
+thinner than the compressed voxels (1.83, 1.87, 1.90 on 64, 96, 128 voxels, against 2.01
+for the correlation lengths at every resolution). Turned axes: the longest principal MIL of
+the fabric tensor follows the rotated axis (cosine above 0.99), ratios $2.0$ within 8 % (the
+fit of 13 digital directions gives 1.98 for aligned and 1.89 for turned ellipsoids).
+
+## 57. Behaviours learned from data (`learning`)
+
+A learned behaviour is a network fitted to the responses of a behaviour of morphoGen (or
+of a microstructure) along random loading paths, then integrated in its place. NumPy and
+Numba only: the gradients are written out, no automatic differentiation.
+
+**Data.** A random path joins `segments` strains linearly from the natural state, each
+segment in `increments` steps: a random walk (steps of the tensor components uniform, of
+standard deviation `amplitude/√segments`, held within ±`amplitude`) or independent
+strains (`kind: linear`); the volumetric part is scaled by `volumetric` (0.2: the
+volumetric strains of metals are elastic and small; 1 for porous media), the components
+not `components` are held at zero strain or free (`free`), the segments last a unit time
+or the time of a strain rate. The responses come from `simulate_point` or from a path
+solver of a microstructure (the homogenized response, `NonlinearFFTProblem.run`), at the
+planned steps. In finite strains the data are the Green-Lagrange strain `E = (FᵀF - I)/2`
+and the second Piola-Kirchhoff stress `S = J F⁻¹ σ F⁻ᵀ`, objective and conjugate. The
+paths are split into training and validation sets; the networks see `x = ε/s_ε` and give
+`y = σ/s_σ` with the scalar scales `s` of the training set (root mean squares): scalars,
+so that the isotropy of the data and the potential of the stress survive the
+normalization. A model learns the responses to the components its data drive only: a
+learned law can solve for a free stress only if its data drive that component by strain
+(the data of a stress-free component lie on `σ_ij = 0` and say nothing of `∂σ_ij/∂ε_ij`,
+which Newton's method needs).
+
+**Models.** Each has a linear term started at the least-squares fit of the data:
+
+* `FeedForward`: `y = L x + N(x)`, `N` a perceptron of `tanh` layers; path-independent;
+  its tangent is the Jacobian of the network, not symmetric in general.
+* `Potential`: `y = ∇W(x) - ∇W(0)` with `W(x) = ½ xᵀ L Lᵀ x + w · z_K`, an input-convex
+  network (Amos, Xu & Kolter 2017): `z_1 = g(U_1 x + b_1)`, `z_k = g(W_k z_{k-1} + U_k x +
+  b_k)`, `W_k = softplus(V_k) ≥ 0`, `w = softplus(v) ≥ 0`, `g` the softplus (convex,
+  increasing). `W` is convex as a sum of nonnegative combinations of convex increasing
+  functions of convex functions; `ψ(ε) = s_σ s_ε (W(x) - W(0) - ∇W(0)·x)` is then convex,
+  zero with its gradient at the natural state and nonnegative, the stress `σ = ∂ψ/∂ε`
+  derives from it (hyperelasticity: no dissipation on a closed path), and the tangent
+  `∂²ψ/∂ε²` is symmetric and positive semi-definite by construction, whatever the
+  parameters. The tangent is a forward derivative of the backward gradient (the
+  Hessian, exact).
+* `Recurrent`: a gated recurrent unit (Cho et al. 2014) over the steps, of input `u_n =
+  (x_{n+1}, Δε_n/s_Δε)` (and `Δt_n/s_t` with `rate`), of state `h` (`hidden` learned
+  internal variables): `r, z = sigmoid(...)`, `c = tanh(W_c u + b_c + r ⊙ (U_c h + b_h))`,
+  `h_{n+1} = c + z ⊙ (h_n - c)`, and `y_{n+1} = V h_{n+1} + Q x_{n+1} + q`. The consistent
+  tangent of a step is the derivative of its stress with respect to the strain at its end,
+  the state at its start held (forward derivatives through the gates).
+* `Standard`: a generalized standard material of `internal` learned internal variables, a
+  convex free energy and a convex dissipation potential of them, the state of a step the
+  minimizer of its incremental potential (below: thermodynamically consistent by
+  construction).
+
+In finite strains every model sees the logarithmic strain `½ ln C` and gives the stress
+conjugate to it (`strain: logarithmic`, the default), or sees `E` and gives `S`
+(`green-lagrange`): below, *The other learned laws in the logarithmic strain*.
+
+**Losses and gradients.** The objective is the mean square of the gaps of the normalized
+stresses: over the points for the path-independent models, over whole paths from the
+natural state for the recurrent one (backpropagation through time, compiled by Numba
+over time-major arrays with the products of a step by BLAS: three times NumPy's speed).
+The potential is fitted through its gradient only: the gradient of the objective with
+respect to the parameters is that of `G = Σ_n r_n · ∇W(x_n)` (the gaps `r_n`, minus their
+sum at `x = 0`), and `G` is the derivative of `W` along `r_n`, a forward pass of
+tangents `(a_k, ȧ_k)` differentiated backward: second derivatives without a Hessian.
+All gradients and tangents are checked against central differences (`test_learning.py`,
+to 1e-6 of the largest entry).
+
+**Training.** Adam on shuffled mini-batches (points, or paths), the gradient clipped to
+a global norm of 1, the rate falling geometrically to a tenth over the epochs; the
+parameters kept are those of the least validation loss (early stopping after `patience`
+epochs without a better one). With `rotate` (isotropic behaviours), each mini-batch is
+turned by uniform random rotations at each epoch (strains and stresses by the 6 x 6
+matrices of `R t Rᵀ`): data of every direction without more responses, which removes the
+overfitting of small sets. With `rotate: cubic` (a cubic crystal, its data in its axes)
+the rotations are drawn among the 24 of the cube (the signed permutation matrices of
+determinant 1), the symmetries of the crystal: its responses along the turned paths are
+its responses, 24 times the data for nothing. The seeds of the model and of the training
+make it reproducible to the bit.
+
+**Learned laws.** `learned: model.npz` in a material (beside its elastic constants, for
+the linear problems and the reference medium; `learned_material` takes them from the
+initial tangent) integrates its points by the model, along the seam of the MFront
+behaviours: points of the kind skipped by the kernels and integrated after them, at a
+material point, by finite elements and on voxels. The internal variables of a point hold
+the strain at the end of its step and the state of the network; every step starts from
+them, so that divided steps and Newton's iterations need no care. The tangent is exact at
+a material point; in volume elements it is symmetrized for the conjugate gradients when
+the laws are all symmetric (the potential, the standard model) and kept whole for GMRES
+otherwise (the perceptron, the recurrent network: §31). In finite
+strains the law of `E` (of `½ ln C` within it, below) gives `P = F S` and `∂P/∂F = I ⊠ S +
+F · ∂S/∂E · ∂E/∂F`; `E = (H + Hᵀ + HᵀH)/2` of `H = F - I`, which keeps the digits that
+`(FᵀF - I)/2` cancels.
+
+**Turned laws** (crystals turned). A learned law runs in the axes of its material, as the
+crystal laws do: the orientation of its point (`crystal = g sample`: the Bunge angles of
+`simulate_point(..., orientation=...)`, those of the grain of each point in polycrystals,
+by finite elements on the meshes of grains and on voxels with the labels of the grains)
+turns the strain in, `ε_g = g ε gᵀ`, and the stress and the tangent back, `σ = Tᵀ σ_g`,
+`C = Tᵀ C_g T` (`T`: the 6 x 6 matrix of `t ↦ g t gᵀ` on engineering strains; `Tᵀ` is the
+inverse of the matrix of the stresses, so that the work and the energy are unchanged). In
+finite strains the Lagrangian measures turn alike, `E_g = g E gᵀ` and `S = Tᵀ S_g`, before
+`P = F S`: this is the rotation of the reference configuration, `F_g = g F gᵀ` as at the
+MFront seam. A material with a learned law is oriented (`Material.oriented`), so that the
+solvers pass it the orientations of the grains; `learned: {model: ..., oriented: false}`
+keeps the law in the axes of the sample. A law learned once in the axes of a crystal then
+serves every grain. *Order of the components at each interface*: morphoGen's Voigt order
+11, 22, 33, 23, 31, 12 (engineering shears of the strains) in the data, the models, the
+6 x 6 rotations, the internal variables (the strain of the model, in the axes of its
+material) and the arrays of the points; in finite strains `F` and `P` row by row. The
+learned points sit beside the MFront points of the seam but never pass TFEL's order 12,
+13, 23 (with its factors √2), which only `MFrontPoints` converts to. *Checks* (orthotropic
+stiffness of shear moduli 60, 40 and 20 GPa, so that an exchange of shears shows: 13 % on
+the turned stiffness for 23 and 12): its linear fit (the linear term of every model, the
+network silenced) turned by (30°, 50°, 70°) gives the stresses of the crystal turned by
+the same angles along a path of the six components to 1.2·10⁻¹⁵ and its tangent to
+7·10⁻¹⁶; the turned laws are equivariant to round-off (below 10⁻¹² in the tests, the
+rotations as 3 x 3 tensors): a recurrent law with its state along steps, `σ(g; ε) = gᵀ
+σ(I; g ε gᵀ) g`, and a potential of `E` in finite strains, `P(g; F) = gᵀ P(I; g F gᵀ) g`
+and its tangent as a fourth-order tensor, the tangents of the turned laws the derivatives
+of their stresses (10⁻⁶); a polycrystal of 6 grains of copper (6³ voxels, FFT) with the
+linear fit of the cubic crystal gives the response of its crystals to 4·10⁻¹¹ (stresses)
+and 2·10⁻¹⁰ (strains), the solver at 10⁻⁸, and not oriented (every grain along [100]) an
+apparent modulus of 67 GPa instead of 131 GPa. Crystal plasticity (Méric & Cailletaud,
+octahedral systems, `τ0 = 80`, `Q = 20` and `K = 25` in MPa, `b = 10`, `n = 10`, cubic
+elasticity 250, 160, 120 GPa) learned at a material point in its axes by a recurrent
+network of 32 states with the time step as an input (random walks of the six components
+at 10⁻³ s⁻¹, 4 x 8 steps, to 1 %), then turned grain by grain in a periodic Voronoi
+polycrystal of 8 grains on 8³ voxels (FFT, B-bar), along a tension to 1 % at 10⁻³ s⁻¹
+(the other stresses free), against the crystal law itself:
+
+| Data, training | Validation paths (at a point) | Uniaxial tensions at a point, three orientations | Polycrystal, S11 along the path (end) |
+|---|---|---|---|
+| 256 walks, 300 epochs | 10.4 % (best epoch 37: overfitting) | 14 %, 19 %, 24 % | 10.8 % (-3.4 %) |
+| 256 walks, 300 epochs, rotations of the cube | 5.2 % | 8.2 %, 14 %, 18 % | 6.7 % (+7.7 %) |
+| 512 walks, 500 epochs, rotations of the cube | 3.9 % | 8.4 %, 14 %, 25 % | 5.9 % (+6.8 %) |
+
+The homogenized response is within the error of the law at a point (it averages the
+errors of the grains): the error is that of the learned law, not of its turning, which
+the linear crystal checks to round-off. The data take 5.5 s and the training 31 s (512
+walks); the polycrystal runs in 8.3 s with the learned law against 1.3 s with the
+kernel of the crystal.
+
+**Thermal strains.** morphoGen's own behaviours depend on the temperature through the
+thermal expansion only (their parameters do not depend on it), and so do learned laws: the
+model sees the mechanical strain, the stress-free thermal strain `α ΔT` of the material
+(`expansion`: one coefficient, principal values or a tensor in the axes of the material;
+`ΔT` from the stress-free state) taken out before the law, `ε_m = g ε gᵀ - α ΔT`, and the
+internal variables keep `ε_m`. In finite strains the split is that of the Hencky points
+(§33): the mechanical logarithmic strain `H_m = ½ ln C - α ΔT` (in the axes of the
+material: `C` of `g F gᵀ`), the stress `T` conjugate to `H = ½ ln C`, the free energy per
+unit reference volume. A law of `ln C` sees `H_m`; a law of `E` sees the Green-Lagrange
+strain of `H_m`, `E_m = ½ (exp(2 H_m) - I) = ½ (exp(ln C - 2 α ΔT) - I)` (`expm1` of the
+eigenvalues of `2 H_m`), the only strain whose logarithmic strain is `H_m`: a law of `E` of
+Hencky's elasticity, `ψ(E_m) = ½ H_m : ℂ : H_m`, then gives the stresses of the Hencky
+points, and laws of `ln C` and of `E` of the same elastic response agree. The stress `S_m`
+of the model gives the stress conjugate to `H`, `T = J_m⁻ᵀ S_m`, and its tangent `K = ∂T/∂H
+= J_m⁻ᵀ (∂S_m/∂E_m - T : ∂²H/∂E²|_{E_m}) J_m⁻¹` (`J = ∂H/∂E`, `J_m` at `E_m`: `S_m = J_mᵀ
+T` differentiated); the stress conjugate to `E` is `S = Jᵀ T`, its tangent `Jᵀ K J + T :
+∂²H/∂E²` (the kernels of the laws of `ln C`, `learning/logarithmic.py`), since `S : δE = T
+: δH = S_m : δE_m` at a given temperature. The seam treats every model as a law of `E_m`
+(`thermal_split`, `thermal_conjugate`): a law of `ln C` computes `H(E_m) = H_m` and its
+`J_m`, which the seam undoes, to round-off. The tangent is symmetrized when that of the
+model is symmetric to the bit (a potential, a standard model); a heated point fails where
+`C` is not positive definite, as a Hencky point does. The split costs 10 µs a point (NumPy
+around the kernels of `ln C`: a step of a potential 16-16 of `ln C` takes 32 µs a point
+heated, 23 µs unheated). For an isotropic expansion `E_m = A (E + I/2) A - I/2` with `A =
+exp(-α ΔT)` and `S = A S_m A`: the multiplicative split `F = F_m F_th`, `F_th = exp(α
+ΔT)` (Lu & Pister 1975), with the free energy per unit reference volume. For an
+anisotropic one the logarithms add only where `C` and `α` commute (and their derivatives
+not even there), so that this split is off the Hencky points: 2.8·10⁻⁵ of the stress of
+the turned crystal below along the heated gradient, for a law of `E` of Hencky's
+elasticity (8·10⁻¹⁶ with `E_m` above). Until now the learned laws took the multiplicative
+split with the free energy per unit volume of the heated configuration, `S = J_th A S_m A`
+(`J_th = det F_th`): `J_th` times the stresses of the Hencky points, 1.1 % at `α ΔT =
+3.6·10⁻³` (isotropic) and 1.8 % for the turned crystal. Small strains are unchanged;
+without an expansion a change of temperature leaves the law unchanged; the expansion of a
+reference material goes to its learned material (`path_errors`, the tool). *Checks* (the
+linear fit of elastic data, `α =
+1.2·10⁻⁵ K⁻¹`, `ΔT = 300 K`): free heating at a material point, `ε = α ΔT` and `σ = 0` to
+2.5·10⁻¹⁶ (relative to `α ΔT` and `E α ΔT`); constrained heating (`σ = -E α ΔT/(1 - 2ν) =
+-1800 MPa`) and a heated tension against the elastic material with the same expansion, to
+10⁻¹⁵; the orthotropic crystal of expansions 1, 2 and 3·10⁻⁵ K⁻¹ turned by (30°, 50°, 70°),
+heated free and constrained, gives the strains and stresses of the crystal to 10⁻¹⁵. In
+finite strains: free heating gives `F = exp(α ΔT) I` exactly, as the Hencky points do
+(10⁻¹⁶); a law that is Hencky's elasticity (the potential of `ln C` started on Hencky's
+data, its network silenced, Hencky's law to 4·10⁻¹⁵; a law of `E` that computes `S = Jᵀ ℂ
+H`), with the isotropic expansion and as the turned crystal (its orthotropic stiffness and
+three expansions), gives the stresses of the Hencky points under constraint, along a
+heated gradient of the six components (0.02 to 0.06) and along a heated tension to 5 %
+(its lateral stresses free), to 1.3·10⁻¹⁶ to 8.5·10⁻¹⁵ (before: 1.1 % and 1.8 %), and
+their strains to 3·10⁻¹⁵; heated free, no stress (10⁻¹⁵ of `E α ΔT`) and the logarithmic
+strain the thermal strain `ΔT gᵀ α g` to 1.6·10⁻¹⁵; homogeneous cells on voxels (the
+crystal turned by its grain) and by finite elements give the material point to 2·10⁻¹⁰ and
+6·10⁻¹⁶; every model in both strains, its parameters moved, turned with the three
+expansions and heated, has `∂P/∂F` the derivative of `P` along two steps to 3.4 to
+7.1·10⁻⁹, and the potential and the standard model have no stress at the free stretch
+`exp(ΔT gᵀ α g)` (4·10⁻¹⁴ of the constrained stress); unheated or without an expansion in
+finite strains, and in small strains with or without one, every model in both strains
+gives the stresses, tangents and states of the previous commit to the bit. A material
+point now converges on such solutions at zero stress: its Newton iterations stop at the
+round-off of the stresses of the strain (10³ machine epsilons times the stiffness times
+the strain), where the relative tolerance asked for exact zeros (which the linear
+elasticity of the kernels happens to give, and a network does not).
+
+**Thermodynamically consistent laws** (`Standard`, `learning/standard.py`; `kind:
+standard`; in small strains, and in finite strains below). A generalized standard
+material (Halphen & Nguyen 1975; Germain, Nguyen &
+Suquet 1983) has internal variables `α`, a free energy `ψ(ε, α)` and a dissipation
+potential `φ(α̇)`, convex, nonnegative and zero at zero: `σ = ∂ψ/∂ε` and the thermodynamic
+forces `A = -∂ψ/∂α ∈ ∂φ(α̇)`. Its steps follow the incremental variational principle
+(Ortiz & Stainier 1999; Miehe 2002), `α_{n+1} = argmin_α ψ(ε_{n+1}, α) + Δt φ((α -
+α_n)/Δt)`. The model learns both, in the normalized variables (`x = ε/s_ε`, `α`
+dimensionless, `z = (x, α)`):
+
+* the free energy `ψ = s_σ s_ε (W(z) - W(0) - ∇W(0)·z)`, `W(z) = ½ zᵀ L Lᵀ z + Σ_i w_i
+  g(u_i·z + b_i)`: an input-convex network of one layer of `hidden` softplus ridges (`w =
+  softplus(·) ≥ 0`) and a quadratic term, convex in `(ε, α)` jointly, zero with its
+  gradient at the natural state (no stress, no force);
+* the dissipation of a step `Φ(Δα) = φ₁(Δα) + Δαᵀ M Mᵀ Δα/(2τ)` (`τ = Δt/s_t`): with
+  `plastic` (the default) a rate-independent part taken on the increment, positively
+  homogeneous of degree 1 beyond the smoothing `δ` (`smoothing`: 0.01 of the normalized
+  increments), so that the time step drops out, `φ₁(v) = Σ_k [S(t_k) - S(0) - ½ c_k·v]`,
+  `t_k = Σ_j P_kj n_j(v) + c_k·v`, `n_j = (|B_j v|² + δ²)^½ - δ` (smoothed norms), `S(t) =
+  (t + (t² + δ²)^½)/2` (a smoothed ramp), `P = softplus(·) ≥ 0`, `internal` norms and
+  ridges; with `rate` a viscous part, quadratic in the rate. `φ₁` is convex (`S` convex and
+  increasing of the convex `t_k`, less a linear form) and zero with its gradient at zero,
+  hence nonnegative; its elastic domain is the convex set of which it is the support
+  function (an ellipsoid for one norm), sharpened at the scale `δ`, and the ridges of
+  norms and linear forms give cones such as `ṗ ≥ |ε̇_p|_eq`, the constraint of isotropic
+  hardening in the standard form of von Mises' law.
+
+The incremental problem is convex in `α` (strictly, `L Lᵀ` being positive definite):
+Newton's method on its gradient from `α_n`, with Armijo's backtracking on the potential
+far from the solution, to a residual of the normalized forces of 10⁻¹⁰ (2 to 7 iterations
+a step below). By construction, whatever the parameters: the dissipation of a step `D Δt
+= -∂ψ/∂α·Δα = ∇Φ(Δα)·Δα ≥ Φ(Δα) - Φ(0) ≥ 0` (`Φ` convex and least at zero), to the residual
+of Newton's method; the consistent tangent, by the implicit function theorem on `∇_α J =
+0`, is the Schur complement `C = (s_σ/s_ε)(W_xx - W_xα K⁻¹ W_αx)` with `K = W_αα + ∇²Φ`,
+symmetric (symmetrized to the bit) and positive definite, the Hessian of the condensed
+incremental energy `min_α J(ε, α)`, convex: the law is stable, and a material point or a
+solver sees a monotone stress. A step depends on the strain at its end and on `α` at its
+start only (the internal variables of a point). *Training*: the stresses along whole
+paths, as the recurrent network, the gradients through the minimizations by implicit
+differentiation. With `r_n` the gaps of the stress of step `n`, the adjoint of its state
+`λ_n = W_αx r_n + λ'_{n+1}` solves `K μ_n = λ_n`; the parameters receive `∂_θ(v_n·∇W(z_{n+1}))
+- ∂_θ(μ_n·∇Φ(Δα_n))` with `v_n = (r_n, -μ_n)` (and `-Σ_n v_n` at `z = 0`, for `∇W(0)`), and
+the previous state `λ'_n = ∇²Φ(Δα_n) μ_n`, the next state depending on it through the
+dissipation only: derivatives of `W` and `Φ` along the adjoint directions, written out and
+compiled by Numba with the Newton steps (Cholesky's factorization of the small matrices
+by hand; 0.2 s an epoch of 96 paths of 32 steps). Its start: the quadratic term the
+symmetric positive part of the linear fit for `x`, the internal variables coupled to `x` at
+random; the viscous part of relaxation times log-spaced from one mean time step to the
+length of the paths, as a Prony series (with relaxation times far below the steps, the
+training of the standard linear solid below stalls at 4 % near its relaxed response).
+
+*Checks*: the gradients of the objective against central differences (rate-independent,
+viscoplastic and viscoelastic models) to 10⁻⁶ of the largest entry; a model whatever its
+parameters (moved off their start), along paths 1.5 times beyond its data: the
+dissipation of every step nonnegative, the tangent symmetric to the bit, positive definite
+and the derivative of the stress of a step to 10⁻⁶, `σ = ∂ψ/∂ε` and `D Δt = A·Δα` from the
+derivatives of its free energy to 10⁻⁶. A standard linear solid (`ψ = ½ ε:C_r:ε + ½ (ε -
+a):C_b:(ε - a)`, `φ = ½ τ_r ȧ:C_b:ȧ`; `E = 100 GPa` both, `ν = 0.3` and 0.25, `τ_r = 0.5 s`)
+is a standard model of 6 internal variables: its parameters set, the model gives its
+responses to 1.2·10⁻¹⁵ in one Newton iteration a step, and its dissipation `τ_r ȧ:C_b:ȧ Δt`
+to 10⁻¹⁰; learned from 18 random walks at random rates (3 × 6 steps, paths of 5 s; 600
+epochs, 1.7 s), 0.11 % on the validation paths and 0.43 % along an unseen relaxation (a
+strain reached in 0.05 s, then held 3 s). Integrated as a learned law: at a material point
+with free lateral stresses (Newton's method with its symmetric tangent), on voxels and by
+finite elements, the homogeneous cells give the response of the point to 10⁻⁶. *Against
+the recurrent network*, von Mises plasticity (`σ_y = 200 MPa`, `H = 10 GPa`; the data of
+the recurrent network in the table below: 96 walks of 11, 22, 33 and 12, 4 × 8 steps,
+rotated, 300 epochs; 8 internal variables and 32 ridges, trained in 63 s against 8 s):
+
+| Model | Validation paths | Tension-compression ±1 % (strains) | Shear cycle in 23 (strains) | Tension then shear (strains) | Tangent | Dissipation of the steps |
+|---|---|---|---|---|---|---|
+| Recurrent 32 | 4.1 % | 7.9 % (10.5 %) | 11 % (6.0 %) | 12 % (1.7 %) | not symmetric: 4 to 5 % of its largest entry | none defined (no free energy) |
+| Standard, 8 internal variables | 2.3 % | 7.4 % (0.7 %) | 4.8 % (0.5 %) | 8.4 % (0.3 %) | symmetric, eigenvalues 2.6 to 500 GPa | ≥ 0 at every step: 7.7·10⁻⁵ MPa the least of 1024 validation steps |
+
+The strains of the free components (solved for at zero stress) are 5 to 15 times closer to
+the reference's, its lateral stresses being better learned. Along the cycle the work of the learned
+law is the reference's, 11.11 MPa (to 3·10⁻⁵), and its cumulated dissipation, 8.72 MPa,
+lies between the reference's dissipation `σ_y p` = 6.03 MPa and its plastic work `σ_y p +
+H p²/2` = 10.57 MPa (5.35 MPa within 4.36 and 6.73 along the shear cycle, 2.41 MPa within
+2.13 and 2.69 along the turn): the stresses fix the work, not its split between stored and
+dissipated energies. Von Mises' law in its standard form stores the energy of its
+hardening (`ψ ∋ ½ H p²`), the learned law dissipates about half of it: the fraction of the
+plastic work it dissipates along the cycle is 0.82, that of the reference's split 0.57 (a
+Taylor-Quinney coefficient, which calorimetry would measure). Its internal variables are
+not `ε_p` and `p`.
+
+*In finite strains* (data of the Green-Lagrange strain `E` and the second Piola-Kirchhoff
+stress `S`) the free energy is of an objective Lagrangian strain `H` and the internal
+variables, `ψ(H, α)`, and the incremental problem is that of small strains with `H` in
+place of `ε`; the stress conjugate to `E` follows from `S : δE = T : δH`, `T = ∂ψ/∂H`.
+`strain` chooses `H`:
+
+* `logarithmic` (the default): `H = ½ ln C`, `C = I + 2E`, the space of morphoGen's elastic,
+  von Mises and porous points in finite strains (§33; Miehe, Apel & Lambrecht 2002). Then
+  `S = Jᵀ T` with `J = ∂H/∂E` (6 x 6), `J_ij = w_i Σ_ab D^i_ab f[c_a, c_b] D^j_ab` in the
+  eigenbasis of `C` (eigenvalues `c_a`, `D^j = Qᵀ (∂C/∂E_j) Q`, `w_i` ½ for the normal
+  components and 1 for the shears, `f[·,·]` the divided differences of `½ ln`), and the
+  tangent `∂S/∂E = Jᵀ (∂T/∂H) J + T : ∂²H/∂E²`, its geometric term `2 Σ_abc f[c_a, c_b,
+  c_c] T̃_ca D^j_ab D^k_bc` (`T̃ = Qᵀ T Q`, the second divided differences;
+  Daleckii–Krein), both exact for equal eigenvalues with the divided differences of §33.
+  Internal variables additive in `ln C` are the plasticity additive in the logarithmic
+  strain, which represents the isochoric multiplicative plasticity of isotropic metals and
+  is exactly that of the reference here;
+* `green-lagrange`: `H = E`, `S = ∂ψ/∂E`, the tangent the Schur complement (positive
+  definite: `ψ` is convex in `E`); internal variables additive in `E` are Green and
+  Naghdi's plastic strain, in which an isochoric flow is not linear.
+
+Either way the law is thermodynamically consistent, objective and symmetric by
+construction: the dissipation `S : Ė - ψ̇ = T : Ḣ - ψ̇ = -∂ψ/∂α · α̇` of a step is the same
+nonnegative `-∂ψ/∂α·Δα`, `S` derives from `ψ(H(E), α)`, the tangent is the Hessian of the
+condensed incremental energy of `E` (symmetric; in `ln C` its geometric term may make it
+indefinite under large stresses, where it is positive definite in `H`), and the law is a
+function of `C`: a rotation superposed on `F` leaves `S` and the state unchanged and turns
+`P = F S`. The training sees the gaps `r` of `S` through `J`, which does not depend on the
+parameters: the adjoint of the stress of a step is `J r`, the rest as in small strains;
+the linear fit that starts `L Lᵀ` is that of `T = J⁻ᵀ S` against `H`. The law integrates
+as the other learned laws in finite strains (`P = F S`, `∂P/∂F`, turned in the axes of its
+material, heated as the Hencky points: *Thermal strains* above). Newton's method now
+backtracks only while the decrease it predicts is above the round-off of the incremental
+potential (10⁻¹² of it): below, Armijo's test fails whatever the step, and the iterations
+stalled at a residual of 10⁻⁶ (2 of the 1024 validation steps below, before). *Checks*
+(`test_learning.py`), whatever the
+parameters, along paths of gradients to 15 %: the gradients of the objective against
+central differences to 10⁻⁶ (both strains; `J` and the geometric term to 3·10⁻¹⁰ and
+7·10⁻⁹ in the scratch checks); the dissipation of every step nonnegative, `S = ∂ψ/∂E`,
+`D Δt = A·Δα` and `∂S/∂E` the derivative of the stress of a step to 2.5·10⁻⁹, 3.4·10⁻⁹ and
+1.8·10⁻⁹ (logarithmic; 4·10⁻¹⁰, 8·10⁻¹⁰ and 1.5·10⁻¹⁰ in `E`), the tangent symmetric to the
+bit (with a negative eigenvalue at 34 of 90 steps in `ln C`, none in `E`); at the points
+`∂P/∂F` to 5·10⁻⁹; a rotation superposed on two steps of gradients turns `P` and `∂P/∂F` to
+3·10⁻¹⁵; the small strain model of the same parameters, at gradients `λ h` and scales `λ
+s`, recovered to the first order of `λ`: Cauchy stresses within 3.1·10⁻², 3.1·10⁻⁴ and
+3.1·10⁻⁶ of it at `λ` = 1, 10⁻² and 10⁻⁴ (`h` its data, to 1 %; 12.5 %, 0.13 % and 1.3·10⁻⁵
+in `E`); a tension to 8 % at a material point, its lateral stresses solved for, on voxels
+and by finite elements to 10⁻⁶; turned, the law of the turned gradient turned back to
+10⁻¹²; heated free, `F = exp(α ΔT) I`.
+
+*Against the recurrent network at large strains*: von Mises plasticity in finite strains
+(the Hencky points; `σ_y = 200 MPa`, `H = 2 GPa`), 128 random walks of the logarithmic
+strains 11, 22, 33 and of the simple shear 12 to 10 % (4 × 8 steps, a step a segment, the
+diagonal of the gradient `exp(e) - 1` so that the volume change is that of the walk,
+`volumetric: 0.01`; Green-Lagrange strains to 22 %, `J` within 0.3 % of 1, `S` to 906
+MPa), 96 for the training, rotated, 300 epochs; unseen paths within the strains of the
+data, the lateral stresses free: a tension–compression cycle `F_11 - 1` = ±0.1, a shear
+cycle ±0.15 in 23 (not driven) and a tension of 0.06 then a shear of 0.12:
+
+| Model | Validation paths (training paths) | Cycle ±10 % (strains) | Shear cycle in 23 (strains) | Tension then shear (strains) | Dissipation along the cycle |
+|---|---|---|---|---|---|
+| Recurrent 32, `E` | 64 % (63 %) | no solution (from 0.41 of the path) | no solution (from 0.68) | 34 % (26 %) | none defined |
+| Recurrent 32, `ln C` (below) | 11.2 % (11.7 %) | 11 % (2.2 %) | 10 % (6.8 %) | 12 % (1.2 %) | none defined |
+| Standard, `ln C`, 8 internal variables | 11.4 % (10.9 %) | 19 % (0.56 %) | 11 % (0.80 %) | 29 % (0.41 %) | 180 MPa, between 77 (`σ_y p`) and 225 (`σ_y p + H p²/2`) |
+| Standard, `E`, 8 internal variables | 64 % (62 %) | 56 % (48 %) | 12 % (10 %) | 36 % (24 %) | 108 MPa |
+| (small strains, the same walks: Recurrent 32, Standard) | 10.9 %, 10.6 % | | | | |
+
+The measures decide: in `E` and `S` the response of a metal at 20 % is far from that of
+its small strains (`S = Jᵀ T`, `J` of the stretches: the second Piola-Kirchhoff stress of
+a flow at constant Kirchhoff stress falls as `1/λ²`), and the recurrent network and the
+standard model of `E` do not even fit their training paths (63 % and 62 %), where in `ln
+C` the problem is that of small strains: the standard model fits the large strains as the
+small strain models fit the same walks in small strains (10.9 % and 10.6 %); along the
+cycle and the shear, the material point finds no lateral strains of zero stress with the
+recurrent law (after four divisions of a step), and those of the standard model of `E` are
+10 to 48 % off, its tangent positive definite (95 MPa to 99 GPa). These walks reach 200
+times the yield strain (10 at 1 % above) and the hardening is large (the yield stress 4.9
+times its start at the end of the cycle, `p` = 0.38): harder than the small strain test,
+which 300 epochs leave under-fitted (the best epoch the last; 1000 epochs give 8.8 % on
+the validation paths, 8.4 % on the training paths, the best epoch 611). The dissipation of
+the 1024 validation steps is nonnegative (2.5·10⁻² MPa the least) and the tangent
+symmetric, with a negative eigenvalue at 14 steps (-385 MPa against 585 GPa, the geometric
+term). Along the unseen paths the learned work is within 6
+%, 6 % and 20 % of the reference's and the cumulated dissipation of the cycle and of the
+shear between its dissipation and plastic work (92 MPa within 51 and 115), that of the
+turn 4 % above (43 MPa, its work 20 % too large). It trains in 70 s against 6 s for the
+recurrent network.
+
+*The other learned laws in the logarithmic strain* (`strain` of `FeedForward`, `Potential`
+and `Recurrent`, in the `model` section of `morphogen learn` and the tool). In finite
+strains they see `H = ½ ln C` of the Green-Lagrange strains of their data (normalized by
+`s_ε`, as `E`) and give the stress `T` conjugate to it (normalized by `s_σ`): `S = Jᵀ T`
+and `∂S/∂E = Jᵀ (∂T/∂H) J + T : ∂²H/∂E²`, by the kernels of `Standard`
+(`learning/logarithmic.py`; `J` and the geometric term of the divided differences of §33).
+With `x = H/s_ε`, the perceptron is `T/s_σ = L x + N(x)`; the potential `ψ(H) = s_σ s_ε
+(W(x) - W(0) - ∇W(0)·x)`, `T = ∂ψ/∂H`, so that `S = ∂ψ(H(E))/∂E`: hyperelastic, its tangent
+the Hessian of `ψ(H(E))` (symmetric, symmetrized to the bit; convex in `H`, not always in
+`E`, the geometric term), and Hencky's energy `½ H : ℂ : H` is its quadratic term: its
+start, the symmetric positive part of the linear fit of `T = J⁻ᵀ S` to `H`, is Hencky's law
+on Hencky's data. The recurrent network is driven by `H` and its increments, `u_n =
+(H_{n+1}/s_ε, ΔH_n/s_Δε)` (and `Δt_n/s_t`), and gives `T_{n+1}/s_σ = V h_{n+1} + Q
+H_{n+1}/s_ε + q` (`h` its state), its tangent `∂T/∂H_{n+1}` (the state at the start held)
+pulled back as above. The training sees the gaps `r` of `S`, which reach `T` as `J r` (`J`
+of the data, computed for each mini-batch after its rotations: `H(R C Rᵀ) = R H(C) Rᵀ`), in
+the compiled backpropagation through time for the recurrent network; the linear terms start
+at the fit of `T` to `H`. A law of `ln C` is a function of `C`: objective. `green-lagrange`
+is the law of `E` of before, to the bit: the losses, parameters, stresses, tangents and
+states of the five models in small and finite strains (118 arrays, the material points
+among them) are those of the previous commit, and the files written before the option,
+whose options do not name the strain, load as laws of `E` and run to the bit. A new model
+sees `ln C` by default: the space of morphoGen's Hencky points (elastic, von Mises,
+porous), where Hencky's elasticity is linear and isotropic plasticity is that of small
+strains, the space of `Standard`, both measures agreeing at small strains; the measures
+below decide it. *Checks* (`test_learning.py`, whatever the parameters, along gradients to
+15 %): the gradients of the objectives against central differences to 10⁻⁶ (1.7·10⁻⁹,
+2.4·10⁻⁷ and 1.5·10⁻⁹ for the perceptron, the potential and the recurrent network); the
+tangents `∂S/∂E` the derivatives of the stresses (of a step) to 1.6·10⁻⁹, 1.6·10⁻⁹ and
+1.7·10⁻⁹, `S = ∂ψ/∂E` to 1.3·10⁻⁹, the steps of points the recurrence of the paths to the
+bit; at the points `∂P/∂F` to 4.6·10⁻⁹ and a rotation superposed on two steps of gradients
+turning `P` and `∂P/∂F` to 3·10⁻¹⁵; the small strain model of the same parameters recovered
+to the first order of `λ` (3.5 %, 4.0 % and 2.8 % at `λ = 1`, a hundred times less at 10⁻²,
+10⁴ times at 10⁻⁴); a potential of `ln C` turned, the law of the turned gradient turned
+back to 4·10⁻¹⁵, and at a material point, on voxels and by finite elements to 9·10⁻⁸ and
+5·10⁻⁹; heated free, `F = exp(α ΔT) I`. The linear law of `ln C` of Hencky's data being
+Hencky's law, heated under constraint and along a heated tension it gives the stresses of
+the Hencky points to 1.7·10⁻¹⁴ and their strains to 5·10⁻¹⁵, their split `T = ℂ : (½ ln C -
+α ΔT)` being now that of the learned laws (*Thermal strains* above); with the split of
+before, the free energy per unit volume of the heated configuration (`S = J_th A S_m A`),
+it gave `J_th = exp(3α ΔT)` times their stresses, 1.1 % apart at `α ΔT = 3.6·10⁻³`.
+
+*Measured.* On the large-strain walks above (the table: 300 epochs, rotated), the logarithmic
+strain fixes the recurrent network: 11.2 % on the validation paths and 11.7 % on its
+training paths where that of `E` misses its own (63 %), as on the same walks in small
+strains (10.9 %); it finds the lateral strains of the unseen cycle and shear where that of
+`E` finds none, and it trains in 6 s (5 s in `E`). A second seed gives 10.7 % (`E`: 63 %),
+and 1000 epochs 8.3 % (8.7 % on its training paths; the cycle, the shear and the turn at
+5.2 %, 5.9 % and 8.2 %, their strains 5.7 %, 4.4 % and 2.5 %; 20 s) where the network of
+`E` stays at 63 % (58 % on its training paths, the cycle 70 %). Along the unseen paths its
+stresses are closer than the standard model's (7.8 to 12 % against 11 to 29 %, two seeds),
+its lateral strains farther (1.2 to 13 % against 0.4 to 0.8 %: the free energy of the
+standard model gives better lateral stresses, as in small strains), and it has no
+dissipation inequality. Trained on these walks it runs on voxels as at a material point
+(5·10⁻⁷, the tolerance of the solver; the material point 12 % from the reference along a
+tension to 8 % and back), its tangent symmetrized for the conjugate gradients; a recurrent
+network of 6 states after 20 epochs on 8 paths did not converge there with its symmetrized
+tangent, nor in `E`, and does with its full one (GMRES, §31).
+Hencky's elasticity (`E = 200 GPa`, `ν = 0.3`; 24 walks of the six components, 18 for the
+training, `volumetric: 0.3`, 300 epochs, unrotated; a uniaxial tension at a material point,
+its lateral stresses free; relative root mean squares of the gaps):
+
+| Walks | Model | Validation paths, `E` | Validation paths, `ln C` | Tension (lateral strains), `E` | Tension (lateral strains), `ln C` |
+|---|---|---|---|---|---|
+| to 4 % (`E` to 9 %), tension to 3 % | linear fit (the start, network silenced) | 25 % | 4·10⁻¹⁵ | | |
+| | Potential 16-16 | 4.2 % | 0.017 % | 0.81 % (3.2 %) | 0.022 % (0.017 %) |
+| | FeedForward 16-16 | 12.5 % | 0.027 % | 3.7 % (4.6 %) | 0.004 % (0.03 %) |
+| to 10 % (`E` to 25 %), tension to 10 % | linear fit | 54 % | 3·10⁻¹⁵ | | |
+| | Potential 16-16 | 16 % | 0.022 % | 4.5 % (6.4 %) | 0.022 % (0.018 %) |
+| | FeedForward 16-16 | 30 % | 0.025 % | 6.4 % (34 %) | 0.008 % (0.014 %) |
+
+In `ln C` the networks learn the law to 0.02 % whatever the strains (their linear terms
+start at the law itself, their networks at small weights that the training reduces); in
+`E` the potential is two to three times better than the perceptron, and both degrade with
+the strains.
+
+**MFront sources** (`learning/mfront.py`, §37). A learned law goes to the codes that
+MFront serves (Abaqus, Cast3M, Code_Aster, AMITEX_FFTP) as morphoGen's own behaviours do:
+`morphogen mfront`, `morphogen.io.mfront_source` and the AMITEX and Abaqus exports take a
+learned material and write an MFront behaviour whose constants are the trained parameters
+(to the bit) and whose integrator is morphoGen's C++ port of the model
+(`learning/learned.cpp`, the forward passes and tangents above written out: no runtime of
+NumPy, Numba or a learning framework in the solver). The measures are those of the
+models: in finite strains MFront's Hencky strain is `½ ln C` and its stress the `T`
+conjugate to it, so that a law of `ln C` gives MFront its `T` and `∂T/∂H` without the
+pull-back `S = Jᵀ T` (MFront computes its own), and a law of `E` uses MFront's
+Green-Lagrange measure. The state of the recurrent network and the internal variables of
+the standard model are auxiliary state variables of the behaviour, zero at the natural
+state; the thermal split is that of the Hencky points (`½ ln C - α ΔT`, the strain at the
+start of the step too), the expansion in the axes of the material; a law in the axes of
+its material is an orthotropic behaviour, turned by the solver with the grains. The
+compiled laws follow morphoGen's integration of the same laws to the round-off (5.6·10⁻¹⁶
+of the stress in small strains, 1.9·10⁻¹⁴ in finite strains, heated and turned; the
+tangents the central differences of the stresses to 1.3·10⁻¹⁰; the umat and abaqus
+interfaces called as AMITEX and Abaqus call them, to 9·10⁻¹³: §37). Not exported: a law
+of `E` that expands in finite strains (its split `E_m = ½ (exp(2 H_m) - I)` with its
+derivatives is not written in the source) and a law in the axes of the sample with an
+anisotropic expansion.
+
+**The interface** (tab Learning, `gui/tools/learning.py`). The tool *Learn a behaviour*
+takes its data from a behaviour at a material point (the behaviours of Mechanics, a
+material of the configurations, or a behaviour of the workspace) or from the homogenized
+responses of a morphology of the workspace (its phases' materials, the behaviour of one
+phase, FFT on its voxels, its grains turned); the fields of the random paths, of the model
+(the standard model among them: its internal variables, the time step for a viscous
+dissipation; the strain that every model sees in finite strains, logarithmic by default)
+and of the training are generated from the sections `data`, `model` and
+`training` of `morphogen learn` with their defaults. The job runs in the thread of the tools, reports
+the paths of the data and then the losses of each epoch, and stops at the next of them;
+it draws the learning curves (the best epoch marked) and the learned law along a
+validation path at a material point (a preset or custom path, turned by an orientation for
+a crystal) against the reference, tabulates them with the errors of the validation paths,
+and writes `learned.npz`, the data, `material.json` and the `learning.yaml` that learns it
+again. The learned law joins the workspace as a behaviour (B) that names its model in its
+folder (saved and opened with the workspace); the loading paths of morphologies give it to
+a phase (a behaviour of the workspace), the material point of Mechanics turns it by an
+orientation. Measured: isotropic elasticity (10 walks, a perceptron 8-8, 50 epochs) 0.16 %
+on the validation paths and 0.09 % along a uniaxial tension (its lateral strains 0.24 %),
+the learned matrix of a morphology the response of the elastic one to 0.04 %; a cubic
+crystal learned with the rotations of the cube, checked turned by (30°, 50°, 70°), 0.08 %
+and 0.06 %; von Mises plasticity with the defaults of the form but 96 walks, rotated (5 s
+in all): 6.0 % on the validation paths, 13.5 % along a tension-compression cycle.
+
+**Measured accuracies** (relative root mean square of the stress gaps along a path;
+`E = 200 GPa`, `ν = 0.3`):
+
+| Behaviour, data | Model | Validation paths | Unseen paths, at a material point |
+|---|---|---|---|
+| isotropic elasticity, 7 walks | FeedForward 8-8, Potential 8-8 (50 epochs) | 0.2 %, 0.08 % | uniaxial stress < 1 % |
+| Hencky, finite strains (`E` up to 9 %), 18 walks of 6 components | Potential 16-16 of `E` (300 epochs) | 4.3 % (FeedForward 12.5 %, the linear fit 25 %) | uniaxial tension to 3 %: 0.9 % |
+| the same, and walks to 10 % (`E` up to 25 %) | Potential 16-16 of `ln C` (300 epochs) | 0.017 %, 0.022 % (FeedForward 0.027 %, 0.025 %; the linear fit, Hencky's law: 4·10⁻¹⁵) | uniaxial tensions to 3 % and 10 %: 0.022 % (of `E`: 0.81 % and 4.5 %; the 0.9 % above its largest gap) |
+| von Mises, `σ_y = 200 MPa`, `H = 10 GPa`, 96 walks of 11, 22, 33, 12 (32 steps) | Recurrent 32, rotated (300 epochs) | 4.1 % | tension-compression to ±1 % (free lateral stresses): 7.9 % (strain 10.5 %); shear cycle in 23 (not driven): 11 %; tension then shear: 12 % |
+| the same | Recurrent 32, not rotated | 6.6 % (training loss 13 times below) | 20 %, 129 %, 15 % |
+| the same | FeedForward 32-32 | 33 % | 104 %, 110 %, 51 %: a function of the strain has no hysteresis |
+| the same | Standard, 8 internal variables, 32 ridges, rotated (300 epochs) | 2.3 % | 7.4 % (strain 0.7 %), 4.8 %, 8.4 %; the dissipation nonnegative, the tangent symmetric |
+| standard linear solid, 18 walks at random rates | Standard, 6 internal variables, viscous (600 epochs) | 0.11 % (its parameters set: 1.2·10⁻¹⁵) | relaxation of a held strain: 0.43 % |
+| von Mises in finite strains, `H = 2 GPa`, 128 walks of the logarithmic strains 11, 22, 33 and the shear 12 to 10 % (`E` to 22 %) | Standard of `ln C`, 8 internal variables, rotated (300 epochs) | 11.4 % (Recurrent 32 of `E`: 64 %; Standard of `E`: 64 %) | cycle ±10 % (free lateral stresses): 19 % (strain 0.56 %); shear cycle in 23: 11 %; tension then shear: 29 % |
+| the same | Recurrent 32 of `ln C`, rotated (300 epochs) | 11.2 % (1000 epochs: 8.3 %) | cycle: 11 % (strain 2.2 %); shear cycle in 23: 10 % (6.8 %); tension then shear: 12 % (1.2 %) |
+
+The plasticity test trains in about 5 s on one core (2.8 s of data), 63 s with the
+standard model (a Newton solve at each step of each path). Limits: the
+accuracy of the path-dependent law is that of the data and of the training (a few % in
+distribution, about 10 % on cycles and directions it has not seen; six components
+driven need more paths: 10 % on validation paths with 192 walks without rotations); a
+recurrent law depends somewhat on the size of the steps (train with the increments it
+will run); its internal variables have no physical meaning (no cumulated plastic strain
+in the outputs) and no dissipation inequality is imposed, which the standard model
+imposes by construction (its internal variables have no physical meaning either, and the
+split of the plastic work between stored and dissipated energies is not identified by
+stress data); a feed-forward law is
+path-independent. A crystal needs the rotations of its group or many more paths, and its
+uniaxial tensions at a point (whose free lateral stresses Newton's method solves with the
+learned tangent) stay at 8 to 25 % with 512 walks. The temperature is not an input of the
+models: morphoGen's behaviours have no parameter that depends on it, so that data at
+several temperatures would teach nothing (an MFront behaviour of the temperature would:
+then the temperature, or its change, an input of the networks, with data at several
+temperatures). Left for later: a
+dissipation potential of the state (an isotropic hardening `σ_y(p) |ε̇_p|` explicit in the
+state of the step, as Ortiz & Stainier's updates allow) and deeper input-convex networks
+of the free energy, the temperature as an input for MFront data, the symmetry groups of
+other lattices (hexagonal) in the training, training on the responses of the solvers
+on the GPU, and in the MFront sources the thermal split of the laws of `E` in finite
+strains (`E_m = ½ (exp(2 H_m) - I)` and its first and second derivatives, the divided
+differences of the exponential).
+
+## 58. Architectured sheets by localized laser treatment (`laser`)
+
+The simulation and the optimization of steel sheets
+architectured by a laser path (Wang 2022; ANR SCOLASTIC). The study, its choices, its
+results and its references are in [laser.md](laser.md). Units: mm, s, °C, W, MPa; the
+thermal properties in SI.
+
+**Moving beams** (`heat`). A source of energy `dE` on the face `z = 0` of a plate
+`0 ≤ z ≤ h` gives after a delay `τ` the rise `dE/ρc G(x, y; τ) Z(z; τ) e^{−βτ}`: a
+Gaussian beam of 1/e² radius `w` (`s0 = w/2`) `G = exp(−r²/2s²)/(2πs²)`, `s² = s0² +
+2aτ`; a top hat of half sizes `bx`, `by` the product of `(erf((x + b)/√(4aτ)) −
+erf((x − b)/√(4aτ)))/(4b)`; adiabatic faces by images, `Z = Σ_m 2 g(z − 2mh)`, `g` the
+1D heat kernel (the cosine series `(1/h)(1 + 2 Σ e^{−n²π²aτ/h²} cos(nπz/h))` for
+`aτ/h² ≥ 0.2`); a beam on the lower face `Z(h − z)`; the losses of both faces `h_f(T −
+T0)` (convection and linearized radiation) as `β = 2h_f/(ρch)`. The quasi-steady field
+of a beam moving at `v` along x is `T − T0 = P/ρc ∫ G(ξ + vτ, y; τ) Z(z; τ) e^{−βτ}
+dτ`, integrated on a logarithmic grid of `τ` (trapezoids in `ln τ`); on a grid of
+points the plane kernel is separable (`G = g_x(ξ + vτ) g_y(y)`) and the integral is a
+product of matrices per depth. Checked: Rosenthal's point source `P/(2πkR)
+e^{−v(R + ξ)/2a}` on a thick plate and Rykalin's line source `P/(2πkh) e^{−vξ/2a}
+K0(r√(v²/4a² + β/a))` on a thin plate with losses, within 2e-4 (a beam of 0.01 mm);
+far behind the beam, the energy of a cross-section `ρch ∫(T − T0) dy = P/v` within
+2e-3; the grid evaluation equals the pointwise one to 1e-10. A straight track tabulates
+the cycles `T(t; d, z)` of the points at the distance `d` of its axis (`TrackKernel`:
+peaks, widths of the bands above a temperature, `∫e^{−Q/RT} dt`, `t8/5`). The transient
+solver (`TransientHeat`) integrates the blank in finite volumes, locally one-dimensional
+implicit steps along x, y and z (tridiagonal, Numba), the beams deposited as their
+profiles averaged over sub-positions of each step and normalized on their window, cut
+by the edges; checked against the quasi-steady cycles within 4 %.
+
+**Metallurgy** (`metallurgy`). C–Mn steels (`TransformationHardening`): `Ac1 = 723 −
+10.7 Mn − 16.9 Ni + 29.1 Si + 16.9 Cr`, `Ac3 = 910 − 203 √C − 15.2 Ni + 44.7 Si +
+104 V + 31.5 Mo` (Andrews 1965), raised by a superheat of the laser heating rates
+(50 K); at the peak `T_p` of an excursion the austenite `f_γ = (C − 0.02)/(C_γ −
+0.02)`, `C_γ` linear from 0.77 at `A1` to `C` at `A3` (the pearlite at once, then the
+ferrite), 1 above `A3` or after melting; on cooling, martensite `f_γ (1 −
+e^{−0.011(Ms − T_a)})` with `Ms = 539 − 423(C_γ + N_γ) − 30.4 Mn − 17.7 Ni − 12.1 Cr −
+7.5 Mo` when `t8/5` is below a critical time (bainite or ferrite–pearlite beyond, the
+share log-linear in `t8/5`), the rest retained; the hardnesses of martensite, bainite
+and ferrite–pearlite of Maynier et al. (1978) at the rate `300/t8/5`; tempering of the
+martensite below `Ac1` by `P = T(C + log10 t)` (K, h) accumulated by additivity (the
+time giving `P` at the current temperature, extended by the step), the hardness linear
+in `P` between `P0` and `P1`; the new austenite consumes martensite first. AISI 430
+(`PeakHardening`): the hardness gained as a function of the peak (Wang et al. 2022:
+nothing below `Ac1` = 875 °C, 310 HV near `Tm`; the gain at 1300 °C and the tempering
+fitted to the mean hardness of the sheets fully treated at 15, 20 and 25 kJ/m, within
+1.5 HV), a cycle re-transforming the share
+`(T_p − T_onset)/(T_full − T_onset)` of a point (the larger of the fresh gain and the
+mixture with the tempered old one), the same tempering. Melt pools (`Alloying`): the
+coating melted by a track (its areal mass on the faces melted times an efficiency)
+mixes with the melted metal by mass balance; nitrogen up to `η [%N]`, `log[%N] =
+−188/T − 1.25 + 0.047 [%Cr]` (Sieverts, 1 atm). Checked: Andrews's and Maynier's values
+(the annealed MS1500: 714.7 and 823.9 °C, 173 HV for 167 ± 6 measured), the lever
+rule at `A1` and `A3`, Koistinen–Marburger after a quench, the additivity of `P` (50
+steps of an isothermal hold to 1e-6), Sieverts (0.0445 wt% in iron at 1600 °C), the
+mass balance of a carburized melt.
+
+**Flow laws** (`materials`). From `R_p` (at a plastic strain of 0.2 %), `R_m` and
+`A_g`: at the true plastic strain `p_u = ln(1 + A_g) − σ_u/E`, `σ(p_u) = σ_u = R_m(1 +
+A_g)` and `dσ/dp = σ_u` (Considère). Ludwik's `σ0 + K((p + δ)^n − δ^n)` (`δ = 10⁻⁴`)
+gives `K = σ_u (p_u + δ)^{1−n}/n`, `n` and `σ0` by nested bisections; where no
+exponent fits, Voce's `σ0 + Q(1 − e^{−bp})` with `x/(e^x − 1) = σ_u p_u/(σ_u − σ0)`,
+`x = b p_u`. Each hardness gets its properties from the table of the material (linear
+interpolation; beyond it the slopes of Pavlina & Van Tyne 2008, `R_p = −90.7 + 2.876
+HV`, `R_m = −99.8 + 3.734 HV`), its law from a grid of 0.5 HV. Checked: the laws give
+`R_p`, `R_m` and Considère's strain to 1e-6.
+
+**Treatment of a path** (`process`). The tracks in order; a point at the distance `d`
+of a track gets the cycle of the long straight track at `d` in each layer (the
+radius of curvature of the track should exceed the heated width); untouched points take
+the response of the track tabulated on 512 distances, the others integrate their cycle
+(checked: the two agree but at the jump of the lever rule at `A1`). The cycles start
+from ambient (the pauses between tracks cool the sheet).
+
+**Membrane** (`mechanics`). Bilinear quadrilaterals, 2 x 2 Gauss points, layers through
+the thickness in plane stress. `ΔF = F F_n⁻¹ = ΔR ΔU`, `Δε = ln ΔU`; the radial return
+in 3D (von Mises, isotropic hardening) of `σ_n + C:Δε` with `Δε33` by Newton's method so
+that `σ33 = 0`, the consistent tangent `C_ep` of Simo & Hughes condensed, `C_ps = C_ab −
+C_a3 C_3b/C_33`; the stress and tangent turned by `ΔR`; the layer thickness `h_0
+exp(Σ Δε33)`. Internal forces `∫ Bᵀ τ h0 dA0`, `τ = Jσ`, `J = det F λ3`; tangent `∫ Bᵀ
+D B + Gᵀ τ G`, `D = J(C_ps + σ ⊗ m) − S(τ)`, `m = ∂ ln J/∂ε`, `S` the stress terms that
+turn the Jaumann tangent into the Truesdell one (`S_11,11 = 2τ11`, `S_11,12 = τ12`,
+`S_12,12 = (τ11 + τ22)/2`...). Checked: the tangent against central finite differences
+(2e-5), a rigid rotation of a stretched element (the stresses turned, the plastic strain
+kept to 1e-12), the tension of a homogeneous strip against the exact `S = σ e^{−2νσ/E −
+p}`, `e = e^{σ/E + p} − 1` (2e-4; `R_m` 1e-4, `A_g` 2e-3), two bands along the load at
+equal strain (5e-3); Newton's method converges in two or three iterations a step. The
+tensile test drives the grips (tangent predictor, steps adapted to the iterations,
+refined near the maximum), reads a virtual extensometer, takes `R_p` by the 0.2 %
+offset, `R_m` and `A_g` at the maximum force (a parabola through three points), the
+energy up to it.
+
+**Three-point bending** (`bending`). A strip of span `S` loaded at mid-span: `M(x) =
+F/2 (S/2 − |x − x_c|)`; each section a grid of fibres across the width and through the
+layers, in monotonic uniaxial stress (`|σ| = E|ε|` to yield, then `σ = σ_y(p)`, `|ε| =
+p + σ/E`, by bisection on a common strain grid for each distinct flow law); plane
+sections `ε = −κ(z − z_n)`, the neutral axis by bisection of `Σ σ dA = 0`, `M = −Σ σ(z
+− z_n) dA` tabulated against `κ` (monotone); the curvature of each section from `M(x)`,
+the deflection `δ = ∫ κ m dx`, `m = (S/2 − |x − x_c|)/2` (virtual work, exact for the
+statically determinate beam; Simpson on each half of the span). Checked: the elastic
+stiffness `48 E I/S³` of the layers' second moment within 2e-3, the limit load `4 M_p/S
+= σ0 W h²/S` of a perfectly plastic strip within 1e-3, the neutral axis moving towards
+a harder face. **Directions**: the pattern turned by `−θ` about the centre of the
+specimen, its families of tracks repeated at their spacing over a square that covers
+it, clipped (`clip_path`); the measures averaged, each direction's kept, the anisotropy
+`(max − min)/mean`.
+
+**Optimization** (`design`). The measures of a case (mechanical, treated fractions and
+hardness of the parallel part, length, time and energy of the path, smallest gap and
+radius of curvature); the cost `−objective/|objective_0| + penalty Σ violations` (relative
+violations of the bounds); grid, Nelder–Mead (SciPy), differential evolution (SciPy),
+the genetic algorithm of `design.search`, or Bayesian optimization: a Gaussian process
+on the unit cube (constant mean, Matérn 5/2 kernel with a length per dimension, nugget,
+hyperparameters by the marginal likelihood from four starts), a Latin hypercube of
+`2d + 2` designs, then the maximum of the expected improvement `(c* − μ)Φ(z) + σφ(z)`
+over a Sobol set and perturbations of the best. Checked: the process interpolates its
+data and predicts a smooth function within 0.05; the grid optimum is the best feasible
+evaluation.
+
+**Fracture of brittle points** (`mechanics.Fracture`). A point of critical plastic
+strain `p_c` (finite: a brittle phase) breaks the specimen when its plastic strain
+reaches it: locally, `max p/p_c ≥ 1`; or nonlocally over a radius `R`, the mean plastic
+strain of the brittle points of each element `p_e` averaged over the elements of the
+same critical strain (the same phase; all of them when the critical strains vary
+continuously, as with densities) within `R`, `p̄_e = Σ w_ee' b_e' p_e' / Σ w_ee' b_e'`
+(`w = R − d` between centres, `b` the brittle volume; Pijaudier-Cabot & Bažant 1987),
+against the least critical strain of the element. The strain of failure is interpolated between the steps where the largest
+ratio crosses 1. With the phases of Wang et al. (2023, Hollomon laws: ferrite 280 MPa,
+`K` 986 MPa, `n` 0.24; martensite 1300, 1966, 0.06), `R` = 1.5 mm and `p_c` = 0.072
+fitted to their straight track (failure at 0.083), the five corrugated tracks follow
+their tests within 0.006 (root mean square of the failure strain; `p_c` 0.075 on
+elements of 0.25 mm). A Swift law `K (ε0 + p)^n`, `ε0 = (σ0/K)^{1/n}`, is Hollomon's
+from the yield stress; a point may mix two laws, `(1 − w) σ1(p) + w σ2(p)` (equal
+strains).
+
+**Replays** (`mechanics.replay`). A test records the deformation gradients of the
+Gauss points at every converged step; the material update of each point is run again
+along the same sequence with other laws: its stress work `Σ ½(J_k + J_{k+1}) ½(σ_k +
+σ_{k+1}) : ln ΔU` (both stresses in the frame of the old step, where the logarithmic
+stretch is), per element, and its plastic strains. With the laws of the test it gives
+back the work of the external force within 3·10⁻⁵ and the plastic strains exactly; with
+another law, the first-order effect of the change at fixed kinematics (exact for the
+work under displacement control and deformation-theory plasticity, the stationarity of
+the energy; Patel 2007 and the HCA use the same energy density).
+
+**Cellular designs** (`cells`). The parallel part is a grid of cells (`nx x ny`, about
+`size` mm); an element takes the phase of the cell of its centroid (the end columns
+continue along x into the fillets and grips). The estimate of a move (a set of cells
+with new phases): the force changes by `dF_k = d(ΔW)/du` (the derivative of the
+replayed work of their elements with respect to the grip displacement, midpoints
+averaged), the specimen breaks at the first of the fractures of the other cells (as in
+the design) and of the moved cells (their replayed plastic strains, averaged with their
+unchanged neighbours), or necks where the force of the cross-section of cells of least
+strength `Σ_i R_m,i A_i` is reached (the phases' tensile strengths, `R_m =
+max σ(p) e^{−ε}` up to their critical strain: a gap in a track necks there). Measures
+of a curve with a failure strain `e_f`: the maximum (parabola through the three points
+around it), `e_f = min(e_u, e_fracture)`, the strength before it, the work `∫_0^{e_f}
+σ de`. Constraints multiply the objective by `exp(−10 Σ violations)` (relative).
+
+**Automata.** `beso`: the benefit of each phase over the untreated one per orbit (the
+symmetry and the period: a periodic pattern fails at its weakest period), filtered
+(`R − d`) and averaged with the previous iteration (Huang & Xie 2007, 2010); each orbit
+takes `argmax_j (benefit_j − λ cost_j)` within one level, `λ` by bisection on the budget
+(which moves by `er` per iteration), at most `max_change` of the cells changing (a
+hysteresis bonus to the current phases, by bisection); a design at the budget is kept
+only if its test does not lower the value, else the changes are halved (three times),
+then their orbits are frozen three iterations. `exchange`: the pairs of orbits of equal
+size, one treated and one not, with cells within `reach` cells, ranked by the estimate
+of exchanging their phases; the best `candidates` tested, the best kept if it raises the
+value (a Kawasaki dynamics: the budget is conserved). `hca` (Tovar et al. 2006): the
+densities `x` mix the phases by `w = x^q`, the critical strain of the brittle one
+`p_c/x²`; the stimulus `S = H ∂v/∂x` (replays at `x ± 0.05`), `x ← clip(x + kp (S −
+S*)/max|S|, ±move)`, `S*` by bisection on the budget. `topology`: the densities filtered
+`x̃ = H x` (Bruns & Tortorelli 2001), projected `x̄ = (tanh βη + tanh β(x̃ − η))/(tanh βη
++ tanh β(1 − η))` (`η` = 0.5, `β` doubled every ten iterations to 16), MMA (Svanberg
+1987) on `−v/|v_0|` with the budget as two inequalities. Both rounded at the end to the
+budget (the largest densities treated).
+
+**Structures** (`structures`). Coordinates graded from `fine` at the singular points by
+the ratio `growth` to `element` (no sliver at the ends); the compact tension specimen
+two structured blocks joined along the ligament (the crack faces unconnected), the
+elements whose centres fall in the pin holes removed, each pin a node joined to the
+half of the hole it bears on by bars of stiffness `10³ E t` along their initial
+directions (`Membrane(springs=...)`: `f = k e eᵀ (u_i − u_j)`), so that the specimen
+turns about it; the L-shaped plate a graded grid without its quadrant. The test moves a
+set of dofs by `δ e` (others held), the force `f · e` of their reactions, the nominal
+curve `(δ/L, F/S)`; the same steps and Newton iterations as the tensile test. A crack
+initiates where the plastic strain of a phase, averaged over the elements of the same
+critical strain within `R`, reaches it.
+
+**Lankford and Hill.** The width strain of the gauge `ln(w/w0)` (the mean distance of
+its edges between the ends of the extensometer) over its thickness strain (the mean of
+`ln λ3` of its points), at 10 % or 0.8 of the uniform elongation; with the three
+directions, `F = r0/(r90 (1 + r0))`, `G = 1/(1 + r0)`, `H = r0/(1 + r0)`, `N = (r0 +
+r90)(1 + 2 r45)/(2 r90 (1 + r0))` (Hill 1948), `r̄` and `Δr`.
+
+**Rolling texture** (Hill 1948, plane stress). A point of a textured sheet has
+`σ_eq² = σᵀ P σ`, `σ = (σ11, σ22, σ12)`, `P = Tᵀ P_m T` with `P_m = [[G + H, −H, 0],
+[−H, F + H, 0], [0, 0, 2N]]` in the axes of its rolling direction and `T` the change of
+axes to them (the rolling direction at the angle of the sheet plus the rotation of the
+polar decomposition of `F_n`: the axes turn with the material). The coefficients from
+the Lankford coefficients of the sheet, `G = 1/(1 + r0)`, `H = r0/(1 + r0)`, `F =
+r0/(r90 (1 + r0))`, `N = (r0 + r90)(1 + 2 r45)/(2 r90 (1 + r0))` (`hill_from_r`). The
+return in plane stress (de Souza Neto, Perić & Owen 2008): the trial `σ* = σ_n + C Δε`
+(`C` the plane-stress elasticity, engineering shear), the associated flow `Δε_p = Δγ P
+σ`, so that `σ = (I + Δγ C P)⁻¹ σ*` and `Δp = Δγ σ_eq` (the plastic work); `Δγ` by
+Newton's method, bracketed, on `σ_eq(Δγ) = σ_y(p_n + Δγ σ_eq)`; the consistent tangent
+`D = E_ξ − (E_ξ n)(E_ξ n)ᵀ (1 − hΔγ)/(h σ_eq² + nᵀE_ξ n (1 − hΔγ))`, `E_ξ = (C⁻¹ +
+Δγ P)⁻¹`, `n = P σ`, `h = σ_y'`; the thickness strain `−ν/E Δ(σ11 + σ22) − Δγ (n1 + n2)`
+(elastic, then incompressible). The points the laser transformed are isotropic (the new
+phases of a weak texture), or keep a share `m` of the texture's departure from
+isotropy (`memory`: the texture of a fast-heated steel survives its double
+transformation in part; Ray & Jonas 1990, Petrov, Sidor & Kestens 2012),
+mixed in proportion of their treated share. Checked: a
+tensile specimen of a textured sheet cut at 0°, 45° and 90° gives `r` within 1.3 % and
+the yield stresses within 1 % of Hill's `r(α) = (H + (2N − F − G − 4H) s² c²)/(F s² +
+G c²)` and `σ(α)/σ0 = (F s² + G c² + H + (2N − F − G − 4H) s² c²)^(−1/2)`, in three
+Newton iterations a step.
+
+**Yld2000-2d** (Barlat et al. 2003). A rolled sheet whose yield stresses and Lankford
+coefficients both vary with the direction needs more parameters than Hill's four. With
+`σ = (σ11, σ22, σ12)` in the axes of the rolling direction, `X' = L' σ` and `X'' = L'' σ`,
+`L' = [[2α1/3, −α1/3, 0], [−α2/3, 2α2/3, 0], [0, 0, α7]]`, `L'' = (1/9)[[−2α3 + 2α4 +
+8α5 − 2α6, α3 − 4α4 − 4α5 + 4α6, 0], [4α3 − 4α4 − 4α5 + α6, −2α3 + 8α4 + 2α5 − 2α6,
+0], [0, 0, 9α8]]`, their principal values `X_1,2 = (X11 + X22 ± Δ)/2`, `Δ = ((X11 −
+X22)² + 4X12²)^½`: `φ = |X'1 − X'2|^a + |2X''2 + X''1|^a + |2X''1 + X''2|^a = 2σ_eq^a`
+(`a` = 6 for cubic-centred metals; all `α` = 1 and `a` = 2: von Mises). Its gradient in
+closed form, `|X'1 − X'2| = Δ'` and `2X''2 + X''1 = (3S − Δ'')/2`, `2X''1 + X''2 = (3S +
+Δ'')/2` (`S = X''11 + X''22`; at `Δ'' → 0` the limit `a(a − 1)|3S/2|^(a−2)/2` of the
+quotient of its differences); the Hessian of `σ_eq` by central differences of the
+gradient. The eight `α` fitted exactly (Levenberg–Marquardt) to `σ45/σ0`, `σ90/σ0`,
+`σb/σ0`, `r0`, `r45`, `r90`, `rb` and `σ_eq` = 1 along the rolling direction
+(`yld2000_from_data`), with `r_θ = −(g11 s² + g22 c² − g12 cs)/(g11 + g22)` and `rb =
+g22/g11` from the gradient `g` at the unit stresses. The return mapping in plane stress:
+the closest point, Newton's method on the four unknowns `σ`, `Δγ` of `C⁻¹(σ − σ*) + Δγ
+n(σ) = 0` and `σ_eq(σ) = σ_y(p + Δγ)` (`n = ∂σ_eq/∂σ`; `Δp = Δγ`, the plastic work
+`σ·Δε_p = Δγ σ_eq` by homogeneity), from the radial estimate `Δγ0 = (σ_eq* − σ_y)/(nᵀ C n
++ h)`, with a backtracking line search on the residual (the large curvature of the
+biaxial region; Zhang et al. 2018), the increment split in substeps when it fails; the
+consistent tangent `Ξ − (Ξ n)(Ξ n)ᵀ/(nᵀ Ξ n + h)`, `Ξ = (C⁻¹ + Δγ ∂n/∂σ)⁻¹`; the thickness
+strain `−ν/E Δ(σ11 + σ22) − Δγ (n1 + n2)`, the axes turning with the material as for
+Hill. A treated point: `α = 1` (isotropic, the same exponent), or `1 + m(α − 1)` with the
+`memory` `m`. Checked: the von Mises limit and the gradient to rounding; DC04 (σ 151,
+166, 163, 192 MPa, `r` 1.83, 1.39, 2.11; Banabic & Sester 2012; `rb` = 0.87, Hill's
+`r0/r90`) fitted to 1e-8; the cell of the textured sheet gives `σ(θ)/σ0` within 0.7 %
+and `r(θ)` within 2 % of the criterion's, in two Newton iterations a step.
+
+**Crack growth** (`load_test(erosion=True)`). An element whose ratio to fracture (its
+critical plastic strain, the plastic strain of its phase averaged over the radius among
+the living elements) reaches one breaks: it keeps `10⁻⁶` of its elastic stiffness in its
+initial shape (`Membrane.alive`, `elastic_stiffness`), its stress zero, its state
+frozen, and leaves the averages. After each converged step of displacement, the most
+critical elements (four at a time) break and the specimen is brought back to
+equilibrium at the same displacement, again until none reaches one: a crack runs
+unstably at a fixed displacement, the force falling. The work of the test up to the
+separation (the force down to 5 % of its maximum) is the energy the crack took; its
+length the area of the broken band over its width (two elements). The band is a few
+elements wide whatever the mesh (the averaging radius), on a uniform mesh where the
+crack may go (`ct_mesh(refine=...)`: elements of `fine` over a box, graded outside).
+Checked: a strip with a weak band breaks across it and separates.
+
+**Periodic cell** (`periodic`). A pattern repeated over the sheet has a lattice: a
+family of tracks along `u` at spacing `s`, `(s u, s u⊥)`; crossed families at `±θ`,
+spacings `s1` and `s2`, `(s2/sin 2θ) u1` and `(s1/sin 2θ) u2` (along each family, from
+a track of the other to the next); corrugations `(P, 0)` and `(−φP/360, s)` (`φ` the
+phase between neighbours); a honeycomb of side `a`, `(3a/2, √3a/2)` and `(0, √3a)`;
+turned by the pattern's rotation and reduced (Lagrange–Gauss: the shortest pair). The
+parallelogram is meshed `n1 x n2`; a node of the last column or row (`i = n1`, `j =
+n2`) moves as its image plus `H d`, `d = k1 a1 + k2 a2`: `u = T q`, `q` the
+displacements of the `n1 n2` independent nodes and the components `(a, b, c)` of `H = a
+n⊗n + b t⊗t + c (n⊗t + t⊗n)` (`n` the tensile direction, `t` across; `H` symmetric: no
+rotation); forces `Tᵀ f`, tangent `Tᵀ K T`, one node held. The reaction of a component
+of `H` is the volume times the mean nominal stress it works with (virtual work: a
+variation `δH` at fixed independent nodes is `δH X` plus a periodic field, which does
+no work at equilibrium); `a` is prescribed, the reactions of `b` and `c` vanish: a
+uniaxial stress along `n`. The curve: the engineering strain `|(I + H) n| − 1`, the
+nominal stress the reaction of `a` over the volume; the width strain that of a strip
+along `n` (the distance between its edges, `ln (det(I + H)/|(I + H) n|)`: the shear of
+an off-axis test does not widen it), the thickness strain the mean of `ln λ3` over the
+cell; the proof stress on the slope
+`E` (the phases of a treated steel share their elasticity); the steps and Newton
+iterations of the load test. As the periodic element of §25 and §31, the macroscopic
+gradient among the unknowns (Michel, Moulinec & Suquet 1999; the cell stands for the
+sheet as a representative volume, Hill 1963). Checked: the mean gradient of `T q` is
+`H` for any fluctuation; an untreated sheet, `r = 1` in every direction and the
+nominal curve of its law within 1 %; the textured sheet, Hill's `r(α)` and `σ(α)`
+within 2 %; a laminate of equal hard and soft layers, the rule of mixtures along the
+layers within 1 % and `r < 0.15` across them (the hard layers hold the width of the
+soft ones). The gradients of the shape functions are `∂N/∂x_i = Σ_k (J⁻¹)_ik
+∂N/∂ξ_k` (`J_ki = ∂x_i/∂ξ_k`): the turned elements of a cell need the order of the
+indices, which the rectangles of the specimens did not.
+
+**Softening** (`PeakSoftening`). The hardness loss of a cycle a table of its peak
+temperature, the state the larger loss of all the cycles (the precipitates dissolved
+do not form again), the strength of each hardness from the table of the material.
+
+**Treatability and tracks.** A design is drawn by a square spot of `w` cells if it
+equals its opening by a `w x w` square (every treated cell in a treated square; the
+spot may overhang the edges: the design is padded by its edge values) and its erosion
+has as many components (8-connected) as the design (4-connected): no neck thinner than
+the spot. `stamp`: the spot along polylines (steps of a quarter cell). `design_tracks`:
+the runs of treated cells of each column, linked to the runs of the next column they
+share a row with, walked into polylines (the straightest continuation first), each run
+crossed at its middle (or, as an option, from end to end when longer than the spot);
+the end columns continue to the grips.
+
+## 59. Transport phenomena of a scalar potential (`homogenization.materials`, `apparent`)
+
+Heat conduction, electrical conduction, dielectrics, magnetostatics and diffusion are one
+problem: a potential `u` whose flux `q = −a grad u` is divergence-free, with the
+coefficient `a` of each phase (a scalar, or a symmetric positive tensor in the axes of a
+crystal),
+
+| physics | potential `u` | flux | coefficient (`Material`) |
+|---|---|---|---|
+| `thermal` | temperature | heat flux `q = −k grad T` | `conductivity` |
+| `electrical` | electric potential | current density `j = −σ grad V` | `electrical_conductivity` |
+| `dielectric` | electric potential | electric displacement `D = −ε grad V` | `permittivity` |
+| `magnetic` | magnetic scalar potential | induction `B = −μ grad ψ` | `permeability` |
+| `diffusion` | concentration | flux of matter `j = −D grad c` | `diffusivity` |
+
+(the table `TRANSPORT`). The problems of a volume element are those of §10–§12 for the
+thermal case, with the coefficient of the physics: a macroscopic gradient `G` (KUBC,
+periodic conditions) or flux `Q` (SUBC), the apparent tensor `a*` of `Q = −a* G` from
+three loadings, the scalar property its trace over three, with the energy estimate
+`<q·grad u>` and the isotropy criteria of §10. A phase whose coefficient is zero is
+*inert* for that physics (an insulator in a conducting composite, an impermeable
+inclusion): it is treated as a pore of that problem only — its elements are left out of a
+mesh, its voxels carry no flux — while a `void` is a pore for every physics. The bounds of
+Wiener, `(Σ f_i / a_i)⁻¹ ≤ a* ≤ Σ f_i a_i`, and of Hashin and Shtrikman for isotropic
+phases come with each property; the normalized values, the mean tensors of RVE studies
+(§13; the mean of `a*` and of its inverse per size and boundary condition) and the
+window method apply to every transport tensor.
+
+Checked: each physics gives the results of the thermal solver to the last bit for the
+same coefficients (FFT and finite elements); layers under periodic conditions give the
+arithmetic and harmonic means exactly; the apparent conductivities of random blocks lie
+within the bounds of Hashin and Shtrikman; an insulating layer across a conductor gives
+a zero flux across it and the mean along it.
+
+## 60. Strong couplings (`homogenization.coupled`)
+
+**Laws.** A *layout* lists the fields solved together, each a displacement `u` (its
+generalized gradient: the strain `ε`, six Voigt components; its flux: the stress `σ`) or
+a scalar potential (its gradient, three components; a flux vector). The generalized
+gradient `Z` stacks those of the fields, the generalized flux `S` their fluxes, and each
+phase has the symmetric law `S = L Z`:
+
+* piezoelectric (`u`, electric potential `φ`, `E = −grad φ`): `σ = C ε − eᵀ E`,
+  `D = e ε + κ E`, i.e. `Z = (ε, grad φ)`, `S = (σ, D)`, `L = [[C, eᵀ], [e, −κ]]` with the
+  stiffness at constant field, the piezoelectric matrix `e` (3 × 6, stress–charge form)
+  and the permittivity at constant strain;
+* piezomagnetic (`u`, magnetic potential `ψ`, `H = −grad ψ`): the same with `q` and `μ`;
+* magneto-electro-elastic (`u`, `φ`, `ψ`): `L = [[C, eᵀ, qᵀ], [e, −κ, −α], [q, −αᵀ, −μ]]`,
+  with the magnetoelectric tensor `α`; a composite of a piezoelectric phase and of a
+  piezomagnetic one is magnetoelectric though neither is (a product property);
+* magnetoelectric (rigid phases): `L = [[κ, α], [αᵀ, μ]]`;
+* thermoelectric, linearized about the mean temperature `T0`: `j = −σ (grad V + s grad
+  T)` and the entropy flux `j_s = q / T0 = s j − (k / T0) grad T` (Kelvin's relation
+  `Π = s T0`), i.e. `L = [[σ, σ s], [sᵀ σ, k / T0 + sᵀ σ s]]`, symmetric positive
+  definite by Onsager's reciprocity.
+
+The energy-conserving laws are symmetric but indefinite: their potentials are saddle
+points of the electric enthalpy.
+
+**Solver.** `CoupledProblem` solves the periodic fluctuations of all the fields on the
+trilinear voxels of the FFT solver (§12): `K w = f` with the element matrices
+`∫ Bᵀ L B` (`B`: the generalized gradients of the shape functions, eight Gauss points) by
+MINRES — conjugate gradients when every block is positive — preconditioned block by
+block by the inverse of a homogeneous reference medium in Fourier space (the isotropic
+reference of §12 for a displacement; the mean of the extreme eigenvalues of its block
+for a potential). The unknowns of each field are scaled by the square root of its
+reference, so that the blocks have the same magnitude whatever the units (stiffnesses of
+10¹¹ Pa beside permittivities of 10⁻⁹ F/m). The unit loadings of `Z` give the effective
+law `L*`, split (`split_law`) into the tensors of the coupling and the constants derived
+from them: the strain–charge matrix `d = e C⁻¹`, the permittivity at constant stress
+`κ^σ = κ^ε + d eᵀ`, `g33 = d33 / κ^σ_33`, the hydrostatic coefficients `d_h = d31 + d32 +
+d33` and `g_h`, the coupling factors `k33 = d33 / √(s33^E κ^σ_33)` and `k_t = e33 /
+√(C33^D κ^ε_33)` (`C33^D = C33^E + e33² / κ^ε_33`); the power factor `s² σ` and the figure
+of merit `ZT = s² σ T0 / k` of a thermoelectric law along each axis. A uniform change of
+temperature with the thermal stresses `β = C α` and the pyroelectric coefficients of the
+phases, `S = L Z − λ dT`, gives the effective `λ*` (the generalized relation of Levin).
+
+**Exact laminates.** For layers normal to `x3`, the components of `Z` continuous across
+the layers are the in-plane ones (`p`: `ε11, ε22, γ12` and the in-plane gradients), those
+of `S` the normal ones (`n`: `σ33, σ23, σ31` and the normal fluxes). With the blocks of
+`L` in that partition, `L*_nn = <L_nn⁻¹>⁻¹`, `L*_np = L*_nn <L_nn⁻¹ L_np>` and
+`L*_pp = <L_pp − L_pn L_nn⁻¹ L_np> + <L_pn L_nn⁻¹> L*_nn <L_nn⁻¹ L_np>` (`laminate`: the
+formula of Backus for any symmetric law, real or complex).
+
+Checked: layers of every coupling against the exact laminate, to 3.5e-14 in SI units; the
+solution against the dense system of a small grid; uncoupled phases against the elastic
+and dielectric problems of the FFT solver; the product property of a
+piezoelectric–piezomagnetic laminate; the theorem of uniform thermal strains and Levin's
+relation; a uniform Seebeck coefficient, which the composite keeps whatever its
+conductivities.
+
+## 61. Viscoelasticity, hyperelasticity and damage (`homogenization.laws`)
+
+These behaviours are integrated for all the points of a phase at once, by the seam of
+the laws integrated outside the compiled kernels (§36, §57): the same code serves the
+material point, the finite elements, the voxels of the FFT solver (CPU and GPU), the
+bulk of the crack solvers (§51) and the identification (§53). The elastic constants of
+the material are the instantaneous ones.
+
+**Viscoelasticity.** The generalized Maxwell model: Prony series of the shear and bulk
+relaxation moduli relative to the instantaneous ones, `G(t) = G0 (1 − Σ g_i (1 −
+exp(−t / τ_i)))`, `K(t)` likewise. The deviatoric stress is `s = 2 G∞ e + Σ q_i`, each
+branch `dq_i/dt + q_i / τ_i = 2 g_i G0 de/dt`, integrated exactly for a strain that
+varies linearly over the step (Taylor, Pister & Goudreau 1970): `q_i ← exp(−x) q_i + 2
+g_i G0 φ(x) Δe`, `x = Δt / τ_i`, `φ(x) = (1 − exp(−x)) / x`; the consistent tangent is
+the elasticity of the moduli `G∞ + Σ g_i G0 φ(x_i)`. Thermo-rheologically simple
+materials divide their times by the shift `a_T`: `log10 a_T = −C1 ΔT / (C2 + ΔT)`
+(Williams, Landel & Ferry) or `ln a_T = (E_a / R)(1 / T − 1 / T_ref)` (Arrhenius). The
+complex moduli of a frequency are `G*(ω) = G0 (1 − Σ g_i + Σ g_i iωτ_i / (1 + iωτ_i))`
+(§62). In finite strains the law holds in the logarithmic strain space (§33); with a
+hyperelasticity it is the finite linear viscoelasticity of Simo (1987): the branches
+relax the isochoric and volumetric second Piola–Kirchhoff stresses of the hyperelastic
+law, `Q_i ← exp(−x) Q_i + g_i φ(x) (S_iso^{n+1} − S_iso^n)`.
+
+**Hyperelasticity** (finite strains). `W = ψ(Ī1, Ī2) + U(J)` with the isochoric
+invariants `Ī1 = J^{−2/3} I1`, `Ī2 = J^{−4/3} I2` of `C = Fᵀ F`:
+
+* neo-Hookean `μ/2 (Ī1 − 3)`;
+* the polynomial of Rivlin `Σ c_ij (Ī1 − 3)^i (Ī2 − 3)^j` (`polynomial`: any `c_ij` up to
+  the sixth order; shear modulus `2 (c10 + c01)`), of which Mooney–Rivlin are the forms
+  of two, three, five and nine parameters (`c10`, `c01`, then `c11`, `c20`, `c02` and
+  the third order: Biderman, Isihara, James–Green–Simpson) and Yeoh the powers of `Ī1`
+  alone, `Σ c_i0 (Ī1 − 3)^i`;
+* Arruda–Boyce, the five-term series of the eight-chain model (locking stretch `λ_m`),
+  and the eight chains themselves (`eight_chain`), `ψ' = μ / (6 x) L⁻¹(x)` with the
+  stretch of the chains over their locking stretch `x = √(Ī1 / 3) / λ_m` and Cohen's
+  approximant `L⁻¹(x) ≈ x (3 − x²) / (1 − x²)` of the inverse Langevin function: `ψ' =
+  μ/6 (3 − x²) / (1 − x²)`, which locks at `x = 1` where the series does not;
+* Gent `−μ J_m / 2 ln(1 − (Ī1 − 3) / J_m)`;
+* van der Waals (Kilian) `μ [−(λ_m² − 3)(ln(1 − η) + η) − ⅔ a ((Ĩ − 3)/2)^{3/2}]`, `η =
+  √((Ĩ − 3) / (λ_m² − 3))`, `Ĩ = (1 − β) Ī1 + β Ī2`: `∂ψ/∂Ĩ = μ [1 / (2 (1 − η)) − a/2
+  √((Ĩ − 3)/2)]`, the locking of the chains and their interaction `a`;
+* Fung–Demiray `μ / (2b) (exp(b (Ī1 − 3)) − 1)` (soft tissues);
+* Ogden `Σ_p μ_p / α_p (λ̄1^{α_p} + λ̄2^{α_p} + λ̄3^{α_p} − 3)` of the isochoric principal
+  stretches (shear modulus `Σ μ_p α_p / 2`), in spectral form;
+* Holzapfel–Gasser–Ogden: a neo-Hookean matrix and families of fibres of directions `a`,
+  each of energy `k1 / (2 k2) (exp(k2 ⟨E⟩²) − 1)` of its strain `E = J^{−2/3} C : H − 1`,
+  `H = κ I + (1 − 3κ) a ⊗ a` (`κ = 0`: aligned fibres, `E = Ī4 − 1`; `κ = 1/3`:
+  isotropic), where it is positive: the fibres carry no compression. `∂E/∂C = J^{−2/3} (H
+  − (C : H) / 3 C⁻¹)`, and the tangent adds `ψ'' ∂E/∂C ⊗ ∂E/∂C + ψ' ∂²E/∂C²`;
+* Saint-Venant–Kirchhoff.
+
+Volumetric energies: `K/2 (J − 1)²`, `K/2 (ln J)²` or `K/4 (J² − 1 − 2 ln J)`. Two
+compressible laws have no split and take their Poisson's ratio from the bulk modulus,
+`β = ν / (1 − 2ν)`, `K = μ (2/3 + 2β)`: Blatz–Ko, `W = μ f / 2 [I1 − 3 + (J^{−2β} − 1) /
+β] + μ (1 − f) / 2 [I2 / J² − 3 + (J^{2β} − 1) / β]` (`f = 0`, `ν = 1/4`: their foamed
+rubber, `μ/2 (I2/I3 + 2 √I3 − 5)`), and the hyperfoam of Ogden, Hill and Storåkers, `Σ_p
+2 μ_p / α_p² [λ1^{α_p} + λ2^{α_p} + λ3^{α_p} − 3 + (J^{−α_p β} − 1) / β]` (shear modulus
+`Σ μ_p`). The law returns `S = 2 ∂W/∂C` and the symmetric tangent `4 ∂²W/∂C²` in closed
+form, which the points turn into the first Piola–Kirchhoff stress and `∂P/∂F`.
+
+*Softening of Mullins* (`mullins: [r, m, β]`; Ogden & Roxburgh 1999). The isochoric
+stress of any of these laws is multiplied by `η = 1 − erf((W_m − W̃) / (m + β W_m)) / r`,
+`W̃` the isochoric energy and `W_m` the largest it has had: 1 on the virgin curve, down
+to `1 − 1/r` on the way back, and the virgin curve again beyond `W_m`. The tangent adds
+`∂η/∂E ⊗`: `η C_iso + 2 exp(−x²) / (r √π (m + β W_m)) S_iso ⊗ S_iso` while unloading,
+symmetric.
+
+*Tests of rubbers* (`Hyperelasticity.law().nominal_stress`). For an incompressible solid
+of energy `ψ(I1, I2)`, with `ψ1`, `ψ2` its derivatives: uniaxial tension `P = 2 (λ − λ⁻²)
+(ψ1 + ψ2 / λ)`, equibiaxial `2 (λ − λ⁻⁵)(ψ1 + λ² ψ2)`, planar (pure shear) `2 (λ −
+λ⁻³)(ψ1 + ψ2)`, simple shear `τ = 2 γ (ψ1 + ψ2)`; for Ogden `Σ μ_p (λ^{α_p − 1} − λ^{c
+α_p − 1})` with `c = −1/2`, `−2` and `−1`, and in shear `Σ μ_p (t^{α_p} − t^{−α_p}) / (t +
+1/t)`, `t − 1/t = γ`. With its bulk modulus the law is solved for the lateral stretches
+that cancel the lateral stresses (Newton on its tangent). `fit_hyperelasticity` fits the
+parameters of a law to such tests by least squares on the stresses (or on their ratios
+to the measures): one linear solve for the polynomials, which are linear in their
+coefficients; Levenberg–Marquardt-type iterations for the others.
+
+**Damage.** `σ = (1 − d) C : ε`, the damage a function of the largest equivalent strain
+`κ` reached: the energy norm `√(ε : C : ε / E)`, Mazars' `√(Σ <ε_i>₊²)` or the modified
+von Mises strain of de Vree et al. (1995) with the ratio of the compressive to the
+tensile strength. Softening: linear, `d = κ_u (κ − κ_0) / (κ (κ_u − κ_0))`, or
+exponential, `d = 1 − (κ_0 / κ) exp(−(κ − κ_0) / (κ_f − κ_0))`. A local softening law
+dissipates in a band one element wide, hence less and less as the mesh is refined; given
+the fracture energy `G_f` and the size `h` of the elements, the ultimate strain is set so
+that the band dissipates `G_f` per unit area (the crack band of Bažant & Oh 1983): `κ_u =
+2 G_f / (σ_0 h)` (linear), `κ_f = κ_0 / 2 + G_f / (σ_0 h)` (exponential), `σ_0 = E κ_0`.
+The dissipation is that of a band in uniaxial stress; a band whose lateral strains are
+prevented dissipates `(1 − ν) / ((1 + ν)(1 − 2ν))` times more. A viscosity delays the
+damage, `d_v ← (d_v + d Δt / η) / (1 + Δt / η)`, which keeps the incremental problems
+well posed through the snap-backs of softening microstructures; the volumetric split of
+Amor et al. (2009) keeps the bulk stiffness of a closed crack. The consistent tangent
+`(1 − d) C − d'(κ) (C : ε) ⊗ ∂κ/∂ε` is not symmetric (but for the energy norm). The
+nonlocal alternative is the micromorphic damage of §50.
+
+Checked: the relaxation of a point against its Prony series to 3e-12, the harmonic
+regime against the complex moduli, the relaxation of viscoelastic layers by FFT and by
+finite elements against the exact laminate to 1e-11; the stresses of the hyperelastic
+laws against the derivatives of their energies and the tangents against finite
+differences (14 laws, the three volumetric energies), the uniaxial tensions of
+incompressible rubbers against their closed forms to 5e-5 (ten laws, a bulk modulus of
+1e6 shear moduli) and their four tests with a bulk modulus of 1e7 to 2e-4; the foam of
+Blatz and Ko in tension, `P = μ (λ^{−1/2} − λ⁻³)` with the lateral stretch `λ^{−1/4}`
+(1e-8), and a hyperfoam without lateral contraction, `Σ 2 μ_p / α_p (λ^{α_p − 1} − 1/λ)`
+(1e-9); fibres of Holzapfel along the tension, `μ (λ − λ⁻²) + 2 k1 λ (λ² − 1) exp(k2 (λ²
+− 1)²)` (1e-3 with a bulk modulus of 1e6), no stress from them in compression nor across
+them; a cycle of Mullins against `η` times the virgin curve (1e-5) and its tangent
+against finite differences; the parameters of the ten laws recovered from their own
+stresses in three tests (1e-5); the softening curves and the dissipation of a damaged bar, 0.1106, 0.1107 and
+0.1108 for three sizes of voxels (crack band); the identification of a Prony series
+from a relaxation curve.
+
+## 62. Harmonic regimes (`homogenization.harmonic`)
+
+Under an excitation `exp(iωt)`, linear dissipative phases have complex symmetric laws,
+and the periodic problem of §12 holds with them as long as the wavelengths are much
+longer than the microstructure (quasi-static regime):
+
+* viscoelastic solids (correspondence principle): the complex moduli `K*(ω)`, `G*(ω)` of
+  each phase (§61) give the effective complex stiffness `C*(ω) = C' + i C''`, its
+  storage and loss parts and loss factors (`dynamic_stiffness`);
+* conductors and dielectrics: `σ* = σ + iωε` gives the conductivity and the permittivity
+  of the composite at each frequency, with the interfacial polarization of Maxwell,
+  Wagner and Sillars (`complex_conductivity`);
+* optics at long wavelengths: the permittivities `(n + ik)²` of the phases give the
+  effective permittivity tensor, the refractive indices `√ε*` along its axes and the
+  absorption `4πk / λ` (`effective_index`; form birefringence, effective media).
+
+**Solver.** For a complex symmetric law `L = L' + iL''`, the real form of the problem
+doubles the fields, `[[L', −L''], [−L'', −L']] (Z', Z'') = (S', −S'')`: a real symmetric
+indefinite law of the coupled solver (§60). The laws are first turned by a phase
+`exp(iθ)` that centres them about the real axis, so that their real parts are positive
+definite whenever the laws of the phases lie in an open half of the complex plane
+(dielectrics and metals of negative permittivity together). The linear system `K z = f`
+is complex symmetric; it is solved by conjugate gradients with the unconjugated product
+`uᵀv` — the conjugate orthogonal conjugate gradient method of van der Vorst & Melissen
+(1990) — preconditioned by the real reference medium: as many iterations as the real
+problem when the imaginary parts are small, where MINRES on the indefinite real form
+needs a number that grows as the contrast instead of its square root. The method has no
+minimization property; if it stalls, MINRES takes over.
+
+Checked: laminates against the exact complex law of layers (§60); the checkerboard of
+Dykhne, `ε* = √(ε1 ε2)`, real or complex, to 4e-4; the static and instantaneous limits
+of the frequencies; the storage and loss moduli against the same layers followed in
+time under a harmonic strain; the low-frequency limit of Maxwell and Wagner. The dynamic
+stiffness of 20³ voxels at three frequencies takes 15 s (more than four minutes by
+MINRES), with the same tensors.
+
+## 63. Extended finite elements of level sets (`homogenization.xfem`)
+
+A two-phase morphology is given by its level set `φ` at the nodes of a regular grid of
+the periodic box (`LevelSetSample`; negative in the phase 1). Each cell is cut into six
+linear tetrahedra (the Kuhn triangulation, whose faces match across the cells and the
+periods), in which `φ` is linear: the interface is a plane within each element.
+Following Moës, Cloirec, Cartraud & Remacle (2003), the displacement (or the potential
+of a transport problem) is enriched in the elements that an interface between two
+materials cuts,
+
+    u(x) = Σ_i N_i(x) u_i + Σ_j N_j(x) ψ(x) a_j,    ψ(x) = Σ_i N_i(x) |φ_i| − |Σ_i N_i(x) φ_i|,
+
+the ridge `ψ` continuous, with a kink on the interface — the jump of the normal strain
+that the continuity of the tractions asks for — and zero in the elements that the
+interface does not cut: no blending elements. A cut element is integrated on the
+sub-tetrahedra of its two sides (a tetrahedron and a prism, or two prisms, that the
+plane makes of it, each prism cut into three tetrahedra), each with its material and
+four Gauss points, which integrate the stiffness exactly. Where one side is a void or an inert phase, the element
+is not enriched and only its solid part is integrated (Sukumar et al. 2001); the nodes
+without solid around them are left out. The level set is moved away from the nodes it
+passes closer to than `snap` times the edge of the cells, which bounds the conditioning.
+The unknowns are the periodic fluctuations, standard and enriched, on the torus of the
+grid, with the macroscopic gradient as in §25; loading paths follow the nonlinear
+behaviours on the same discretization, the integration points of the cut elements those
+of their sub-tetrahedra, each with the behaviour of its side. In finite strains
+(`kinematics="finite"`) the formulation is the total Lagrangian one of §33: the level set
+cuts the elements of the reference configuration, whose enrichment functions do not
+change; the measures of the points are the displacement gradients `H_iJ = Σ_a u_ai
+∂N_a/∂X_J` of the standard and enriched functions plus the upper triangular macroscopic
+gradient, their conjugates the first Piola–Kirchhoff stresses, the tangent `∫ ∇N · A ·
+∇N`.
+
+A plane interface of any orientation is represented exactly; curved ones to second
+order in the size of the cells. Linear tetrahedra lock under isochoric plastic flow: for
+plasticity prefer quadratic conforming meshes or the voxels of the FFT solver (B-bar).
+
+Checked: layers oblique to the grid against the exact laminate to round-off (1e-14),
+elastic and thermal, where voxels of the same grid err by percents; spheres of contrast
+10, whose bulk modulus on 8³ cells is closer to the converged value than those of 32³ to
+64³ voxels; a spherical void, convergent at second order (the trilinear voxels have a
+smaller constant there: the gain of the cut elements is for interfaces between
+materials); loading paths of a damaging inclusion against the voxels; in finite
+strains, a rubber on both sides of interfaces oblique to the grid against its material
+point in tension to a stretch of 1.5 and in simple shear (1e-8), and two rubbers in
+layers stretched across them to 1.5, their sides held, against the stretches of the
+layers that give the same nominal stress (1e-8: the tolerance of the iterations).
+
+## 64. Phase field of brittle fracture (`fracture.phasefield`)
+
+A field `d` (0: sound, 1: broken) regularizes the cracks over a length `l` (Francfort &
+Marigo 1998; Bourdin, Francfort & Marigo 2000). The energy of the cell is
+
+    E(u, d) = ∫ g(d) ψ(ε(u)) dV + ∫ G_c γ(d, grad d) dV,    g(d) = (1 − d)² + k,
+
+with the crack density `γ = d² / (2l) + l |grad d|² / 2` (AT2: the damage grows from the
+first load) or `γ = 3/8 (d / l + l |grad d|²)` (AT1: an elastic domain), whose integral
+tends to the area of the cracks as `l` vanishes. In a homogeneous uniaxial extension of
+modulus `M` and energy `ψ = M ε² / 2`: `d = 2ψ / (G_c / l + 2ψ)` and the peak stress
+`(9/16) √(M G_c / (3l))` for AT2; no damage below `ψ = 3 G_c / (16 l)`, i.e. the stress
+`√(3 M G_c / (8l))`, then `d = 1 − 3 G_c / (16 l ψ)` for AT1. The optimal profile of a
+crack is `exp(−|x| / l)` (AT2) or `(1 − |x| / (2l))²` up to `2l` (AT1).
+
+**Algorithm.** Alternate minimization at each step of a loading path, until the damage
+no longer moves (`staggered_tol`): (1) the displacement at fixed damage, the periodic
+elastic problem of the voxels of §12, each voxel with its stiffness times `g` of its
+damage (the macroscopic components prescribed as stresses condensed; conjugate gradients
+from the last solution, preconditioned by the Fourier inverse of the reference medium
+between two scalings by `1/√g` of the nodes, `g` their mean degradation: the stiffness
+of a damaged cell is that of the sound one times `g`, which the reference alone ignores
+— six times fewer iterations across broken voxels); (2) the damage at
+fixed displacement, `(G_c / l + 2ψ⁺) d − G_c l Δd = 2ψ⁺` (AT2) on trilinear elements with
+a lumped reaction term, by conjugate gradients, under the bound `d ≥ d_n` of
+irreversibility imposed by a primal–dual active set — for AT1 an obstacle problem, whose
+damage is exactly zero away from the cracks. The alternative `irreversibility="history"`
+replaces the bound by the largest `ψ⁺` reached at each voxel (Miehe, Hofacker &
+Welschinger 2010): simpler, but it widens the cracks and over-estimates their energy.
+The stress is degraded as a whole, `σ = g(d) C : ε` (the hybrid formulation of Ambati,
+Gerasimov & De Lorenzis 2015, linear at fixed damage), while the energy that drives the
+damage is its tensile part: all of it (`split="none"`), the spectral part `λ <tr ε>₊² / 2
++ μ Σ <ε_i>₊²` (Miehe et al.) or the volumetric–deviatoric one `K <tr ε>₊² / 2 + μ dev ε
+: dev ε` (Amor et al. 2009), so that compression does not break. Each phase has its
+toughness; a phase without one does not break; voids carry neither stress nor cracks;
+initial cracks are voxels whose nodes are held at `d = 1`.
+
+**Discretization.** A crack one voxel wide adds the energy of its broken voxels to that
+of its two half profiles: its regularized area per unit of true area is `1 + h / (2l)`
+(AT2) or `1 + 3h / (8l)` (AT1), `h` the size of the voxels — the effective toughness of
+the discrete model; at least two voxels per length.
+
+Checked: the homogeneous responses of both models and of the three splits against the
+closed forms above (1e-8); the profiles and the areas `1 + h / (2l)`, `1 + 3h / (8l)` of
+a plane of broken voxels (0.5 %); the fracture energy of a bar with a weak voxel, `G_c
+(1 + 3h / (8l))` on 40 as on 80 voxels (1 %), which the history field over-estimates by
+about 20 %; no damage in compression with the splits; a periodic row of slits, which
+cross their cell at 0.85 (AT1) and 0.71 (AT2) of Griffith's stress `√(E' G_c / (W tan(πa
+/ W)))` (the regularized cracks are longer than the slits by a length of the order of
+`l`), the regularized crack length that of the period times `1 + 3h / (8l)` within
+8 %; a section of a composite of unbreakable particles, whose strength is the same on
+24² and 32² voxels within 1 %.
+
+**Finite strains** (`fracture.phasefield_finite`). For the solids that stretch much
+before they break (rubbers, foams, soft tissues), the energy of the cell is that of the
+deformation gradient over the reference configuration, `E(u, d) = ∫ g(d) ψ(F) dV₀ + ∫ G_c
+γ(d, ∇₀d) dV₀`: the damage and its gradient are Lagrangian fields and the toughness an
+energy per unit reference area (Miehe & Schänzel 2014). The phases that break are
+hyperelastic (the strain energies of §61) or elastic (the energy of Hencky, `λ (tr e)² / 2
++ μ e : e` of the logarithmic strain `e`). A step is solved by the same alternate
+minimization: the displacement at fixed damage by the nonlinear FFT solver of the loading
+paths (§34: total Lagrangian, F-bar voxels, the nominal stress `P = g(d) ∂ψ/∂F` and its
+tangent degraded as a whole, the Fourier preconditioner scaled by the degradation of the
+nodes), then the damage of the driving energy of the state reached, by the damage problem
+above; a step that Newton's method cannot solve is divided, and its damage starts again
+from that of the last converged step. The driving energy is all of `ψ` (`none`); or the
+isochoric energy and the volumetric one in expansion, `ψ⁺ = W(C̄) + U(J) [J > 1]`
+(`volumetric`: a hydrostatic compression does not break); or, for the elastic phases
+only, the tensile part of Hencky's energy in the principal logarithmic strains
+(`spectral`). The strains and stresses of the path are the nominal ones of the loading
+paths in finite strains (§33, §34), with the true ones beside them. Where a crack runs
+at a fixed load, the F-bar voxels of its band are sheared far (shears of the order of one,
+stretches of several across the crack): from an equilibrium where every Jacobian is above
+0.99, a correction of Newton's method may turn some of them inside out, its merit growing
+by three to six orders of magnitude along the full correction, and dividing the step only
+replays the run of the crack. The compressible solids, which do not lock, are better solved
+on fully integrated voxels (`integration="full"`): the pure shear test below breaks on
+them, and stops on the F-bar ones.
+
+Checked (`tests/test_phasefield_finite.py`): a cell of rubber (neo-Hookean) and of an
+elastic solid stretched to 1.5 in uniaxial strain, the damage `2ψ / (G_c / l + 2ψ)` of
+its energy and the nominal stress of the sound solid times `(1 − d)²` (1e-8), the
+degraded strain energy and `G_c d² / (2l)`; in uniaxial stress, the sides contracting as
+those of the sound rubber (1e-6); a hydrostatic compression to `J = 0.51`, which breaks
+without a split and not with one, and a dilatation, which does; a cracked plate that
+breaks at a strain of 0.1 %: the strength of the small strains within 4 % (1.3 % with 40
+steps: the F-bar voxels are softer at the tip than the fully integrated ones), broken at
+the same step, the same area of crack within 1 %. The pure shear test of rubbers (Rivlin
+& Thomas 1953): a strip of height `H` with a crack over half its length, stretched across
+it with its length held and its thickness free; the energy released per unit area of
+crack is `W(λ) H`, `W` the energy of the strip stretched far from the crack, so that with
+`G_c (1 + 3h / (8l)) = W(1.5) H` the crack runs at `λ = 1.5`: on 48 × 16 fully integrated
+voxels it starts at 1.44 (the largest nominal stress) and has crossed the cell at 1.51,
+leaving the area of the section times 1.00 `(1 + 3h / (8l))`.
+
+## 65. Weak couplings: swelling and poroelasticity (`homogenization.poroelastic`)
+
+**Swelling.** A phase that absorbs a species strains by `β c`: `σ = C : (ε − β c)`, the
+problem of the thermal expansion (§26) with the `swelling` of the materials for the
+eigenstrain. The apparent tensor `B` of `E = S : Σ + B c` obeys Levin's relation; for
+two isotropic phases of any arrangement, `B* = β_1 1 + (β_2 − β_1)(S* : 1 − 1 / (3K_1))
+/ (1 / (3K_2) − 1 / (3K_1))`.
+
+**Poroelasticity.** For a porous solid whose pores hold a fluid at the pressure `p`
+(Biot 1941; Coussy 2004),
+
+    Σ = C_d : E − b p,    φ − φ_0 = b : E + p / N,
+
+with the drained stiffness `C_d`, the tensor of Biot `b` and the modulus of Biot `N` of
+the solid. The pressure on the walls of the pores is, in the solid, the uniform stress
+`−p 1` and the eigenstrain `−p S_s : 1` of each solid phase: with `σ' = σ + p 1`, `σ' =
+C_s : (ε + p S_s : 1)` and `σ' n = 0` on the walls. One solution of the elastic problem
+at zero macroscopic strain, for a unit pressure, gives the mean stress `Σ'` and
+
+    b = 1 − Σ',    1 / N = −(1 − φ_0) <tr ε>_s,
+
+the volume the pores gain being that the solid loses. A homogeneous solid recovers `b =
+1 − C_d : S_s : 1` and `1 / N = (b − φ_0 1) : S_s : 1` (`b = 1 − K_d / K_s`, `1 / N = (b −
+φ_0) / K_s` when isotropic), since the uniform strain `−p S_s : 1` is then a solution;
+the solid may hold several phases or crystals, where these formulas fail but the
+reciprocity `b = 1 − (1 − φ_0) 1 : <A>_s` with the strain localization `A` of the
+drained problems still holds. A fluid of bulk modulus `K_f` that cannot drain (Gassmann
+1951): `1 / M = 1 / N + φ_0 / K_f`, `C_u = C_d + M b ⊗ b`, and a stress raises its
+pressure by `p = −B : Σ / 3` with the tensor of Skempton `B = 3 M S_u : b`.
+
+Checked: Levin's relation for two random phases (1e-6, the tolerance of the solver) and
+the closed form of layers by finite elements (1e-8); phases that swell alike strain
+without stress; `b`, `N` and Gassmann's modulus of a spherical pore in an isotropic
+solid (2e-10), the tensor `b` of an oblate pore and of a pore in a hexagonal crystal,
+whose hydrostatic strain is not spherical; the tensor of Biot of a solid of two phases
+against the reciprocity above (1e-7), where the formula of either phase alone errs by
+more than 0.02; the same relations by finite elements (periodic and kinematic uniform
+conditions) and by extended finite elements.
+
+## 66. Scalar Bloch waves (`homogenization.bloch`)
+
+A field that obeys `div(a grad u) + ω² b u = 0` has the Bloch problem of §44 with one
+unknown per node, the stiffness of the coefficient `a` (that of the conduction problems)
+and the consistent mass of `b`:
+
+| waves | field | `a` | `b` |
+|---|---|---|---|
+| `acoustic` | pressure of a fluid | `1 / ρ` | `1 / K` |
+| `shear` | antiplane displacement | `μ` | `ρ` |
+| `tm` | electric field `E_z` | `1 / μ_m` | `ε` |
+| `te` | magnetic field `H_z` | `1 / ε` | `μ_m` |
+
+The last three are the waves of a medium invariant along an axis, with wave vectors in
+its plane (a cell one voxel thick): the two polarizations of the light of photonic
+crystals of rods and of holes decouple into two scalar problems (`band_structure`
+refuses them a cell that varies along the axis or a wave vector out of its plane); in
+three dimensions the shear waves are those of the elastic solid (§44) and light is the
+vector wave of §69. A phase whose `a` is zero is left
+out of the mesh, its boundary free of flux: the rigid scatterers of a sonic crystal, the
+perfect conductors of `te` waves. At long wavelengths the first band is that of the
+homogenized medium, `ω² = k · a* · k / <b>` (`long_wavelength_speeds`): for a mixture of
+fluids, Wood's law `1 / K* = <1 / K>` with the effective density tensor `(a*)⁻¹`.
+
+Checked: two fluids in layers against the exact dispersion `cos(qd) = cos(ω d1 / c1)
+cos(ω d2 / c2) − ½ (Z1 / Z2 + Z2 / Z1) sin(ω d1 / c1) sin(ω d2 / c2)` (residuals 1e-7,
+2e-4 and 6e-4 for the first three bands on 16 voxels, 10-node elements), the edges of
+its first gap (1e-3) and Wood's law (1e-9); the antiplane shear waves of a homogeneous
+solid against the transverse branch of its elastic waves; alumina rods (`ε = 8.9`,
+radius `0.2 a`) on a square lattice, whose TM gap is found from 0.323 to 0.443 on 16²
+voxels and from 0.319 to 0.437 on 24² (0.32 to 0.44 in Joannopoulos et al. 2008), with
+no TE gap; rigid cylinders in air, which slow the sound to `c0 / √(1 + f)` at long
+wavelengths (0.9107 for 0.9150, the cylinders drawn in voxels).
+
+## 67. Flow through the pores: Darcy's permeability (`homogenization.flow`)
+
+A fluid of viscosity `η` creeps through the pores of a rigid solid under a macroscopic
+pressure gradient `G`: the Stokes problem `η Δv − grad p = G`, `div v = 0` in the pores,
+`v = 0` on their walls, with `v` and the fluctuation `p` periodic. Its mean velocity over
+the whole cell obeys Darcy's law, `<v> = −(k / η) G`, with the permeability tensor `k`
+(a squared length), symmetric and positive.
+
+**Method.** The lattice Boltzmann method with two relaxation times (Ginzburg 2005) on
+the voxels themselves, lattice D3Q19: populations `f_i` move along the 19 velocities
+`c_i` (weights 1/3, 1/18, 1/36) and relax towards the linear equilibrium of a Stokes
+flow, `w_i (ρ + 3 c_i·j)` — their symmetric parts `(f_i + f_ī)/2` at the rate `1/τ⁺`,
+which sets the viscosity `ν = (τ⁺ − 1/2)/3`, their antisymmetric parts at `1/τ⁻`:
+
+    f_i(x + c_i, t + 1) = f_i − (f_i⁺ − w_i ρ)/τ⁺ − (f_i⁻ − 3 w_i c_i·j)/τ⁻ + (1 − 1/(2τ⁻)) 3 w_i c_i·g,
+
+with the momentum `j = Σ c_i f_i + g/2` and the body force `g` (the pressure gradient).
+A population that would enter a solid voxel bounces back into the node it left (no
+slip). The product `Λ = (τ⁺ − 1/2)(τ⁻ − 1/2)` is kept at 3/16: the wall of a channel
+along the lattice then lies exactly midway between the last fluid node and the first
+solid one, and the steady solution, in the variables `j/ν`, does not depend on the
+viscosity — the permeability is a property of the voxels alone, and `τ⁺ = 4` (a large
+viscosity, `ν = 7/6`) shortens the march to the steady state, whose number of steps
+goes as `w²/ν` for pores `w` voxels wide. The mean velocity is the mass flux of the
+populations that move between two nodes of the pores, which the scheme conserves
+exactly: the same through every section at the steady state, and zero where the pores
+are closed (the mean of the nodal momenta is not, next to walls that the force pushes
+on). Its changes between two checks decay geometrically: their ratio gives the error
+left and the limit (Aitken's extrapolation), accepted when the tolerance holds at two
+checks in a row. Curved walls are stairs: a few percent of error for pores ten voxels
+wide.
+
+Checked: the flow between two planes `H` voxels apart, a parabola at the nodes to 1e-9
+and the permeability `H²/12 + 1/24` (the mean of the parabola at its nodes) to 1e-8, for
+`τ⁺` 1 and 4; the same steady permeability of a simple cubic array of spheres for `τ⁺`
+from 1 to 8 (six digits), in 1650 to 300 steps; a square duct of side `a`, `0.035144 a²`
+(0.4 %); square arrays of cylinders on 48² voxels, across them against the drag of
+Sangani & Acrivos (1982) at the fractions 0.2 and 0.3 (within 5 %) and along them
+against Drummond & Tahir (1984), `a² (−ln c − 1.476 + 2c − c²/2)/(4c)` (1 to 2 %); simple
+cubic arrays of spheres against Zick & Homsy (1982), `k = 2a²/(9cK)` with `K` = 2.810,
+4.292, 7.442 and 15.4 at the fractions 0.064, 0.125, 0.216 and 0.343 (1 to 4 % on 24³ and
+40³ voxels); a cavity and a slab closed across, without flow. A random medium of 48³
+voxels takes 10 to 30 s for its three flows.
+
+## 68. Acoustics of porous media (`homogenization.acoustics`)
+
+Sound in the fluid that saturates a rigid porous frame, at wavelengths much longer than
+the pores, is that of an equivalent fluid of complex density `ρ(ω)` and bulk modulus
+`K(ω)`. The model of Johnson, Koplik & Dashen (1987), Champoux & Allard (1991) and
+Lafarge et al. (1997) interpolates them between their exact limits at low and high
+frequencies with six parameters of the pores, each a static problem on the image:
+
+* the porosity `φ`;
+* the static viscous permeability `k0` (§67), i.e. the resistivity `σ = η/k0`;
+* the tortuosity `α∞ = φ/s*`, `s*` the apparent conductivity of the pores filled with a
+  conductor of unit conductivity between insulating walls (the potential flow of an
+  inviscid fluid: §59);
+* the viscous characteristic length `Λ = 2 ∫_V E² dV / ∫_S E² dS` of the field `E` of that
+  problem. The integral over the walls is the rate at which the conductivity falls when
+  the walls move into the pores, `d ln s*/dδ = −2/Λ` (Johnson, Koplik & Schwartz 1986),
+  which stairs of voxels allow to measure where they do not allow a surface integral:
+  the pores are dilated and eroded by one voxel (the voxels within reach of the other
+  phase), the mean displacement `δ` of the walls is their change of volume over the area
+  of the walls, and `Λ = 2δ / ln(s*₊/s*₋)`; if the erosion closes the pores, the dilation
+  alone;
+* the thermal characteristic length `Λ' = 2V/S` of the pores, with the area of the walls
+  by the Cauchy–Crofton estimate (§8);
+* the static thermal permeability `k0' = <θ>`, `Δθ = −1` in the pores and `θ = 0` on the
+  walls: finite differences on the voxels with the walls midway (the mirror of a
+  parabola leaves `h²/8` on a plane wall, taken out), conjugate gradients. It is also the
+  mean survival time of a species that diffuses in the pores and that the walls absorb,
+  times its diffusivity and the porosity (Torquato 2002).
+
+With the time dependence `exp(iωt)`,
+
+    ρ(ω) = (α∞ ρ0/φ) [1 + (η φ/(iω ρ0 α∞ k0)) √(1 + i 4 α∞² k0² ρ0 ω/(η Λ² φ²))],
+    K(ω) = (γ P0/φ) / (γ − (γ − 1)/[1 + (η φ/(iω ρ0 Pr k0')) √(1 + i 4 k0'² ρ0 ω Pr/(η Λ'² φ²))]),
+
+Darcy's law and an isothermal gas at low frequencies, the fluid itself slowed by the
+tortuosity and an adiabatic gas at high ones (without `k0'`: `φΛ'²/8`, the value of
+circular pores, which is the model of Johnson, Champoux and Allard). A layer of
+thickness `d` on a rigid wall has the surface impedance `Z_s = −i Z_c cot(kd)`, `Z_c =
+√(ρK)`, `k = ω√(ρ/K)`, and the absorption coefficient `1 − |(Z_s − Z_0)/(Z_s + Z_0)|²` at
+normal incidence.
+
+*Oblique incidence and diffuse fields.* A plane wave at the angle `θ` from the normal of
+the layer keeps its wavenumber `k_0 sin θ` along it and is refracted: across the layer
+`k_x² = ρ_n (ω²/K − k_0² sin²θ / ρ_t)`, with the densities `ρ_n` across the layer and `ρ_t`
+along it of an anisotropic frame (fibres in layers: the parameters of the two axes of
+the image; the same for an isotropic one), `Z_s = −i ω ρ_n / (k_x tan(k_x d))` and the
+absorption `1 − |(Z_s cos θ − Z_0)/(Z_s cos θ + Z_0)|²`. In a diffuse field, where the
+waves come from every direction, Paris' average `∫ α(θ) sin 2θ dθ / ∫ sin 2θ dθ` over the
+angles up to a limit (π/2, or the 78° of practice), by Gauss's quadrature. Checked: a
+layer of air itself, whose impedance is `−i Z_0 cot(k_0 d cos θ) / cos θ` and which absorbs
+nothing; a frame so resistive that the sound in it travels across the layer (a locally
+reacting surface): the absorption of its normal impedance at that angle (1 %); Paris'
+closed form for a real impedance `ζ Z_0`, `8/ζ² (1 + ζ − 1/(1 + ζ) − 2 ln(1 + ζ))`, 0.951
+at its maximum `ζ = 1.567` (1e-9); at normal incidence the frame along the layer does not
+matter.
+
+Checked: the thermal permeability of a slit against its parabola (1e-9) and of a tube
+drawn in voxels against `R²/8` (2 %), and against the flow along cylinders, which is the
+same problem (0.2 %); square arrays of cylinders, whose tortuosity across them is
+Rayleigh's `1 + c` (0.6 %) and whose viscous length is `(1 + c)/2` of the thermal one
+(within 1 % at the fraction 0.1, on 32² to 64² voxels; the mean of `E²` over the voxels
+next to the walls gives 0.72 for 0.55); simple cubic arrays of spheres, `1 + c/2` and
+`2(1 + c/2)/3` (Maxwell: 1 % and 1 to 4 %); the model against the exact responses of slits and of circular
+tubes (Zwikker & Kosten; Stinson 1991) over three decades of frequency: the density
+within 2.7 % (slits) and 5.1 % (tubes), the bulk modulus within 0.8 % and 1.3 %; its
+limits at low and high frequencies; the absorption of a thick layer, that of a half
+space of the equivalent fluid. An open-cell foam of 8 % of solid and cells of 0.3 mm
+(60³ voxels, 26 s) gives a resistivity of 9.4 kPa s/m², a tortuosity of 1.05 and
+`Λ'/Λ` = 2.1.
+
+## 69. Electromagnetic Bloch waves of three-dimensional crystals (`homogenization.photonic`)
+
+In a periodic medium of permittivity `ε(x)` and permeability `μ(x)` without sources, a
+harmonic field obeys `curl(ε⁻¹ curl H) = ω² B` with `B = μ H` and `div B = 0`. At the
+wave vector `k` the induction of a Bloch wave is a sum of plane waves over the reciprocal
+vectors `G` of the cell,
+
+    B(x) = Σ_G (b¹_G e¹_G + b²_G e²_G) exp(i (k + G)·x),
+
+with two amplitudes per plane wave on unit vectors `e¹, e²` normal to `q = k + G` (Ho,
+Chan & Soukoulis 1990): the fields are divergence-free by construction, and the gradients,
+which the curl ignores and which fill the spectrum of nodal discretizations with zero
+frequencies, are left out. With `P` the map of the amplitudes to the plane waves and `C =
+i q ×` the curl, the frequencies are those of the Hermitian pencil
+
+    Pᴴ μ⁻¹ C ε⁻¹ C μ⁻¹ P b = ω² Pᴴ μ⁻¹ P b,
+
+which a uniform permeability reduces to `Pᴴ C ε⁻¹ C P h = ω² μ h`, the problem of the
+dielectric crystals (for the transverse wave `c¹ e¹ + c² e²`, `C` gives `i |q| (c¹ e² − c²
+e¹)`). The Galerkin projection on the transverse waves is exact: the residual `R = curl
+ε⁻¹ curl μ⁻¹ B − ω² B` of an eigenvector is transverse, and orthogonal to the transverse
+waves in the product of `μ⁻¹`, hence zero.
+
+*Solution.* The curls are taken on the plane waves and the products by `ε⁻¹` and `μ⁻¹` on
+the grid of the cell, a pair of fast Fourier transforms apart (Johnson & Joannopoulos
+2001); the matrices are never formed. The lowest frequencies are found by a block
+Davidson method: the Rayleigh–Ritz values of a subspace extended at each step by the
+preconditioned residuals of the waves not yet converged, restarted from the current waves
+and those of the step before, started from the waves of the previous wave vector (with a
+part of random long waves: a block that misses one of the lowest waves altogether would
+never find it). The preconditioner is the operator of the inverse medium, `Pᴴ μ C⁻¹ ε C⁻¹ μ
+P` with `C⁻¹ = i q × / |q|²`: the inverse of the operator but for the projections,
+whatever the contrast of the phases (28 steps against 69 with the inverse of `|q|²` for
+the first ten bands of the diamond lattice below). Cells of up to 900 plane waves are
+diagonalized. At the centre of the zone the two uniform fields have a zero frequency.
+
+*Interfaces.* The grid of the plane waves is that of the voxels, or one `coarsen` times
+coarser whose cells hold several voxels. A cell that an interface cuts then takes the
+tensor of Meade et al. (1993), as averaged by Johnson & Joannopoulos (2001),
+
+    ε̃⁻¹ = <ε⁻¹> n ⊗ n + <ε>⁻¹ (1 − n ⊗ n),
+
+the effective tensor of the layers that the interface draws in the cell: the harmonic
+mean for the field normal to it, the arithmetic mean along it. The normal `n` is the sum
+of the gradients of the permittivity over the voxels of the cell (central differences:
+the normal of a plane that cuts the cell, whatever its stairs; the principal direction of
+their products, which does not see their signs, is biased towards the axes by 5° on a
+plane of slope 1/2 and left 1 % of error at any resolution) or, where they cancel (a
+layer thinner than the cell), that principal direction. The stairs of the voxels cost
+the frequencies an error of first order in the size of the cells; the average brings it
+back to the second order, with three or four voxels per cell along each axis.
+
+*Units.* With relative permittivities and permeabilities the frequencies are in units of
+the speed of light over the unit of length (`ω a / 2π c`). The tolerance `tol` bounds
+the residuals of the bands in units of the square of the first reciprocal vector: the
+squares of the frequencies are within about its square.
+
+Checked (`tests/test_photonic.py`): the light cones `ω = |k + G| / √(εμ)` of a
+homogeneous medium and the ordinary and extraordinary waves of a uniaxial crystal (`ω² =
+q_z² / ε_o + (q_x² + q_y²) / ε_e`) to round-off; the Bragg mirror of permittivities 1 and
+12 against the exact dispersion of both polarizations, at normal and oblique incidence
+(Yeh, Yariv & Hong 1977: `cos(KΛ) = cos(k₁d₁) cos(k₂d₂) − ½ (p + 1/p) sin(k₁d₁) sin(k₂d₂)`,
+`p` the ratio of `k_i / μ_i` or of `k_i / ε_i`): 6e-4 on 40 plane waves and 1.5e-4 on 80,
+the second order; magnetic layers (the pencil) to 5e-4, as the stack of permittivities
+and permeabilities exchanged (the duality of the two fields); an interface in the middle
+of a cell: 8e-5 with the averaged tensor, 1.1 % when it is moved to a face of the cell;
+layers oblique to the grid (slopes 1, 1/2 and 1/3): 0.2 to 0.4 % on 32 plane waves with
+four voxels per cell; alumina rods on a square lattice: the waves in the plane are the
+two scalar polarizations of §66 together, within 1 % of the finite elements of the same
+voxels, and those out of the plane lie above the light line of the alumina; long waves:
+the arithmetic and harmonic means of layers (1e-8) and the homogenized permittivity of a
+cubic lattice of spheres (0.5 %); the complete band gap of the diamond lattice of
+spheres (`ε = 11.56`, radius `a/4`; Ho, Chan & Soukoulis 1990), between the bands 8 and 9
+of its cubic cell: from 0.3973 to 0.4424 `c/a` on 16³ plane waves of a 64³ image (8 s
+for nine wave vectors), for 0.3963 to 0.4408 in the tutorial of MPB, and within 1 % of
+them from 12³ to 32³; the iterative solver against the diagonalized matrices (1e-6),
+whose operators are Hermitian and positive.
+
+## 70. Particles of a phase in a volume (`analysis.particles`)
+
+The stereology of §39 recovers the sizes of particles from their sections; in the volume
+of an image they are measured one by one. The distance `d(x)` of each voxel of the phase
+to the other phase is highest at the heart of the particles and low in the necks where
+two of them touch or overlap. Its maxima of prominence at least `h` (the descent from a
+maximum to the saddle towards a higher one: a neck, not the roughness of a surface; found
+by a union-find over the voxels in decreasing distance) are the markers of the
+particles, and the watershed of `−d` (Meyer's flooding: the voxels conquered from the
+markers in decreasing order of the lowest distance on their path) shares the phase
+between them: two overlapping balls are cut by the plane of their neck. The kernels of
+the sections (`kernels.watershed`) now take volumes: 26-connected voxels (8-connected
+pixels in a plane, as before: the sections are volumes one voxel thick), through the
+faces of a periodic image, where the distance is that of the wrapped image. Without the
+watershed, or with a prominence that no neck reaches, the particles are the connected
+parts of the phase.
+
+In an image that is not periodic, a particle cut by the frame is known in part only. It is
+left out, and a particle of extents `w_i` voxels in an image of `n_i` voxels counts for
+
+    Π n_i / Π (n_i − 1 − w_i),
+
+the inverse of the fraction of its positions that keep it whole in the frame (Miles 1974;
+Lantuéjoul 1980): the number of particles per unit volume and the distribution of their
+sizes are then unbiased, where the count of the whole particles misses the large ones
+most. `particle_sizes` returns the labels, the volumes (radii of the balls of the same
+volume), the centres and the weights; the measure `particles` gives their number per
+unit volume, the mean and the coefficient of variation of their radii, also to the
+statistics of representative volumes.
+
+Checked (`tests/test_particles.py`): two balls of radius `R` whose centres are `d` apart,
+one of them across a face of the periodic box: two particles of volume `4πR³/3 − πh²(3R −
+h)/3`, `h = R − d/2` (the ball less its cap), to 0.7 % on 64³ voxels, their centres on
+the axis; one particle without the watershed; a packing of 155 hard spheres of radii
+0.05 to 0.1 that touch in the voxels (fewer connected parts than spheres): 155 particles
+at the centres of the spheres (a quarter of a voxel), with their radii (0.5 %); in its
+eight windows of half its edge, taken as images that are not periodic, 154.5 particles
+per unit volume with the weights for 155, and 49 for the whole particles alone; discs
+of a planar image: the sections of §39, to round-off.
+
+## 71. Diamond and pyrochlore lattices of struts (`homogenization.frames`, `models.lattice`)
+
+The plane lattices of §45 have their counterparts in space among the cubic ones: the
+square lattice and the cubic one, the triangular lattice and the octet truss, and, added
+here, the honeycomb and the diamond lattice, the kagome and the pyrochlore lattice.
+
+*Diamond.* Two face-centred cubic lattices a quarter of the diagonal of the cell apart;
+each node is joined to its four neighbours of the other lattice, at the corners of a
+tetrahedron (struts `√3/4` of the edge, 8 nodes and 16 struts per cubic cell). As the
+honeycomb with its three walls per node, it is the lattice of lowest coordination: a
+hydrostatic strain stretches all its struts alike, `K = ρ̄ E_s / 9` whatever their
+bending, and every other strain bends them (five floppy strains of its pin-jointed
+framework), `E ∝ ρ̄²`. Its space group `Fd3̄m` has the point group `O_h` only with
+translations: about a node, the tetrahedral group (the rotation-reflection `−C_4z` and
+the threefold axis `[111]`), and the inversion about the middle of a strut, `x → −x +
+(1/4, 1/4, 1/4)`.
+
+*Pyrochlore.* Tetrahedra joined by their corners, which are the middles of the struts of
+the diamond lattice (struts `√2/4`, 16 nodes and 48 struts per cubic cell). As the kagome
+lattice of triangles joined by their corners, each node has `2d` struts (six), in pairs
+along straight lines (three): Maxwell's count is balanced, the framework keeps mechanisms
+(9 in a cell) and states of self-stress (12, those of its lines), and it carries every
+macroscopic strain. The nodes follow the strain, so that the stretching of the struts
+gives the stiffness in closed form; the struts lie along the six diagonals of the faces
+of the cell, as those of the octet truss with half as many:
+
+    C_11 = ρ̄ E_s / 6,   C_12 = C_44 = ρ̄ E_s / 12,   E = ρ̄ E_s / 9,   ν = 1/3,
+
+to which rigid joints add the bending of the struts, of relative order `(r / l)²`. About
+a node, its group has the inversion and the threefold axis; the rotation-reflection of
+the diamond lattice comes with the translation `(0, −1/4, −1/4)`.
+
+Both are cells of `SpaceFrame.lattice_of` (stiffness, buckling, Bloch waves,
+post-bifurcated patterns), of `Framework.lattice` (rigidity) and of the model
+`strut_lattice` (morphologies, with solid or hollow struts). Checked: the generators map
+the nodes onto the nodes and the stiffness commutes with the 192 operations of each
+cell; the frameworks: 8 nodes of 4 struts and 16 nodes of 6, on straight lines; `K = ρ̄
+E_s / 9` of the diamond lattice to round-off, its Young's modulus as `r⁴`; the stretching
+part of the stiffness of the pyrochlore lattice equal to the closed form and to that of
+the octet truss per unit density (1e-12), `E / ρ̄ E_s = 1/9` and `ν = 1/3` within 1 % at
+`r = 0.005`; the sparse and dense periodic problems (1e-12); the fractions of the models.
+The framework of the Kelvin cell, whose nodes lie at quarters of the cell, was built
+with nodes merged at halves (9 nodes instead of 12, bars of zero length: the rigidity of
+the Kelvin lattice in the interface was wrong): its nodes are now kept at eighths.
+
+## 72. Thermal oxidation in a microstructure (`coupling.oxidation_field`)
+
+The closed-loop scheme of §40 was solved in a thin film (no gradient) and through the
+thickness of a plate (one dimension). In a microstructure the same scheme runs in every
+voxel of an image, each phase with its constants: a polymer that oxidizes, an inert phase
+that lets oxygen through (no reactive site), an impermeable one (fibres, fillers). The
+five species that do not move obey `d[X]/dt = r_X` in each voxel, and oxygen diffuses
+between the voxels from the exposed faces of the image: with its activity `u` (the
+partial pressure at equilibrium, `[O2] = S u`, continuous across the interfaces),
+
+    S du/dt = div(D S grad u) + r_O2,        u = p on the exposed faces,
+
+on the finite volumes of the transient diffusion (the flux between two voxels through
+the harmonic mean of their permeabilities `D S`; faces that are not exposed impermeable,
+or periodic).
+
+*Integration.* The radicals live for milliseconds and the oxidation for thousands of
+hours. The system is integrated by TR-BDF2 (Bank et al. 1985): a trapezoidal stage over
+`γh`, `γ = 2 − √2`, then the backward difference of second order to `h`, both with the
+matrix `I − d h J`, `d = γ/2`; second order, L-stable, with the embedded estimate of the
+error of Hosea & Shampine (1996), filtered by the same matrix, for the steps (their
+errors relative to `rtol |y|` plus an absolute tolerance per species: the radicals are
+at 1e-10 to 1e-7 mol/l). Each Newton iteration eliminates the five local species voxel
+by voxel (Gauss's elimination of their 5 × 5 blocks, on all the voxels at once), which
+leaves one symmetric system for the oxygen of all the voxels,
+
+    (diag(V S s) + d h K) δu = b,
+
+`K` the conductances of the faces and `s` the local Schur complements, solved by
+conjugate gradients (a sparse factorization for small images). The cost of a step grows
+as the number of voxels, in one, two or three dimensions: about 150 steps for 400 hours,
+5 s on 16³ voxels and 34 s on 32³.
+
+Checked (`tests/test_oxidation_field.py`): one voxel of a nanometre (oxygen at
+equilibrium) against the thin film: every species within 6e-4 over 400 hours, in 89
+steps; a plate of 3 mm against the profile of the method of lines (241 nodes through its
+half): 3.8 % of the amides of the surface on 120 voxels and 1.0 % on 240 (second order;
+the oxidized layer is 104 µm thick: 104.1 for 103.7), the two faces alike to round-off; a
+block uniform across the diffusion: the plate in each voxel (1e-15); impermeable fibres
+along the diffusion: the matrix between them oxidizes as the plate (4e-6), since they
+take no oxygen and bar none of its way; an impermeable layer across the diffusion: behind
+it the polymer makes the amides of the oxygen it was stored with and no more (5e-3
+mol/l), and oxidizes more before it; an inert skin: no amide in it, and more oxidation
+behind it than under the same depth of polymer, which consumes the oxygen; a cube
+exposed on its six faces: the same field along its three axes, corners more oxidized
+than faces. The tool *Thermal oxidation of a morphology* of the interface gives the
+fields, the mean profile from the exposed face against the plate of the polymer alone,
+and the number of voxels across the oxidized layer (four at least resolve it).
+
+## 73. Cracks of any surface and front (`fracture.surface`)
+
+The cracks of §47 are planar, with a straight or circular front that advances uniformly,
+and those of §48 follow a path in a plane, the same all along a straight front. A
+`SurfaceCrack` is the surface swept by the successive positions of a front: a grid of
+points, rows × stations, each row a position of the front (from the centre of a crack
+inside the body, whose front is a closed curve, or from the mouth of a through, edge or
+surface crack, whose front leaves the body by its two ends), each station following its
+own path; between the rows the surface is that of the triangles of the grid.
+
+*Level sets.* At each station the tangent `τ` of the front, the direction of propagation
+`d` (that of its last move, made normal to `τ`) and the normal `n = d × τ`: the axes `(d,
+n, t = d × n)` of the asymptotic fields, interpolated along the front. A point `x` whose
+nearest point of the front is `f` has the coordinates `x₁ = (x − f) · d` and `x₂ = (x − f)
+· n`; then `ψ = x₁`, and `φ` is the signed distance to the triangles behind the front
+(signed by the normal interpolated at the nearest point) and `x₂` ahead of it: the surface
+continued along `d`, as the last segment of a kinked path. With them the meshes
+conforming to the crack, the opening of its lips and the solvers of §47–§51 take a
+surface crack as they take the others; the auxiliary fields of the interaction integrals
+turn with the axes of the front, and their curvature terms (Gosz & Moran) apply. The
+domain of the virtual advance stays where the lips lie in the plane of `d` and `t`
+(`reach`: the size of a planar crack, the last advance of a kinked one).
+
+*Refined fronts* (`refine_front`, `crack_mesh(..., front_size=...)`): the singular
+fields of a front that turns ask for elements much smaller than its radius of curvature.
+A second pass of MMG takes a map of sizes, small within a radius of the front and those of
+the mesh elsewhere, and keeps the surfaces between the labels of the mesh (the crack, the
+interfaces of the phases) and the faces of the box; the domains of the integrals and the
+spacing of the stations along the front are then counted in the size of the elements at
+the front.
+
+*Growth* (`propagate_front`): on a mesh rebuilt for each crack, the factors `K_I`, `K_II`,
+`K_III` are taken at stations along the front; each point of the front advances in the
+direction of the largest hoop stress of its own factors (Erdogan & Sih), `θ = 2 atan((K_I
+− √(K_I² + 8 K_II²)) / 4 K_II)`, by `Δa (G / G_max)^(m/2)` with `G = (K_I² + K_II²) / E' +
+K_III² / 2μ` (Paris' law `da/dN = C ΔK^m`, for the cycles that advance the fastest point
+by `Δa`). Around a closed front the advances and the angles are those of the Fourier
+series of their values at the stations, truncated at a third of the stations: the noise
+of the factors from station to station, raised to the power of Paris' law, would scallop
+the front. The tearing mode III counts in `G` and does not turn the surface: the front
+does not break into facets.
+
+Checked (`tests/test_surface_crack.py`): the level sets, axes and front of a planar
+surface crack with 64 stations against the penny crack (`φ` to round-off, `ψ` within the
+sagitta of the polygon), and of an open front against the straight crack (to round-off)
+and the kinked crack; a penny crack whose normal is at 30° from the tension, in a cube of
+five radii (elements of 0.12 radius at the front, 3,800 nodes, 8 s): `K_I` within 3 % of
+`2σ cos²α √(a/π)`, `K_II` and `K_III` as the cosine and the sine of the angle from the
+shear on its plane, at 1.04 and 1.09 times the amplitudes of Kassir & Sih (1966), and the
+angle of kinking of each point within 1.1° of that of its exact factors, from −46.4° to
+46.4° around the front; an elliptical crack of semi-axes 1 and 0.5 against Irwin (1962),
+`K_I = σ √(πb) / E(k) (sin²φ + (b/a)² cos²φ)^(1/4)`: 0.98 ± 0.08 of it at 16 stations,
+`K_II` and `K_III` below 0.1; its growth: the aspect ratio of an ellipse of 0.6 rises to
+0.74 and 0.84 in two advances of 0.25, in its plane (within 0.009); the inclined penny
+crack grown by 0.3: its largest `K_II` falls from 0.60 to 0.27 and 0.21 (local symmetry),
+its mean `K_I` rises from 0.87 to 1.26 and 1.51, its `K_III` stays (0.4), and the normal
+of its surface turns by 46° where the shear was largest; an edge crack through a plate as a surface
+crack with an open front: the energy release rate and `K_I` of the planar crack within
+2 %, and the release of the energies of two cracks within 10 %.
+
+## 74. A treated sheet in its volume (`laser.solid`)
+
+The finite elements of the treated sheets (§58) are those of a membrane in plane stress
+whose layers share the strains of its plane: no stress across the thickness, no layer
+that holds its neighbours back. `sheet_volume` draws the periodic cell of a sheet treated
+all over in its volume, for the solvers of three-dimensional fields: voxels along the two
+vectors of the lattice of the pattern (at right angles) and through the thickness, whose
+phases are classes of hardness and whose two faces are free; `case_volume` takes the
+hardness that the laser path of a case leaves in each layer (the first under the beam).
+
+*Phases.* The hardnesses of the voxels are sorted into classes of equal width; the phase
+of a class has the elastic constants of the sheet and the flow law of the mean hardness
+of its voxels (a sheet of two hardnesses keeps both). The flow laws of the sheets become
+the isotropic hardening of von Mises plasticity (§31), `R(p) = R₀ + H p + Σ Qᵢ (1 −
+exp(−bᵢ p))`: Voce's law `σ₀ + a (1 − exp(−b p))` is one of its terms; Ludwik's `σ₀ + a
+((p + δ)^b − δ^b)` and Swift's `a (ε₀ + p)^b` power laws are fitted over the plastic
+strains up to 0.3 by a linear term and three exponentials, their amplitudes by
+non-negative least squares (the fitted law hardens and is concave, as the power law),
+their rates the triple that leaves the least error among 27 (a fast, a middle and a slow
+one, each among three).
+
+*Free faces.* A layer of void voxels separates the sheet from its periodic image across
+the thickness. The pores carry no integration point in the solvers of the voxels (§12,
+§34): the two faces of the sheet are free of traction, and its thickness changes in the
+gap. The strains `E₃₃`, `E₂₃` and `E₁₃` of the cell are then those of the gap, which
+nothing holds: left free (their stresses prescribed, zero), they make the tangent of the
+macroscopic unknowns singular, and the Newton iterations of a path divide their steps or
+stop. `volume_tension` prescribes them with the strain along the tension, and leaves free
+the two other stresses of the plane; the stress of the sheet is the mean stress of the
+cell over the fraction of its height that the sheet fills.
+
+Checked (`tests/test_laser_solid.py`): Voce's law exactly, the power laws of AISI 430
+between 160 and 320 HV and three others within 1.5 % up to a plastic strain of 0.3; a
+sheet of one hardness in tension: its flow law in uniaxial stress (7e-8), its width
+shrinking by 0.48 of the strain at 4 %, no stress across it; hard and soft halves side by
+side along the tension, or one above the other: the mean of their two laws (5e-5 and
+3e-4: the stresses that their unequal contractions raise count at the second order), what
+the membrane assumes of its layers; the same stripes across the tension: 0.91 of that
+mean at 4 %, 1.26 times the soft half alone; the cell of an annealed 0.23 C steel 1 mm
+thick treated by straight tracks 6 mm apart (four layers; 167 HV between the tracks,
+504 HV in them, a fifth of the sheet) against its membrane (true stresses, up to a strain
+of 3 %): within 1.3 % along the tracks on voxels of 0.5, 0.25 and 0.125 mm, 1 to 3 %
+above it across them, where the membrane lets each layer thin as it flows, and the width
+shrinking by 0.48 and 0.16 of the strain for 0.47 and 0.16. In finite strains
+(`volume_tension(..., kinematics="finite")`) the flow laws hold between the Kirchhoff
+stress and the logarithmic strain (a sheet of one hardness to 20 %: 1e-5), and the
+measures are those of a tensile test and of the membrane, forces over the initial
+section and elongations over the initial length: up to 8 % the volume is within 1 % of
+the membrane along the tracks and 2 % across them, where the small strains are 9 % and
+13 % above it.
+
+## 75. The implicit geometry of every model (`models.implicit`, `mesh.conforming`)
+
+Every realization describes each of its phases by an implicit function $\varphi_k$:
+negative in the phase, positive outside, zero on its boundary
+(`Microstructure.phase_level_set`; the phase 1 of a structure of two phases keeps
+`level_set`, and the other phase has its opposite). The interfaces that are exported —
+conforming meshes, surfaces, sections — are the zero sets of these functions at the
+resolution asked, not the faces of the voxels of an image: the geometry of the model
+itself. The functions are exact on the interfaces and around them (distances, or
+functions that vanish there with a gradient of order one), and clipped to a band of four
+voxels:
+
+* *unions of spheres and segments* (grains, fibres, struts, networks): the signed
+  distance; *fields* (Gaussian excursions, minimal surfaces, foams of distance fields,
+  fields on square lattices): the field minus its threshold;
+* *set operations*: the minimum (union), the maximum (intersection), the opposite
+  (complement). *Inclusions* $i = 1, 2, \dots$ of functions $\psi_i$ and phases $q_i$ over a
+  matrix of functions $\varphi^0_k$, the later ones covering the earlier ones:
+  $\varphi_k = \min\big(\max(\varphi^0_k, -\min_i \psi_i),\ \min_{q_i = k} \max(\psi_i,
+  -\min_{j > i} \psi_j)\big)$. *Nested* structures, each filling the phase 1 of the
+  previous ones: $\varphi_k = \min_m \max(\psi^m_k, \max_{l < m} \psi^l_1)$;
+* *objects that cover one another* (the leaves of the dead leaves, the first on top; the
+  osteons of a section, the last on top): the visible part of the object $i$ of function
+  $d_i$ is $\max(d_i, -\min_{j\ \mathrm{above}\ i} d_j)$, and a phase the minimum over
+  its objects (the rings of an osteon — canal, lamellae, cement line — are differences
+  of distances to its axis); what no object covers, $-\min_j d_j$, is the background, or
+  is shared between the phases by the nearest centre, as in the images. Spheres give
+  distances; a spheroid of radius $r$ and aspect $a$ the function $r(\sqrt{q} - 1)$,
+  $q = (|v|^2 - t^2)/r^2 + t^2/(a r)^2$ ($t$: the coordinate of $v$ along its axis);
+* *transparent leaves*: the function $Z$ is constant between the spheres of the leaves, and
+  the boundary of $\{Z > s\}$ is made of the parts of these spheres across which $Z$
+  passes $s$. With $A$ and $w$ the sum and the weight left by the leaves above the leaf
+  $i$ at $x$, the value of $Z$ on the other side of its sphere is $A + (Z - A - w \alpha
+  v_i)/(1 - \alpha)$ where it covers $x$ and $A + w \alpha v_i + (1 - \alpha)(Z - A)$
+  where it does not; the function is the distance to the nearest sphere whose leaf
+  changes the side of $x$, with the sign of that side (opaque leaves: the dead leaves);
+* *cells of a tessellation*: $\varphi_k = \big(\min_{i \in k} \pi_i - \min_{j \notin k}
+  \pi_j\big) / 2\ell$ with the power distances $\pi_i = |x - g_i|^2 - w_i$ and the mean
+  spacing $\ell = (V/N)^{1/3}$ of the germs: zero where the nearest germ of the phase and
+  the nearest of the others are at the same power distance — the faces between cells of
+  the phase and cells of another —, near which it is the distance to the face times
+  $|g_i - g_j| / \ell$. A grain-boundary phase of thickness $t$ is $\delta - t/2$, $\delta$
+  the distance to the nearest face of the cells, which the cells lose: $\max(\varphi_k,
+  t/2 - \delta)$;
+* *cells of a tiling* (automata on triangles, hexagons, rhombi, prisms, truncated
+  octahedra, rhombic dodecahedra, golden rhombohedra): the cells are convex, each the
+  points $n_f \cdot (x - c_i) \le h_f$ within its faces; with the gauge $g_i(x) = \max_f
+  \big(n_f \cdot (x - c_i) - h_f\big)$, $\varphi_k = \tfrac12 \big(\min_{i \in k} g_i -
+  \min_{j \notin k} g_j\big)$ over the cell of $x$ and those that share a vertex with it:
+  the distance to the face between a cell of the phase and another, near it;
+* *fractal sponges*: the solid is a union of cubes of edge $h = a / k^n$; the function is
+  the signed distance in the maximum norm to the nearest cube of the other state among
+  the 26 around that of the point (the largest of its distances to the faces towards
+  that cube), clipped to $h$;
+* *coatings and shells*, from the signed distance $d$ to the phase 1 of the structure:
+  a coating of thickness $t$ is $\max(-d, d - t)$, a shell $\max(d, -d - t)$ and its core
+  $d + t$ ($d$ is exact for unions of spheres and segments; for the other structures it
+  is the distance of their voxels on the grid, as in their images).
+
+**On grids and at any point.** The same functions are given at any point of space, not
+only at the centres of the voxels of a grid: `phase_level_sets_at(points, reach)` gives
+$\{k: \varphi_k\}$ for every phase, exact within `reach` of the interfaces and at least
+`reach` beyond, by the formulas above (the grids only clip them to their band). It is one
+interface: `phase_level_set` on a grid and `phase_level_sets_at` at points, the same
+values at the centres of the voxels; `level_set` and `level_set_at` are the function of
+phase 1, `implicit_at(phase, points, band)` one phase of `phase_level_sets_at` clipped to
+a band (None for a structure without point-wise functions), `lipschitz` a bound of their
+slopes, `implicit_pieces` the smooth pieces of §80; a structure of two phases gives
+$\varphi_1$ (`level_set_at`) and its opposite. The exact meshes cut these functions (§94),
+and the curved elements put their nodes on their zeros (§76). Every structure above gives
+them at points, but two: transparent leaves, whose function is built on the grid from the
+order of the leaves that cover each voxel, and the coatings and shells of structures that
+are not unions of spheres and segments, whose distance $d$ is that of their voxels (the
+first-order distance of a minimal surface or the field of a Gaussian excursion would
+give the coating another thickness). A tessellation of one phase has no interface, and
+no function either.
+
+*Meshes of several phases* (`conforming_mesh`). A structure of more than two phases, or
+of other phases than 0 and 1, is meshed conforming to the interfaces of all its phases:
+by default from the exact functions of its phases at any point, without a grid (§94); on
+the background grid (`method="grid"`), the tetrahedra of the background mesh are cut by
+the function of each phase but the last, one after the other, where they are not of a phase cut before (MMG's level sets of
+several materials: the references that a level set splits and those it leaves), without
+remeshing; the cut mesh is then remeshed, its interfaces kept (and the faces of the box
+along the periodic axes, which match). The function cut for the phase $k$ is $\psi_k =
+\varphi_k - \min_{l \ne k} \varphi_l$, negative where $\varphi_k$ is the smallest of all:
+the same set where the functions are resolved by the grid, and still a partition where
+they are not (layers thinner than its spacing, the lines where three phases meet). After
+the first cut, a function is taken at the vertices of the cut mesh by the interpolation
+that is linear in each tetrahedron of the background mesh — in the cube of a point,
+mirrored along the axes where its index is odd, the tetrahedron of the order of its
+coordinates —; its values closer to zero than a fifth of their variation along the edges
+are moved away from it (the next interface does not cut an edge close to a vertex of the
+previous one), and the vertices that face each other on opposite faces keep equal values.
+Cells of several phases are meshed by their grains (§19), each element with the phase of
+its cell.
+
+Checked (`tests/test_implicit.py`): for the 38 models of the registry and 19 other
+configurations of several phases (cells of two and three phases with and without grain
+boundaries, leaves of three phases, spheroids, finite coverage, leaves and cells mapped by an
+anisotropy, opaque transparent leaves, osteons along x, coatings of hard spheres, of a lattice and of a gyroid,
+clustered spheres with their aggregates, inclusions of two kinds in cells of two phases,
+a lattice nested in a gyroid, automata on the FCC and icosahedral tilings), on grids of
+37³ and 29³ points, every phase has its function, whose sign is that of the voxel image
+at every point but those exactly on an interface (of the grids aligned with a tiling),
+and the phases partition the points; the Menger sponge on the grid of its smallest
+cubes: $(20/27)^2$ exactly, and the distance $1/18$ at the first point beside a hole;
+two cells and their boundary layer against their planes ($10^{-6}$); two leaves, one
+over the other, and a transparent leaf against the distances to their spheres
+($10^{-6}$); the interpolation on the background mesh against the barycentric means
+($10^{-12}$). At any point (`tests/test_exact_phases.py`): for thirteen structures of
+several phases (leaves of three phases, cells of three phases with their grain
+boundaries, Laguerre cells with theirs, cells of two phases and the same mapped by an
+anisotropy, a coating of spheres, shells with a core, hollow struts, inclusions of two
+kinds over leaves, leaves nested in a gyroid, clustered spheres with their aggregates,
+osteons, a tiling of hexagons), the functions at the centres of the voxels of a grid are
+those of the grid within $2\cdot10^{-8}$ of its band (the rounding of the grids, in single
+precision), of the same signs, which are those of the phases of the image. On the grid
+(`method="grid"`): a sphere of radius 1.2 with a coating of 0.6 in a periodic cube of edge 5,
+elements of 0.6: 23,610 elements in 6 s, of quality 0.26 at least, the faces matching,
+the volumes of the sphere and of the shell at 0.948 and 0.994 of the exact ones (0.965
+and 0.987 with elements of 0.45: the chords of the elements and the Hausdorff
+tolerance); by finite elements on it, three phases of the same material give its moduli
+to round-off, and three different ones $K = 1.096$ and $G = 0.512$ for 1.105 and 0.514
+by FFT on 64³ voxels (0.8 % and 0.25 %). Hard spheres of radius 1 with a coating of 0.3,
+a layer thinner than the elements: with elements of 0.8, 0.5 and 0.35 (76,000 to 345,000
+elements, 19 to 98 s), the spheres at 0.977, 0.987 and 0.987 of their volume and their
+coatings at 0.951, 0.986 and 1.001 of theirs — the sum of the shells less the lenses
+that the coatings of spheres closer than 0.6 share, 4.1 % of it in this cell (an earlier
+version of these notes compared with the sum of the shells, and read that overlap as a
+loss of the mesh). Dead leaves of three phases with elements of
+0.5 (325,000 elements, 214 s): the fractions within 0.012 of the voxels; cross-linked
+fibres (432,000 elements, 351 s). Where three phases meet at a small angle (a sphere
+that grazes a grain boundary, a link on a fibre) the elements are thin: 0.03 to 0.1 % of
+them have a quality below 0.01.
+
+**Sections and exports.** A section drawn at a resolution takes the fraction of each
+phase in each pixel from the functions of the phases at the pixel centres
+(`viz.sections.phase_coverages`): the coverage of the pixel by each function (its value
+over its variation across the pixel, `pixel_coverage`), $c_k =
+\operatorname{clip}\big(\tfrac12 - \varphi_k / (|D_u \varphi_k| + |D_v \varphi_k|), 0,
+1\big)$, exact for a straight interface along an axis, then $c_k / \sum_l c_l$ so that
+they sum to one where three phases meet in a pixel; the image is the mean of the colours
+of the phases weighted by them. Where no function covers a pixel (functions clipped to
+their band, away from every interface), the phase of its centre takes it. Three phases
+in bands whose interfaces stand at 0.25 and 0.6 of a pixel: these shares exactly; on the
+sections of coatings, leaves, osteons, cells of three phases and inclusions, the phase
+of the centre of a pixel has the largest share everywhere, and the mean shares are the
+fractions of the pixels within 0.002 (`tests/test_sections.py`). The exports write the
+function and the surface (its zero level, closed on the faces of the box) of each
+phase, the surface of the last phase being that of the others together
+(`models.implicit.implicit_functions`).
+
+## 76. Quadratic tetrahedra: isoparametric elements and curved interfaces (`mesh.curved`, `homogenization.fe`)
+
+**Why.** MMG follows an interface with flat triangles whose corners lie on the level set
+as the background mesh interpolates it: the phases of the mesh are polyhedra. A sphere
+of radius $R$ meshed with elements of size $h$ loses the volume between its chords and
+its surface, of the order of $(h/R)^2$: 10.7 % for $h = R$, 1.5 % for $h = R/3$. Ten-node
+tetrahedra made of that mesh by adding the middles of its edges keep the polyhedra: the
+quadratic displacements are then more accurate than the domain they are computed on,
+and the apparent moduli converge at the rate of the geometry, from below for stiff
+inclusions (a simple cubic array of spheres 23 times as stiff as their matrix, 11 % of
+the volume: the bulk modulus 1.6 % low for $h = R$ and still 0.17 % low for $h = R/4$),
+where the 4-node elements, too stiff, compensate a part of the missing volume by
+accident.
+
+**Isoparametric elements.** The ten shape functions of the tetrahedron, $N_i = L_i(2L_i
+- 1)$ at the corners and $N_k = 4 L_i L_j$ at the mid-edge node of the edge $(i, j)$,
+interpolate the coordinates as they do the unknowns: $x(L) = \sum_a N_a(L)\, x_a$. With
+$d_k$ the departure of a mid-edge node from the middle of its straight edge, the element
+is its straight tetrahedron moved by $\sum_k N_k d_k$: at a point, with the gradients
+$\nabla$ taken in the straight tetrahedron,
+
+$$F = I + \sum_{k=1}^{6} d_k \otimes \nabla N_k, \qquad \nabla_x N_a = F^{-T}\,\nabla N_a,
+\qquad dV = \det F\; dV_{\text{straight}}.$$
+
+An edge is the parabola through its three nodes, a face the quadratic patch through its
+six; a straight element ($d_k = 0$) has $F = I$ and is computed as before, to the bit.
+The kernels of the linear problems (`fe`), of the loading paths in small strains
+(`nonlinear`) and in finite strains (`finite`, whose gradients are those of the
+reference configuration) take $F$ at each integration point; a mid-edge node within
+$10^{-10}$ of the middle of its edge (coordinates read from a file) counts as straight.
+$\det F$ is a polynomial of degree 3 in the barycentric coordinates: the volumes of the
+elements, and so the fractions of the phases, are integrated by a rule exact to that
+degree (`TetMesh.volumes`), and the volumes of the elements of a mesh sum to that of the
+box to round-off. The loads of a uniform traction or flux on a face with curved edges
+(static conditions) are $\int N_a\, n\, dA$ on its curved triangle (six points).
+
+Linear fields are in the space of the elements whatever the $d_k$ ($\sum_a N_a x_a =
+x$): a homogeneous solid has its own moduli. The four-point rule, exact for straight
+elements, is not for the integrals of a curved one ($\nabla N_a \operatorname{cof} F$ is
+cubic): under prescribed strains the patch test holds to that error, which is far below
+the discretization error — below $10^{-8}$ on the moduli for mid-edge nodes moved by 2 %
+of the size of the elements, $2\cdot10^{-6}$ for 8 % (the middle of a chord of half the
+radius is 6 % of its length off the arc); under prescribed stresses it holds to round-off.
+
+**Nodes on the interfaces** (`curved_mesh`; `conforming_mesh(order=2)` by default, `mesh:
+{curved: false}` for straight edges). The faces between two phases, and the free faces
+inside the box (the walls of pores left out of the mesh), are the interfaces; each of
+their nodes that belongs to one pair of phases $(a, b)$ is moved to the zero of
+$\varphi_a - \varphi_b$ (the surface that the mesher cut; $\varphi_a$ for a wall), by
+Newton's method along the gradient, $x \leftarrow x - g\,\nabla g / |\nabla g|^2$. The
+structures that give the functions of their phases at any point
+(`Microstructure.phase_level_sets_at`, §75: all but transparent leaves, the coatings of
+structures that are not unions of spheres and segments, and objects with level sets on
+grids only) have their nodes reach the surface to round-off; the functions of the others
+are sampled at the nodes of a grid eight times finer than the elements and interpolated
+by cubic splines (periodic along the axes where the faces match), which round the folds
+of these functions over a cell or two. It is the one curvature of the 10-node elements:
+the exact meshes of §94 take it too (`adaptive_mesh(order=2)`, and `conforming_mesh`
+curves their 4-node mesh as it does those of the grid), in place of their own, which
+moved the middles of the edges only and checked the Jacobians at the nodes; here the
+corners move as well, the Jacobians are checked at the integration points too, the
+sharp edges of §80 are followed, and the images of a node across a periodic box move
+alike. The corner
+nodes move first (they were on the interpolated level set, within the snapping), then
+the mid-edge nodes from the middles of the new chords. Constraints: a node on a face of
+the box moves within it (the faces stay plane, and the nodes of opposite faces take the
+same places: the faces still match); a node where more than two phases meet stays; a
+move is bounded by 0.3 of the shortest edge around the node (of its edge, for a mid-edge
+node); no straight tetrahedron may lose half of its volume or of its quality by the
+moves of the corners, and $\det F$ may not fall below 0.3 at a node or an integration
+point of an element by those of the mid-edge nodes. Where an element does not bear the
+moves, its node that moves most gives half of its move away, and again until the element
+holds (then all its nodes, then they stay: the bound holds in the mesh that comes out);
+the corner nodes held back start again from where they are, three times at most.
+`mesh.metadata["curved"]` counts the nodes of the interfaces and those that lie on their
+surfaces in the end. The grain boundaries of
+tessellations are plane and their meshes are not touched; mirrored meshes keep straight
+edges, as their symmetries are those of their corners; the Bloch waves, the analyses of
+bifurcation and the micromorphic elements straighten the meshes they are given. The
+cohesive zones open these meshes with interface elements of six nodes a side on their
+curved faces (section 46), and the cracks of conforming meshes take 10-node elements
+with quarter points at their fronts (section 47).
+
+**Validation** (`tests/test_curved.py`). One element: a mid-edge node moved by $d$ adds
+$d\cdot(A_1 n_1 + A_2 n_2)/3$ to its volume, the area vectors of the two faces of its
+edge ($10^{-13}$); its stiffness and conductivity matrices against the formulas of the
+reference element, with the Jacobian of the map at each point ($10^{-11}$, departures up
+to 15 % of the edges). A cube of two layers whose mid-edge nodes are moved at random:
+volumes that sum to 1 to $10^{-13}$; the moduli and the conductivity of a homogeneous
+solid under the four boundary conditions ($10^{-12}$ under static ones, $2\cdot10^{-6}$
+under the others for nodes moved by 3 %); the conductivity of the laminate along and
+across its plane interface; an elastoplastic solid along a path against its material
+point in small and finite strains ($10^{-5}$). A sphere of radius 1.2 in a cube of
+edge 4, elements of 1.2 and 0.4: the volume of the polyhedron $-10.7$ and $-1.5$ %, of
+the curved mesh $-5\cdot10^{-4}$ and $-4\cdot10^{-5}$, more than 99 % of its nodes on
+the sphere to $10^{-9}$ (the others as near as their elements allow), the faces
+matching. **A simple cubic array of spheres** against the series of Sangani & Acrivos
+(1983), spheres filling 27 % of the volume, elements of three quarters of the radius:
+
+| conductivity of the spheres | series | 4-node | 10-node, straight | 10-node, curved |
+|---|---:|---:|---:|---:|
+| 10 times that of the matrix | 1.7645 | −1.1 % | −3.2 % | +0.006 % |
+| 100 times | 2.0783 | −0.1 % | −3.7 % | +0.03 % |
+| 0 (pores, left out of the mesh) | 0.6435 | +4.8 % | +3.7 % | +0.06 % |
+
+and, with elements of 0.4 of the radius, $+0.009$, $+0.018$ and $+0.006$ % for the curved
+elements, where the straight ones are still 1.3, 1.7 and 1.0 % off. In elasticity (the
+array of the first paragraph), the bulk modulus of the curved elements is 3.8716 for $h
+= R$ and 3.8713 for $h = R/4$: converged to four digits with 4,800 nodes, where the
+4-node elements give 3.870 with 10,800 nodes and the straight 10-node ones 3.865 with
+76,000. A sphere with a coating of 0.3 of its radius, alone in its cell (three phases,
+two interfaces), elements of half the radius: the flat faces lose 2.6 % of the sphere
+and 2.8 % of the coating, the curved elements $+0.02$ and $-0.06$ % with the functions
+of the structure at the nodes, $-0.004$ and $-0.02$ % with their splines.
+
+**What the curved elements do not resolve** is what the mesher did not, with flat or
+curved elements alike; the nodes there are held back by their elements, off their
+surfaces. *Gaps and layers thinner than the spacing of the background grid*
+(`background`, half the size of the elements by default) are bridged or pinched: hard
+spheres 0.05 radius apart are joined, which stiffens a cell of 20 % of spheres 23 times
+as stiff as their matrix by a percent or two with elements of the radius (the missing
+volume of the flat faces hides it). Refine `background` there. *Sharp edges of a phase*:
+two overlapping spheres meet along a circle, the bottom of a groove, which the level set
+interpolated on the background grid rounds; no node lies on it, and the faces across it
+fill the groove over about a third of an element on each side — a volume that falls as
+the square of the size of the elements, as the chords of the flat faces do, but is not
+recovered by moving the nodes along the normals of the surfaces. Random coated spheres
+(20 % of spheres of radius 1, coatings of 0.3, nine pairs of coatings overlapping, in a
+cube of 5; `tests/test_curved.py`, the tutorial on exact geometry), elements of 0.5: the
+spheres at $-1.6$ % (flat) and $+0.15$ % (curved) of their volume, the coatings at
+$-1.0$ % and $+0.9$ % of theirs (the shells less the lenses that two coated spheres
+share): the flat faces had lost 2 % and hidden what the grooves add. Following the sharp
+edges takes a mesh with nodes on them: §80 makes one for the structures of spheres and
+segments, and these coatings then keep their volume within 0.1 %.
+
+## 77. Nearly incompressible phases: the mean dilatation of the 10-node tetrahedra (`homogenization.dilatation`)
+
+**Why.** As a phase becomes incompressible — an elastomer, whose Poisson's ratio nears
+1/2; a plastic flow — the energy of its volume changes dwarfs the rest, and a
+displacement element must keep $\mathrm{div}\,u = 0$ wherever it integrates it. The
+divergence of a 10-node tetrahedron is linear: four constraints per element, when a mesh
+has about 24 degrees of freedom per corner node and 6 tetrahedra around each — as many
+constraints as unknowns. The element *locks*: it is too stiff, by an amount that falls
+only slowly with its size, and its pressures oscillate. (The 4-node tetrahedron, with one
+constraint for half a degree of freedom, locks outright; the fully integrated voxels of
+§31 too.) The remedy of this section is the *selective reduced integration* of the
+volumetric part: the volume change of each element is taken as its mean, one constraint
+per element, the rest of the strain at the four points (Nagtegaal, Parks & Rice 1974;
+the $\bar B$ of Hughes 1980). It is the displacement form of a mixed element with a
+pressure and a dilatation uniform in each element (Simo, Taylor & Pister 1985), and what
+`integration: bbar` already does on the voxels of the loading paths (§31).
+
+**Small strains ($\bar B$).** With $w_g$ the weights of the points of an element of
+volume $V$,
+
+$$\bar\varepsilon_g = \varepsilon_g + \tfrac13\big(\bar\theta - \mathrm{tr}\,
+\varepsilon_g\big)\,1,\qquad \bar\theta = \frac1V\sum_g w_g\,\mathrm{tr}\,\varepsilon_g .$$
+
+The behaviours are integrated with $\bar\varepsilon$; the forces are the derivatives of
+their energy, $\sum_g w_g \bar B_g^T\sigma_g$, which the usual sum gives with the
+conjugate stresses $s_g + \bar p\,1$ (the deviator of the point, the mean pressure of the
+element). With $P = I - \tfrac13 1\otimes1$, the mean $c = \frac1V\sum_g w_g B_g^T 1$ of
+the divergence operator and $k_g = 1\cdot C_g 1$,
+
+$$K_e = \sum_g w_g B_g^T (P C_g P) B_g + q_L c^T + c\,q_R^T + \Big(\sum_g w_g
+\frac{k_g}{9}\Big) c\,c^T,\qquad q_L = \tfrac13\sum_g w_g B_g^T\big(C_g 1 - \tfrac{k_g}{3}
+1\big)$$
+
+($q_R$ with $C_g^T$): the usual matrix of the moduli $P C P$ and a term of rank two.
+
+**Finite strains ($\bar F$;** de Souza Neto, Perić, Dutko & Owen 1996**).** The gradient
+of each point is scaled to the geometric mean of the Jacobians of the element,
+
+$$\bar F_g = \alpha_g F_g,\qquad \alpha_g = (\bar J/J_g)^{1/3},\qquad \ln\bar J =
+\frac1V\sum_g w_g \ln J_g ,$$
+
+with the weights of the reference configuration. The forces are again the derivatives
+of the energy $\sum_g w_g W(\bar F_g)$: the stresses conjugate to the gradients of the
+points are $P^*_g = \alpha_g\bar P_g + (\bar\tau - \tau_g) F_g^{-T}$, $\tau_g = \tfrac13
+\alpha_g \bar P_g : F_g$ (the Kirchhoff pressure of the point; $\bar\tau$ its mean), as
+on the voxels. The tangent is the second derivative of that energy; with $f = F^{-T}$,
+$A = \partial P/\partial F$ at $\bar F$ ($9\times9$), $a = A F$, $b = A^T F$, $s = F\cdot
+a$ and $\mathbb B_{(ci)(ab)} = f_{ai} f_{cb}$ (minus the second derivative of $\ln J$),
+
+$$M_g = \alpha^2\Big(A - \tfrac13 a\otimes f - \tfrac13 f\otimes b + \tfrac{s}{9}
+f\otimes f\Big) - \tfrac{\alpha}{3}\big(f\otimes\bar P + \bar P\otimes f\big) +
+\tfrac{\tau}{3} f\otimes f + (\tau - \bar\tau)\,\mathbb B,$$
+
+$$K_e = \sum_g w_g G_g^T M_g G_g + q_L c^T + c\,q_R^T + \Big(\sum_g w_g\big(\tfrac{\alpha^2
+s}{9} + \tfrac{\tau}{3}\big)\Big) c\,c^T,$$
+
+with $G_g$ the gradient operator of a point, $c = \frac1V\sum_g w_g G_g^T f_g$ and $q_L =
+\sum_g w_g G_g^T\big(\tfrac{\alpha^2}{3}(a - \tfrac{s}{3} f) + \tfrac{\alpha}{3}\bar P -
+\tfrac{\tau}{3} f\big)$ ($q_R$ with $b$): symmetric whenever the tangents of the points
+are, geometric terms included. The macroscopic columns of the periodic element are that
+matrix applied to the displacements of the unit macroscopic strains.
+
+**Use.** `homogenize(mesh, materials, integration="bbar")` (also written `"reduced"`;
+`homogenization: {integration: bbar}` in a configuration, `morphogen homogenize
+--integration bbar`, a choice of the loading-path tools of the interface) for the
+elastic problems and the loading paths of a mesh of 10-node tetrahedra, with straight or
+curved edges; `nonlinear: {integration: ...}` for the paths alone. The default stays
+`full`, and a run warns when a phase has a Poisson's ratio of 0.49 or more. A 4-node
+tetrahedron has one point — its strain is its mean — and nothing changes for it;
+conduction has no volume change. The dilatation and the pressure of an element are
+uniform: where no phase is nearly incompressible the full integration, whose pressures
+are linear, is the more accurate.
+
+**Validation** (`tests/test_dilatation.py`). A homogeneous solid of Poisson's ratio
+0.499 has its stiffness with either integration ($10^{-9}$ with straight edges), and a
+neo-Hookean rubber stretched by 20 % follows its material point in small and finite
+strains ($10^{-5}$). The tangents of $\bar B$ and $\bar F$ on curved elements of two
+phases are symmetric to round-off and equal to the central differences of the forces
+and of the macroscopic stress, with respect to the fluctuation and to the macroscopic
+strain ($10^{-10}$). *A thick-walled cylinder under internal pressure* in plane strain,
+$\nu = 0.4999$, against Lamé's solution $u_r = (1+\nu)\,p\,a^2\,[(1-2\nu) r + b^2/r] /
+[E (b^2 - a^2)]$, with 1, 2 and 4 elements across the wall: the largest error of the
+radial displacement is 3.2, 0.54 and 0.10 % with the mean dilatation, 6.4, 1.1 and
+0.21 % with every point. *Stiff spheres in a nearly incompressible matrix* (a cubic
+array of 11 % of spheres, $E = 70$, in a matrix $E = 3$, $\nu = 0.4999$; elements of the
+radius and finer):
+
+| nodes | $C_{44}$, every point | $C_{44}$, mean dilatation | $(C_{11}-C_{12})/2$, every point | mean dilatation |
+|---:|---:|---:|---:|---:|
+| 4,836 | 1.2801 | 1.2497 | 1.4571 | 1.3728 |
+| 9,458 | 1.2663 | 1.2496 | 1.4075 | 1.3716 |
+| 17,687 | 1.2611 | 1.2498 | 1.3971 | 1.3726 |
+| 39,997 | 1.2562 | 1.2502 | 1.3874 | 1.3738 |
+
+The moduli of the mean dilatation are those of the finest mesh within 0.1 % from the
+coarsest one; integrated at every point, the elements are 2.4 and 6 % too stiff there
+and still 0.5 and 1 % with eight times the nodes.
+
+## 78. Isogeometric analysis (`iga`)
+
+**The idea** (Hughes, Cottrell & Bazilevs 2005). A computer-aided design describes a
+shape by splines; a finite element mesh approximates it by polynomial pieces, and the
+analysis then knows a polyhedron (§76 puts the nodes of the 10-node tetrahedra back on
+the surfaces). Isogeometric analysis takes the functions of the design as those of the
+analysis: the geometry is exact at every refinement, and the unknowns are as smooth as
+the splines — which gives more accuracy per unknown than finite elements of the same
+degree, whose functions are only continuous.
+
+**B-splines** (`iga.basis`; Piegl & Tiller 1997). A knot vector $U = (u_0 \le \dots \le
+u_m)$ and a degree $p$ define $n = m - p$ functions by the recurrence of Cox and de Boor,
+
+$$N_{i,0}(u) = 1_{[u_i, u_{i+1})}(u),\qquad N_{i,p}(u) = \frac{u - u_i}{u_{i+p} - u_i}
+N_{i,p-1}(u) + \frac{u_{i+p+1} - u}{u_{i+p+1} - u_{i+1}} N_{i+1,p-1}(u),$$
+
+non-negative, summing to one, each on $p + 1$ spans, $p - k$ times differentiable at a
+knot repeated $k$ times; $N'_{i,p} = p\,[N_{i,p-1}/(u_{i+p} - u_i) -
+N_{i+1,p-1}/(u_{i+p+1} - u_{i+1})]$. Open knot vectors (end knots repeated $p + 1$
+times) make them interpolate at the ends. In a span only $p + 1$ functions are
+non-zero: they are computed together, for all the points at once.
+
+**NURBS** (`iga.geometry`). With control points $P_a$ and weights $w_a > 0$, and $N_a$
+the products of the functions of each direction,
+
+$$x(\xi) = \sum_a R_a(\xi) P_a,\qquad R_a = \frac{N_a w_a}{\sum_b N_b w_b}:$$
+
+a rational patch — a surface of the plane, or a solid. An arc of half-angle $\alpha$ is
+exactly the curve of degree 2 of its ends and of the point where their tangents meet,
+with the weights $(1, \cos\alpha, 1)$; an ellipse is the image of a circle by a linear
+map of its control points. A `Multipatch` assembles patches that share whole sides:
+their control points there are those of the assembly.
+
+**Refinement.** The space of a knot vector contains that of a coarser one (*h*:
+knots inserted) and that of a lower degree with the same continuity (*p*: every knot
+repeated once more); raising the degree before cutting the elements (*k*) keeps the
+continuity $C^{p-1}$ across the new knots. A function keeps its shape and gets new
+coefficients, linear in the old ones, $c' = T c$; `basis.embedding` finds $T$ by matching
+the two expansions at the Gauss points of the new elements, where they agree exactly
+since the spaces are nested (whatever the continuity). A rational patch is refined
+through its homogeneous control points $(w P, w)$, and for given weights the new
+control points are linear in the old ones: $Q = \mathrm{diag}(T w)^{-1}\, T\,
+\mathrm{diag}(w)\, P$ (`Multipatch.refinement`), the map from a design to its analysis
+(§79).
+
+**Analysis** (`iga.analysis`). The unknowns are attached to the control points, $u =
+\sum_a R_a u_a$; the elements are the knot spans, integrated by $p + 1$ Gauss points per
+direction. At a point the Jacobian is $J = \sum_a P_a \otimes \partial R_a/\partial\xi$
+and $\partial R_a/\partial x = \partial R_a/\partial\xi\, J^{-1}$; the stiffness is
+$\sum\!\int B^T D B \det J\, d\xi$ as for finite elements (elasticity in plane strain,
+plane stress — the condensation of the three-dimensional law at zero out-of-plane
+stresses — or in space; conduction). The functions of an open knot vector interpolate at
+the ends of a patch, so that the trace of a field on a side depends on the control points
+of that side only: a uniform value there, or the equality of two matching sides, is
+prescribed on them exactly. Tractions are integrated on the sides, with the outward
+normal taken from the direction of the patch that leaves it.
+
+**Periodic cells** (`iga.homogenization`). A cell is an assembly whose box has matching
+control points on opposite sides (`shapes.cell_with_hole`: four patches from the sides to
+the arcs of a hole). With $L_I = \int B^T D E_I$ the forces of the unit strains and the
+periodic fluctuations $K\chi_I = -L_I$, fixed at one control point,
+
+$$C_{IJ} = \frac{1}{|Y|}\Big(\int D_{IJ}\, dY + L_I\cdot\chi_J\Big),$$
+
+$|Y|$ the area of the box, holes included; in plane strain it is the plane block of the
+stiffness of the extruded cell.
+
+**Cells of any lattice.** The cell need not be a box. Given the periods of the medium
+(`lattice`: one vector per row), a cell is any set of patches that tiles the plane (the
+space) by these translations: the control points of its boundary that are a period
+apart — a combination of the periods with the coefficients $-1$, $0$, $1$ — are one, and
+$|Y| = |\det(\text{lattice})|$. Nothing else changes: the uniform strains load the
+patches, the fluctuations are periodic. A parallelogram is the cell of an oblique
+lattice (`cell_with_hole` with two vectors: the rhombus of a hexagonal array of holes);
+and a pattern whose natural pieces no straight line separates keeps them whole. In the
+sheet of `alternating_holes` — elliptic holes at the nodes of a square lattice of spacing
+$d$, elongated in turn along its two axes — the sheet left between four holes is a square
+*grain*, held to its neighbours by the ligaments between the tip of a hole and the flank
+of the next, of width $d - a - b$ for the half-axes $a$ and $b$. The cell is two grains
+side by side, of periods $(d, d)$ and $(d, -d)$; each grain is eight patches around its
+centre, two along each of its four quarters of holes, from the arc of the hole to a
+curve that joins the centre of the grain to the middle of a ligament and crosses it
+squarely, so that the patches stay well shaped down to the thinnest ligaments.
+
+**Images.** An assembly of surfaces gives its image on a grid (`Multipatch.voxelize`):
+each pixel takes the phase of the patch that holds its centre — the patches drawn as
+polygons, with their copies by the periods of the lattice —, the holes a phase of their
+own. Over a box that is a period of the medium the image is periodic: the shape goes to
+the voxel solvers, to the nonlinear behaviours and to the exports like any other
+microstructure.
+
+**Validation** (`tests/test_iga.py`). The functions against the recurrence written in
+full, their derivatives against central differences, the embeddings (rows that sum to
+one, functions kept to $10^{-12}$). A ring has its radii to $10^{-14}$ at any refinement,
+and the quarter of a ring its area to $10^{-7}$ (the Gauss rule on rational functions).
+Patch test on curved rational patches: $10^{-7}$ with $p + 1$ points, $10^{-11}$ with
+three more (plane strain, plane stress; a solid). *Lamé's thick-walled cylinder* with its
+exact geometry: orders 3 and 2 for the displacement and the stresses with quadratic
+functions, 4 and 3 with cubic ones; the same cylinder as a solid within 0.1 %. *Kirsch's
+plate with a hole* under the exact tractions of the infinite plate: the energy error falls
+at the order 3 with cubic functions ($9\cdot10^{-4}$ with 1,400 unknowns), and the stress
+at the top of the hole is 3.006 times the tension. A homogeneous cell and a laminate have
+their exact tensors ($10^{-12}$), in elasticity and conduction. *A square cell with a
+circular hole* of a fifth of its area, in plane strain, against the curved 10-node
+tetrahedra of the same cell as a solid:
+
+| | unknowns | $C_{11}$ | $C_{12}$ | $C_{66}$ |
+|---|---:|---:|---:|---:|
+| isogeometric, cubic | 880 | 769.89 | 266.23 | 194.68 |
+| isogeometric, quadratic | 720 | 769.92 | 266.21 | 194.73 |
+| finite elements (§76) | 68,000 | 770.10 | 266.21 | 194.92 |
+| finite elements (§76) | 158,000 | 769.96 | 266.20 | 194.76 |
+
+($E = 1000$, $\nu = 0.3$): the two discretizations agree within 0.05 %, the finite
+elements coming down to the isogeometric values as their mesh is refined.
+
+*Cells of any lattice.* The square cell with an inclined elliptic hole, with one of its
+four patches moved by a period (no longer a box), or two of them and another basis of
+the same lattice: the same tensor to $10^{-13}$; the cell and its neighbour as one cell
+of twice the period: the same. *Arrays of circular holes.* The conductivity of a sheet
+with non-conducting discs of area fraction $f$ on a square and on a hexagonal lattice is
+known as a series (Perrins, McKenzie & McPhedran 1979):
+
+$$\frac{k^*}{k} = 1 - \frac{2f}{1 + f - \dfrac{0.305827 f^4}{1 - 1.402958 f^8} -
+0.013362 f^8}\ \text{(square)},\qquad 1 - \frac{2f}{1 + f - \dfrac{0.075422 f^6}{1 -
+1.060283 f^{12}} - 0.000076 f^{12}}\ \text{(hexagonal)}.$$
+
+With cubic functions and 880 unknowns, the box and the rhombus of 60 degrees give
+
+| array | radius / spacing | isogeometric | series | Maxwell, $1 - 2f/(1+f)$ |
+|---|---:|---:|---:|---:|
+| square | 0.30 | 0.5584855 | 0.5584854 | 0.55916 |
+| hexagonal | 0.30 | 0.5077120 | 0.5077115 | 0.50775 |
+| hexagonal | 0.40 | 0.264148, 0.264150 | 0.264145 | 0.26549 |
+
+(the two values of the last row are those along the two axes: the array is isotropic).
+The elastic stiffness of the hexagonal array is isotropic as well: $C_{66}$ differs from
+$(C_{11} - C_{12})/2$ by 3.7 %, 0.36 % and 0.007 % as the elements are cut in 2, 4 and 8
+(a radius of 0.35). *The sheet with alternating holes* has its fraction of material,
+$1 - \pi a b/d^2$, to $10^{-8}$, and a stiffness with the symmetries of the square
+($C_{11} = C_{22}$, $C_{16} = C_{26} = 0$ to round-off). With circular holes it is the
+square array, and its two grains on their oblique lattice give the stiffness of the box
+with one hole to $6\cdot10^{-7}$ — two assemblies and two ways to the periodicity that
+share nothing. Thin ligaments make it auxetic (the rotating squares of Grima & Evans
+2000; Bertoldi et al. 2010; Taylor et al. 2014); in plane stress, for $E = 1000$ and
+$\nu = 0.3$:
+
+| half-axes $a$, $b$ | ligament | $E_1$ | $\nu_{12}$ |
+|---|---:|---:|---:|
+| 0.25, 0.25 | 0.50 | 616.8 | 0.266 |
+| 0.45, 0.10 | 0.45 | 416.0 | -0.074 |
+| 0.60, 0.10 | 0.30 | 157.2 | -0.530 |
+| 0.70, 0.08 | 0.22 | 63.3 | -0.765 |
+| 0.85, 0.05 | 0.10 | 8.1 | -0.950 |
+| 0.90, 0.03 | 0.07 | 3.4 | -0.975 |
+
+(2,274 unknowns; with 10,874 the ratio of the ligament 0.10 is -0.9505 and its modulus
+8.07). By another method altogether — the square of four holes as an image of $256^2$
+voxels with voids (`voxelize`), solved by the FFT solver in plane strain — the holes 0.6
+by 0.1 give $C_{11} = 231.9$, $C_{12} = -119.2$, $C_{66} = 99.9$ for 233.5, $-119.1$ and
+100.5 here.
+
+## 79. Isogeometric shape optimization (`iga.optimization`)
+
+**The design.** The control points of a NURBS geometry are the natural variables of a
+shape optimization (Wall, Frenzel & Cyron 2008; Qian 2010): moving them moves the
+boundary exactly and smoothly, without remeshing. Three levels: the variables $x$, each
+of which moves some control points of the design along given directions, $P(x) = P_0 +
+M x$ (`ShapeDesign.variable`; `radial` scales the control points of a hole about its
+centre, one variable per control point or per orbit of the symmetries of the cell); the
+design, a coarse assembly; the analysis, its refinement, whose control points are $Q = T
+P$ (§78). Few variables, an accurate analysis, one geometry. Control points that could
+slide along the boundary are left out of the variables: tangential moves change the
+shape at the second order only, and make the problem ill-conditioned (with two
+variables per control point the hole of the plate below reaches the same compliance to
+six digits with control polygons 0.3 apart).
+
+**Symmetries.** A pattern is designed with its symmetries: a variable given with the
+operations that map the design onto itself, $x \mapsto R x + t$ (`mirror`, `rotation`),
+moves the images of its control points as well. The operations generate a group $G$,
+finite up to the periods of the lattice of the design; a control point $P$ with the
+direction $v$ gives to each of its images $gP$ the direction
+
+$$\frac{1}{|G_P|}\sum_{g\,:\, gP = P'} R_g\, v,$$
+
+$G_P$ the operations that leave $P$ in place: the move is the symmetric part of the one
+asked for (a control point on a mirror keeps the part of its direction along the
+mirror), and the control points of the boundary of a cell that are a period apart move
+together. The eight operations of the sheet with alternating holes — its mirrors through
+a hole, the quarter-turn about the centre of a grain — thus tie the half-axes of all its
+holes to two variables, each of 53 control points. The control points inside the
+assembly that stand between two moving boundaries follow them (the middle of a ligament
+moves by half the move of the tip that faces it), so that the patches keep their shape.
+
+**Sizes.** The control points being linear in the variables, so are the sizes of the
+geometry measured between them: the width of a ligament or of a slit, the thickness of
+a member. They are kept by bounds on the variables and by linear constraints $A x \le
+b$ (`linear`), which the optimizers treat exactly.
+
+**Sensitivities.** Let $A(u, v) = \int (E_u + \varepsilon(u)) : D : (E_v +
+\varepsilon(v))\, d\Omega$ for two fields of given unknowns and uniform strains. Moving
+the control point $a$ by $\delta Q$ moves the points by $V = R_a\,\delta Q$, and at given
+unknowns $\delta(d\Omega) = \mathrm{div}\,V\, d\Omega$, $\delta(\nabla u) = -\nabla u\,
+\nabla V$, so that
+
+$$\frac{\partial A}{\partial Q_a} = \int \Sigma\,\nabla R_a\, d\Omega,\qquad \Sigma =
+(\varepsilon_u : D : \varepsilon_v)\,1 - \nabla u^T\sigma_v - \nabla v^T\sigma_u,$$
+
+the energy-momentum tensor of Eshelby (1975) for the pair: one integral, no further
+solution. For a structure under given loads ($K u = f$), the compliance $c = f\cdot u$
+has $\partial c/\partial Q = -\partial A(u, u)/\partial Q$; for a periodic cell, $C_{IJ} =
+A(\chi_I, \chi_J)/|Y|$ and $\partial C_{IJ}/\partial Q = (\partial A/\partial Q)/|Y|$,
+each fluctuation making its energy stationary; the area of the material has $\partial
+|\Omega|/\partial Q_a = \int\nabla R_a\, d\Omega$. The chain $\partial/\partial x = M^T
+T^T \partial/\partial Q$ brings them to the variables. The objectives and constraints of
+a cell are functions of its tensor and of its fraction of material (a modulus, Poisson's
+ratio, the distance to a target), differentiated numerically with respect to these few
+numbers.
+
+**Optimization.** Sequential quadratic programming (SLSQP) or the moving asymptotes of
+§18 (`method="mma"`), with bounds on the variables. SLSQP starts from the steepest
+descent with a unit Hessian: its objective is scaled so that this first step is a given
+share of the bounds (`move`, 0.2), the later ones following its estimate of the
+curvature. A design *folds* where the Jacobian of a patch is negative — at the boundary
+of the patch first, where the points of integration do not look: it is checked on grids
+of parameters that hold the ends of the elements (`Multipatch.jacobians`). A trial step
+that folds counts as a large value, which the line search of SLSQP turns down, and the
+step of MMA is halved; the history holds the points that the iterations kept.
+
+**Validation** (`tests/test_iga_optimization.py`). The derivatives of the tensor and of
+the fraction of a cell with respect to 24 free variables, of the compliance and of the
+area of a plate: equal to central differences to $10^{-6}$ (their agreement is
+$4\cdot10^{-10}$), in elasticity and conduction. *The hole of largest bulk modulus.* A
+square cell with a hole of 40 % of its area: Vigdergauz (1994) showed that one hole
+shape attains the upper bound of Hashin and Shtrikman, $K^* = K G (1 - f)/(G + f K)$ in
+the plane ($K$, $G$ the plane bulk and shear moduli of the solid, $f$ the porosity). From
+a circle, 1.39 % below the bound, three radial variables with the symmetries of the
+square reach it within 0.05 % in 6 iterations of SLSQP (0.5 s), the porosity kept — a
+rounded square, flatter than the circle along the axes. *The hole of a plate under
+biaxial tension.* For a hole of given area in an infinite plate pulled by $\sigma_1$ and
+$\sigma_2$, the compliance is smallest for the ellipse whose half-axes are in the ratio
+of the tensions (Cherepanov 1974; Banichuk 1983). A quarter plate twelve radii wide, $\sigma_1
+= 2\sigma_2$, seven radial variables: half-axes 1.4217 and 0.7080 for $\sqrt2$ and
+$1/\sqrt2$, a ratio of 2.008, the hole within 0.7 % of an ellipse, its area kept to
+$10^{-12}$ (43 iterations, 5 s).
+
+*The auxetic sheet* (the sheet with alternating holes of §78, plane stress; two
+variables: the half-axes of its holes, tied by the symmetries; derivatives equal to
+central differences to $10^{-6}$). *Inverse design with a known answer*: Young's modulus
+and Poisson's ratio of the holes 0.7 by 0.07 as the goal, $(E_1/E^\star - 1)^2 +
+(\nu_{12} - \nu^\star)^2$ as the objective; from the holes 0.6 by 0.1 the optimizer
+finds the half-axes again to $10^{-6}$ and the goal to $10^{-17}$ (19 iterations, 3 s).
+*The lowest Poisson's ratio at a given stiffness*: $\nu_{12}$ minimized under $E_1 \ge
+E/20$, slits at least 0.06 wide and ligaments at least 0.05. From the holes 0.6 by 0.1
+($\nu_{12} = -0.530$, $E_1 = 157$) the slits take their least width and lengthen until
+the modulus is at its bound: 0.751 by 0.03, $\nu_{12} = -0.814$ in 8 iterations
+(3 s); a finer analysis of the design (3,482 unknowns) gives $-0.816$ and a modulus 1 %
+lower. Two more variables for the fullness of the tips and of the flanks of the holes,
+tied in the same way, bring the ratio to $-0.8142$ from $-0.8141$: at a given stiffness
+the ratio of this pattern is that of its ligaments, whatever the outline of the holes
+away from them — what the sheet can do is set by the widths that the process can cut.
+
+## 80. Sharp edges of the phases: meshes that follow them (`models.pieces`, `mesh.conforming`, `mesh.curved`)
+
+**Why.** The implicit function of a union of spheres and segments is the smallest of
+the distances to its primitives, $\varphi = \min_i d_i$: smooth where one primitive is
+the nearest, folded where two are as near. Its zero level, the boundary of the union,
+has a *sharp edge* along the line where the surfaces of two overlapping primitives
+meet — the bottom of the groove between two spheres, the line where two fibres cross,
+the grooves of coatings that overlap. A function sampled at the nodes of a grid and
+taken linear between them cannot hold a fold: the cut of §11 rounds the edge over a
+cell, no node of the mesh lies on it, and the faces across it fill the groove — a
+volume in excess that falls only as the square of the size of the elements, and that
+the curved elements of §76 cannot recover, their nodes moving along the normal of one
+surface.
+
+**Pieces.** Each primitive alone is smooth. The primitives are therefore grouped into
+*pieces* such that two primitives that overlap are never in the same piece. Two
+primitives overlap when the distance of their axes (points, for spheres; the closest
+points of two segments, Ericson 2005) is less than the sum of their radii by more than
+a depth $\delta$, through the faces of a periodic box as well; the pieces are the
+colours of a colouring of the graph of these overlaps, the vertices of largest degree
+first, each with the smallest colour that its neighbours do not have (Welsh & Powell
+1967): 5 pieces for a Boolean model of spheres of volume fraction 0.3, 8 for 0.6. The
+distance to a piece, $g_c = \min_{i \in c} d_i$, is smooth near its zero, and $\varphi =
+\min_c g_c$. A coating of thickness $t$ is the union of the same primitives with their
+radii increased by $t$, the bore of a hollow member that of the primitives with smaller
+radii: other pieces, coloured again, since thicker primitives overlap more. A structure
+gives the list of its pieces with the phase of each (`implicit_pieces`), in an order
+such that a point belongs to the phase of the first piece that holds it, or to the
+phase of what they leave: the inclusions, then their coatings; the bores, then the
+members.
+
+**Cuts.** The tetrahedra of the background mesh, all of the last phase at first, are
+cut by the zero of $g_1$, then those that are left by the zero of $g_2$, and so on (the
+level sets of several materials of MMG, without remeshing), each $g_c$ taken *exactly*
+at the vertices that the previous cuts made. Where two pieces of the same phase
+overlap, the second cut ends on the surface of the first: the line where they meet is
+made of edges of the mesh, with a vertex on each edge of the first surface that it
+crosses — within $O(h^2/R)$ of the sharp edge, the error of a function taken linear
+along an edge of length $h$. The values closer to zero than a share of their variation
+along the edges are moved away from it, as in §11, by 0.05 instead of 0.2 inside the
+box: the lines where two cuts meet then stay within the Hausdorff distance of the
+remeshing, which is free to space its nodes along them (with 0.2 the groove of two
+spheres keeps edges of a sixth of the size asked; with 0.05, of a third). On the faces
+of the box, whose triangles a periodic mesh keeps, the share stays 0.2.
+
+**Remeshing.** The pieces of a phase are merged — the surface between two of them is
+no interface — and the mesh is remeshed with its ridges *declared*: the edges where the
+surfaces of two pieces meet, each with a reference that tells the two pieces; the
+edges of the box and the lines where an interface meets a face of the box. The
+detection of ridges by their angle is turned off: the facets that the cuts leave on a
+smooth surface are no edges, and a detection by angle makes ridges of some of them and
+corners of the turns of a sharp edge, which pin the mesh there (34 corners along the
+groove of two spheres, none without it). MMG keeps the declared ridges, moves and splits
+their vertices along them, and gives them back with their references: `mesh.sharp` and
+`mesh.sharp_pieces`. Opposite faces match as in §11.
+
+**Curved elements.** A node of a sharp edge between the pieces $a$ and $b$ is put where
+both surfaces are: Newton's method on $(g_a, g_b)$ with the smallest move at each step,
+
+$$x \leftarrow x - J^+ g,\qquad J = \begin{pmatrix}\nabla g_a^T\\ \nabla g_b^T
+\end{pmatrix},$$
+
+$J^+$ the pseudo-inverse — within the faces of the box for the nodes that lie on them.
+A node where sharp edges of three pieces join solves the three equations: a point. The
+nodes of the middles of the sharp edges are put on the edge in the same way, so that
+the curved edges of the elements follow it. A node that its elements hold back from
+its sharp edge goes to the surface of its two phases instead (§76).
+
+**Validation** (`tests/test_sharp.py`). The overlaps of a periodic Boolean model
+against the search of every pair; the smallest of the distances to the pieces equal to
+the distance to the union ($10^{-12}$). *Two overlapping spheres* (radii 1 and 0.9,
+centres 1.245 apart, in a general position), whose union has an exact volume and whose
+sharp edge is a circle:
+
+| elements (10 nodes) | groove | elements | nodes of the interface off their surfaces | volume of the union | time |
+|---|---|---:|---:|---:|---:|
+| 0.3 | rounded | 41,853 | 46 of 4,810 | $+4.7\cdot10^{-4}$ | 5.8 s |
+| 0.3 | followed | 29,406 | 1 of 4,242 | $-1.2\cdot10^{-5}$ | 8.1 s |
+| 0.15 | rounded | 199,557 | 111 of 14,726 | $+1.5\cdot10^{-4}$ | 29 s |
+| 0.15 | followed | 157,696 | 1 of 10,058 | $-2.1\cdot10^{-6}$ | 36 s |
+
+The error of the rounded groove falls as $h^{1.6}$; with the groove followed it is that
+of the quadratic faces, 40 to 70 times smaller, with a quarter fewer elements (the
+cuts being smoother, the remeshing has less to follow). The sharp edges make the whole
+circle once, 54 edges whose nodes, corners and middles, are on it to $10^{-9}$ but for
+one that its elements hold back. *Three spheres* that overlap two by two: three sharp
+edges that join at the two points where the three surfaces meet, a node at each, on the
+three spheres to $10^{-16}$. *Two spheres that overlap through a face of a periodic
+box*: the faces match, the sharp edge ends at two nodes of the face and at their images
+on the opposite one, and the volume of the union is exact within $1.5\cdot10^{-6}$.
+*Random coated spheres* (those of §76 and of the tutorial on exact geometry; elements
+of 0.5, three phases, four pieces, 270 sharp edges):
+
+| | spheres | interphase | nodes on their surfaces | bulk modulus |
+|---|---:|---:|---:|---:|
+| grooves rounded | $+0.15$ % | $+0.86$ % | 84 % | 5.725 |
+| grooves followed | $+0.04$ % | $-0.10$ % | 87 % | 5.691 |
+
+for a modulus of 5.69 as the three solvers of the tutorial converge. Fibres with round
+caps that cross, and a Boolean model of 44 spheres in a periodic cube (five pieces,
+2,000 sharp edges, 369,000 elements) are meshed with matching faces.
+
+**Without a background grid** (§94). The exact meshes follow the same edges, by
+default where two pieces of a phase meet (`sharp_edges`, as on the grid): the octree of
+§94 is refined on the surfaces of the pieces (each smooth near its zero) instead of
+those of the phases, and the box is cut by each in turn exactly as above, on the
+tetrahedra of the octree instead of those of the grid (the same cuts, the same declared
+ridges, the same remeshing). Then the nodes move onto the exact surfaces, whatever the
+order of the elements: those of the sharp edges onto both surfaces of their pieces (the
+Newton's method above, three equations where three edges join), the others onto the
+surface of their two phases, those of the faces of the box within them and alike on
+opposite faces. Two primitives that enter each other by less than the Hausdorff distance
+(rather than half the spacing of a grid) are in the same piece: their groove, shallower
+than the tolerance, is rounded within it. The two spheres above, in a cube of 3 and
+elements of 0.3: 91 sharp edges whose nodes lie on both spheres to $2\cdot10^{-16}$ with
+4-node elements (0.011 off on the grid, whose corners stay where the cut put them), the
+volume of the union $-7.6\cdot10^{-3}$ with 4-node elements ($-1.8\cdot10^{-2}$ on the
+grid) and $-2.1\cdot10^{-4}$ with curved 10-node ones ($-3.3\cdot10^{-4}$), in twice the
+time of the grid (the octree resolves the surfaces to the Hausdorff distance, where the
+grid samples them at half the size of the elements); through the faces of a periodic
+box, the faces matching, $-9.5\cdot10^{-5}$ (`tests/test_exact_phases.py`).
+
+**Cost and limits.** A cut per piece, each a run of MMG on the whole mesh: the meshes
+of overlapping primitives take 40 to 80 % longer (156 s for 87 s for the Boolean model
+above); `sharp_edges=False` cuts by the function of each phase as before, and a failure
+of the cuts falls back on it with a warning. The surfaces cut are smoother than those
+of §11, whose larger share of snapping left bumps that the remeshing followed: MMG now
+uses the whole Hausdorff distance, and a mesh of 4-node elements, a polyhedron inscribed
+in its phases, loses more volume than before at the same sizes (spheres of radius 1,
+elements of 0.5: 3.5 % for 1.3 %) — tighten `hausdorff` for such meshes; the 10-node
+elements, whose nodes go to the surfaces, gain instead. Followed are the edges where
+two primitives enter each other by more than half the spacing of the background grid
+(the Hausdorff distance without a grid); the shallower overlaps, the rims of cylinders with flat caps, and the sharp edges of
+the structures whose functions are those of a grid (the other models: their pieces are
+not known) are rounded as before, as are the gaps thinner than the grid between two
+primitives of a piece. The nodes that the elements hold back (§76) are fewer, not
+none: 6 % of those of a Boolean model meshed with elements of 0.4 of its radius, for
+9 %.
+
+## 81. Friction of interfaces and of the lips of cracks (`fracture.cohesive`, `fracture.mixed`)
+
+*Law* (Alfano & Sacco 2006). A point of an interface of damage `d` (§46) is a share `1 - d`
+of sound interface, which carries the traction of its law, and a share `d` of broken
+interface, whose lips touch where the normal separation is negative and rub. The broken
+share is pressed by `p = K <-δ_n>` (the penalty), sticks elastically, `τ = K_t (δ_s - δ_s^p)`,
+within Coulomb's cone `|τ| <= μ p`, and slides beyond it by a slip `δ_s^p` along `τ` (a
+non-associated flow: sliding opens nothing). The slip is integrated by a radial return over
+each step, from the slip at its start: `τ_trial = K_t (δ_s - δ_s^p)`, then `τ = τ_trial` if
+`|τ_trial| <= μ p`, else `τ = μ p τ_trial / |τ_trial|` and `δ_s^p = δ_s - τ / K_t`. The shear
+traction of the point is `(1 - d) K δ_s + d τ`, its normal traction that of §46 (`K δ_n` in
+compression, whatever the damage): the sound law alone while the interface is intact,
+Coulomb's `μ p` once it is broken, a mixture in between. The three laws take the
+coefficient `μ` (`friction`): the bilinear law (`K_t = K`), the exponential law (`d = 1 -
+exp(-κ/δ_c)`, `K_t` its penalty in compression) and the contact of the lips of a crack
+(`Contact`: `d = 1`, `K_t` the `tangential` stiffness, by default that of the penalty). Lips
+apart carry nothing and forget their slip. Each point keeps, with the history of its law,
+its slip (two components in its frame, which turns with the interface in finite strains:
+the law is frame-indifferent as in §46) and the energy that friction dissipated there per
+unit area, `∫ d τ · dδ_s^p`; summed over the interfaces, it is the part `"friction"` of
+their work. The tangent of the radial return is not symmetric where the lips slide
+(`∂τ/∂δ_n = -μ K τ/|τ|`: the matrix is solved as it is, by its LU factors).
+
+*Steps.* Lips that touch without pressing carry no friction, and their first tangent has
+no stiffness along them: from a state at rest, Newton's method first opens or slides them
+freely, and comes back from the slip to the stick in tens of iterations (24 for lips that
+a compression and a shear grown together hold). The first tangent of each step is
+therefore that of a predictor in which the lips that touched at its start (a normal
+separation of 0 or less: every lip at rest) stay closed and stick; the forces remain those
+of the law. Lips that stick then take two iterations a step, lips that slide three or
+four. The prescribed displacements and the forces of the solver may be functions of the
+load factor: a pressure applied, then held while a shear grows.
+
+*Checks.* At a point: the stick, the slip along the trial traction, the lips apart; a
+cycle of amplitude `D` at a constant pressure dissipates `4 μ p (D - μ p / K_t)` (to 1e-12);
+a cohesive point sheared under a pressure carries `(1 - d) K δ_s + d min(K δ_s, μ p)`, and
+`μ p` once broken. Two blocks pressed, then sheared by their upper face: no tangential
+force while they are pressed; they stick, then slide at `T / N = μ` (0.4000 for 0.4 in small
+strains, with 4- and 10-node elements; 0.3955 in finite strains, where the frame of the
+interface turns with the blocks by 0.004 rad and the reactions are not along it); the
+work of friction is `T` times the sliding (to 1e-3), and the works of the bulk and of the
+interfaces add up to that of the grips (1e-6). A bilinear interface sheared under a
+pressure breaks, then keeps `μ N`; its work less that of friction is `G_IIc` times its area
+(5 %, with the energy of the penalty); broken from the start (`history=1`), it slides at
+`μ N` at once.
+
+*Closed cracks.* A crack closed by a pressure `σ` and sheared by `τ` carries Coulomb's
+traction `μ σ`, uniform along its lips while they all slide the same way: it slides as a
+crack under the shear `τ - μ σ`, and not at all when `μ σ > τ`. A crack of half-length `a` in
+a plate in plane strain (12 `a` wide, four linear elements along `a`): the slip at its
+centre is 0.6255 of that of frictionless lips for `τ = 8`, `σ = 10`, `μ = 0.3` (0.625); with
+10-node elements it is 0.984 of the `4 (1 - ν²) (τ - μ σ) a / E` of the infinite plane, and
+with `μ = 0.9` the lips move by the elastic stick `τ / K_t` alone.
+
+*Stress intensity factors of lips that rub.* The interaction integral of §48 subtracts the
+work of the tractions of the lips in the auxiliary fields, `∫ t · (∇u' θ) dS`, which now
+has the shear of the lips, and the G-θ integral their work in the actual field, `-∫ t ·
+(∇[u] θ) dS` with the jump `[u]` of the displacement (its gradient along each face). Two
+points of numerics decide their accuracy. The auxiliary gradient is singular at the front,
+as `r^(-1/2)`: each face of the lips is integrated at 5 x 5 points graded towards its
+corner nearest the front, then towards the next (`s = v²`, `t = w²` in the triangle
+collapsed on that corner: the integrand is smooth whether the face touches the front by a
+corner or an edge), with the tractions of the linear field through those of its three
+points. And lips whose nodes of the front are shared cannot press on each other there:
+the separation of a shared node is zero, the pressure of the penalty and Coulomb's limit
+with it, so that the friction of the last half element is lost and the tractions carried
+by the nodes of the front instead. For lips that a compression holds stuck, which carry
+the stress of the uncracked plate and should have no factor, the interaction integral
+kept 19 % of the `K_II` of the shear alone on elements of 1 and 15 % on elements of 0.5 (an
+edge crack of 4.5 in a plate of 16 x 32): an error in `sqrt(h)`. With friction, the faces of
+the crack surface ahead of the front that touch it (the ligament: one row) are therefore
+opened too and bonded by the same penalty, in tension as in compression (the points of a
+`Contact` whose history is negative): the nodes of the front are split, and the lips rub
+up to it. The same plate, elements of 0.5, a compression and a shear of 1: `K_II` of 0.587
+and 0.173 of that of the shear alone for `μ = 0.4` and 0.8 (0.6, 0.2), `G` of 0.359 and 0.0391
+of it (0.36, 0.04), and for `μ = 1.5` lips that stick in two iterations a step with -3 % of
+`K_II` and 0.2 % of `G`. `K_I` is zero when the lips press on each other at all their points
+within an element of the front.
+
+## 82. Contact of surfaces, self-contact and friction (`contact`)
+
+*Discretization.* The contact of two surfaces of a mesh is enforced at the integration
+points of the faces of one of them, the slave (three per face of three nodes, six per face
+of six: the rules of the interface elements of §46), each with its share `w` of the
+reference area. For a point at `x_s`, the nearest point `x_m` of the other surface, the
+master, gives the outward normal `n` of the master there and the gap `g = (x_s - x_m) · n`.
+The point presses by `p = <λ - ε g>`, with the penalty `ε` (a pressure per unit of
+penetration; by default ten times the stiffest Young's modulus over the size of the faces)
+and the multiplier `λ` of the augmented Lagrangian (zero for the penalty alone); the force
+`w (p n - t)`, `t` the friction, goes to the nodes of its face by their functions and its
+opposite to those of the master face by theirs at `x_m`: the forces of a point balance,
+and the work of a frictionless contact is the energy `1/2 ε <-g>²` of its penalty. The
+tangent of the forces of a point is taken by central differences on the nodes of its two
+faces (18 dofs, or 36); it agrees with the differences of the forces to 1e-7 and is
+symmetric to 1e-9 without friction.
+
+*The nearest point.* On a triangle, the regions of its corners, edges and face (Ericson
+2005, §5.1.5). On a face of six nodes, which may be curved, Newton's method on the surface
+from the nearest point of the triangle of its corners (the second derivatives of the
+position are constant; a Gauss-Newton step where the Hessian is not positive), then, where
+it leaves the face, on the three edges (clamped Newton's method on each parabola). The
+master faces tried for a point are the nearest by their centroids (a k-d tree, 12 by
+default, within the reach of the deepest penetration and of two faces), searched again at
+each evaluation of the forces.
+
+*Which face.* A face counts for a point if it faces it (the cosine of the angle of the two
+outward normals below -0.25: faces at right angles along an edge of a body, a little
+distorted, do not), if the point has not passed it by more than a given depth (half a
+face by default: a point further behind a face is across a wall, not through it; steps
+that move a surface by more than this depth would go through), and if the point is over
+it: the foot of its perpendicular on the face, or on an edge that two faces share (a
+ridge), the point then within 60° of the normal; a point whose nearest point is on the rim
+of a surface (an edge of one face only) is beyond the surface, and a point beside a face,
+a little further than the corner where the rim meets a shared edge, was taken for one over
+a ridge before the test of 60° (a track pressed by a slider counted 7.5 of area for a
+footprint of 4). A surface against itself also leaves out the faces that share a node
+with that of the point. The nearest of these faces is taken; a point as near two faces
+keeps that of the last step, or the first of them.
+
+*A surface against itself.* Two more rules tell the walls that may touch from those
+that only look like it. *Across a wall.* The two sides of a thin ligament, back to back,
+look like two surfaces that went through each other by its thickness, and the depth
+looked for does not part them where the mesh is fine (a ligament thinner than half the
+mean size of the faces: 144 of 13,746 points pressed at rest in a cell of three flat
+pores meshed with faces of 0.012 to 0.14, and its first step did not converge). What tells
+them apart is where they lay at rest: a face that the point has gone through is left out
+if, in the reference positions, the point was already behind it, within twice the size of
+the faces (or twice the depth looked for); two surfaces that do come to touch were in
+front of each other. *Facing.* With that, the cosine of the normals need not be below
+-0.25: the walls of a notch that closes touch at its bottom while their normals are far
+from opposite (the two walls of the corner of a hexagonal cell are 60° apart at rest), and
+a contact that only starts when they turn past 104° starts with the penetration that they
+already have, a jump of the forces that no step can cross (a honeycomb compressed by 54 %
+stopped there). A surface faces itself below a cosine of 0.6.
+
+*Hovering over an edge.* The forces are continuous where a point goes from a face to the
+next, but their tangent is not: a point that equilibrium holds on an edge went from one
+face to the other at each iteration (by 1e-6 of the face), and Newton's method stalled at
+1e-5 of the forces (two points of 108 on a patch test of 10-node elements). A point
+therefore stays on the face of the last evaluation while the foot of its perpendicular is
+on it or within 5 % of it across a shared edge (on the face continued); the same test
+then converges in three iterations a step.
+
+*Points at the nodes* (`points="nodes"` of a `Pair`, an `Obstacle`, a `ContactCell`,
+`compression`; `contact: {points: nodes}`). The points inside the faces leave the corners
+and the edges of a body without a point: a corner that lands on a face enters it until
+the points next to it press. The slave points may be put at the nodes of the faces
+instead: the three vertices of a face of three nodes, a third of its area each (exact to
+degree 1); the vertices, the middles of the edges and the centroid of a face of six, with
+1/20, 2/15 and 9/20 of its area (exact to degree 3). A node is then a point of each of the
+faces around it, and two rules keep what it carries right. *The share of a face.* The
+weight of a point is multiplied by the cosine of the angle of the inward normal of its
+face, there, and the normal of the other surface (nothing where they are not opposite):
+the area that the face shows to the other surface. The nodes of the edges of the base of
+a block that stands on a plane are those of its sides as well, which the plane sees
+edge-on: with their whole weights, the penalty of these nodes was that of the base and
+of the sides together, and a block of 2 x 2 x 2 between two platens was 4 % stiffer than
+in uniaxial stress (a modulus of 936 for 898, the penalties in series); with the shares
+the sides carry nothing, and the stress and the areas are those of the points inside the
+faces to 1e-8. The tangent, by differences, has the derivatives of the shares; the areas
+in contact of the results are those of the shares. *The rim.* A node of the rim of the
+slave that lies on the rim of the master (two bodies of the same section) is on it or
+beyond it with the rounding of each iteration, and Newton's method did not converge on
+two blocks pressed together: such a point still faces the master within 5 % of a face
+beyond its rim, on the face continued. The rule is of lower order than that of the points
+inside the faces: between meshes that do not match (2 x 2 squares against 3 x 3) the
+force of the uniaxial stress is found to 0.3 % with 4-node elements and 0.2 % with
+10-node ones (0.4 % with two passes), for 0.006 % and 0.015 %, and the pressures of the
+points are within 23 % and 32 % of it (4.5 % and 8 %).
+
+*Friction* (Coulomb, with the frame-indifferent slip of Laursen & Simo 1993). The slip of
+a point over a step is the move of `x_m` from the place, now, of the point of the master
+that faced it at the end of the last step — the same material point, on its face then:
+nothing under a rigid motion of the two bodies — in the tangent plane. The traction of the
+last step, turned into that plane with its norm, plus `ε_t` times the slip (`ε_t` the
+stiffness of the stick, by default `ε`), is returned radially to the cone `|t| <= μ p`;
+what is cut off is the slip, whose work is the energy dissipated. A point that no point
+of the master faced (it comes into contact) rubs by the move of the two points that touch
+now, the one relative to the other, since the end of the last step: without it, where the
+master moves under fixed slave points (a slider over a track whose points are the
+slaves), the points that it reaches at each step did not rub until the next, and the
+tangential force was 10 to 25 % short of `μ N`.
+
+*Solution* (`ContactProblem`). The quasi-static solver of §46, with these forces: bodies
+meshed apart are brought into one mesh (`assemble`), the bulk is linear elastic, neo-
+Hookean or made of morphoGen's points, cohesive interfaces may be there as well. The first
+tangent of a step is that of a predictor in which the points that touched at its start
+stay closed and stick (§81). The two passes of a symmetric pair (the points of each
+surface against the other), or the points of the two sides of a surface that touches
+itself, each take half of the penalty and of the stick and carry half of the pressure.
+With `augmentations`, the multipliers are updated after convergence (Uzawa: `λ <- <λ - ε
+g>`) and the step solved again until no point penetrates deeper than a tolerance. The
+sparse LU of the tangent takes most of the time, and depends on its pattern: the sum of
+two sparse matrices of SciPy drops the stored zeros, and with them the full blocks of the
+three dofs of each pair of nodes, on which SuperLU is several times faster (a block of
+4,913 nodes indented by a sphere: 280 s, then 37 s with the blocks kept); the ordering of
+matrices of symmetric pattern (`MMD_AT_PLUS_A`) is 3 to 5 times faster than the default on
+10-node elements, and slower on 4-node ones, which keep the default.
+
+*Periodic cells* (`ContactCell`, `contact.periodic`). The periodic element of §31 with
+the contact of the walls of the pores of the cell (its free faces that are not on its
+boundary), between themselves and with their images: the faces within reach of the
+boundary are given images translated by the periods; the image of a node of displacement
+`u`, moved by a period `L`, is displaced by `u + H L`, `H` the macroscopic displacement
+gradient, and the forces that it receives go to the node. The positions follow the
+macroscopic gradient, `x = X + H X + w`: the forces `f` of the contacts work in a change of
+`H` by `Σ f ⊗ X` over the nodes, the images at their own places `X + L` — nothing for two
+walls that touch inside the cell (opposite forces at one place), the force that crosses a
+face of the cell times the period for a wall and an image. This term is added to the
+integral of the stress of the points: in the equilibrium of the stress-controlled
+components, in the macroscopic stress of the results, and its derivatives (with `K_c` the
+tangent of the forces and `U` the displacements of the unit macroscopic strains: `K_c U`,
+`Uᵀ K_c`, `Uᵀ K_c U`) in the condensation of the macroscopic unknowns. A cell that nothing
+loads until its parts touch has no forces to compare its residuals with: the scales of
+the forces and of the stress get a floor (those of a strain of 1e-6). A node of a face
+of the cell and the image of the node of the opposite face are one node (the classes of
+translates of the mesh and the periods of the images): the edges that a wall cut by a
+face of the cell shares with its own image are not on the rim of the surface — a point
+over such an edge, where the wall bends, would be beyond the surface for both, and press
+on nothing — and the faces on either side of the cut share their nodes. Checked: a
+periodic stack of layers of 0.9 parted by gaps of 0.1, compressed across them, carries
+nothing until each layer meets the image of the next through the faces of the cell, then
+the stress of the solid with the penalty in series to 1e-6, in uniaxial strain (the
+lateral stress is that of the layers, 0.9 of the cell) and, the layers free to widen, in
+uniaxial stress (the lateral strains `ν σ / E` to 1e-5), with 4- and 10-node elements; a
+cell with a slot and the same medium cut through the slot have the same response to
+1e-11, in small strains and in finite strains with friction.
+
+*In configurations.* `homogenization: {nonlinear: {contact: {friction: 0.3}}}` (or
+`contact: true`; also `stiffness`, `tangential`, `depth`, `augmentations`, `tolerance`,
+`points`)
+follows the loading paths of a porous sample with `ContactCell` on the mesh of its solid
+(`homogenize(..., nonlinear={"contact": ...})`; `morphogen homogenize --contact [MU]`), in
+finite strains unless `kinematics: small`; the curves of the paths
+(`PathResult.series`, columns of their files and quantities of the statistics of volume
+elements) get `contact_area` (reference area, one of the two sides), `contact_pressure`
+(the largest), `contact_penetration` (the deepest) and `contact_dissipation` (the energy
+that friction dissipated). The template `homogenization_contact`: plates of 0.3 parted
+by gaps of 0.05 to 0.11 and held by pillars (a laminate whose void layers have holes),
+a slice of 2.4 x 0.08 x 1.2 with three gaps, 4-node elements, compressed by 15 % across
+the plates with the sides free, friction 0.3: a modulus of 93 while the plates bend
+between the pillars (1000 for the solid), the first contact between 6 and 7 %, then the
+gaps close one after another and the tangent modulus rises to 500; unloaded, the cell
+comes back along the same curve within 2e-4 of the stress (the walls press more than
+they rub). Newton's method takes some 10 to 20 iterations in the steps where the area in
+contact changes (the points at its edge release one ring at a time) and 2 to 3 otherwise.
+
+*Ready-made tests* (`contact.experiments`; `morphogen compress`, `morphogen indent`; the
+tab Contact of the interface). *Compression between two platens* (`compression`): two
+rigid planes on the faces of the box of the sample across an axis, the lower one fixed,
+the upper one brought down by `-ε H`; the whole free surface of the sample is slave to
+both (a side that folds onto a platen presses on it) and, with `self_contact`, to itself
+(`points="nodes"`, `--points nodes`: at the nodes of its faces, for a sample that meets
+the platens or itself by corners and edges, a lattice cut through its struts);
+two nodes of the base take the three rigid motions that the platens leave. The nominal
+strain is the approach of the platens over the height `H`, the nominal stress the force
+of the moving platen over the section of the box. *Indentation* (`indentation`): a sphere
+of radius `R` or a cone of half-angle `α` pressed into the upper face to a depth `δ`,
+then withdrawn; the base glued or sliding. The force reads a reduced modulus `E* = E /
+(1 - ν²)` by the law of the half-space, `F = 4/3 E* sqrt(R) δ^(3/2)` (Hertz) or `F = 2/π
+E* tan(α) δ²` (Sneddon), and by the slope `S` of the unloading, `E* = S sqrt(π) / (2
+sqrt(A))` (Oliver & Pharr 1992; the area `A` is that of the points that press, known to a
+ring of them). A sample is a layer on its base: with `χ = sqrt(R δ) / h` the radius of the
+contact over its thickness `h`, the base multiplies Hertz's force by (Dimitriadis et al.
+2002; the sign of the fourth order after Garcia & Garcia 2018)
+
+$$
+1 - \frac{2\alpha_0}{\pi}\chi + \frac{4\alpha_0^2}{\pi^2}\chi^2
+- \frac{8}{\pi^3}\Big(\alpha_0^3 + \frac{4\pi^2}{15}\beta_0\Big)\chi^3
++ \frac{16\alpha_0}{\pi^4}\Big(\alpha_0^3 + \frac{3\pi^2}{5}\beta_0\Big)\chi^4 ,
+$$
+
+with, for a layer bonded to its base, `α0 = -(1.2876 - 1.4678 ν + 1.3442 ν²) / (1 - ν)`
+and `β0 = (0.6387 - 1.0277 ν + 1.5164 ν²) / (1 - ν)`, and for one that slides on it, `α0 =
+-0.347 (3 - 2ν) / (1 - ν)` and `β0 = 0.056 (5 - 2ν) / (1 - ν)` (`hertz.layer_correction`,
+`IndentationResult.layer_modulus`); the series reproduces the published coefficients (1
++ 1.133 χ + 1.283 χ² + 0.769 χ³ - 0.0975 χ⁴ bonded and 1 + 0.884 χ + 0.781 χ² + 0.386 χ³
++ 0.0048 χ⁴ sliding for ν = 0.5; 1 + 1.112 χ + 1.237 χ² + 0.712 χ³ - 0.133 χ⁴ bonded for
+0.49). Checked: a block of 3 x 3 x 4 between lubricated platens, in small strains: the
+modulus `1 / (1/E + 2/(κ H))` of the uniaxial stress with the penalties `κ` of the two
+platens in series to 2e-4 (946.2 for 1000), with 4- and 10-node elements, the sides
+moving apart by `ν σ / E`; with a friction of 0.5, 1009, below the 1346 of the block
+held on its sides; a block of 4 x 2 x 2 with a slot of 0.125 through it: a modulus of 673
+until the slot closes on itself between 6 and 7 %, then a tangent modulus of 1194. A sphere of
+radius 20 pressed by 0.08 into a block of 8 x 8 x 4 of 10-node elements of 1 (a contact
+of radius 1.3): the half-space reads 1426 for `E*` = 1099, the layer 1048 (-5 %); a
+sphere of 30 pressed by 0.06 into 12 x 12 x 6: 1295, and with the layer 1046 glued and
+within 7 % sliding; the unloading comes back along the loading.
+
+*Rigid obstacles* (`Obstacle`): a plane, a sphere, a cylinder (the body outside, or held
+inside: a die) or a cone, whose signed distance and its gradient stand for the gap and the
+normal; they move with the load factor, rub (the slip is the move of the point relative to
+the obstacle), and the force and the work that they exert are results of each step.
+
+*Checks.* Two blocks whose meshes do not match (2 x 2 squares against 3 x 3), pressed
+without friction: the force of the uniaxial stress `δ / (H/E + 1/ε)` to 6e-5 with 4-node
+elements and 1.4e-4 with 10-node ones (0.998 with two passes), the mean pressure of the
+points to 6e-5, each within 5 % of it (the points of a face do not see a uniform pressure
+exactly: no patch test in the strict sense); the blocks widen freely on each other; the
+works of the bulk and of the contact add up to that of the grips. A block slid by more
+than its length along a track: `T / N` between 0.297 and 0.300 for 0.3, with the points on
+the slider, on the track or on both, 4- and 10-node elements, small and finite strains;
+the work of friction is that of the contact within 0.6 % with 96 steps. Hertz's line
+contact, a rigid cylinder of radius 20 on a slab of 8 x 8 in plane strain, 10-node elements
+of 0.5: the largest pressure 2.2 % below Hertz's for the force taken, the half-width 1.6 %
+below, the pressures of the points within 3.8 % (rms) of `p0 sqrt(1 - x²/b²)`; with
+elements of 0.25, 1.4 % and 3.6 %; 4-node elements of 0.125 give 6.7 % too much pressure.
+A rigid sphere of radius 10 on a block of 4 x 4 x 4 (a quarter): Hertz's force within 5 %
+at a contact radius of a ninth of the block, 17 % above it at a quarter (the base and the
+sides of the block), the radius within 5 % and the pressure within 7 %. A block with a
+slot, compressed: no force of contact until the slot closes, then a stiffness that rises
+to 0.93 of that of the solid block with three quarters of the slot closed. Two arms that
+a slot parts, in finite strains: the upper one, pushed down, comes to rest on the lower
+one and the stiffness is multiplied by 2.0 on average (2 for two beams in parallel), the
+force jumping by a tenth as the corner of the upper arm, which carries no point, passes
+from a point of the lower one to the next. *With the points at the nodes*: a cube of side
+1 (elements of 0.5) that stands on a corner, a rigid plane raised against it by 0.05 —
+the points inside its faces are 0.14 above the corner or more (0.08 with 10-node
+elements), nothing presses and the corner ends 0.05 beyond the plane; at the nodes the
+plane carries 11.6 (4.2 with 10-node elements), the corner 0.004 (0.010) beyond it, and
+5e-7 (1e-6) with four updates of the multipliers, for 12.7 (5.2). The same corner pressed
+by 0.03 into the upper face of a block of 2 x 2 x 1: no force with the points inside
+the faces, 5.7 (2.0) with those at the nodes, which the base of the block takes, in 3
+iterations a step. A block whose whole skin is slave to the plane on which it stands:
+the uniaxial stress, the penetration and the area of its base to 1e-6 with either rule.
+The block with a slot above, between platens that rub: the stress within 1 % of that of
+the points inside the faces all along; the area of the slot in contact is that of the
+nodes that touch, two thirds of it where the points inside the faces count a half (the
+edge of the contact lies between two rows of nodes). Hertz's line contact above: the
+largest pressure 3.7 % below Hertz's, the half-width 6 % above it, the pressures within
+5.1 % (rms), for 2.2 %, 1.6 % and 3.8 % with the points inside the faces.
+
+*Limits.* With the points inside the faces, the corners and the edges of a body carry no
+point: a corner that lands on a face enters it until the points next to it press (a few
+percent of a face); the points at the nodes stop it, with a rule of lower order, and the
+force that a corner carries depends on the mesh as that of a point load does (11.6 and
+4.2 above). A first
+contact by an edge, in small strains (where the bodies do not turn), may fail to converge:
+the points press and release from an iteration to the next; finite strains, in which the
+default kinematics of `ContactProblem` is, converge there. The penalty leaves a
+penetration `p / ε` (1e-3 of a face in the checks above), which the augmented Lagrangian
+takes off at the price of more solutions. The solver is direct: tens of thousands of
+nodes. A surface that folds on itself at the scale of a face — the crease at the corner of
+a cell of a honeycomb crushed beyond half its height — is not followed: the faces that
+share a node do not press on each other, and those next to them then meet from the side.
+A candidate face is searched among the nearest by their centroids (12): a step that
+brings two walls from more than a face apart to deeper than the depth looked for goes
+through.
+
+## 83. Damage: coupled to plasticity, of concrete, and the unilateral effect (`homogenization.laws`)
+
+The isotropic damage of quasi-brittle solids (§61), the nonlocal damages of the
+micromorphic continua, brittle and ductile (§50), porous plasticity (§49: Gurson,
+Rousselier), the phase field (§64) and the cohesive zones are the damage that morphoGen
+had. Four laws of continuum damage mechanics complete them at the material point, for
+every solver
+of the loading paths (finite elements, FFT, extended finite elements, the material
+point), in small strains and, in the logarithmic strain space, in finite strains.
+
+**Damage coupled to plasticity** (`DuctileDamage`; `damage: {law: lemaitre | kachanov}`
+beside the `plasticity` of a material). The strain equivalence of Lemaitre & Chaboche:
+the elasto-(visco)plasticity is that of the effective stress `σ̃ = σ / (1 − D)`, and the
+stress is `(1 − D) σ̃`. The plasticity of the effective stress does not see the damage: it
+is integrated by the kernel of von Mises of §31 as it stands (isotropic and kinematic
+hardenings, Norton's flow), or by that of Hill's criterion, which gives `σ̃`, its
+consistent tangent `C̃` and the increment of the cumulated plastic strain — that of the
+norm dual to the criterion, `dp = sqrt(dε^p · a⁺ · dε^p)` with `J² = x · a · x` (`a = 3/2 P
+diag(h) P` for Hill, `sqrt(2/3 dε^p : dε^p)` for von Mises), whose derivative enters the
+tangent; the damage follows, and
+
+$$
+\sigma = (1 - D)\,\tilde\sigma, \qquad
+\frac{\partial \sigma}{\partial \varepsilon} = (1 - D)\,\tilde C
+- \tilde\sigma \otimes \frac{\partial D}{\partial \varepsilon} .
+$$
+
+*Lemaitre (1985): ductile damage.* `dD = (Y / S)^s dp` beyond a cumulated plastic strain
+`p_D`, with the energy release rate of the effective stress
+
+$$
+Y = \frac{\tilde\sigma_{eq}^2 R_\nu}{2E}, \qquad
+R_\nu = \tfrac23 (1 + \nu) + 3 (1 - 2\nu) \Big(\frac{\tilde\sigma_m}{\tilde\sigma_{eq}}\Big)^2 ,
+$$
+
+the triaxiality function `R_ν` being 1 in a uniaxial tension. With the closure `h` of the
+microcracks (Ladevèze & Lemaitre 1984), `Y = (1 + ν) / (2E) Σ g(σ̃_i) − ν / (2E) g(tr σ̃)`,
+`g(x) = <x>₊² + h <x>₋²` of the principal stresses: compressions count for `h` of
+themselves (0.2 for metals). Over a step, `ΔD = (Y / S)^s Δp` with `Y` at its end; `Δp =
+sqrt(2/3 Δε^p : Δε^p)` (the direction of the flow is that of the end of the step), so that
+`∂Δp/∂ε = (2/3) (Δε^p / Δp) : (I − C⁻¹ C̃)` and `∂D/∂ε = s (Y/S)^(s−1) (Δp / S) (∂Y/∂σ̃ :
+C̃) + (Y/S)^s ∂Δp/∂ε`, `∂Y/∂σ̃` by the principal stresses. A perfectly plastic bar: `D =
+(R0² / (2 E S))^s (p − p_D)`; with a linear hardening `H`: `D = [(R0 + H p)^(2s+1) − (R0
++ H p_D)^(2s+1)] / (H (2s + 1) (2 E S)^s)`; cycles of a plastic strain range `Δε_p`: a
+damage `2 Δε_p (Y/S)^s` per cycle, the law of Manson and Coffin with the exponent −1.
+
+*Kachanov (1958), Rabotnov (1969): creep damage.* `dD/dt = (χ(σ) / A)^r (1 − D)^(−k)`,
+with Hayhurst's (1972) stress `χ = α σ_I + 3 β σ_m + (1 − α − β) σ_eq` of the largest
+principal stress, the mean stress and von Mises' stress (its positive part). In terms of
+the effective stress, `dD/dt = (χ(σ̃) / A)^r (1 − D)^(r − k)`: integrated exactly over a
+step for the effective stress of its end, `(1 − D)^q = (1 − D_n)^q − q (χ̃ / A)^r Δt`, `q
+= k − r + 1` (a point whose right-hand side vanishes is broken). Under a constant
+uniaxial stress the time to rupture is `t_R = 1 / ((k + 1) (σ / A)^r)`, the damage `D = 1
+− (1 − t / t_R)^(1/(k+1))`, and Norton's flow of the effective stress, `ε̇ = (σ / ((1 − D)
+K))^N`, gives the tertiary creep `ε = σ / ((1 − D) E) + (σ / K)^N t_R / (1 − q') (1 − (1
+− t / t_R)^(1 − q'))`, `q' = N / (k + 1)`.
+
+A point whose damage reaches `critical` is broken (it keeps the `residual` fraction of
+its stress). These laws are local: once the stress falls, the strain localizes in bands
+of the size of the elements and the incremental problems of a cell lose their solution
+(a composite of 20 % of particles whose matrix follows Lemaitre's law stops converging
+at 2.5 % of strain). A `viscosity` `η` delays the damage that degrades the stress
+behind that of the law, `dD/dt = (D_law − D) / η` (`D ← D + (D_law − D) Δt / (η +
+Δt)`), which keeps them well posed; the width of the bands remains that of the elements
+(the micromorphic ductile damage has its own).
+
+**Concrete** (`Mazars`; `damage: {law: mazars, threshold, tension: [A_t, B_t],
+compression: [A_c, B_c], beta}`). Mazars (1984, 1986): `κ` the largest value of the
+equivalent strain `ε_eq = sqrt(Σ <ε_i>₊²)`, and
+
+$$
+D = \alpha_t^\beta D_t(\kappa) + \alpha_c^\beta D_c(\kappa), \qquad
+D_i = 1 - \frac{\kappa_0 (1 - A_i)}{\kappa} - A_i\, e^{-B_i (\kappa - \kappa_0)} ,
+$$
+
+`α_t = Σ ε^t_i <ε_i>₊ / ε_eq²` the share of the positive strains made by the tensions of
+the effective stress (`ε^t`: the strains of its positive principal stresses), `α_c = 1 −
+α_t`: 1 and 0 in a uniaxial tension, 0 and 1 in a uniaxial compression, whose equivalent
+strain is `sqrt(2) ν |ε|`. The damage and its shares are isotropic functions of the
+strain: their derivatives are sums over its principal axes, `∂f/∂ε = Σ (∂f/∂ε_i) n_i ⊗
+n_i`. The damage does not heal when the shares change (`D` is the largest reached).
+
+**The unilateral effect** (`damage: {split: spectral}` of the quasi-brittle law). The
+stress of the negative principal strains keeps its stiffness (Miehe et al. 2010): `σ =
+(1 − d) σ⁺ + σ⁻`, `σ± = λ <tr ε>± I + 2μ ε±`, with the tangents `λ H(±tr ε) I ⊗ I + 2μ
+∂ε±/∂ε` (the isotropic functions of the principal strains of §61's hyperelastic laws):
+a crack that closes carries the compression across it.
+
+*Checked* (material points against closed forms). Lemaitre: the perfectly plastic bar to
+1e-12, the hardening bar to the order of the steps (the error divided by 4 with 4 times
+the steps), `R_ν` in shear, in tension and under a mean tension, a compression that
+damages `h` times a tension, five cycles (the damage of a reversal within 3 %), a point
+that breaks at its critical damage. Kachanov: the damage within 5 % of `1 − (1 − t /
+t_R)^(1/(k+1))` up to 0.9 `t_R` and the strain of the tertiary creep within 4 % with 100
+steps (first order). Mazars: the uniaxial tension and compression to 1e-9 (a strength of
+`E κ_0` in tension, some ten times more in compression). The spectral split: a bar
+damaged in tension has the stiffness of the sound material in compression and the
+damaged one in tension again. The tangents of the four against differences of the
+stresses (1e-6). In the solvers: stiff particles in a matrix of Lemaitre, by FFT in small
+and finite strains; the template `homogenization_ductile_damage` (SiC particles in an
+aluminium matrix, a delayed damage): the strength at 3.6 % of strain, the softening to 6
+%, the unloading along the damaged modulus.
+
+*Limits.* No source for MFront, no material file of Z-set, no reduced model (NTFA) of a
+damaged plastic phase; the damage is a scalar (no anisotropic damage, for which an MFront
+behaviour remains the way). With Hill's criterion the plasticity is anisotropic, the
+damage and its energy release rate (that of an isotropic elasticity) are not: a bar of
+Hill pulled along an axis yields at `R0 / c`, `c = sqrt((4 h_11 + h_22 + h_33) / 6)`, its
+cumulated plastic strain is its plastic strain along the axis over `c`, and its damage
+`(Y / S)^s (p − p_D)` is checked to `1e-11`.
+
+## 84. Interfaces that debond in periodic cells (`fracture.periodic`)
+
+The cohesive zones of §46 open the interfaces of a body under prescribed displacements;
+those of §81 rub once broken. `CohesiveCell` puts them in the periodic element of the
+loading paths (§25): the interfaces of the phases of a cell, or the boundaries of its
+grains, open, break, close again and rub along a path in strains, stresses or both —
+the debonding of particles and fibres (Needleman 1987; Segurado & LLorca 2005; Inglis et
+al. 2007), intergranular fracture.
+
+**Insertion on the torus** (`open_cell`). A periodic cell is a torus: a node of a face
+and its translate on the opposite face are one point of the medium, a face of an element
+there and its translate one face. Each node has its point of the torus `c` (the first
+node of its class of translates) and its translation `s` from it, in periods. A face of
+an element is known on the torus by the points of its corners and their translations
+from the first, the corners taken in the order of `(c, s)`: two faces with the same key
+are one face, shared by two elements — inside the cell or across one of its faces, the
+two sides then `s⁺ − s⁻` periods apart. The faces between different phases (or grains)
+are opened; the corners of the elements (an element may hold a node and its translate:
+cells one element thick) are grouped by the shared faces left closed, corner to corner
+in the order of the keys, and each group of each point becomes a node at each place
+where it has corners. The nodes of one group are linked by the periodic conditions,
+those of different groups are not: the two lips of an interface that crosses a face of
+the cell go on in the next cell, each with its own images. Mid-edge nodes are made again
+on the opened corners (§46, §76) and linked when their original nodes are translates
+between the same groups of their two corners.
+
+**Macroscopic stress and strain.** With `u = H X + w`, `H` the macroscopic gradient and
+`w` periodic, the separation of an interface inside the cell is the jump of `w`. An
+interface on a face of the cell joins a face of an element and the image of a face of
+the opposite side: the image of a node moved by a period `L` is displaced by `u + H L`,
+and the forces that it receives go to the node. The tractions of the lips are opposite
+at one place of the reference cell and carry no stress, but for the interfaces on the
+faces, whose forces `f` work in a change of `H`:
+
+$$
+\Sigma = \frac1V \Big( \int_V \sigma\, dV + \sum_{\text{images}} f \otimes L \Big) ,
+\qquad
+E = \langle \varepsilon \rangle + \frac1V \int_\Gamma \operatorname{sym}([u] \otimes n)\, dS ,
+$$
+
+the second sum being that of §82 for the contacts through the faces (in finite strains,
+the nominal stress and `Σ f ⊗ X` over the reference places). The residuals are those of
+§25 with the forces of the interface elements; their tangent (central differences of
+the law at each point; of the forces of an element in finite strains, where the frame
+of the tractions turns with the interface) goes into the tangent of the fluctuation and,
+through the displacements of the nodes and images under the six unit strains, into the
+blocks of the macroscopic unknowns. It is not symmetric (the mixed-mode damage, the
+friction): the tangent is kept whole and factorized.
+
+**The iteration.** Three things let Newton's method through the changes of the lips.
+*The predictor*: the first tangent of a step keeps closed the lips of broken points that
+touched at its start (an opening below `1e-6` of the size of the interface elements: a
+cell brought back to its shape at rest has all its lips there, open or closed by a
+round-off). *A nonmonotone line search* (Grippo, Lampariello & Lucidi 1986): a step of
+the correction is taken when its residual is below the largest of the last four
+iterates, not below the last — where lips open and close along a correction the residual
+rises along a direction that is the right one, and the next linearization, with the lips
+as they have become, corrects it (an active-set iteration, which the short steps of a
+monotone search let change its set only little by little); the bound keeps it from
+cycling. *The elastic slip of the friction*: Coulomb's bound `μ p` is reached over a
+slip `γ` (by default 0.005 times the size of the interface elements), a stiffness of
+the stick of `μ p / γ` instead of the penalty. With a rigid stick, lips that come to
+touch — their pressure and their slip both start from nothing — slide at once along `s /
+|s|`, a direction that means nothing at `s = 0`, and the iteration diverges; with the
+elastic slip the traction of lips that stick is `μ p s / γ`, smooth.
+
+**Laws and fields.** One law for all the interfaces, or one for each pair of phases
+(`{(0, 1): law, (0, 2): other}`; `interfaces: {laws: {0-1: {...}}}` in a configuration):
+the interfaces are then those of these pairs — or, with `faces: grains`, every boundary
+of a grain, with the law of the two phases that it parts (`1-1` for two grains of the
+phase 1). The fields of a path have, for each element, the damage and the opening of
+the interface elements on its faces (`interface_damage`, `interface_opening`: the
+largest of their means), which the figures may colour by.
+
+**Scales of the residuals.** A cell whose interfaces are broken carries nothing, and no
+residual is small against forces that are zero: the scales have floors, the force of
+the strength of the interfaces on one of their elements and that strength as a stress
+of the cell. The same holds for any cell brought back to zero stress — an elastic cell
+unloaded to zero strain did not converge, by finite elements or FFT: the scales of a
+state now keep `1e-6` of the largest reached along the path.
+
+**Softening.** A bar of length `L` and modulus `M` with a bilinear interface of strength
+`N` and openings of onset and failure `δ_0`, `δ_f` softens along
+
+$$
+\sigma = \frac{\bar\varepsilon L - \delta_f}{L / M - (\delta_f - \delta_0) / N}
+$$
+
+if `L / M < (δ_f − δ_0) / N`; otherwise it gives back more than the interface takes, and
+no equilibrium follows the peak under prescribed strains (a snap-back). The debonding of
+a bead is of that kind (the cap of a pole lets go at once). The viscous regularization of
+Gao & Bower (2004), with the time of the path, `d = (d_n + r d_∞) / (1 + r)`, `r = Δt /
+ζ`, lets the steps through: the error of a path without viscosity says so.
+
+*Checked* (a bar of three layers, one interface opened inside the cell or on its faces,
+4- and 10-node elements). The bilinear law in tension and in shear to `2e-5` of the
+stress above; the work of the stress, `G_c / L`, to `1e-3`; the lateral stress `ν / (1 −
+ν) σ`; the lips pushed back, `σ = ε L / (L / M + 1 / K)`; Coulomb's bound `μ p` after a
+stick of compliance `L / G + γ / (μ p)`, the energy dissipated `A μ p (γ̄ L − μ p (L / G
++ γ / (μ p)))` to `1e-6`, and the stick of the reversal; lips without adhesion; the
+exponential law; uniaxial stress (Young's modulus, Poisson's contraction of the bar
+alone); finite strains, `P = M ln λ / λ` for Hencky's bar, to `5e-5`; the recurrence of
+the viscous damage to `1e-6`, the inviscid law at a vanishing viscosity, a brittle
+interface that fails without viscosity and passes with it. The torus: the counts of
+nodes, interface elements and links of a bar opened inside, on its faces and everywhere,
+cells one element thick, 10-node elements, grains; the lips each linked to their own.
+Kinematic conditions: the displacements of the solver of bodies with interfaces (§46) to
+`2e-8`. Glass beads in an epoxy (9 % of beads of radius 0.45 in a cell of 2, `N = 30`,
+`G_c = 0.05`, `μ = 0.3`, `ζ = 0.02`; the template `homogenization_debonding`): the
+modulus of the bonded composite to 1 % before the interfaces break (3760 on the mesh of
+the template); the beads let go between 1.25 and 2.5 % of strain, the stress nearly
+level around 65; a tangent modulus of 2540 at 3 %, between that of the matrix with holes
+and that of the bonded composite; 2710 along the unloading, back to the origin; and
+3490 in compression, 93 % of the first (the poles of the beads carry the load, their
+equators open). Forty steps without a division, some four iterations each. Three
+interfaces in series, each with its law: the weakest breaks along its own curve while
+the two others unload along their penalties (`2e-5`). A polycrystal of eight grains
+(isotropic, `N = 300`, `G_c = 0.5`: tough enough to soften without a snap-back, and
+without viscosity) pulled until a crack has crossed it from boundary to boundary: a peak
+of 385, 1.28 times the strength of the boundaries, which are not across the load; a
+crack of 1.32 times the section of the cell; and the work of the stress, 0.6617, is the
+fracture energy times the area of the crack, 0.6608. Whole grains — their boundaries on
+the faces of the cell, half of the interface elements joining a face and an image — and
+grains cut by the box — boundaries inside, periodic links — give the same peak and the
+same crack to 1 %: the two treatments of the periodicity agree. With a viscosity the
+peak rises (443 for `ζ = 0.001`, 562 for `0.005`): it is a regularization, to be kept
+small. The template `homogenization_intergranular` is this study with cubic crystals.
+
+*Limits.* The tangent is factorized: cells of some 10⁴ to 10⁵ unknowns. One law for all
+the interfaces of a cell. The lips are matched node to node: slips small against the
+elements (large slips are the contact of §82). The viscosity makes the response depend
+on the rate of the path; no arc-length control follows a snap-back. The stick of the
+friction is that of the elastic slip, whatever the tangential stiffness of the law.
+
+## 85. Multiaxial high-cycle fatigue of the points of a cell (`homogenization.fatigue`)
+
+In the high-cycle regime the cell stays elastic, and whether a point lasts is read from
+the cycle of its stress: an amplitude of shear, which initiates the cracks in the slip
+bands of the grains, and a normal or hydrostatic stress, which opens them. The stresses
+of the points along one cycle of a loading path (its fields at each step) are judged by
+five criteria, each calibrated on two fatigue limits of the phase: `f` in fully reversed
+bending (or tension), `t` in fully reversed torsion, `f_0` in repeated tension (the
+largest stress of a cycle from zero).
+
+**The amplitude of a cycle.** The deviator `s(t)` describes a closed path in the
+five-dimensional space of deviators with the norm `sqrt(J_2) = sqrt(s : s / 2)`. Its
+amplitude and its mean are the radius and the centre of the smallest hypersphere that
+holds the path (Papadopoulos et al. 1997),
+
+$$
+\sqrt{J_2}_a = \min_{s^*} \max_t \sqrt{J_2}\big(s(t) - s^*\big) ,
+$$
+
+half the range of a proportional cycle; for a tension `σ_a sin ωt` and a torsion `τ_a
+cos ωt`, a quarter of a cycle apart, the path is an ellipse and the amplitude its larger
+half-axis, `max(σ_a / sqrt(3), τ_a)` — the longest chord would not see the phase. The
+dual of this min–max is a concave quadratic problem on the simplex of the weights `λ`
+of the steps, `max_λ Σ λ_i |p_i|² − |Σ λ_i p_i|²`, with the centre `Σ λ_i p_i`; it is
+solved by Frank and Wolfe's iteration with away steps (Yıldırım 2008) from the two
+points farthest apart — at once for a proportional cycle —, to a relative accuracy of
+`1e-10` on the radius, which is that of the farthest point from the centre found: a
+hypersphere that holds the path.
+
+**Criteria.**
+
+| criterion | equivalent stress | limit | calibration |
+|---|---|---|---|
+| Crossland (1956) | `sqrt(J_2)_a + α σ_H,max` | `β = t` | `α = 3 t / f − sqrt(3)` |
+| Sines (1959) | `sqrt(J_2)_a + α σ_H,mean` | `β = t` | `α = 6 t / f_0 − sqrt(3)` |
+| Dang Van (1973, 1989) | `max_t [τ(t) + α σ_H(t)]` | `β = t` | `α = 3 t / f − 3/2` |
+| Findley (1959) | `max_n [τ_a(n) + k σ_n,max(n)]` | `λ = t sqrt(1 + k²)` | `k = (2 − r) / (2 sqrt(r − 1))`, `r = f / t` |
+| Matake (1977) | `τ_a + k σ_n,max` on the plane of the largest `τ_a` | `λ = t` | `k = 2 t / f − 1` |
+
+`σ_H` is the hydrostatic stress (its mean, for Sines, that of its extremes). In Dang
+Van's criterion `τ(t)` is Tresca's shear of `s(t) − s*`, the deviator less the centre of
+its hypersphere: the stress of a grain that has shaken down elastically in its matrix,
+`s*` being the residual stress that it has built; from Lode's angle `θ` of that deviator
+(`cos 3θ = 3 sqrt(3) J_3 / (2 J_2^{3/2})`), `τ = sqrt(J_2) sin(θ + π/3)`. The calibrations
+follow from the two tests: a fully reversed tension of amplitude `f` has `sqrt(J_2)_a =
+f / sqrt(3)`, `σ_H,max = f / 3` and `τ = f / 2`; a torsion `t` has `sqrt(J_2)_a = τ = t`
+and no pressure. On a plane whose normal makes the angle `θ` with the axis of a tension
+`σ_m + σ_a sin ωt`, `τ_a = (σ_a / 2) sin 2θ` and `σ_n,max = (σ_max / 2)(1 + cos 2θ)`, so
+that Findley's stress is `[sqrt(σ_a² + k² σ_max²) + k σ_max] / 2` and Matake's, at 45°,
+`(σ_a + k σ_max) / 2`. The criteria ask for a normal stress that lowers the limit: `t /
+f` above `1 / sqrt(3)` (Crossland), above `1/2` (Dang Van, Matake), between `1/2` and 1
+(Findley).
+
+**Critical planes.** On the plane of normal `n` the shear vector `σ n − (n · σ n) n`
+describes a path in the plane; its amplitude is the radius of the smallest circle that
+holds it (the same iteration, in the plane), its normal stress the largest of the
+cycle. The normals are searched on a spiral of 400 points over a hemisphere (a spacing
+of 7°), then around the six best of them by grids of 5 × 5 normals three times finer at
+each of four levels (0.13° at the last). Matake's plane is that of the largest shear
+amplitude; among the planes found within a thousandth of it (a tension has a cone of
+them, a torsion two), that of the largest stress of the criterion.
+
+**Results** (`fatigue`, `path_fatigue`; `homogenization.fatigue` in configurations). The
+*utilization* of a point is its equivalent stress over its limit: 1 at the fatigue
+limit. Each phase has its criterion (the points of the other phases are not judged). Of
+a cell: the largest utilization; its inverse, the factor of safety — the factor by which
+a loading that grows in proportion, mean stress included, may be multiplied before a
+point reaches its limit (the stresses of an elastic cell are linear in it); the share of
+the volume beyond the limit. In a configuration the fields of the cycle are kept at each
+step of its path, the map of the utilization, of the amplitude and of the largest
+pressure is written beside the curve, and the three numbers are results of the run and
+quantities of the statistics of volume elements (`<path>.fatigue_utilization`).
+
+*Checked.* The amplitudes above to `1e-12`; the circle through the corners of an acute
+triangle of three states of shear (`R = abc / 4A`) and the circle on the longest side of
+an obtuse one. The five criteria at their two limits: to `1e-9` for the three of the
+invariants, `1e-5` for Findley, `2e-3` for Matake (the plane of the largest amplitude is
+found to a tenth of a degree, and the normal stress varies there as the angle); under a
+mean stress
+against the forms above; a pressure held lowers them by `α p`; a cycle of pressure
+alone; any frame (a rotation of the stresses: `1e-7`, `1e-4`, `3e-3`). A homogeneous
+cell under a tension cycled between 300 and −100, by finite elements and by FFT: the
+utilization of Crossland's criterion at every point, to `1e-8`. A stiff particle in a
+matrix: the utilization of the matrix above that of the matrix alone, and 1 when the
+loading is multiplied by the factor of safety. A spherical pore far from the others
+(0.8 % of pores; 10-node elements of size 0.5 for a radius of 0.5):
+Goodier's (1933) stresses at its equator, `K_t = (27 − 15 ν) / (2 (7 − 5 ν))` along the
+load and `(15 ν − 3) / (2 (7 − 5 ν))` around the pore, give the largest stress to 3.5 %
+and the largest utilization of Dang Van's criterion to 3 % (0.8 % and 0.5 % with
+elements of 0.35). The template `homogenization_fatigue`: 4 % of pores in a cast alloy
+under a stress of 40 that alternates; a utilization of 0.36 far from the pores, 0.92 at
+the equator of the worst of them, a factor of safety of 1.09.
+
+*Limits.* The criteria judge an elastic shakedown: a path that yields is judged on the
+stresses of the cycle given (run cycles until they are stabilized). They are local: no
+gradient or size effect (a stress concentrated on a few elements counts as much as a
+uniform one), no defect smaller than the elements. Critical planes cost a few hundred
+planes per point: seconds for 10⁴ points, minutes for 10⁶ (the invariants take a
+fraction of a second).
+
+## 86. Twinning of crystals, and hexagonal lattices (`homogenization.crystal`)
+
+**Hexagonal lattices.** The crystal plasticity of §32 has the slip systems of hexagonal
+crystals beside those of cubic ones. In the axes of the crystal — `a₁` along the first,
+`c` along the third, lengths in units of `a` — a direction `[uvtw]` and the normal of a
+plane `(hkil)` of Miller–Bravais indices are
+
+```
+[uvtw] = ( (u − t) − (v − t)/2 ,  (√3/2)(v − t) ,  w c/a ),
+(hkil) ∝ ( h ,  (h + 2k)/√3 ,  l / (c/a) ),
+```
+
+and the systems of a family are those that the twelve rotations of the hexagonal prism
+make of one of them (once each, up to the signs of the normal and of the direction):
+`basal` (0001)⟨11‑20⟩ (3 systems), `prismatic` {10‑10}⟨11‑20⟩ (3), `pyramidal_a`
+{10‑11}⟨11‑20⟩ (6), `pyramidal_ca` {10‑11}⟨11‑23⟩ (12) and `pyramidal2_ca`
+{11‑22}⟨11‑23⟩ (6). The ratio `c_over_a` is that of the crystal (1.624 for magnesium,
+1.587 for titanium, 1.856 for zinc); its elasticity is `hexagonal: [c11, c12, c13, c33,
+c44]`, in the same axes.
+
+**Twins.** A twin of plane `K₁` (normal `n`) and direction `η₁` (`l`) shears the part
+of the crystal that twins by `γ_tw l ⊗ n`. The shear is the one that leaves the second
+plane `K₂` undistorted: a direction `η₂` of it keeps its length, `|η₂ + γ_tw (η₂·n) l| =
+|η₂|`, so that
+
+```
+γ_tw = −2 (η₂·l) / (η₂·n),
+```
+
+taken positive: its sign is the sense of `l`, a twin does not form the other way. From
+the elements `K₁, η₁, η₂` of each mode (Christian & Mahajan 1995; Yoo 1981):
+
+| Family | `K₁`, `η₁` (`η₂`) | Systems | Shear `γ_tw` (`γ = c/a`) |
+|---|---|---|---|
+| `twin111` (fcc) | {111}⟨11‑2⟩ (⟨112⟩) | 12 | `1/√2` |
+| `twin112` (bcc) | {112}⟨‑1‑11⟩ (⟨111⟩) | 12 | `1/√2` |
+| `twin1012` | {10‑12}⟨10‑1‑1⟩ (⟨10‑11⟩) | 6 | `|γ² − 3| / (√3 γ)` |
+| `twin1011` | {10‑11}⟨10‑1‑2⟩ (⟨30‑32⟩) | 6 | `(4γ² − 9) / (4√3 γ)` |
+| `twin1122` | {11‑22}⟨11‑2‑3⟩ (⟨22‑43⟩) | 6 | `2(γ² − 2) / (3γ)` |
+| `twin1121` | {11‑21}⟨‑1‑126⟩ (⟨11‑20⟩) | 6 | `1/γ` |
+
+The {10‑12} twin lengthens the axis `c` below `c/a = √3` (magnesium: `γ_tw = 0.129`;
+titanium) and shortens it above (zinc: 0.138): the direction of its shear turns over at
+`√3`, where the shear vanishes.
+
+**Flow.** A twin system is a slip system that flows in one sense (the pseudo-slip of
+Kalidindi 1998): when the fraction `f^t` of the crystal has twinned on it, it has
+sheared by `γ^t = γ_tw f^t`, and its strain is `γ^t sym(l ⊗ n)` (in finite strains the
+twins add `dγ^t l ⊗ n` to `dF_p F_p⁻¹`). With the resolved shear stress `τ^t`, the
+hardening variables of §32 and the twinned fraction of the crystal `F = Σ_t γ^t / γ_tw^t`,
+
+```
+dγ^t/dt = ⟨ (τ^t − x^t − r^t − b τ₀ F / (F_sat − F)) / K ⟩ⁿ,      b = 10⁻³,
+```
+
+without absolute value: the sense of the twinning (under a stress that is reversed the
+twins shear back, §89). The last term is a barrier
+that stops the twins at the saturation `F_sat` (`twin_saturation`, 1 by default: the
+whole crystal): 1 % of `τ₀` at 90 % of the saturation, `τ₀` at 99.9 %, without bound
+beyond, so that the implicit step always has a solution below `F_sat` whatever the
+stress (a flow that stops abruptly at `F_sat`, as in Kalidindi's model, has none in a
+step that crosses it). Slip systems and twins harden each other through the interaction
+matrix (their shears `v`). Unless told (`twin_reorientation`, §89), the lattice of the
+twinned fraction is not turned and does not slip on its own systems: the model follows
+the twins until they have consumed the crystal, not the slip of the twinned crystal
+afterwards.
+
+**Integration.** The twins are unknowns of the same implicit step as the slips (§32):
+their residual has no sign to find, its Jacobian has the terms of the barrier, `−b τ₀
+sat_r / φ²` between two twins (`φ = 1 − F/F_sat`, `sat_r = 1/(γ_tw^r F_sat)`), and a
+slip that would exhaust the crystal is refused, which the line search of the local
+iteration shortens. The consistent tangent is not symmetric. The fields of a path have
+the `twin_fraction` of each element or voxel, and its curves the mean over the crystals.
+
+**Textures.** The twins of a polycrystal depend on its texture: `texture`, a law of
+directions (those of the fibres, §2: von Mises–Fisher, planar, girdle...), is that of the axis
+`c` of the grains of a tessellation, each crystal turned about it by a uniform angle (a
+fibre texture; `fibre_orientations`).
+
+**Verification** (`tests/test_twinning_cleavage.py`):
+
+| Check | Result |
+|---|---|
+| shears of the six modes at `c/a` = 1.587, 1.624, 1.856 against their formulas; `η₂` keeps its length | 10⁻¹² |
+| numbers of systems, `n·l = 0`, the families closed under the rotations of the lattice | exact |
+| {10‑12}: lengthens `c` for magnesium, shortens it for zinc | sense of every system |
+| crystal strained along `c`, {10‑12} twins only: twins one way (magnesium pulled, zinc compressed), elastic the other way | `σ = E ε` to 10⁻⁹ the other way |
+| the flow rule at the end of each step (stress × Schmid factor = resistance + barrier + viscous stress) | 10⁻⁶ |
+| strain of the twins: `ε − σ/E = m γ_tw F` | 10⁻⁹ |
+| saturation at `F_sat = 0.9`: `F` ends within 0.1 % below it, then the elastic slope | slope `E` to 0.2 % |
+| fcc crystal along [001], {111}⟨11‑2⟩ twins: Schmid factors `√2/3` (4 systems, compression) and `√2/6` (8, tension): twins at half the stress in compression | ratio 2 to 1 % |
+| basal slip at 45° of `c`: two systems of Schmid factor `√3/4` | flow stress to 10⁻⁶ |
+| consistent tangent of a crystal that slips, twins at 98.5 % of its saturation and cleaves, against finite differences, small and finite strains | 2·10⁻⁶ |
+| homogeneous cells (voxels, mesh; small and finite strains) follow the material point | 5·10⁻⁶ |
+| fibre texture of von Mises–Fisher (`κ = 40`): mean of `1 − cos` of the angle of `c` to the axis | `1/κ` to 5 % |
+
+A textured magnesium (the template `homogenization_twinning`: 20 grains on 16³ voxels,
+axes `c` within some 15° of the axis 3, basal, prismatic and pyramidal slip of 10, 60
+and 100 MPa, {10‑12} twins of 25 MPa) flows at 65 MPa when pulled along 3, a third of
+its grains twinned at 3 % (`F = 0.39`: the twins give `m γ_tw F ≈ 2.5 %` of the 3 %),
+and at 179 MPa when compressed, without twins (`F = 0.001`): the tension–compression
+asymmetry of textured magnesium.
+
+**Limits.** The lattice of the twins is turned, and slips, with `twin_reorientation`
+only (§89); one saturation for the crystal, not one per family; the twins are those of
+the families
+listed; the GPU kernels and the MFront sources do not have them (the solvers of the CPU
+only).
+
+## 87. Cleavage of crystals; cracks through the grains and between them (`homogenization.crystal`, `fracture.periodic`)
+
+**Damage systems.** A crystal cleaves on crystallographic planes: {100} in body-centred
+cubic metals, the basal plane in zinc. Following Marchal, Forest, Rémy & Duvinage (2006)
+and Aslan & Forest (2009), the crack of a plane of normal `n` is a strain of the crystal,
+
+```
+ε^d = δ n ⊗ n + Σ_i δ_i sym(n ⊗ l_i),
+```
+
+an opening `δ` and slips `δ_i` along directions `l_i` of the plane (the accommodation
+systems, modes II and III): systems of the crystal beside its slip systems, with the
+Schmid tensors `n ⊗ n` and `sym(n ⊗ l_i)`. They flow as slip systems,
+
+```
+dδ/dt   = ⟨ (n·σ·n − Y) / K_d ⟩^{n_d},                          (opening; under pressure: §89)
+dδ_i/dt = ⟨ (|n·σ·l_i| − s Y) / K_d ⟩^{n_d} sign(n·σ·l_i),      (accommodation)
+```
+
+with a strength that falls as the plane opens and slips,
+
+```
+Y = Y₀ exp(−w d),      d = δ + Σ_i |δ_i|,
+```
+
+`s` (`shear`) the ratio of the strength of the accommodation systems to that of the
+opening: a plane opens at the normal stress `Y₀` (`strength`), and its shear stresses
+are released as it softens. The softening is exponential (the reference has `Y = Y₀ + H
+d`, `H < 0`): no threshold to cross at `Y = 0`, and the residual strength of a broken
+plane is its viscous stress. Under pressure the plane closes, and then carries the
+pressure (§89; without `closure` its opening stays, and the lattice alone is pressed).
+
+**Planes.** `cube` {100} (3 planes, accommodation along the two ⟨010⟩ of each),
+`dodecahedral` {110} (6; ⟨001⟩ and ⟨1‑10⟩), `octahedral` {111} (4; the three ⟨1‑10⟩),
+`basal` (0001) (1; the three ⟨11‑20⟩) and `prismatic` {10‑10} (3; ⟨11‑20⟩ and ⟨0001⟩):
+the directions of a plane are those of the lattice, so that the planes of a family are
+equivalent.
+
+**Fracture energy.** A plane that breaks dissipates `∫ Y dd = Y₀ / w` per unit volume.
+In a model without internal length the opening localizes in one layer of elements, of
+thickness `h`: the energy dissipated per unit area of crack is `h Y₀ / w`, and
+
+```
+w = Y₀ h / G_c
+```
+
+makes it the fracture energy `G_c` of the planes, whatever the size of the elements
+(the crack band of Bažant & Oh 1983; `energy` and `length` in place of `softening`).
+The state of a point must follow its strain: the opening `δ` of a point held at a strain
+releases the stress `(n⊗n):C:(n⊗n) δ`, and the strength must fall more slowly,
+
+```
+w Y₀ < (n⊗n) : C : (n⊗n),        i.e.   h < C_nn G_c / Y₀²,
+```
+
+and likewise for the accommodation systems (`s w Y₀ < sym(n⊗l):C:sym(n⊗l)`): a
+material whose planes soften faster is refused, with the bound. A cell longer than `E
+G_c / Y₀²` snaps back when the crack crosses it; the viscosity of the systems (`K`, `n`)
+lets the steps through, as that of the interfaces of §84.
+
+**Slip and cleavage.** The systems of the planes are unknowns of the implicit step of
+§32 with the slips and the twins; the Jacobian has the softening, `+ w Y` between the
+systems of a plane, and the tangent is not symmetric. The cumulated plastic strain `p`
+counts the slips and the twins only. A crystal that flows below `Y₀` never opens its
+planes (slip shields cleavage); hardened up to `Y₀` it cleaves, and unloads its slip
+systems. The fields of a path have the `cleavage_opening` (the opening strain of the
+planes of a point) and the `cleavage_damage`, `1 − Y/Y₀` of its most damaged plane; its
+curves their means.
+
+**Through the grains or between them.** With the cohesive boundaries of §84 (`interfaces:
+{faces: grains}`), a polycrystal has both: boundaries that debond at their strength,
+with their fracture energy, and grains that cleave on their planes, each with its
+orientation. The crack takes the weaker path: along the boundaries (intergranular
+fracture, the grains whole) or through the grains from plane to plane (transgranular
+fracture), as in the cells of Musienko & Cailletaud (2009); twinning and cleavage
+compete inside the grains of zinc coatings (Parisot et al. 2004).
+
+**Verification** (`tests/test_twinning_cleavage.py`):
+
+| Check | Result |
+|---|---|
+| numbers of planes and systems, openings along the normals, directions in the planes and spanning them | exact |
+| crystal pulled along [001], {100} planes: elastic to `Y₀`, then `σ = Y₀ exp(−w δ) + K dδ/dt` at the end of each step | 10⁻⁷ |
+| work that breaks the crystal | `Y₀/w` to 2 % |
+| unloading: elastic, the opening kept; loading again: flow at the softened strength; compression: no opening | slope `E` to 10⁻⁸ |
+| plane at 30° of the tension: opens at `Y₀/cos²30°`, then no stress (accommodation, `shear` 1 and 4) | peak within 5 % below (steps), end < 2 % |
+| slip of 100 MPa below planes of 600 MPa: no opening; hardened by 400 MPa: cleaves at 600 MPa | peak within 5 % |
+| planes that soften faster than the crystal unloads | refused, with the bound |
+| crack band: a bar of one crystal with a weaker layer of voxels, 8 and 12 voxels long: the layer breaks alone, the work is `G_c` | 3 % |
+| consistent tangent, homogeneous cells | see §86 |
+
+A polycrystal of iron on 12³ voxels (the template `homogenization_cleavage`: slip of 300
+MPa, planes of 500 MPa and 0.05 N/mm) is elastic to 635 MPa, the strength of its best
+oriented planes over `cos²` of their angle to the load, then a crack crosses its eight
+grains: 188 voxels broken for a section of 144, the stress falling to 80 MPa (bridges
+between planes that do not meet), and a work of 3.6 times `G_c` times the section. The
+template `homogenization_grain_fracture` (the same crystals meshed grain by grain, with
+cohesive boundaries of 300 MPa and 0.5 N/mm) breaks along its boundaries: a debonded
+area of 1.44 for a section of 1, no damage of the cleavage planes, and a work of 0.75,
+the fracture energy of the boundaries times that area within 4 % (the rest is the
+viscosity of the planes and the plastic strain of the grains); with boundaries of 3000
+MPa no boundary debonds and the crack cuts through the grains (the stress peaks at 633
+MPa and 358 of the 1958 elements break).
+
+**Limits.** A local softening: the path of the crack follows the voxels or the
+elements, and the energy dissipated by an inclined or tortuous crack is above `G_c`
+times its area (2 to 4 times in the polycrystals above; exact for a crack along a layer
+of elements); elements below `C_nn G_c / Y₀²`; the
+viscosity that lets a snap-back through adds its dissipation; the strength `Y₀` is a
+constant unless the slip lowers it (`coupling`, §90: the slip then nucleates the
+cleavage; the twins do not); the
+GPU kernels and the MFront sources do not have these systems.
+
+## 88. Cleavage by the local approach: the Weibull stress of Beremin (`homogenization.beremin`)
+
+**The criterion.** The cleavage planes of §87 follow a crack; the local approach asks
+how likely one is to start. Cleavage starts at microcracks that the plastic strain
+nucleates (broken carbides, grain boundaries), of random sizes: a volume `V₀` under a
+stress `σ` holds one that gives way with the probability `1 − exp(−(σ/σ_u)^m)`, and a
+part breaks when its weakest link does (Beremin 1983). For the stresses of the points
+of a cell, of volumes `V_i`,
+
+```
+P_f = 1 − exp(−(σ_w / σ_u)^m),        σ_w = ( Σ_i ⟨σ_i⟩^m V_i / V₀ )^{1/m},
+```
+
+`σ_w` the Weibull stress, `m` the modulus of Weibull (the scatter: some 20 for a
+ferritic steel), `σ_u` the scale of the cleavage stresses of the reference volume `V₀`
+(a few grains: `(50 µm)³` in Beremin's work, with `σ_u` near 2600 MPa). The sum is over
+the plastic zone: the points whose cumulated plastic strain has passed `plastic` (they
+stay in it, whatever happens later; left out: every point counts), and the compressed
+points do not count. `path_beremin` evaluates it on the fields of each step of a
+loading path; a cell that has survived a Weibull stress has survived the smaller ones,
+so that the probability at a time is that of the largest Weibull stress reached (an
+unloading does not lower it).
+
+**The stress that drives a point.** In Beremin's criterion it is the largest principal
+stress: the points are those of a continuum, each with grains of every orientation.
+Where the points are those of the grains of a polycrystal, the plane that cleaves is one
+of the cleavage planes of the grain, and the stress that drives it is their largest
+normal stress (`planes`: {100} for ferrite, the basal plane for zinc; those of §87, with
+the orientations of the grains of the mesh or of the voxels), as in the micromechanical
+models of the cleavage of bainitic steels (Mathieu et al. 2010): `max_p n_p·σ·n_p ≤ σ_I`.
+Where the fields of the path have the orientation of the lattices at each time (finite
+strains; twins that turn them, §89), the planes are those of the lattices as they are.
+
+**A cell and a part.** The cell stands for a point of a part: `N` cells under the same
+loading are `N` times as many links, `σ_w` multiplied by `N^{1/m}` — `V₀/N` in place of
+`V₀` (`volume`). In a configuration, `homogenization: {beremin: {modulus: 22, scale:
+1550, volume: 1.25e-10, planes: cube, plastic: 1e-4}}` adds the curves
+`beremin_weibull` and `beremin_probability` to those of the path (quantities of the RVE
+studies too) and writes the field `beremin_stress`, the stress that drives each point
+at the time of the largest Weibull stress.
+
+**Verification** (`tests/test_beremin.py`):
+
+| Check | Result |
+|---|---|
+| largest principal stress against the eigenvalues of the tensors | 10⁻¹² |
+| normal stress of {100} and of the basal plane of crystals turned by 0, 30, 45 and 70° under a tension: `max(cos², sin²)` and `cos²` of it; {111} along [001]: a third | 10⁻¹² |
+| the normal stress of a plane below the largest principal stress; unchanged when the sample and the crystal turn together | random states |
+| uniform stress: `σ_w = σ (V/V₀)^{1/m}`; two regions; compressed points and points outside the plastic zone left out; a modulus of 60 without overflow | 10⁻¹² |
+| the weakest link: the survival of two volumes is the product of theirs; 63.2 % at `σ_w = σ_u` | 10⁻¹² |
+| homogeneous cell pulled, unloaded and pulled again: `σ_w = σ (V/V₀)^{1/m}` once it has yielded, zero before; the probability does not fall when it unloads | 10⁻⁹ |
+| crystals at 45°: half the Weibull stress of the principal stress | 10⁻⁹ |
+| in a configuration: the curves, the field (the Weibull stress of the field written is that of the curve), the planes below the principal stress | 10⁻⁵ |
+
+The template `homogenization_beremin` (a ferritic polycrystal of 20 grains on 12³
+voxels, slip of 250 MPa, pulled to 3 %; the cell a point of a gauge of 10⁶ cells) has a
+Weibull stress twice its tensile stress (1630 MPa for 810 MPa at 3 %: the 8·10⁶
+reference volumes of the gauge, and the heterogeneity of the stresses of the grains)
+and a probability of failure that rises from 10⁻⁴ at 1 % to a half at 2.2 % and 0.95
+at 3 %.
+
+**Limits.** A criterion on the fields of a path that it does not change: no crack, no
+redistribution (the cleavage planes of §87 for that); the two parameters `m` and `σ_u`
+are those of a material and a temperature, to identify on notched bars; the original
+criterion has a correction of the stress by the plastic strain, which is not included.
+
+## 89. Cracks that close, twins that shear back and turn the lattice (`homogenization.crystal`)
+
+Two systems of §86–87 flow in one sense: the twin, and the opening of a cleavage plane.
+Under a stress that is reversed both go back, and no further than where they started:
+the twins of a crystal shear back until none is left (detwinning), the opening of a
+plane until the plane is closed, which then carries the pressure as the sound crystal
+does (the unilateral condition). And a crystal that has twinned is another crystal: its
+lattice is that of the twin.
+
+**Cleavage planes that close.** The opening of a plane follows the sign of its normal
+stress `σ_n = n·σ·n` (Aslan & Forest 2009, the damage systems of Marchal et al. 2006),
+
+```
+dδ/dt = ⟨ (|σ_n| − Y) / K_d ⟩^{n_d} sign(σ_n),        δ ≥ 0,
+```
+
+with the strength `Y = Y₀ exp(−w d)` of §87, `d` the opening and the slips of the plane
+cumulated in both senses: a plane that is broken through (`Y ≈ 0`) closes under no
+pressure but its viscous stress, and opens again as freely; one that is not takes the
+pressure of the strength that it has left to close, and is damaged further by it, as by
+its opening (the fatigue of a plane that opens and closes; no healing). Once closed (`δ
+= 0`) under pressure the opening system does not flow: the strain of the plane is taken
+back, and the crystal is as stiff across it as it was. Without it (`closure: false`)
+the opening is a strain that stays, and the lattice alone is pressed as soon as the
+strain goes down: a crystal opened by 0.6 % and brought back to −0.4 % carries −1283
+MPa for −521 with the closure, the stress `E ε` of the sound crystal.
+
+The reference closes a plane at the strength at which it opens. A crack that is not
+broken through has lips that come back together as the load is taken off, under no
+pressure to speak of: `closure: ρ` closes the plane at the share `ρ` of its strength,
+
+```
+dδ/dt = − ⟨ (−σ_n − ρ Y) / K_d ⟩^{n_d}        (σ_n < 0, δ > 0),
+```
+
+the opening unchanged (`ρ = 1` by default, the reference; near 0: a plane that closes
+freely, at its viscous stress).
+
+**Friction of the lips.** The reference stops the accommodation systems of a plane that
+is closed and pressed (`dδ_i/dt = 0`: lips that stick whatever the shear). The stress is
+then discontinuous where the normal stress of a plane changes sign — its shear stress is
+released on one side, held on the other — and the equilibrium of a polycrystal with
+cohesive boundaries (the template `homogenization_grain_fracture`) was not found, after
+ten divisions of the step. The lips of a plane under pressure rub instead, with
+Coulomb's friction,
+
+```
+dδ_i/dt = ⟨ (|n·σ·l_i| − s Y − μ ⟨−σ_n⟩) / K_d ⟩^{n_d} sign(n·σ·l_i),
+```
+
+continuous in `σ_n` (`friction: μ`, 0 by default: the lips slide freely; the reference
+is the limit of a large `μ`). A plane that is not broken is as much stronger in shear
+under pressure, a criterion of Coulomb for its modes II and III.
+
+**Twins that shear back.** The second variable of a twin system is its net shear `γ^t ≥
+0`, the fraction `f^t = γ^t / γ_tw` that has twinned, in place of a cumulated one; it
+goes down when the resolved shear stress is reversed,
+
+```
+dγ^t/dt = ⟨ (τ^t − x^t − r^t − b τ₀ F / (F_sat − F)) / K ⟩ⁿ − ⟨ (−(τ^t − x^t) − r^t) / K ⟩ⁿ,      γ^t ≥ 0,
+```
+
+the barrier of the saturation being that of the twinning alone (twins near the
+saturation shear back freely), and the hardening of the systems that of the net shears
+(twins that shrink harden the crystal less). The resistance is the same both ways by
+default (`twin_detwinning: false`: the twins of §86, which stay). A twin that shears
+back has no twin to nucleate, only a boundary to move: magnesium sheets untwin under a
+lower stress than they twin (Lou et al. 2007; Hama et al. 2016), and `twin_detwinning:
+ρ` gives the way back the share `ρ` of the resistance,
+
+```
+dγ^t/dt = ⟨ (τ^t − x^t − r^t − b τ₀ F / (F_sat − F)) / K ⟩ⁿ − ⟨ (−(τ^t − x^t) − ρ r^t) / K ⟩ⁿ.
+```
+
+A crystal of magnesium pulled
+along `c` to a twinned fraction of 0.47 and pushed back shears back at the same Schmid
+stress, its twinned fraction `(ε − σ/E) / (m γ_tw)` there and back to 10⁻⁹, and is as it
+was when none is left; without detwinning it would slip at once on its pyramidal
+systems, at nearly seven times the stress.
+
+**Integration.** A system that goes back is an active system of the implicit step of
+§32 with the sign −1, whose magnitude is at most what it has at the start of the step
+(the opening, the net shear). A Newton step that would take it beyond is not shortened —
+several twins that came to nothing together stalled the line search, six of them in the
+test below, and the step fell back on substeps, whose tangent is that of the last one:
+20 % off the differences — but the system is *held* at nothing: its slip of the step is
+fixed, it leaves the active set, the others are solved again, and it is released if
+they leave its flow rule short of it. The Jacobian has the derivatives of the net
+shears (the sign of a twin in the terms of the hardening and of the barrier), the share
+`ρ` of the hardening and of the softening of a system on its way back, and those of the
+friction, `μ sign_r ∂σ_n/∂γ_r`; the consistent tangent of a system that rubs has `−(sign
+C : m + μ C : n⊗n)` on its right-hand side. A system held at nothing has no tangent: the
+crystal is elastic across a closed plane.
+
+**The lattice of a twin** (`twin_reorientation: F_r`). The twinned part of a crystal has
+the lattice of the twin: that of the parent turned by half a turn about the normal of
+the twin plane,
+
+```
+Q = 2 n ⊗ n − I,
+```
+
+and it slips and twins as that lattice does: under a tension along `c` the {10‑12} twins
+of magnesium bring `c` across the load, 86.3° off, where the easy systems are no longer
+loaded as they were — the stress rises once the twins have spread, the sigmoidal curve
+of twinning. A point cannot hold two lattices: following the predominant twin
+reorientation of Van Houtte (1978) and Tomé, Lebensohn & Kocks (1991), applied at each
+integration point as the full-field models of twinning do, when the twinned
+fraction `F = Σ_t f^t` of a point comes to the threshold `F_r` at the end of a step its
+lattice becomes that of its predominant twin, the system of the largest fraction: its
+systems are turned, `l → Q l`, `n → Q n`, with its elasticity and its thermal strain,
+
+```
+C' = K C Kᵀ,      (Q a Qᵀ) = K a   for the six components of a symmetric tensor a,
+```
+
+and its twins start again from nothing (their shear stays in the plastic strain; the
+hardening variables of the slips are kept, system by system). Rotations compose, `R ← Q
+R`, with eleven internal variables more: the rotation, the twin that undoes it, and the
+twinned fraction that the point had when it was turned. Twins whose fractions are within
+10⁻⁶ of the largest are as predominant, and the first of them turns the lattice: the
+variants that the symmetry of a loading makes equal differ by their round-off from a
+point to the next, and the points of a crystal must turn alike. In finite strains the
+lattice is turned in the intermediate configuration, and the orientation of an element
+is `g Rᵀ R_eᵀ`.
+
+**Grain by grain** (`twin_reorientation: {threshold: A₁, growth: A₂}`). At one threshold
+for every point, the lattices of a grain whose points twin alike all turn in the same
+step: the whole grain is a twin when a fraction `F_r` of it has twinned. The predominant
+twin reorientation of Tomé, Lebensohn & Kocks (1991) turns the grains of an aggregate so
+that the volume of those turned follows the volume that has twinned; here the points of
+a grain (its integration points, each with its volume) stand for the grains of the
+aggregate. After each step, in each grain, with
+
+```
+V_acc = ⟨F⟩ (its twinned volume, by the shears of its twins),     V_eff (the volume of its turned points),
+F_T = min(1, A₁ + A₂ V_eff / V_acc),
+```
+
+the points whose twinned fraction has grown over the step past `F_T` take the lattice of
+their predominant twin, the most twinned first, while `V_eff < V_acc`: the turned volume
+of a grain is its twinned volume, to a point, as long as it has points past the
+threshold (the grains of the aggregate are visited at random; the most twinned points
+first leaves nothing to chance). `A₂` raises the threshold as the turned volume comes to
+the twinned one (0 by default: the points turn as soon as they are past `A₁`). When the
+twins shear back the lattices come back by the same rule: the points whose twin has
+been undone the most first, by `A₁` at least, while `V_eff > V_acc`; and a point whose
+twin is undone altogether in any case. A material point is a grain of one point: its
+lattice turns at `A₁`, as at a constant threshold.
+
+**Detwinning of a turned lattice.** In the lattice of a twin the system of that twin is
+`(n, −l)`: it shears the other way, and when its fraction comes to `F_r` the lattice is
+turned back, `Q Q = I`: the lattice of the grain, exactly, with what is left of its twin
+(the fraction that the point had when it was turned, less what was undone since) as the
+shear of that system, which goes on shearing back: a point that has twinned and
+untwinned is as it was. The other systems of the family are held in a turned lattice. For a twin of small shear the second undistorted
+plane `K₂` is nearly normal to `K₁`, and the conjugate variant `(n', l') ≈ (l, n)`
+strains the crystal as the twin does: for {10‑12} in magnesium `m : m' = −cos(4φ)/2 =
+0.496` for `m : m = 1/2` (`φ` = 43.2° the angle of `K₁` and the basal plane). In the
+lattice of the twin the image of the conjugate is then loaded as the detwinning is,
+within 1 %: left free it took the shear, and the lattice ended as a twin of the twin,
+7.4° off that of the grain, instead of the grain. The two share the twinning of the
+grain as well — which of them is predominant makes no difference to the strain.
+
+**Fields.** `twin_misorientation`: the disorientation of the lattice of a point from
+that of its grain, the smallest angle of the rotations that bring the one onto the
+other over the symmetries of the lattice (degrees; 0 for a lattice that has not turned);
+its mean over the crystals in the curves. For a twin plane at the angle `φ` of the basal
+plane, `min(2φ, 180° − 2φ)`: 86.3° for {10‑12} in magnesium (`tan φ = γ/√3`), 56.1° for
+{10‑11} (`2γ/√3`), 63.2° for {11‑22} (`γ`), 34.2° for {11‑21} (`2γ`); 60° for the twins
+of the cubic crystals (the boundary Σ3). `twin_reoriented`: 1 where the lattice of a
+point is that of a twin (its mean over an element, over the crystals in the curves: the
+turned volume). `twin_fraction` is the twinned fraction by the shears of the twins, which
+a turn does not change: of a turned point, the fraction that it had when it was turned,
+less that of the twin that brings its lattice back (and with those of the twins of its
+new lattice). The fields of a path have the `orientation` of the lattices (Bunge angles)
+where twins turn them, in small strains too: of an element whose points do not have the
+same lattice, that of most of them (of the grain, unless more than half are turned).
+`cleavage_opening` is the opening of the planes now, `cleavage_damage` that of the
+strength as before.
+
+**Cleavage planes of a turned lattice.** The criterion of Beremin (§88) takes the
+cleavage planes of the lattice as it is at each time, where the fields have its
+orientation: the basal plane of a twin of magnesium is 86° off that of its grain, nearly
+along a tension that was across it.
+
+**Verification** (`tests/test_closure_reorientation.py`):
+
+| Check | Result |
+|---|---|
+| crystal pulled along [001], unloaded and pushed: the plane closes at the pressure of its softened strength, by `σ = −(Y₀ exp(−w d) + K |dδ/dt|)` at the end of each step, `d` cumulated in both senses | 10⁻⁷ |
+| closed: the stress `E ε` of the sound crystal, the damage kept; pulled again: opens at the strength left, by the flow rule | 10⁻⁹; 10⁻⁷ |
+| work of the cycle: `(Y₀/w)(1 − Y/Y₀)`, the elastic energy left and the viscous work | 1 % |
+| broken (001) plane closed under a pressure `p`, sheared: the lips slide at `τ = μ p` (freely without friction); pulled open, the shear is released | 0.2 % of `Y₀` |
+| basal plane of zinc, sound, sheared under pressure and under tension: `τ = s Y₀ exp(−w δ_i) + μ p` | 0.2 % |
+| magnesium along `c`: twins there and back at Schmid's stress, `F = (ε − σ/E)/(m γ_tw)`; untwinned, no strain left | 10⁻⁹ |
+| disorientations of the six twin modes at `c/a` = 1.587, 1.624, 1.856 against `min(2φ, 180° − 2φ)`; cubic twins | 10⁻⁹ degree; 60° |
+| stiffness of a turned lattice against the rotation of its fourth-order tensor | 10⁻¹² |
+| magnesium 8° off `c`, `F_r = 0.6`: the crystal of §86 up to the threshold; then the twin, at 86.31°, elastic under the Schmid law of its systems, its twinned fraction unchanged by the turn; pushed back: detwinning at the stress of the twinning, the lattice of the grain again when the twin has undone `F_r`, no twin left two steps later; small and finite strains | stresses within 2 % (6 % in finite strains) |
+| fcc crystal sheared along one {111}⟨11‑2⟩ system and back, `F_r = 0.2`: 60°; no plastic strain left but the overshoot of the thresholds | 2.5 steps of shear |
+| twins that harden, shearing back at the share 0.4 of their resistance: `τ = r + wall + K γ̇^{1/n}` there, `−τ = 0.4 r + K γ̇^{1/n}` back, `r = τ₀ + Q Σ_t (1 − exp(−b γ^t))` | 10⁻⁹ |
+| cleavage plane closing at the share 0.2 of its strength: `σ = −(0.2 Y₀ exp(−w d) + K |dδ/dt|)`; closed: `E ε`; opens again at the whole strength left | 10⁻⁷; 10⁻⁹ |
+| the rule of the grains on ten points of given fractions: the three most twinned turn (0.3 of the grain for 0.285 twinned), by their volumes, grain by grain; none while the turned volume is not below, nor of twins that do not grow; the threshold that grows; back: the twin undone altogether, the one undone past the threshold; the fraction left on the system that had turned the lattice | exact |
+| a material point with `{threshold, growth}`: that of the constant threshold | 10⁻⁶ of the stress |
+| a grain of 64 voxels (512 points), `A₁ = 0.1`: the turned volume above the twinned one by less than a point, all along the tension (a constant threshold: every point at 0.1); back: within 0.08, no lattice turned at the end | 1/512 |
+| basal plane of a twinned magnesium under the criterion of Beremin: `σ cos²` of the angle of the tension to the axis `c` of the grain, then of the twin (`Q c`, 86.31° off) | 10⁻⁶ |
+| consistent tangents against finite differences, small and finite strains: a plane that closes (at its strength, at a share of it), held closed, whose lips rub; twins that shear back near their saturation (at a share of their resistance), undone in the step; a turned lattice, and the step that turns it | 2·10⁻⁶ |
+| warm starts (the slips of the iterate, of the step before, across a turn) | the same state to 10⁻¹¹ |
+| homogeneous cells (voxels, mesh; small and finite strains) follow the material point: iron that opens, closes and rubs, magnesium whose lattice turns there and back (its points choose the same twin of two that are equal) | 2·10⁻⁵; orientation of the elements at 86.3° ± 2° |
+
+A polycrystal of iron on 8³ voxels (the template `homogenization_crack_closure`: the
+crystals of §87, a friction of 0.3) breaks at 679 MPa, a crack crossing its six grains;
+pushed back, the opening of its planes goes down with the strain under less than 20
+MPa, to nothing near zero strain, and at −0.2 % of strain the cell carries −438 MPa,
+the stress of the sound polycrystal within 1 %. Without the closure the stress is −485
+MPa as soon as the strain is back to 0.7 %, the lattice yields, and the planes break
+further in shear (without friction: 154 voxels broken for 86, and a computation 2.7 times
+as long). A textured magnesium on 12³ voxels (the template `homogenization_detwinning`: the
+crystals of §86, their lattices turned grain by grain, `A₁ = 0.2`) flows at 63 MPa when
+its grains start to twin and hardens as their lattices turn, to 93 MPa at 2 % and 134
+MPa at 4 %: 43 % of its points are then turned (a mean disorientation of 37°) for a
+twinned volume of 0.43, grain by grain. Brought back, it flows at −102 to −131 MPa as
+its twins shear back, its twinned volume going down to 0.05 and its turned volume to
+0.09. At a constant threshold of 0.5 the same polycrystal has 65 % of its points turned
+at 4 % for a twinned volume of 0.47 — on 8³ voxels, from 0.30 below the twinned volume
+of a grain to 0.36 above — and 55 % still turned when the strain is back to zero, for a
+twinned volume of 0.11. On 8³ voxels the same polycrystal without turned lattices is
+back at a twinned fraction of 0.04 under −89 MPa; at half of the resistance on the way
+back (`twin_detwinning: 0.5`), under −60 MPa; without detwinning it keeps its twins and
+slips at −155 MPa.
+
+**The material point at no stress.** A crack that has closed again brings a crystal back
+to its unstrained state, without stress but for the round-off of its plastic gradient.
+The tolerance of the material point (§32: relative to its stress, with a floor at the
+round-off of the stiffness times the strain) then asked for a zero in finite strains,
+where the floor vanished with the strain: no convergence after twelve divisions of the
+step. The floor is now that of the gradient `I + H`, which does not vanish with `H`.
+
+**Limits.** A turned point is a twin altogether: the shear that its twin had left to
+give, `(1 − F) γ_tw`, is not applied (the points that are not turned stand for it, grain
+by grain: on the average, not point by point), and the fractions of its other variants
+no longer count once its lattice has come back (their shear stays). At a constant
+threshold the turned volume of a grain is not its twinned volume. The points of the
+rule of the grains are integration points (eight to a voxel): the lattice of an element
+may be that of some of its points only. No twin of the family of its twin in a turned
+lattice, but the one that brings it back. The share of the resistance on the way back is
+a constant, for a twin as for a plane; a plane is damaged by its closing as by its
+opening, at any share. The friction is that of the smeared plane; the cleavage planes of
+a turned lattice keep their damage, system by system. The GPU kernels and the MFront
+sources do not have these systems.
+
+## 90. Cleavage that the slip nucleates (`homogenization.crystal`)
+
+In body-centred cubic and hexagonal metals the stress that cleaves a crystal falls as
+the crystal slips: the slip piles dislocations against obstacles, and the microcracks
+start there (Parisot et al. 2004 for zinc). The planes of §87 have a constant strength
+`Y₀`: a crystal that yields below it never cleaves, and one that does not yield cleaves
+at `Y₀` whatever it has gone through. Aslan, Cordero, Gaubert & Forest (2011) couple the
+two in the free energy of the crystal, with a term `σ_c⁰ d exp(−Θ γ_cum)` of its damage
+`d` and of its cumulated slip `γ_cum = Σ_s v^s`: the threshold of the damage is `σ_c⁰
+exp(−Θ γ_cum) + H d`, and the resistance of the slip systems loses `σ_c⁰ Θ d exp(−Θ
+γ_cum)`.
+
+**With the planes of §87** (`cleavage: {coupling: Θ}`). Each plane `p` softens with its
+own damage `d_p`, exponentially; the energy that the planes store,
+
+```
+ψ_c = exp(−Θ γ_cum) Σ_p (Y₀ / w) (1 − exp(−w d_p)),
+```
+
+is the term of the reference for a damage that has just started (`w d_p ≪ 1`: `Y₀ d_p`),
+and gives the two thresholds,
+
+```
+Y_p = ∂ψ_c/∂d_p = Y₀ exp(−w d_p) exp(−Θ γ_cum)                      (the planes: opening; s Y_p: accommodation),
+r^s = τ₀ + Q Σ_r h_sr (1 − exp(−b v^r)) − Θ exp(−Θ γ_cum) Σ_p (Y₀ / w) (1 − exp(−w d_p))     (the slip systems).
+```
+
+The slip lowers the strength of every plane, broken or not, at the rate `Θ`: a plane
+under the normal stress `σ_n` opens once the crystal has slipped by `γ_cum = ln(Y₀ /
+σ_n) / Θ` — the slip nucleates the cleavage. In return the damage of the planes eases
+the slip, by `Θ Y₀ / w` per plane broken through at most (the energy `Y₀ / w` that a
+plane dissipates, §87, times `Θ`): the slip localizes where the crystal is damaged. The
+cumulated slip is that of the slip systems; the twins neither lower the strength of the
+planes nor are eased by their damage. A crystal whose slip systems would be left without
+resistance, `Θ Σ_p Y₀ / w ≥ τ₀`, is refused, with the bound.
+
+**Integration.** The two thresholds are those of the implicit step of §32, with their
+derivatives in its Jacobian: `+Θ Y_p` (times `s` for an accommodation system) for a
+system of a plane with respect to each slip; for a slip system, `−Θ` times what the
+damage takes off its resistance with respect to each slip, and `+Θ Y_p` with respect to
+each system of the plane `p`. The consistent tangent follows. The softening of the
+planes by the slip makes the local step harder: where it is divided (§32) the tangent is
+that of its last part.
+
+**Verification** (`tests/test_slip_cleavage.py`):
+
+| Check | Result |
+|---|---|
+| crystal of 100 MPa pulled along [001], planes of 600 MPa, `Θ = 8`: it slips at 245 MPa by its flow rule; its plane opens at `γ_cum = ln(Y₀/σ)/Θ = 0.111`, and from there by `σ = Y₀ exp(−w d − Θ γ_cum) + K dδ/dt`; without the coupling it slips on and never cleaves | flow rules to 10⁻⁶; the onset within two steps |
+| the same pulled until its plane is half broken, then pushed: it slips at `−σ m = τ₀ − Θ exp(−Θ γ_cum) (Y₀/w)(1 − exp(−w d)) + K γ̇^{1/n}`, a resistance 9 MPa below that of the sound crystal (it yields at 226 MPa for 245) | 10⁻⁷ |
+| the Jacobian of the local residual (slips and systems of the planes active together) against its finite differences | 10⁻⁶ |
+| consistent tangent against finite differences, a crystal that slips and cleaves over a step; small and finite strains; warm start | 2·10⁻⁶ |
+| homogeneous cells (voxels, mesh; small and finite strains) against the point, the whole strain prescribed | 10⁻⁹ |
+| a coupling that would leave no resistance to the slip | refused, with the bound |
+
+A polycrystal of iron on 8³ voxels (slip of 150 MPa that hardens by 100 MPa, planes of
+800 MPa and 0.1 N/mm) yields below the strength of its planes, hardens to 648 MPa at
+2.4 % and breaks across a section where the stress of a grain has come to it. With `Θ =
+5` the slip of its grains weakens their planes: it breaks at 576 MPa, at 1.6 %, after
+two thirds of the plastic strain. On 10³ voxels (the template
+`homogenization_slip_cleavage`: planes of 0.08 N/mm): 594 MPa at 1.6 % for 682 MPa at
+2.4 %.
+
+**Limits.** One rate `Θ` for the planes of a crystal; the cumulated slip of all the slip
+systems, wherever they are (no pile-up against a boundary, no length); the twins do not
+count. The strength of the planes falls without bound as the crystal slips (the
+reference has the same exponential). The damage field `cleavage_damage` is that of the
+opening alone, `1 − exp(−w d)`. The softening is that of the crack band of §87, unless
+the planes are regularized by their microdamage (§91), which the coupling then goes
+with.
+
+## 91. Cleavage planes regularized by their microdamage (`homogenization.crystal`)
+
+The crack band of §87 dissipates the fracture energy of a plane in one element: its
+softening is that of the size of the elements, and a crack is one element wide, along a
+path that the grid chooses with the crystal. Aslan & Forest (2009) give the damage of
+the planes a length instead. A field follows the damage `d` of a point, its
+*microdamage* `χd`, and the free energy of the crystal has the terms `½ H d² + ½ χH (d −
+χd)² + ½ A |∇χd|²`: the threshold of the damage takes off what the damage is ahead of
+its microdamage, and the microdamage follows the damage over the length `ℓ = √(A / χH)`,
+
+```
+Y = Y₀ + H d + χH (d − χd),            χd − ℓ² Δχd = d,
+```
+
+with a softening modulus `H < 0` and a micromorphic modulus `χH > |H|`: at a fixed
+microdamage a point hardens, and it softens as its microdamage follows it — over a band
+whose width is that of the model, not of the grid.
+
+**The law of the planes** (`cleavage: {regularization: {modulus: χH, length: ℓ}}`, with
+their linear `softening` `w`: `H = −w Y₀`). The planes of a point have one threshold, as
+in the reference, for the damage `d` of them all (the sum of the cumulated slips of
+their opening and accommodation systems),
+
+```
+Y = Y₀ (e^{−Θ γ_cum} − w d) + χH (d − χd)        (opening; s Y: accommodation),
+```
+
+down to nothing (a floor of 10⁻⁶ Y₀): planes that harden alike at a fixed microdamage,
+none against the others, so that the step of a point has one solution. The first term
+has the coupling with the slip of §90 (`Θ = 0` without it). A modulus `χH ≤ w Y₀` is
+refused. A material point (`simulate_point`) has no gradient: its microdamage is its
+damage, and its planes soften linearly, `Y₀ (1 − w d)`.
+
+**The band of a plane that breaks.** A bar normal to a plane, pulled to the stress `σ`
+past the strength: with `s = Y₀ − σ`, `r = |H| / χH`, `ω = √(r / (1 − r)) / ℓ` and `θ = π
+− atan √(r / (1 − r))`, the damage and its microdamage are
+
+```
+d(x) = s/|H| + β cos ωx,   χd(x) = s/|H| + (1 − r) β cos ωx      (|x| < b/2),      β = ω ℓ s / (|H| sin θ),
+d = 0,                     χd(x) = (s / χH) e^{−(|x| − b/2)/ℓ}    (beyond),
+```
+
+over the width `b = 2θ / ω`, which the stress does not change: `2θ √((1 − r)/r)`
+lengths, 7.1 for `r = 1/3`. The band opens by `∫ d = s (b + 2ℓ) / |H|`: the bar softens
+linearly, `ε = σ/E + (Y₀ − σ)(b + 2ℓ) / (|H| L)`, and the work that breaks it is the
+fracture energy of the planes,
+
+```
+G_c = Y₀² (b + 2ℓ) / (2 |H|).
+```
+
+As the stress comes to nothing the damage of the middle of the band is `(Y₀/|H|) (1 + 1/√(1
+− r))`, ahead of its microdamage by `(Y₀/χH) / √(1 − r)`. These relations are inverted for
+`cleavage: {energy: G_c, regularization: {width: b, ratio: r}}` (`r = 1/3` by default:
+`microdamage_parameters`, `microdamage_band`): the planes are given their fracture energy
+and the width of their band, some elements, and no size of elements.
+
+**The equation of the microdamage, and the alternate scheme.** The solvers of the
+loading paths (§32) solve the equilibrium of a step at a fixed microdamage — a problem
+of hardening points —, then the microdamage of the damage reached, and again until it
+settles: its largest change below `10⁻³ / w`, in 200 passes at most (`nonlinear:
+{microdamage: {tolerance: 1e-3, passes: 200}}`; beyond, the step is kept and the
+microdamage goes on with the next one: a crack that runs across the cell at a fixed
+loading takes some passes per element that it crosses). The source of the equation is the mean damage of each element,
+and its points share its microdamage. On voxel images the equation is solved in Fourier
+space with the seven-point Laplacian of the grid (a positive microdamage, which keeps
+the integral of the damage; it spreads through the voxels of the other phases and of the
+pores); on meshes, by finite elements of the order of the mesh, periodic with the cell
+and with no flux through its other boundaries. Crystals of the same length share one
+field. Where planes break, the stresses of a cell fall within one correction of
+Newton's iteration, and its residuals with them: the merits of the line search keep the
+largest scales of the iterates of the step, the condensation of the macroscopic unknowns
+is computed again after a correction that brought little, and a cell cut through keeps
+10⁻³ of the largest scales of the path to compare its residuals with.
+
+**Acceleration** (`microdamage: {acceleration: true}`, the default). The alternate
+scheme is a fixed-point iteration `χd ← T(χd)`, `T` the microdamage of the damage of an
+equilibrium: slow where a band softens (its residual `T(χd) − χd` falls by 0.5 to 0.85
+a pass in a bar, 0.97 ahead of a crack), and one that takes off where a crack starts to
+run. Three devices, after the accelerated staggered scheme of Storvik et al. (2021) for
+the phase field:
+
+* *the updates*. Where the residual has fallen over two passes, Anderson's acceleration
+  of depth one (Anderson 1965; Walker & Ni 2011) — the secant extrapolation of the last
+  two updates, `χd ← T_k − γ (T_k − T_{k−1})` with `γ = ⟨Δf, f_k⟩ / ⟨Δf, Δf⟩` for the
+  residuals `f` of the elements weighted by their volumes —, within ten residuals of
+  the plain update; where it has grown over three passes (no fixed point close by: a
+  crack runs), a relaxation of the update, `χd ← χd + 1.6 f`; the plain update
+  otherwise, and after a pass that has broken planes through (another fixed point). No
+  plane is broken through where the microdamage of an equilibrium had been extrapolated
+  beyond that of the damage reached: it was ahead of the damage;
+* *the equilibria*. Between two updates an equilibrium is solved to a tenth of the last
+  change of the microdamage over `1/w` (10⁻² at most), by one correction at least: the
+  damage of an equilibrium is known to about the error of its residual, which the next
+  update takes over. The last equilibrium of a step is solved to the tolerance of
+  Newton's iteration;
+* *the macroscopic unknowns*. Their condensation (§32) is kept from a pass to the next
+  — its block computed again with the tangents as they are, which costs no solution —
+  and solved again, loosely, after a correction that brought little or none.
+
+`acceleration: false` gives the plain scheme: every equilibrium solved to the tolerance,
+the microdamage updated as it is (the condensation is kept from a pass to the next
+either way: it changes the cost of an equilibrium, not its solution).
+
+**Planes broken through.** A plane without strength that opens on has a damage that
+runs ahead of its microdamage: at a fixed microdamage it would take its strength back,
+and the microdamage that followed its opening would take the strength of its
+neighbours, a band that widens as the crack opens. After each equilibrium the planes
+that have come to nothing are therefore *broken through*, for good: those that end the
+equilibrium without strength, for its microdamage or for the one that follows (nothing:
+what the tolerance of the microdamage resolves of a strength, `χH · tol / w`), and those
+that have opened with a damage further ahead of the microdamage than the middle of the
+band as it breaks — planes that a crack forces open in the element beside those that it
+has broken, which the microdamage of one element does not follow. A plane broken through
+keeps no strength, whatever it opens, and the microdamage keeps the damage that it had:
+what it opens since is the opening of a crack. The field `cleavage_damage` of these
+planes is the share of their strength that the damage and the microdamage have taken,
+`w d − χH (d − χd) / Y₀` between 0 and 1, and 1 where they are broken through;
+`cleavage_microdamage` is the microdamage.
+
+**Verification** (`tests/test_microdamage.py`):
+
+| Check | Result |
+|---|---|
+| closed form of the band: `χd − ℓ² χd″ = d`, `Y = σ` in the band and above it beyond, `∫ d = s (b + 2ℓ)/|H|`; the parameters back from `G_c`, `b` and `r` | 10⁻⁶; 10⁻¹² |
+| a crystal strained along [001] at a prescribed microdamage: the opening of its plane `(C₁₁ ε − Y₀ + χH χd) / (C₁₁ + H + χH + K/Δt)`, its stress; a point alone; two planes that open alike, `((C₁₁ + C₁₂) ε − Y₀ + χH χd) / (C₁₁ + C₁₂ + 2 (H + χH) + K/Δt)` | 10⁻¹⁰ |
+| a plane broken through: no strength whatever it opens; the other planes of its point, with the damage that it had | 10⁻⁹ |
+| consistent tangent against finite differences: a crystal that slips, with the coupling of §90, and whose planes open; small and finite strains | 2·10⁻⁶ |
+| a material point: `Y₀ (1 − w d)` down to nothing; planes that soften faster than the crystal unloads | exact; refused |
+| the equation of the microdamage for the damage of a slab against its closed form (`ℓ` of 2.2 voxels): voxels; linear and quadratic tetrahedra; the integral of the damage | 0.9 %; 0.9 % and 0.3 % of the damage; 10⁻¹⁰ |
+| a bar of 64 voxels (band of 16) pulled to twice the strain that breaks it, 48 steps: softening branch; damage and microdamage of the band half-way; voxels that open; work against `G_c` | 0.4 %; 0.5 %; 16; −0.11 % |
+| the same broken through: stress left; the microdamage and the planes broken through as the crack opens | below 10⁻⁴ Y₀; unchanged |
+| grids of 32, 64 and 128 voxels (8, 16 and 32 across the band; microdamage settled to `10⁻⁴ / w`): work against `G_c` | −1.3 %, −0.30 %, −0.07 % |
+| the bar on meshes of linear tetrahedra, 32 and 64 slabs: work against `G_c` | +8.0 %, +1.9 % |
+| the updates of the microdamage for maps with a known fixed point: a contraction of one rate (the third update lands on the fixed point); a rate of 0.99 (ten residuals past the plain update); a residual that grows (relaxed after three passes) | 10⁻¹³; exact; exact |
+| the bar with the plain scheme, the accelerated one, and the plain one settled ten times closer: equilibria; work against `G_c`; largest difference of the stresses of the first two | 379, 181, 639; +0.02 %, −0.11 %, −0.31 %; 0.2 % of the strength |
+| a step whose passes are spent (two a step) | kept, and counted (`microdamage_unsettled`) |
+| homogeneous cells (voxels, mesh; small and finite strains) against the point | 2·10⁻⁴ |
+| the loading paths of the extended finite elements | refused, before the first step |
+
+The work comes to `G_c` at the second order of the size of the voxels. With the plain
+scheme the microdamage lags the damage by its tolerance at every step, and the work of
+the bar of 64 voxels is 0.36 % above its settled value at the default tolerance; with
+the accelerated one, 0.10 % above, in 346 equilibria for 588 (95 steps). On meshes the
+elements that a band crosses side by side have each their microdamage, and break one
+after the other: the work is above `G_c`, by less as the mesh is refined (+0.6 % with
+128 slabs; +3.6 % and +1.0 % with quadratic tetrahedra of 32 and 64 slabs, whose steps
+are divided as the bar is cut).
+
+A columnar polycrystal of iron on 32 × 32 voxels (the template
+`homogenization_cleavage_band`: planes of 500 MPa and 0.05 N/mm, a band of five voxels)
+is elastic up to 510 MPa, then a crack crosses its grains within a step, in a band that
+winds a little from grain to grain: 190 equilibria for the path, no step divided, and a
+work of 1.7 times the fracture energy times the section of the cell. The path takes 25
+s, for 49 s with the plain scheme (210 equilibria, each solved to the tolerance: the
+same peak and the same work to 0.2 %), and a third of its linear iterations: the crack
+still crosses the cell at a row of voxels a pass, which the acceleration does not
+change — it shortens what comes before and after, and makes each pass cheaper.
+
+**Limits.** One modulus and one length for the planes of a crystal; the planes of a
+point have one threshold: a point broken on a plane is broken on the others of its
+family, and the band of a crack carries no tension along it. On voxels the microdamage
+crosses the pores and the other phases. The rules that break the planes through are
+those of this implementation, not of the reference, whose band widens as the crack
+opens. A crack that runs across the cell is followed pass by pass: some equilibria per
+element crossed. The band has to be resolved: eight elements across it for a work
+within 1 % on voxels, more on meshes. The crystals with planes are integrated on the
+CPU; the extended finite elements have no solver of the microdamage.
+
+## 92. Crystallographic textures and orientation maps (`texture`, `io.ebsd`, `models.ebsd`)
+
+**Orientations.** The orientation of a crystal is the rotation `g` of §20 and §32,
+`crystal = g sample`: the rows of `g` are the axes of the crystal in those of the sample,
+and its Bunge angles `(φ₁, Φ, φ₂)` are those of `g = Z(φ₂) X(Φ) Z(φ₁)` (Bunge 1982). The
+axes of the crystal are the edges of the cube; for the hexagonal and trigonal lattices,
+`a₁ = [2‑1‑10]` along the first and `c` along the third (§86).
+
+**Symmetries.** A rotation `S` of the point group of a crystal brings it onto itself:
+`g` and `S g` are one orientation. Diffraction and the tensors of the mechanics do not
+see whether a crystal has a centre of symmetry, so that the proper rotations of its Laue
+class are those that count (`texture.symmetries`):
+
+| Laue class | m‑3m | m‑3 | 6/mmm | 6/m | 4/mmm | 4/m | ‑3m | ‑3 | mmm | 2/m | ‑1 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| name | `cubic` | `m-3` | `hexagonal` | `6/m` | `tetragonal` | `4/m` | `trigonal` | `-3` | `orthorhombic` | `monoclinic` | `triclinic` |
+| rotations | 24 | 12 | 12 | 6 | 8 | 4 | 6 | 3 | 4 | 2 | 1 |
+
+with the axis of highest order along the third axis of the crystal, a two-fold axis of
+the trigonal class ‑3m along the first, and that of the monoclinic class along the
+second.
+
+**Disorientation.** The rotation that brings the axes of a crystal `a` onto those of a
+crystal `b` is `g_b g_aᵀ`, or any `S g_b g_aᵀ S'` with the symmetries of the two crystals.
+Their disorientation is the smallest of the angles of these rotations; an angle depends
+on the trace alone, and `tr(S Δ S') = tr(S' S Δ)`, so that one group is enough:
+
+```
+θ(a, b) = min_S angle(S g_b g_aᵀ),      cos θ = (max_S tr(S g_b g_aᵀ) − 1) / 2.
+```
+
+The angle is taken from the rotation `M` of largest trace as `atan2(|w|/2, (tr M − 1)/2)`,
+`w = (M₃₂ − M₂₃, M₁₃ − M₃₁, M₂₁ − M₁₂)`: exact to rounding for crystals that are close, where
+the cosine alone gives the square root of the rounding (10⁻⁶ degrees). Two cubic crystals
+are at most 62.80° apart, `tan(θ/2) = (√2 − 1)√(5 − 2√2)`; two hexagonal ones, 93.84°
+(`texture.disorientation`).
+
+**Mackenzie's distribution.** For two cubic crystals of random orientations the density
+of the disorientation, per degree, is (Mackenzie 1958; Handscomb 1958)
+
+```
+p(θ) = (2/15) (1 − cos θ)                                             0 ≤ θ ≤ 45°
+     = (2/15) [3(√2 − 1) sin θ − 2(1 − cos θ)]                        45° ≤ θ ≤ 60°
+     = (2/15) [(3(√2 − 1) + 4/√3) sin θ − 6(1 − cos θ)]               60° ≤ θ ≤ 60.72°
+     = the same − (8/5π) [2(√2 − 1) acos(X cot θ/2) + (1/√3) acos(Y cot θ/2)] sin θ
+                + (8/5π) [2 acos((√2 + 1) X/√2) + acos((√2 + 1) Y/√2)] (1 − cos θ)
+                                                                      60.72° ≤ θ ≤ 62.80°
+X = (√2 − 1) / √(1 − (√2 − 1)² cot²(θ/2)),     Y = (√2 − 1)² / √(3 − cot²(θ/2)).
+```
+
+Up to 45° it is 24 times the density `(1 − cos θ)/π` of the angle of a random rotation;
+beyond, the rotations leave the fundamental zone through its faces {100} (45°) and {111}
+(60°), its edges (60.72°, `tan(θ/2) = 2 − √2`) and its corners (62.80°). Its mean is
+40.74° (`texture.mackenzie`). The disorientations across the boundaries of a polycrystal
+(`texture.boundary_disorientations`: the pairs of neighbouring grains, the length of
+their boundary in faces of points, their angle) are compared with it: a texture, twins
+(60° about ⟨111⟩) or subgrains show as a departure.
+
+**The mean orientation of a grain.** The points of a grain have close orientations,
+each known up to the symmetries. Each is replaced by the equivalent `S_k g_k` nearest to
+a reference, and the mean is the rotation nearest to their weighted sum `Σ w_k S_k g_k`:
+its polar factor `U Vᵀ` from the singular vectors `U Σ Vᵀ` (the determinant brought to
+one), which maximizes `Σ w_k tr(Rᵀ S_k g_k)` — the sum of the cosines of the angles from
+`R`, up to a constant. The reference is the point of largest weight, then the mean
+itself, three times (`texture.mean_orientation`). The spread of the grain is the mean
+disorientation of its points from the mean.
+
+**Pole figures.** The normal `n` of a plane `{hkl}` of a crystal lies along `gᵀ n` in
+the sample (`texture.poles`); a family has one axis for each pair of opposite normals —
+3 axes {100}, 6 {110}, 4 {111}, 12 {112} and 24 {123} of the cube; the axis (0001), 3
+{10‑10} and 6 {10‑11} of the hexagonal lattice (`texture.crystal_axes`, with the
+formulas of §86). The axes are drawn on the disc of a projection of the upper
+hemisphere, the first axis of the sample to the right, the second upwards, the third at
+the centre: at the angle `t` from the third axis the radius is
+
+```
+r = tan(t/2)         stereographic (the angles are kept),
+r = √2 sin(t/2)      equal area (the areas are kept).
+```
+
+The density of the poles is in multiples of that of a random texture
+(`texture.pole_figure`). Each pole of axis `a` is spread by an axial von Mises–Fisher
+kernel (Watson's law) whose mean over the sphere is one,
+
+```
+K(d·a) = κ cosh(κ d·a) / sinh κ,        (1/4π) ∫ K dΩ = 1,
+```
+
+so that the density of crystals of volumes `w_k` (`Σ w_k = 1`), of `m` axes each,
+
+```
+f(d) = Σ_k (w_k / m) Σ_axes K(d · g_kᵀ a),
+```
+
+has a mean of one over the sphere for any texture, and is one everywhere for a random
+one. The concentration follows from the half-width `h` of the kernel, the angle at
+which it is halved: `κ = ln 2 / (1 − cos h)` (10° by default: `κ = 45.6`). A single
+crystal has the density `κ coth κ / m` at each of its poles.
+
+**Inverse pole figures.** The direction of a crystal that lies along a direction `d` of
+the sample is `g d`. Its equivalents by the symmetries and the inversion cover the
+sphere; the one of the fundamental sector is kept (`texture.inverse_poles`):
+`0 ≤ x ≤ y ≤ z` for the cube — the triangle of [001], [011] and [111] —; `z ≥ 0` and an
+azimuth between 0 ([2‑1‑10]) and 30° ([10‑10]) for the hexagonal lattice. The colours of
+a map (`texture.ipf_colours`) are red, green and blue at these corners: `(z − y, y − x,
+√3 x)` for the cube, `(z, ρ (1 − φ/30°), ρ φ/30°)` for the hexagonal lattice, `ρ` and
+`φ` the radius and the azimuth in the basal plane, the largest of the three brought to
+one. The density of the figure (`texture.inverse_pole_figure`) is that of the
+directions `g_k d` with all their equivalents, spread by the same kernel,
+
+```
+f(c) = Σ_k (w_k / |G|) Σ_S K(c · S g_k d),
+```
+
+in multiples of a random texture: one everywhere for a random one; for one crystal, the
+kernel on its axis over the number of the axes that the symmetries make of the direction
+— 24 inside the sector of the cube, 4 at [111], 3 at [001], one at the axis `c` of a
+hexagonal crystal. It is drawn on the stereographic projection of the sector about the
+third axis of the crystal (`texture.sector_points`: [001] at the origin, [011] on the
+first axis, [111] above it), which is where the fibres of a deformation show: the axis
+of a tension goes to ⟨111⟩ and ⟨100⟩ in the face-centred cubic metals.
+
+**Orientation maps.** A map of electron backscatter diffraction (EBSD) gives, at the
+points of a grid, the phase and the orientation of the crystal. The text files of the
+two main acquisition systems are read and written (`io.ebsd`):
+
+| | `.ang` (EDAX/TSL) | `.ctf` (Oxford Instruments/HKL) |
+|---|---|---|
+| angles | radians | degrees |
+| a point that was not indexed | confidence index below 0, or angles out of range | phase 0 |
+| symmetry of a phase | its point group: 43, 23, 62, 6, 42, 4, 32, 3, 22, 2, 1 | its Laue group, 1 to 11 |
+| grid | square or hexagonal | square |
+| axes of the orientations | those of the image turned about its normal: the first axis down the image (setting 1, the usual one), up (2), to the right (3), to the left (4) | those of the image |
+| first axis of the hexagonal and trigonal crystals | `a = [2‑1‑10]` | `a* = [10‑10]` |
+
+The axes of a map are those of its image as the systems show it: the first to the right
+(along the columns), the second upwards (against the rows, numbered from the top), the
+third towards the viewer, out of the sample. The orientations of the files are in axes
+of the system (Britton et al. 2016), which for an `.ang` file are those of the image
+turned by an angle `α` about its normal, `α = 90°, −90°, 0, 180°` for the settings 1 to
+4 (numbered as by the reader of MTEX, Bachmann et al. 2010): they are brought into the
+axes of the image, `g → g Z(α)ᵀ`, that is `φ₁ → φ₁ − α`, so that the grains and their
+lattices are described in the same axes (the rotations that MTEX applies with
+`convertEuler2SpatialReferenceFrame`, written in axes whose third one points out of the
+sample). `axes: file` keeps the
+angles of the file; any other setting is a rotation of the axes (`turn`,
+`EBSDMap.turned`). A hexagonal or trigonal crystal of a `.ctf` file is turned by 30°
+about `c`, `φ₂ → φ₂ − 30°`, so that its first axis is `a`, as for the slip and twin
+systems of §86: without it the prismatic planes of the file would be taken for those of
+the second order. A hexagonal grid is read row by row onto a rectangular one of the same
+steps, every other row half a step away from where it was measured.
+
+**Grains.** Two neighbouring points (by a side) of the same phase belong to one grain
+when their disorientation is below a threshold (5° by default), and the grains are the
+connected sets of such points, found in one pass of the grid by a union–find structure
+(`EBSDMap.grains`; the grains of MTEX, Bachmann et al. 2011, without the Voronoi
+decomposition that takes the points that were not indexed into account). Those of fewer
+points than `min_size` are dropped, and the points without a grain — not indexed, or
+dropped — take the grain of the nearest point that has one, in the lengths of the map.
+A grain has the mean orientation and the spread of its indexed points, its area, and
+the diameter of the disc of the same area.
+
+**A measured polycrystal** (the model `ebsd`). A window of the map of the size of the
+domain — its first rows and columns, or a window drawn at random for each realization,
+so that the realizations of a study (§13) are windows of the measured microstructure —
+gives a lattice of one cell through the thickness, each cell with the phase, the label
+and the mean orientation of its grain, for the solvers of §12, §20, §32 and §34. What
+the map does not say is assumed: the grains are columns through the thickness (the
+third dimension is unknown), a window is taken as a period by the solvers (its edges do
+not match: it should hold many grains), and a grain has one orientation (the spread
+inside it is measured, not modelled). A map of a computed polycrystal is made the other
+way (`io.ebsd.synthetic_map`: a layer of its cells, with the scatter of the
+orientations and the points not indexed of an acquisition), which is how the
+demonstration map of the template `ebsd` was written (`examples/ebsd_map.py`).
+
+**The texture of a map in a computed polycrystal** (`texture: {type: measured, file,
+spread}` of the tessellations, `orientations.Measured`). Where the third dimension
+matters, the map gives its texture to a polycrystal of space: each cell of a Voronoi or
+Laguerre tessellation takes the orientation of a grain of the map, drawn with the area
+of the grain — in a section, the share of the area of the crystals of an orientation is
+that of their volume (Delesse) —, then turned about a random axis by an angle of the
+half-normal law of standard deviation `spread` (`texture.sample_texture`), so that a
+polycrystal of more cells than the map has grains does not repeat the same orientations.
+The orientations are drawn cell by cell: the texture is that of the map, not the
+disorientations of its boundaries.
+
+**The lattices along a loading path.** In finite strains the lattice of a crystal turns
+(§33): with `F = F_e F_p` and the polar decomposition `F_e = R_e U_e`, its orientation is
+`g R_eᵀ` — after `R_t`, where a twin has turned it (§89), `g R_tᵀ R_eᵀ`. The fields of a
+path have these orientations for each crystal element (`orientation`), and
+`PathResult.texture(time)` gives them with the volumes of the elements, for the pole
+figures above; a material point (`simulate_point`) has the orientation of its lattice at
+each step (`PathResult.orientation`). The macroscopic gradient is upper triangular
+(§33): the material lines along the first axis stay along it and the planes normal to
+the third stay normal to it — the grips of a tension along the first axis, the platens
+of a compression along the third. For a crystal that slips on one system of direction
+`l` and normal `n`, `F_p = 1 + γ l ⊗ n`, so that (Schmid & Boas 1935) the line `D` of
+the tensile axis becomes `D + γ (D·n) l` in the lattice, and the normal `N` of the
+platens `N − γ (N·l) n`: their components across `l` and along `n`, across `n` and
+along `l`, do not change, and with the stretch `l/l₀` and the height `h/h₀`
+
+```
+tension:      l/l₀ = sin λ₀ / sin λ = sin χ₀ / sin χ       (the axis turns towards l),
+compression:  h/h₀ = sin φ / sin φ₀ = cos λ / cos λ₀       (the axis turns towards n),
+```
+
+`λ`, `χ` and `φ` the angles of the axis to the slip direction, to the slip plane and to
+its normal. In a polycrystal whose crystals all undergo the same extension (Taylor
+1938), the tensile axis of face-centred cubic crystals goes to ⟨111⟩ and, less, to
+⟨100⟩; the axis of a compression goes to ⟨110⟩. In small strains the lattices do not
+turn (but for their twins): the textures of large strains are those of the paths in
+finite strains. `morphogen texture FIELDS` draws the pole figures and the inverse pole
+figure of the lattices of a file of the fields of a path (`.vti`, `.vtu`).
+
+**The command** `morphogen texture MAP` reads a map, finds its grains and prints their
+numbers phase by phase (`Grains.summary`: grains, mean diameters by number and by area,
+spread inside the grains, the mean disorientation of the boundaries weighted by their
+lengths, the largest density of the pole figures); with `-o` it writes the table of the
+grains, that of the boundaries (`Grains.boundaries`: pairs of neighbouring grains of one
+phase, lengths, disorientations), the map in the colours of its orientations, and the
+figures (`viz.figures`: the map with its boundaries and its colour key, the pole figures
+on one colour range, the inverse pole figure with the direction of each grain, the
+histogram of the disorientations against Mackenzie's density); with `--convert` it
+writes the map in the other format, as it is or cleaned (`--clean`: each point with the
+mean orientation of its grain). The tool *Orientation map (EBSD)* of the tab Statistics
+of the interface does the same from a form, and adds the polycrystal of the map to the
+workspace, where the tools of the mechanics take it.
+
+**Verification** (`tests/test_texture.py`).
+
+| Check | Reference | Result |
+|---|---|---|
+| the rotations of the eleven Laue classes | their orders; closed under the product, distinct; the lower class within the higher one | exact |
+| disorientations of a crystal turned about an axis (13 cases; the pair in any axes, with symmetric equivalents) | the angle folded by the symmetries: 60° about [100] → 30°, 60° about [111] → 60°, 60° about `c` → 0... | 10⁻⁶ degrees |
+| the density of Mackenzie | integral 1 (10⁻⁸), mean 40.7358°, continuous at 45°, 60° and 60.72° | exact |
+| 200,000 random pairs of cubic crystals | Mackenzie's density over 21 intervals; no angle above 62.80° (93.84° for hexagonal pairs) | within 4.5 standard deviations |
+| the mean of the 24 (12) equivalents of an orientation; of 400 crystals scattered by 2° | the orientation itself, no spread; within 0.3° of it, the spread that of the scatter | 10⁻⁵ degrees; 5 % |
+| the axes of the families of planes | 3, 6, 4, 12, 24 (cubic); 1, 3, 6 (hexagonal); the angle of (10‑11) to `c`, `atan(2c/√3a)` | exact |
+| the poles of the cube orientation; the two projections | at the centre and on the axes; {111} at `tan(27.37°)` on the diagonals; `tan(t/2)` and `√2 sin(t/2)`, inverted | 10⁻¹² |
+| the pole figure of 20,000 random crystals; of one crystal | one everywhere (mean within 2 × 10⁻³, values within 10 %); mean one, `κ coth κ / 3` at its {100} poles, halved at the half-width | 10⁻³ to 10⁻⁶ |
+| inverse pole figures | the same for the equivalents of a crystal and for the opposite direction; red, green and blue at [001], [011], [111] and at [0001], [2‑1‑10], [10‑10] | 10⁻⁹ |
+| the density of an inverse pole figure: 20,000 random crystals (cubic, hexagonal); one crystal | one everywhere (5 %); the kernel on its axis over 24 (inside the sector), 4 ([111]), 3 ([001]), 6 ([011]), 1 (`c`), 3 ([2‑1‑10]) | 2 % (the grid) |
+| the boundaries of the grains of a map of two phases and unequal steps | the sides counted one by one; the disorientation of each pair with the symmetries of its phase | exact; 10⁻⁹ |
+| a Voronoi polycrystal with the texture of a map | every orientation that of a grain of the map (10⁻⁵ degrees without spread; the spread given otherwise); the share of the cube component that of its area in the map | 0.02 |
+| a crystal in single slip (basal slip of a hexagonal crystal, a material point in finite strains): tension to a stretch of 1.3, compression to 0.75 of the height | `l/l₀ = sin λ₀/sin λ = sin χ₀/sin χ` at every step (the axis from 40° to 29.63° of the slip direction); `h/h₀ = sin φ/sin φ₀ = cos λ/cos λ₀` (from 40° to 28.82° of the normal) | 2 × 10⁻³ (the elastic strains); 0.05° |
+| 50 face-centred cubic crystals in the same isochoric extension (Taylor), to a stretch of 1.6 and to 0.6 | the inverse pole figure of the axis: ⟨111⟩ above 2.5 and ⟨110⟩ below 0.6 times random in tension (3.8 and 0.4); ⟨110⟩ above 1.6 and ⟨111⟩ below 0.5 in compression (2.2 and 0.2) | as stated |
+| the texture of a polycrystal of voxels at 1 % of tension in finite strains | the lattices of its fields, one per voxel, turned by less than 5° from those of the grains; the same read from the file of the fields (single precision), and from a mesh with the volumes of its elements | 10⁻³ degrees |
+| maps written and read (`.ang`, `.ctf`; two phases, 5 % of points not indexed, unequal steps) | the map: grid, steps, phases, cells, orientations | 10⁻³ and 2 × 10⁻⁴ degrees (the digits of the files) |
+| files as the systems write them | a hexagonal grid of an `.ang` file; decimal commas and two phases in a `.ctf` file | exact |
+| the axes of the files | a crystal along the axes of the system seen in those of the image, for `.ctf` and the four settings of `.ang`; (0, 0, 0) in a `.ctf` file: (10‑10) normal to the first axis | 10⁻¹² |
+| the grains of a map of 24 known grains (orientations scattered by 1°, 4 % of the points not indexed) | 24 grains; each point inside a cell in its grain, 99.5 % of all points; mean orientations within 0.15°; the spread that of the scatter | as stated |
+| the map of a layer of a polycrystal and the polycrystal of its grains | the layer, cell by cell, with its orientations | 10⁻⁶ degrees |
+| a map of one crystal (any orientation) | its stiffness in the axes of the sample, by the solver and by the rotation of the tensor | 10⁻⁹ |
+| windows of a map of cubic crystals, homogenized from a configuration | the bulk modulus `(C₁₁ + 2C₁₂)/3` for every window; the shear modulus within the bounds | 10⁻⁶ |
+## 93. Scale-rich networks (`scale_rich_network`)
+
+The scale-rich metamaterials of Both, Chen, Gao,
+Mooij, Charara, Wadhwa, Portela & Barabási (2026), whose ligaments span orders of
+magnitude in thickness, length and connectivity within one sample.
+
+**Growth** (`models.scale_rich.grow`). The ligament `t = 1, 2, ..., T` is `λ_t = λ_0
+t^−α` thick. It nucleates at a point drawn uniformly in the voids, along an angle `θ_t`,
+and grows both ways until it meets a face of another ligament or the boundary of the
+box. As in the reference implementation of the authors, the voids are convex cells
+(first the rectangle of the box) bounded by the faces of the ligaments and of the box:
+the ligament is the strip of width `λ_t` along its line clipped by the void of its
+nucleation point, which it splits into two convex voids (Sutherland–Hodgman, the faces
+of the edges carried along). Ligaments and voids partition the box exactly, without
+overlap: the relative density `1 − Σ(void areas)/A` is exact. A ligament fits when its
+void holds the points at `(λ_t + ε)/2` on either side of its nucleation point (`ε`,
+`min_spacing`); after `max_attempts` nucleation points in a row where it does not fit,
+the network is jammed and stops. The point is drawn uniformly in the box until it falls
+in a void (located in a grid of buckets of the voids): the law of a void drawn in
+proportion to its area, then a point uniform in it, as the authors draw it. Each
+ligament draws from its own seed (`SeedSequence(entropy, spawn_key=(t,))`), so that its
+draws do not depend on those before it: a realization changes with `λ_0` only where a
+nucleation point or an end falls near a moved side. The relative density of 500
+ligaments then jumps once above `5·10⁻⁴` over 60 steps of `4·10⁻⁴` in `λ_0` (12 times,
+by up to 0.015, when the void is drawn by the cumulated areas of the voids), and a
+`volume_fraction` is reached on each realization by regula falsi (Illinois) from the
+estimate below, to `2·10⁻⁴` (the side of a jump nearer the target kept: within `1.5·10⁻³`
+on every realization of the tests). The length of a ligament is that of its centre line
+in its void; the neighbours of its ends are the ligaments (or the box) whose faces they
+lie on. With a `frame`, the network grows within a frame of that thickness, which is
+phase 1 too: the sample then tiles a periodic medium (FFT, Bloch waves).
+
+**Topology of the thin network.** With `λ → 0` the network is a tessellation of the box
+whose vertices are T-junctions: `V = 2N + 4` (the ends and the corners of the box),
+`E = 3N + 4` (each end splits the edge it lands on) and `F = N + 2` faces (Euler), `N +
+1` voids. Each end is a corner of the two voids beside it, so that the voids have `(4N +
+4)/(N + 1) = 4` vertices on average, exactly (as the T-tessellations of STIT, Nagel &
+Weiss 2005); a thick ligament that covers a corner of its void removes it. As roads in
+the dual graphs of road networks (Rosvall et al. 2005), the ligaments are the nodes and
+their junctions the links: the degrees sum to `2(2N − n_b)` (`n_b` ends on the
+boundary), a mean degree that tends to 4.
+
+**First length.** The first ligament is the chord through a uniform point of the box
+along a uniform direction: a point `x` and an angle `θ` give the line `G` through `x`,
+and `dx dθ = dp dθ ds` (`p` the offset of the line, `s` the abscissa along it), so that
+`E[l_0] = ∫ l² dG / (π A)`. In an `a x b` rectangle, along `θ` with `tan θ ≤ b/a`, the
+chord is a trapezoid in `p`: `a / cos θ` high, ramps `a sin θ` wide on either side of a
+plateau `b cos θ − a sin θ` wide, `∫ l² dp = (a²/cos²θ)(b cos θ − a sin θ / 3)`, and
+symmetrically beyond. With `d = √(a² + b²)` (`first_length`):
+
+    l_0 = (2/π) (a asinh(b/a) + b asinh(a/b) − (a²(d − a) + b²(d − b)) / (3ab))
+
+0.946402 for the square (Kellerer 1971; the `ℓ_0` of the paper). Checked against the
+integral of `l²` over the lines (Gauss–Kronrod in `θ`, exact in `p`) to `10⁻⁷` and the
+first ligaments of 4,000 realizations.
+
+**Lengths.** After `t − 1` ligaments, `t` voids share the box; the ligament `t` splits
+one in proportion to its area, so that its length scales as `√(A/t)`: `E[l_t] ≈ c
+√(A/t)`. The constant is measured (`LENGTH_CONSTANT`): `c` = 1.1663 and 1.1658
+(standard errors 0.0004) over the ligaments `t ≥ 2000` of 120 realizations of 20,000 in
+a square and in a 2 x 1 rectangle, the same in both; the first ligaments are shorter
+(`E[l_t] √t` = 0.946, 1.05, 1.09, 1.12 at `t` = 1, 2, 3, 5). Both et al. take `ℓ_0`
+for every ligament, 19 % short of `c`.
+
+**Relative density.** To first order (thin ligaments, `S` from `length_sum`):
+
+    ρ_1 = Σ λ_t E[l_t] / A = (λ_0 / √A) S,   S = l_0/√A + c Σ_{t=2..T} t^−(α+1/2)
+
+which converges when `T → ∞` for `α > 1/2` (`ζ(α + 1/2)`: the tunable-density phase of
+the paper). The ligaments fill the voids: a ligament splits a void of area `A_v/t`
+(`A_v` the area of the voids), `dA_v/dt = −λ_t c √(A_v/t)`, so that `√(A_v/A) = 1 −
+ρ_1/2` and
+
+    ρ = ρ_1 (1 − ρ_1/4)   (density_estimate),   λ_0 = 2√A (1 − √(1 − ρ)) / S
+
+the second the initial thickness of a density (`thickness_estimate`, the start of the
+solution on each realization). Checked against the mean of 10 realizations: within 3.5 %
+from `ρ` = 0.02 to 0.96 (`α` from 0 to 0.9, `T` = 500 and 5,000; the transient of the
+first lengths); 0.409 at `(α, λ_0, T) = (0.5, 0.06, 500)` for 0.407 ± 0.004 (the sample
+of the paper at 40 %), where the first order alone gives 0.462, and the first order with
+`ℓ_0` for `c` (the paper) 0.386: its two errors partly cancel. With a frame, the network
+fills the rectangle within it and the densities count the frame.
+
+**Jamming.** The voids vanish at `ρ_1 = 2`: the network of `T` ligaments jams above
+`λ_0* = 2√A / S` (`jamming_thickness`), an endless growth above `2√A / (l_0/√A + c(ζ(α +
+1/2) − 1))` for `α > 1/2` (`endless_jamming_thickness`: the boundary of the phase
+diagram of the paper, which writes it with `ζ(2α)` and `ℓ_0`). Checked on 3 or 4
+realizations each: at `0.7 λ_0*` none jams (`α` = 0.3, 0.5, 0.9 and 1; `T` from 1,000 to
+30,000; at `0.75 λ_0*` for `α` = 0 and 0.5), from `λ_0*` on nearly all do, at relative
+densities between 0.93 and 1 (the last voids too narrow for the ligaments, not empty).
+
+**Laws.** The thicknesses `λ_0 t^−α` of uniform ranks `t` have the density `P(λ) ∝
+λ^−(1 + 1/α)` on `[λ_T, λ_0]`, exactly. The lengths decay as `t^−1/2`: the tail `P(l) ∝
+l^−3`; a ligament is met by the later ligaments in proportion to its length (spatial
+preferential attachment): `P(k) ∝ k^−3` (Both et al., their fits 3 and 2.9). Measured by
+maximum likelihood above the lower bound of least Kolmogorov–Smirnov distance
+(`analysis.power_laws.power_law_tail`, Clauset, Shalizi & Newman 2009; the discrete law
+`k^−a/ζ(a, k_min)` for the degrees) on 3 x 30,000 ligaments: lengths 2.95 to 3.01,
+degrees 2.82 to 3.00, at `α` = 0.3, 0.5 and 0.9.
+
+**Orientations and nucleation.** Uniform (`θ = π u`), drawn among `angles` (aligned
+networks), or polarized by a `pole` for the `polarized_fraction` first ligaments: along
+the direction of the pole turned by `pole_angle` (0 radial, 90° tangential); a normal
+spread `angle_spread` about the angles given or polarized. A ligament fits less often
+across a narrow void: the angles of thick ligaments in the elongated voids of an
+aligned network spread more than the law drawn (12° for 10° at `λ_0 = 0.01`; thin ones
+follow it). The nucleation density is linear along an axis of the plane, or along the
+distance to the pole (`radial_gradient`), by rejection; the laws of the density hold for
+uniform orientations and nucleation only.
+
+**Anisotropy.** The orientation tensor `M = Σ A_t d_t ⊗ d_t / Σ A_t` (`A_t` the area of
+the ligament, `d_t` its direction) gives the geometric anisotropy `η_G = μ_1/μ_2` of its
+eigenvalues (`geometric_anisotropy`); the directional modulus `E(θ) = 1/(nn : S : nn)`
+of a stiffness (`homogenization.postprocess.directional_modulus`, plane strain: `S` the
+inverse of its in-plane block, prisms across the plane) its elastic anisotropy `η_E =
+E_min/E_max`. Over 12 realizations of 500 ligaments at `ρ` = 0.4 in a frame of 0.006
+(320² pixels, voxel finite elements under periodic conditions,
+`examples/scale_rich_networks.py`), `η_E` follows `η_G` (correlation 0.92) and its mean
+falls from 0.56 at `α` = 0 to 0.20 at 0.9, as in Fig. 2b–c of the paper.
+
+The samples are not periodic: their ligaments end on the faces of the box. Without a
+frame, periodic conditions leave the thick ligaments of large `α` unbound (`E_min`
+vanishes at `α` = 0.9). With a frame, they give the anisotropy of the kinematic
+conditions of the paper (KUBC on the four edges of the plane, plane strain, computed by
+an independent code on the same pixels, scikit-fem's bilinear quadrilaterals): mean
+`η_E` 0.56 and 0.57 at `α` = 0, 0.20 and 0.20 at 0.9 over three realizations; not their
+stiffness, the edges loading the thick ligaments directly under KUBC (`E_max/ρE_s` 0.60
+to 0.64 at `α` = 0.9, 0.23 to 0.33 periodic with the frame), as expected of samples far
+from a representative volume element. Under KUBC, `E_max/ρE_s` grows from 0.20–0.24 at
+`α` = 0 to 0.60–0.66 at 0.9 while `E_min/ρE_s` stays near 0.1, the trends of Fig. 2c, its
+largest value close to theirs (0.68); their least value is about twice ours (0.22), and
+their networks of `α` near 0 nearly isotropic (`η_E` about 0.85) where ours are not (0.48
+to 0.63), at 320² and 640² pixels alike (0.535 and 0.514, 0.546 and 0.540): a difference
+not explained here (their meshes of quadratic triangles, a minimum spacing `ε`, details
+of their samples). The kinematic conditions of conforming meshes prescribe the affine
+displacement on every face of the box, the faces of the slab too: for prisms through a
+thin slab they make the whole network deform affinely (`η_E` 0.92 and 0.93 at `α` = 0
+and 0.9 for realizations of 150 ligaments whose anisotropies are 0.38 and 0.15 under
+KUBC on the edges): plane problems want the kinematic conditions on the edges of the
+plane only.
+
+### 93.1 Scale-rich networks in three dimensions (`dimension: 3`)
+
+Three-dimensional networks: the planar model only extruded a network of the
+plane. The paper extends its growth to space "by iteratively adding non-crossing plates
+or beams" (Fig. 6a(v)–(vi); its supplementary information, S2.5–S2.7 and S3.13):
+`models.scale_rich_3d`, `element: plates` or `beams`.
+
+**Plates** (`grow_plates`). The plate `t`, `λ_t = λ_0 t^−α` thick, nucleates at a point
+drawn uniformly in the voids with a normal `n_t` (uniform on the sphere, or drawn from a
+law), and grows in its plane until it meets other plates or the box. The voids are convex
+polyhedra (first the box), each face a convex polygon counter-clockwise about its outward
+unit normal, with the plane that bears it and the label of the plate (or the box) beyond.
+The plate is the slab `|n_t · x − c_t| ≤ λ_t/2` clipped by the void of its nucleation
+point, which it splits into two convex voids: each face is clipped by Sutherland–Hodgman
+and the section of the polyhedron by the plane closes the part, its vertices ordered by
+their angles about the normal (`clip_polyhedron`, `section`; volumes by the cones of the
+faces from a vertex). Plates and voids partition the box exactly (to `10⁻¹²` after
+thousands of cuts) and every void is a closed cell. The *rim* of a plate is the section
+of its void by its mid-plane: its area is the area of the plate, and its edges lie on the
+faces of the plates (or the box) on which the plate ends, its neighbours; the degree of a
+plate counts the plates it ends on and those that end on it. A plate fits when its void
+holds the points `p ± (λ_t + ε)/2 n_t`; the point is located in a grid of buckets of the
+voids, each plate draws from its own seeds (points `spawn_key=(t,)`, normals `(t, 1)`),
+and the density is solved on each realization as in the plane. 5,000 plates grow in 1.3
+s, 20,000 in 5 s.
+
+**Topology.** A plate splits each face of its void that its mid-plane crosses (one per
+edge of its rim) and adds a face to each half, so that `N` thin plates make `N + 1` voids
+of `2 + k̄` faces on average, `k̄` the mean number of edges of the rims (the 4 vertices
+of the voids of the plane, where `k = 2`): measured 4.58 and 6.58 faces (10,000 thin
+plates, twice); the mean degree 8.6 (26 % of the plates on the box).
+
+**First area.** The first plate is the section of the box by the plane through a uniform
+point along a uniform normal: `E[a_0] = ∫ A² dE / (4π V)` over the planes `E = (n, p)`.
+As `A(n, p) = ∫ δ(n·x − p) dx` over the box, `∫ A² dp dn = ∫∫ dx dy ∫_S² δ(n·(x − y)) dn
+= 2π ∫∫ dx dy / |x − y|`, so that
+
+    a_0 = V E[1/|X − Y|] / 2
+
+half the volume times the mean inverse distance of two uniform points (in the plane the
+same argument gives `l_0 = A E[1/|X − Y|] / π`, Kellerer's value). In an `a x b x c` box
+`E[1/r] = (8/V²) ∫ (a − x)(b − y)(c − z)/r` over `[0, a] x [0, b] x [0, c]`: in closed
+form over `z` and the radius of polar coordinates in `(x, y)`, the angle by Gauss–Legendre
+on either side of the diagonal (`mean_inverse_distance`, `first_area`). 1.8823126 for the
+unit cube (the closed form of Bailey, Borwein & Crandall 2007, to `10⁻¹²`), `a_0` =
+0.941156: the sections of 200,000 random planes give 0.9419 ± 0.0006, and 1.4338 ±
+0.0017 in a 2 x 1 x 1 box for 1.4316.
+
+**Areas.** After `t − 1` plates, `t` voids share the box and the plate `t` splits one in
+proportion to its volume: its area scales as `(V/t)^(2/3)`, `E[a_t] ≈ c_3 (V/t)^(2/3)`.
+The constant is measured (`AREA_CONSTANT`): `c_3` = 1.2363 ± 0.0005 and 1.2349 ± 0.0007
+over the plates `t ≥ 2000` of 120 and 60 realizations of 20,000 in a cube and in a 2 x 1
+x 1 box, the same in both; the first plates are smaller (`E[a_t] (t/V)^(2/3)` = 0.94,
+1.08, 1.13 at `t` = 1, 2, 3), and from `t` = 10 on about the limit.
+
+**Relative density.** To first order (`area_sum`):
+
+    ρ_1 = Σ λ_t E[a_t] / V = (λ_0 / V^(1/3)) S,   S = a_0/V^(2/3) + c_3 Σ_{t=2..T} t^−(α+2/3)
+
+which converges for `α > 1/3` (`ζ(α + 2/3)`). A plate splits a void of volume `V_v/t`:
+`dV_v/dt = −λ_t c_3 (V_v/t)^(2/3)`, so that `(V_v/V)^(1/3) = 1 − ρ_1/3` and
+
+    ρ = 1 − (1 − ρ_1/3)³   (density_estimate(ρ_1, 3)),   λ_0 = 3 V^(1/3) (1 − (1 − ρ)^(1/3)) / S
+
+(in `d` dimensions `ρ = 1 − (1 − ρ_1/d)^d`: `ρ_1 (1 − ρ_1/4)` in the plane). Checked
+against the mean of 16 realizations of 500 plates: within 3.7 % from `ρ` = 0.1 to 0.97
+(`α` = 0 and 0.3; 0.0970 for 0.0967, 0.5037 for 0.4880, 0.9669 for 0.9630 at `α` = 0).
+
+**Jamming.** The voids vanish at `ρ_1 = 3`: `T` plates jam above `λ_0* = 3 V^(1/3) / S`,
+an endless growth above `3 V^(1/3) / (a_0/V^(2/3) + c_3 (ζ(α + 2/3) − 1))` for `α > 1/3`
+(the supplementary information writes its phase boundary with `ζ(3α)`, at odds with its
+own `⟨A_t⟩ ~ t^−(α+2/3)`). At `ρ_1` = 2.5 and `α` = 0, the 16 realizations jam, at `ρ` =
+0.977.
+
+**Laws.** The thicknesses as in the plane. The areas decay as `t^−2/3`: `P(a) ∝ a^−5/2`;
+a plate is met by the later plates in proportion to its area, `k_i ∝ (t/i)^(2/3)`:
+`P(k) ∝ k^−5/2` (the supplementary information, S2.6–S2.7: 2.5; in `d` dimensions both
+`(2d − 1)/(d − 1)`, 3 in the plane). Measured as in the plane: areas 2.50, 2.49 and 2.48,
+degrees 2.56, 2.56 and 2.53 (10,000 thin plates, 10,000 plates of `λ_0` = 0.01, 30,000
+thin plates; `α` = 0.5).
+
+**Anisotropy of plates.** The paper finds the elastic anisotropy of its plates growing
+with `α`, as in the plane (S3.13: quadratic tetrahedra under "3D affine boundary
+conditions"). Checked by an independent code: kinematic uniform conditions on the six
+faces of the cube, trilinear hexahedra on 40³ voxels of partial volumes (4³ sub-voxels;
+the modulus of an element in proportion to its fraction of solid, so that a plate thinner
+than a voxel keeps its membrane stiffness `E_s λ`; the material held by the faces of the
+box), conjugate gradients preconditioned by smoothed aggregation, and `E(n)` over 4,000
+directions (`homogenization.postprocess.spatial_modulus`, `sphere_directions`). For 300
+plates at `ρ` = 0.3, three realizations each, `η_E` falls from 0.71–0.75 at `α` = 0 to
+0.65–0.70, 0.55–0.60 and 0.44–0.50 at 0.3, 0.6 and 0.9 (means 0.73, 0.67, 0.57, 0.47),
+following `η_G` (from 0.49–0.55 to 0.10–0.17; correlation 0.97), while `E_max/ρE_s` rises
+from 0.72–0.75 to 0.87–0.91 and `E_min/ρE_s` falls from 0.51–0.55 to 0.40–0.45: the
+trends of Fig. 2c of the paper in the plane, the least modulus four to five times that of
+the plane (closed cells: the plates stretch). Binary voxels at this resolution break the plates of
+`α` = 0, 0.6 voxel thick, into staircases joined by their edges: `E_max/ρE_s` 0.50 and
+`η_E` 0.60–0.67 there.
+
+**Orientations and nucleation.** The normals are uniform, drawn from an orientation law
+(`orientation`: `{type: aligned, direction: [0, 0, 1]}` stacks layers, `{type: planar,
+normal: [0, 0, 1]}` makes every plate vertical, through the height of the box: the network
+of the plane extruded), or polarized by a `pole`: at the angle `β` = `pole_angle` to the
+direction `r` of the pole, at a uniform azimuth (`n · r = sin β`: `β` = 0 plates through
+the direction of the pole, 90° shells about it); `angle_spread` tilts them by a normal law
+of that deviation along two axes. Gradients of nucleation along any axis or the distance to
+the pole. The fabric tensor of the normals `N = Σ V_t n_t ⊗ n_t / Σ V_t` (`V_t` the volume
+of the plate) gives `η_G = μ_min/μ_max`.
+
+**Beams** (`grow_beams`). The beam `t`, a cylinder of diameter `λ_t` with round ends,
+nucleates at a point of the voids where the ball of radius `(λ_t + ε)/2` clears the beams
+and the box (a point in a beam is drawn again; one too close is a failed attempt), along
+an axis `d_t`, and grows both ways: its axis stops where it reaches the surface of a beam
+(a T-junction, the round end half in it), or at its closest approach to a beam it passes
+within contact, `r_j + r_t` (a lateral junction), or at the box (`beam_stop`: the closest
+approach of two segments, Ericson 2005, then a bisection of the convex distance along the
+axis). The axis of a beam never enters an earlier beam, and a beam overlaps the earlier
+beams near its ends only, by at most its radius; its links are the beams it touches (the
+beams that stop its ends, and those its end meets in a corner beside them). Beams do not
+split space: their voids are one open cell. Their relative density is the volume of their
+union in the box, round ends and junctions included (`volume_fraction`), estimated on the
+2^20 points of a scrambled Sobol set of a fixed seed: within 1.5·10⁻⁴ of 2^22 points over
+eight networks (5.8·10⁻⁴ with 2^18), so that a `volume_fraction` is solved as for plates.
+The cylinders on the axes, `Σ π r_t² l_t / V` (`cylinder_fraction`, the beams of the mean
+field below), differ from it by a few percent: 1.7 % and 2.7 % less at `α` = 0 (`ρ` = 0.15
+and 0.3: the round ends at the junctions of equal beams), 0.2 % at 0.3, 8 % more at 0.9
+(the parts of the fat first beams beyond the box). 20,000 beams grow in 8 s (every pair of
+beams tested).
+
+**Beams: mean field.** A beam `t` is stopped by a beam `j` when its axis passes within `r_j
++ r_t` of the axis of `j`: the capsule of that radius about `j` has the mean cross-section
+`σ_j = (π/2)(r_j + r_t) l_j + π (r_j + r_t)²` (Cauchy: a quarter of its surface), and each
+half of the axis runs `min(X, D)`, `X` exponential of rate `h_t = Σ_j σ_j / V`, `D` the
+distance to the box along it. Then `l_t = 2 E[(1 − e^{−h_t D}) / h_t]` and `ρ = Σ π r_t²
+l_t / V` (`beam_density_estimate`, `D` drawn once in the box; `beam_thickness_estimate`
+inverts it). Checked against the cylinders of the mean of 12 realizations of 500 beams:
+within 5 % up to
+`ρ` = 0.2 (`α` from 0 to 0.9, 20 cases), 13 % short at `ρ` = 0.36 (`α` = 0), and the
+realizations jam near `ρ` = 0.46 (`α` = 0, uniform thickness 0.1), which the mean field
+ignores. Unlike plates, thin beams never meet: the lengths depend on `λ_0`, `l_t ∝
+(Σ_{j<t} λ_j)^−1/2` in an unbounded medium, `t^−(1−α)/2`, and the tails of the lengths
+and degrees on `α` and on the box (on 20,000 beams, lengths 3.2 and degrees 2.9 at `α` =
+0; degrees 2.8 to 2.9 at `α` = 0.3 and 0.5, the early beams spanning the box): they are
+measured (`statistics`), not predicted.
+
+**Anisotropy of beams.** Under the same kinematic conditions (48³ voxels of partial
+volumes), 300 beams whose cylinders fill 0.15 of the cube (0.140 to 0.152 of the voxels),
+three realizations each: `η_E` falls from 0.64–0.79 at `α` = 0 to 0.57–0.64, 0.24–0.38
+and 0.16–0.19 at 0.3, 0.6 and 0.9 (means 0.72, 0.60, 0.30, 0.18), following `η_G` (from
+0.74–0.80 to 0.04–0.11; correlation 0.98), while `E_max/ρE_s` rises from 0.24–0.26 to
+0.68–0.72 and `E_min/ρE_s` falls from 0.17–0.20 to 0.11–0.13: the trend of the plates and
+of the paper, stronger, as the few fat first beams of large `α` carry the load along
+their axes and the rest bend.
+
+
+## 94. Exact meshes without a background grid (`mesh.exact`, `mesh.octree`)
+
+Every microstructure that knows its geometry is meshed from it, without a
+background grid (`exact_mesh`, `conforming_mesh(..., method="exact")`, `mesh: {method:
+exact}`, `morphogen homogenize --mesh-method exact`). The grid route of §11 samples the
+level set at the nodes of a regular grid: the interface is as accurate as the grid is
+fine, and a sheet thinner than its spacing is lost. The exact mesh is the default
+(`method: auto`, of `conforming_mesh`, of the configurations and of the command line)
+wherever the microstructure has an exact route: structures of two phases or more, the
+phases kept by a list, the sharp edges of §80 (asked, or where two smooth pieces of a
+phase meet), the grains of tessellations; the 10-node elements of a level set are those
+of its 4-node mesh, curved as in §76 (`curved_mesh`, the one curvature of both routes).
+The grid serves the microstructures without an exact route (see *Limits*), and those
+whose exact mesh fails (MMG) or whose periodic faces do not match, with a warning.
+Three routes, chosen by `exact_route`:
+
+* **cells**: Voronoi and Laguerre tessellations, their exact cells (§19, §24), meshed by
+  `polycrystal_mesh(exact=True)`: not regularized (`min_feature` 0), the edges where
+  their facets bend given to MMG as ridges and their ends as corners, its Hausdorff
+  distance a millionth of `size` (see the convex pieces below), so that every cell keeps
+  its volume to rounding (10⁻¹⁶; 10⁻⁸ off with MMG's usual `size/20`, whose smoothing
+  moves the nodes of the facets);
+* **pieces**: faceted microstructures, their exact convex pieces (`convex_pieces()`):
+  the plates and voids of scale-rich networks (§93.1), the prisms of planar ones (§93),
+  the boxes of fractal sponges (the cubes of the finest level merged greedily into boxes
+  of one phase);
+* **level_set**: the others, the exact functions of their phases at any point
+  (`phase_level_sets_at(points, reach)`, §75; two phases: $\varphi_1$ of
+  `level_set_at(points, reach)` and its opposite): the signed distance to unions of spheres and
+  spherocylinders (fibres, lattices, packings, networks), to fibres of Bouligand
+  structures, to the faces of plates and to beams, to the walls of prismatic cells and to
+  the boundaries of grains; the minima and maxima of distances of laminates (slabs and
+  holes), nacre (slabs and the sides of the cells), coatings, combinations, the visible
+  parts of dead leaves (each leaf minus those above it, `min_i max(d_i, −min_{j<i} d_j)`
+  over the leaves of the phase) and of osteons (their canals, lamellae and cement lines
+  minus the later osteons); the first-order distance `(φ − t)/|∇φ|` of TPMS; `(t − Y)ℓ` of Gaussian fields (the sum of their
+  modes at the points); the trilinear interpolant of lattice fields; the function of level-
+  set foams; the inner level set at the preimages of affine maps. Each agrees with the
+  level set on grids at the voxel centres to rounding, and its sign with the phases.
+  Partitions of several phases give the function of each phase, by the formulas of
+  §75 at the points: dead leaves of any number of phases, osteons (lamellar bone, cement
+  lines, canals and the interstitial bone that no osteon covers), inclusions over a
+  matrix of any phases (cross-linked fibres: each inclusion minus the later ones, the
+  matrix where none covers it) and nested structures, the coatings and shells of unions
+  of spheres and segments (functions of their exact signed distance; hollow members, the
+  union less its bores), clustered spheres with their aggregates, tessellations with a
+  grain-boundary phase or meshed by their phases (`grains=False`: the power distances to
+  the germs of each phase, the layer along the faces of the cells), the cells of tilings
+  (their gauges), and the images of these by affine maps.
+
+**Convex pieces.** The faces of the pieces are grouped by plane (normals and offsets
+within 10⁻⁸ of the box); the faces facing each other across a plane are overlaid (each
+clipped by those of the other side, Sutherland–Hodgman on the plane), so that every facet
+of the face-to-face complex is shared by two pieces or lies on a face of the box, and the
+vertices lying on the edges of a facet (T-junctions) are inserted into its loop. Cones
+from the centroids of the pieces over their fanned facets make the first tetrahedra; MMG
+remeshes them with one reference per piece (with one per phase, its swaps cross some
+interfaces between pieces of different phases), the edges where facets of two planes meet
+as ridges and their ends as corners (its detection by angles misses small dihedral
+angles), within a Hausdorff distance of a millionth of `size`: the facets have nothing to
+approximate, and MMG's smoothing moves the nodes of surfaces within that distance (with
+the usual `size/20`, it bends the ridges into curves: nodes 2·10⁻⁴ off the faces of the
+box for plates at `size` 0.2). The interfaces are the exact planes, sharp edges and
+corners included, at any thickness. Periodic structures: opposite faces of the box are meshed once by `mmg2d`
+(the traces of both merged) and kept. Thin pieces get flat elements (one through the
+thickness, of aspect ratio `size` over the thickness); `thin = k` bounds the elements of a
+piece by `k` times its width (twice the radius of its largest ball), at the price of
+`(size/width)²` times as many elements per unit area.
+
+**The octree of a level set.** The box is split into root cells about `size` wide, and
+a cell is split into eight where, along one of its 27 lines of three points `a`, `m`, `b`
+(edges, middle lines of the faces, axes), the level set
+
+1. crosses zero twice (`sign φ_a = sign φ_b ≠ sign φ_m`): a feature thinner than the cell;
+2. crosses it once at a point that its linear interpolation misplaces by more than the
+   Hausdorff distance `h`: with `e = φ_m − (φ_a + φ_b)/2` the deviation at the middle of
+   the parabola through the three values and `t = φ_a/(φ_a − φ_b)` the linear zero, the
+   shift `4 t (1 − t) |e| l / |φ_b − φ_a| > h` (`l` the length of the line);
+3. does not cross but bends toward zero by more than `h` (`e φ_a < 0`, `|e| > h`) while
+   the interface may be near: `|φ_a| + |φ_m| < L l/2` or `|φ_m| + |φ_b| < L l/2`, `L` the
+   slope of the level set (1 for a distance, and for minima and maxima of distances; 1.5
+   for the first-order distance of TPMS and the level set of foams; the largest slope of
+   the trilinear interpolant of lattice fields; three times the root mean square gradient
+   of Gaussian fields times their correlation length; that of the inner realization times
+   the largest stretch of the inverse map of affine ones): a feature hidden between the
+   samples. A distance bends away from zero on the medial surfaces of the phases (the
+   middle of a sheet, the bisector of two grains), where this case refines nothing;
+4. crosses it along a segment that may be an edge of the tetrahedra of the cell or of its
+   children (the 158 segments between neighbours of the lattice, diagonals included, and
+   the 28 between its corners: its edges and the diagonals of its faces and its own) at a
+   zero `x₀` of their linear interpolation where `|φ(x₀)| > h` (one more evaluation per
+   crossing): a kink between the samples that the parabola of case 2 misses, the medial
+   surface of a sheet between a point and the zero. Without it, a sheet 0.02 thick at
+   `size` 0.2 and `h` = 0.004 lost 60 % of its volume, and the sheet of a gyroid 0.03
+   thick (`h` = 0.01) was pinched to its medial surface at 2 % of the nodes of its
+   interface (its volume 2.6 % short, against 0.8 % over with it, at four times as many
+   tetrahedra in the octree and twice the time);
+
+down to cells of `min_size` (default `h`). A sheet thinner than the cells is found as the
+cells come: a line across it either straddles it (case 1) or has a node in it (a
+crossing). The octree is then balanced: two leaves that touch, by a face, an edge or a
+corner (across the periodic faces too), differ by one level at most.
+
+**Its tetrahedra.** A leaf whose six faces are plain (no finer neighbour, no node in the
+middle of a side) takes the six tetrahedra of the Kuhn triangulation (the paths from a
+corner to the opposite one along the axes, reflected where its index is odd); the others
+are cones from their centres over their faces, each face (or quarter of a face, where
+the neighbour is finer) a fan from its centre over its corners and the nodes in the
+middle of its sides, or split by the Kuhn diagonal when it has none. The diagonal of a
+plain face joins its corner of parities `(i_b mod 2, i_c mod 2)` (its indices in its
+plane) to the opposite one — that of the Kuhn triangulations on both sides — so every
+face is split alike from both sides: the mesh is conforming (the faces of one element are
+the boundary of the box), positive, and its elements are shaped like the Kuhn tetrahedra
+and the cones of a cell (quality above 0.63 in the tests), about nine per leaf.
+
+**The cut.** MMG discretizes the zero level set on these tetrahedra (`mmg3d -ls`) and
+remeshes the result to `size`, `min_size`, `h` and the gradation, in one pass; values
+within `10⁻³ h` of zero are moved off it (no interface through a node). MMG does not
+detect ridges by angles (`-nr`; the edges of the box are given as ridges and its corners
+as corners): the facets of the cut bend at the scale of the octree, and the ridges MMG
+would see there keep its tiny edges, in flat elements (below a quality of 10⁻³: 0.5 % of
+those of a sheet gyroid, none without; 291 of 85,000 for dead leaves of three phases, 9
+of 51,000 without, in 40 % less time); the sharp edges of the geometry (the intersections
+of spheres, the rims of leaves) are rounded within `h` instead, unless `ridges=True`.
+Several phases are cut in turn out of the rest without remeshing (MMG's multi-material
+references: the phases already cut are not split), each by its function taken exactly at
+the vertices that the previous cuts made, and the mesh is remeshed once, the lines where
+three phases meet kept as ridges (the cuts of the pieces of §80, a piece per phase;
+`mesh.metadata["cut_once"]`); the octree is refined for all the level sets at once, the
+phases cut in increasing order and phase 0 the rest (the last phase, for a partition
+without a phase 0). Phase `k` is cut by `(φ_k − min_j φ_j)/2`, the minimum over the
+phases cut after it and the rest: zero on its boundaries with these, and clearly negative
+on its boundaries with the phases cut before, where `φ_k` itself vanishes (cut by `φ_k`,
+the rest would be split along the interfaces it already has, into slivers). Cut and
+remeshed phase after phase, as in the first version of these meshes, a sphere and its
+coating in a periodic cube kept five to seven times less of their volumes with elements
+of half the quality, and dead leaves of three phases in a periodic box took twice as long,
+their faces not matching after three octrees (MMG remeshes a face where a phase touches
+itself, "boundary triangles in the closed shell of a manifold edge"). A structure of two
+phases is cut and remeshed in one pass, and should MMG fail there, cut first and remeshed
+once in the same way. The octree evaluates the functions within the length of the lines of each level only
+(the tests of a line do not look further), and the nodes moved onto the surfaces within
+a few Hausdorff distances: the functions of structures of many objects, leaves or
+primitives, cost as the cube of that reach. Then the nodes of
+the interface are moved onto the exact zero level set: Newton's method along the gradient
+(central differences of `min(h, min_size)/10`), four steps, in the plane of the faces of
+the box they lie on, onto the interface of the two phases that meet there (half the
+difference of their level sets; the nodes where three phases meet stay); a move is undone
+when it exceeds a quarter of `size`, and halved when it flips an element or flattens it
+below a quality of 0.02 and a fifth of its own, four times at most before it is undone
+(the node as near the surface as its elements allow). With 10-node elements (`order: 2`),
+the elements are curved by `curved_mesh` (§76) with the exact functions of the phases:
+the middles of the edges of the interfaces moved onto them, the corners too, the
+Jacobians checked at the nodes and the integration points, the images across the box
+moved alike; the interface is an interpolation of the exact one of the second order.
+**Phases kept by a list** (`phases=[...]`, any structure): the whole partition is cut,
+its nodes moved and its elements curved, then the elements of the phases kept are taken,
+their faces against the phases left out those of the whole mesh (two phases: MMG keeps
+one, as `"solid"` and `"matrix"`). The cells and the convex pieces are kept in the same
+way. **Sharp edges** (§80): the octree refined on the surfaces of the smooth pieces, the
+box cut by each in turn and remeshed once, the lines where two pieces of a phase meet
+kept as ridges, their nodes moved onto both surfaces. **Periodic meshes**: the octree balanced across the periodic
+faces gives opposite faces the same triangles; before MMG, the edges of these faces that
+the interface crosses are split at its exact zeros (bisection of the level set along the
+edge; or one of their ends moved onto the zero when it lies within 15 % of the edge, along
+the edge and on its faces of the box; one end per crossed edge, and none whose sign
+would vanish from its neighbourhood, nor one that makes a zero edge between two triangles
+of one sign — the trace would touch itself, and MMG resolve the contact by remeshing the
+face), alike on the translated faces, the tetrahedra around a split edge split in two. MMG then keeps the faces as they are (required
+triangles and vertices): no triangle of a face crosses the interface, the faces match,
+and their nodes on the interface lie on it. A split edge is split in all its
+translates in the same round (the order of the edges would otherwise decide), and a node
+is not moved where the sign changes more than twice around it (a saddle of the trace).
+The edges of tetrahedra between nodes of two faces of the box (near its edges) that the
+level set crosses are split at their zeros too, and around a node of a trace the nodes
+of each sign form one component (otherwise MMG moves the zero off the node where two
+sheets of the interface touch, and remeshes the faces it keeps). Should the faces still
+not match (the vertical faces of prisms of a tiling, whose traces run along the edges of
+the octree), the phases are cut at once on the same octree, then on octrees of one more
+root cell per side (`retries`, two by default). The cuts made at once (several phases, sharp edges) cut the
+faces as on the grid (§11): the values of opposite faces equal, the vertices numbered in
+the order of their coordinates so that MMG splits matching faces alike, the faces kept
+through the remeshing; their nodes then move onto the interfaces within their faces,
+alike on opposite faces.
+
+**Accuracy.** The nodes of the interface lie on the exact surface to rounding (`|φ| ≤ 5 ·
+10⁻¹⁶` on spheres, periodic or not, and on a sheet gyroid), but for the few whose move
+would flip or flatten an element, near the sharp edges of unions (the intersections of
+spheres, of fibres), and the lines where three phases meet, which stay within the
+Hausdorff distance (99 % of the nodes within 10⁻⁶ for Boolean spheres at `h` = 0.01,
+within a quarter of `h` for dead leaves of three phases); the volume is that of inscribed
+facets, short of the exact one by about the area times half the sagitta of the triangles:
+−0.16 % for a sphere of radius 0.3 with `h` = 10⁻³ (`size` 0.1, 242,000 elements, quality
+above 0.26, 18 s), −0.9 % with `h` = 5·10⁻³ (39,000 elements, 2 s); a periodic sphere
+across the corners of the box, `h` = 2·10⁻³: −0.4 %, faces matching, quality above 0.07
+(7 s); the sheet gyroid below: +0.8 % at `h` = 0.01, +0.2 % at 0.004 (against 0.1010,
+sampled at 400³ points). Partitions (`tests/test_exact_phases.py`): a sphere of radius 1
+and its coating of 0.3 in a periodic cube of 3.4, elements of 0.5 curved by `curved_mesh`,
+the faces matching, quality above 0.24: the sphere at $-1.7\cdot10^{-5}$ of its volume and
+the coating at $-4\cdot10^{-6}$ of its own (the flat faces of the grid lose more than 2 %
+of both, §76); two overlapping spheres keep the volume of their union within
+$2.1\cdot10^{-4}$, their groove followed (§80); in periodic boxes, against images of 128
+voxels a side, dead leaves of three phases of radius 0.25 with elements of 0.3 within
+0.002 of their fractions (258,000 elements, 226 s, most of them in MMG), of radius 0.3
+with elements of 0.35 and `h` = 0.035 within 0.003 (41 s), cells of two phases with
+grain boundaries 0.1 thick, elements of 0.25, within 0.014 (49 s), the hexagonal prisms
+of a tiling within 0.001 (11 s). Planes are exact: a sheet 0.02 thick between the nodes of the
+root cells (`size` 0.2) keeps its volume to rounding. The scale-rich plates of §93.1 meshed from their pieces have the
+volumes of their plates to rounding (and no node off the planes of its piece: 2·10⁻⁴ off
+with MMG's usual Hausdorff distance), fractal sponges those of their cubes, and the
+cells of tessellations theirs.
+
+**Limits.** Without an exact route (`exact_route` returns `""`), on the grid of §11
+or from the voxel images: transparent dead leaves, whose function is built on the grid
+from the order of the leaves that cover each voxel (at a point, it would take the leaves
+around it in that order, a kernel of its own); the coatings and shells of structures that
+are not unions of spheres and segments, whose distance is the distance transform of
+their voxels (an exact distance to an implicit surface at each point takes a search of
+its nearest point, an iteration per evaluation; the first-order distance of a minimal
+surface, or the field of a Gaussian excursion, would give the coating another
+thickness); cells carrying crystal orientations but tessellations (dead leaves of
+crystals, polycrystals with inclusions: they need a mesh by cell, which neither route
+gives); tessellations of one phase without their grains (no interface); objects with
+level sets on grids only (`ImplicitBody`, the parts of mirrored meshes, whose symmetry
+is that of their background grid). The cost of the exact route is that of the geometry
+resolved: thin layers take elements of their thickness (the grain boundaries of
+tessellations, which a grid at half the size of the elements loses), and partitions of
+many objects an octree refined along all their interfaces and rims (the dead leaves
+above). Should MMG fail on the cuts, or the faces not match after all, the grid
+follows, with a warning, after the time of the failed attempts. The sharp edges of
+level sets without smooth pieces (the rims of leaves, the lines where three cells or
+three phases meet) are rounded within `h` (or kept with `ridges=True`, at the price of
+flat elements); MMG leaves a few flat elements where three phases meet
+(9 below a quality of 10⁻³ of 51,000 for dead leaves of three phases); the convex pieces
+and the cells keep the tiny edges of the exact geometry (two plate edges 10⁻³ apart make
+elements of that size). For 30 Voronoi cells at `size` 0.2, 0.6 % of the elements fall
+below a quality of 0.05 in a periodic box (whole cells), but 12 % in a non-periodic one,
+whose faces cut thin caps off the cells; `min_feature` removes the small features of the
+cells, which are then no longer exact, for better elements: at `size/20`, the volumes of
+the cells change by 0.02 % in the median (0.8 % at most) and no element falls below 10⁻³
+(periodic); at `size/4`, the default of the grid method, by 3 % in the median (10 % at
+most). The cost is that of the geometry
+resolved: a sheet gyroid of one cell, 10 % of the volume (a sheet 0.03 thick), periodic,
+at `size` 0.2 and `h` = 0.01 takes 196,000 elements (quality above 0.06) and 81 s, most
+of them in MMG (400,000 elements and 132 s at `h` = 0.004); the grid route at its default
+background (half the size) does not resolve that sheet.
+
+## References
+
+See [specification.md](specification.md#14-references). In addition:
+
+* Abouaf, M., Chenot, J.-L., Raisson, G., Bauduin, P. (1988). Finite element simulation of
+  hot isostatic pressing of metal powders. *Int. J. Numer. Methods Eng.* 25, 191–212.
+* Alfano, G., Sacco, E. (2006). Combining interface damage and friction in a cohesive-zone
+  model. *Int. J. Numer. Methods Eng.* 68, 542–582.
+* Aravas, N. (1987). On the numerical integration of a class of pressure-dependent
+  plasticity models. *Int. J. Numer. Methods Eng.* 24, 1395–1416.
+* Besson, J., Cailletaud, G., Chaboche, J.-L., Forest, S. (2010). *Non-linear Mechanics of
+  Materials*. Springer.
+* Chu, C. C., Needleman, A. (1980). Void nucleation effects in biaxially stretched sheets.
+  *J. Eng. Mater. Technol.* 102, 249–256.
+* Faleskog, J., Gao, X., Shih, C. F. (1998). Cell model for nonlinear fracture analysis –
+  I. Micromechanics calibration. *Int. J. Fract.* 89, 355–373.
+* Gurson, A. L. (1977). Continuum theory of ductile rupture by void nucleation and growth:
+  Part I. *J. Eng. Mater. Technol.* 99, 2–15.
+* Patel, N. M. (2007). *Crashworthiness design using topology optimization*. PhD
+  thesis, University of Notre Dame.
+* Pijaudier-Cabot, G., Bažant, Z. P. (1987). Nonlocal damage theory. *J. Eng. Mech.*
+  113, 1512–1533.
+* Rousselier, G. (1987). Ductile fracture models and their potential in local approach of
+  fracture. *Nucl. Eng. Des.* 105, 97–111.
+* Tvergaard, V. (1981). Influence of voids on shear band instabilities under plane strain
+  conditions. *Int. J. Fract.* 17, 389–407.
+* Tvergaard, V., Needleman, A. (1984). Analysis of the cup-cone fracture in a round
+  tensile bar. *Acta Metall.* 32, 157–169.
+
+* Armstrong, P. J., Frederick, C. O. (1966). A mathematical representation of the
+  multiaxial Bauschinger effect. CEGB report RD/B/N731; *Mater. High Temp.* 24 (2007),
+  1–26.
+* Bhatia, R. (1997). *Matrix Analysis*. Springer (chap. V: derivatives of matrix
+  functions, divided differences).
+* Daleckii, Ju. L., Krein, S. G. (1965). Integration and differentiation of functions of
+  Hermitian operators and applications to the theory of perturbations. *AMS Transl.
+  Ser. 2* 47, 1–30.
+* Franciosi, P., Berveiller, M., Zaoui, A. (1980). Latent hardening in copper and
+  aluminium single crystals. *Acta Metall.* 28, 273–283.
+* Kalidindi, S. R., Bronkhorst, C. A., Anand, L. (1992). Crystallographic texture
+  evolution in bulk deformation processing of FCC metals. *J. Mech. Phys. Solids* 40,
+  537–569.
+* Mandel, J. (1972). *Plasticité classique et viscoplasticité*. CISM Courses and
+  Lectures 97, Springer.
+* Méric, L., Cailletaud, G. (1991). Single crystal modeling for structural calculations:
+  Part 2—Finite element implementation. *J. Eng. Mater. Technol.* 113, 171–182.
+* Méric, L., Poubanne, P., Cailletaud, G. (1991). Single crystal modeling for structural
+  calculations: Part 1—Model presentation. *J. Eng. Mater. Technol.* 113, 162–170.
+* Miehe, C., Apel, N., Lambrecht, M. (2002). Anisotropic additive plasticity in the
+  logarithmic strain space: modular kinematic formulation and implementation based on
+  incremental minimization principles for standard materials. *Comput. Methods Appl.
+  Mech. Eng.* 191, 5383–5425.
+* Barthelat, F., Tang, H., Zavattieri, P. D., Li, C.-M., Espinosa, H. D. (2007). On the
+  mechanics of mother-of-pearl: a key feature in the material hierarchical structure.
+  *J. Mech. Phys. Solids* 55, 306–337.
+* Bouligand, Y. (1972). Twisted fibrous arrangements in biological materials and
+  cholesteric mesophases. *Tissue Cell* 4, 189–217.
+* Currey, J. D. (2002). *Bones: Structure and Mechanics*. Princeton University Press.
+* Paige, C. C., Saunders, M. A. (1975). Solution of sparse indefinite systems of linear
+  equations. SIAM Journal on Numerical Analysis 12(4), 617–629.
+* Eisenstat, S. C., Walker, H. F. (1996). Choosing the forcing terms in an inexact
+  Newton method. *SIAM J. Sci. Comput.* 17, 16–32.
+* Broyden, C. G. (1965). A class of methods for solving nonlinear simultaneous
+  equations. *Math. Comp.* 19, 577–593.
+* Nocedal, J., Wright, S. J. (2006). *Numerical Optimization*, 2nd ed. Springer (the
+  BFGS update and its damping: chapters 6 and 18).
+* Powell, M. J. D. (1978). Algorithms for nonlinear constraints that use Lagrangian
+  functions. *Math. Program.* 14, 224–248.
+* Feder, J. (1980). Random sequential adsorption. *J. Theor. Biol.* 87, 237–254.
+* Gibson, L. J., Ashby, M. F. (1997). *Cellular Solids: Structure and Properties*, 2nd
+  ed. Cambridge University Press.
+* Jackson, A. P., Vincent, J. F. V., Turner, R. M. (1988). The mechanical design of
+  nacre. *Proc. R. Soc. Lond. B* 234, 415–440.
+* Jean, A., Jeulin, D., Forest, S., Cantournet, S., N'Guyen, F. (2011). A multiscale
+  microstructure model of carbon black distribution in rubber. *J. Microscopy* 241,
+  243–260.
+* Jeulin, D. (1989). Morphological modeling of images by sequential random functions.
+  *Signal Process.* 16, 403–431.
+* Jeulin, D. (1996). Modeling heterogeneous materials by random structures. *Invited
+  lecture, European Workshop on Application of Statistics and Probabilities in Wood
+  Mechanics*, Bordeaux; see also Jeulin, D. (2021). *Morphological Models of Random
+  Structures*. Springer.
+* Lemaitre, J., Chaboche, J.-L. (1990). *Mechanics of Solid Materials*. Cambridge
+  University Press.
+* Levin, V. M. (1967). On the coefficients of thermal expansion of heterogeneous
+  materials. *Mech. Solids* 2, 58–61.
+* Lloyd, S. P. (1982). Least squares quantization in PCM. *IEEE Trans. Inf. Theory* 28,
+  129–137.
+* Murray, C. D. (1926). The physiological principle of minimum work. I. The vascular
+  system and the cost of blood volume. *Proc. Natl. Acad. Sci. USA* 12, 207–214.
+* Ranganathan, S. I., Ostoja-Starzewski, M. (2008). Universal elastic anisotropy index.
+  *Phys. Rev. Lett.* 101, 055504.
+* Rayneau-Kirkhope, D., Mao, Y., Farr, R. (2012). Ultralight fractal structures from
+  hollow tubes. *Phys. Rev. Lett.* 109, 204301.
+* Rosen, B. W., Hashin, Z. (1970). Effective thermal expansion coefficients and specific
+  heats of composite materials. *Int. J. Eng. Sci.* 8, 157–173.
+* Runions, A., Lane, B., Prusinkiewicz, P. (2007). Modeling trees with a space
+  colonization algorithm. *Eurographics Workshop on Natural Phenomena*, 63–70.
+* Hill, R. (1948). A theory of the yielding and plastic flow of anisotropic metals.
+  *Proc. R. Soc. Lond. A* 193, 281–297. doi:10.1098/rspa.1948.0045
+* Barlat, F., Brem, J. C., Yoon, J. W., Chung, K., Dick, R. E., Lege, D. J.,
+  Pourboghrat, F., Choi, S.-H., Chu, E. (2003). Plane stress yield function for aluminum
+  alloy sheets — part 1: theory. *Int. J. Plast.* 19, 1297–1319.
+* Banabic, D., Sester, M. (2012). Influence of material models on the accuracy of the
+  sheet forming simulation. *Mater. Manuf. Process.* 27, 304–308.
+  doi:10.1080/10426914.2011.578005
+* Zhang, Y., Zhang, Q., Sun, Y. (2018). Implementation issues of Yld2000-2d model under
+  larger biaxial yield stress. *Mech. Ind.* 19, 501. doi:10.1051/meca/2018031
+* Hill, R. (1963). Elastic properties of reinforced solids: some theoretical
+  principles. *J. Mech. Phys. Solids* 11, 357–372.
+* Michel, J.-C., Moulinec, H., Suquet, P. (1999). Effective properties of composite
+  materials with periodic microstructure: a computational approach. *Comput. Methods
+  Appl. Mech. Eng.* 172, 109–143.
+* Ray, R. K., Jonas, J. J. (1990). Transformation textures in steels. *Int. Mater.
+  Rev.* 35, 1–36.
+* Petrov, R. H., Sidor, J., Kestens, L. A. I. (2012). Texture formation in high
+  strength low alloy steel reheated with ultrafast heating rates. *Mater. Sci. Forum*
+  702–703, 798–801.
+* Simo, J. C., Taylor, R. L. (1985). Consistent tangent operators for rate-independent
+  elastoplasticity. *Comput. Methods Appl. Mech. Eng.* 48, 101–118.
+* Schapery, R. A. (1968). Thermal expansion coefficients of composite materials based on
+  energy principles. *J. Compos. Mater.* 2, 380–404.
+* Weaver, J. C., Milliron, G. W., Miserez, A., et al. (2012). The stomatopod dactyl club:
+  a formidable damage-tolerant biological hammer. *Science* 336, 1275–1280.
+* Matheron, G. (1968). Schéma booléen séquentiel de partitions aléatoires. Note N-83,
+  Centre de Morphologie Mathématique, Fontainebleau.
+* Matheron, G. (1975). *Random Sets and Integral Geometry*. Wiley.
+* Fan, Z., Wu, Y., Zhao, X., Lu, Y. (2004). Simulation of polycrystalline structure
+  with Voronoi diagram in Laguerre geometry based on random closed packing of spheres.
+  *Comput. Mater. Sci.* 29, 301–308.
+* Hashin, Z., Shtrikman, S. (1962). A variational approach to the theory of the elastic
+  behaviour of polycrystals. *J. Mech. Phys. Solids* 10, 343–352.
+* Hildebrand, T., Rüegsegger, P. (1997). A new method for the model-independent
+  assessment of thickness in three-dimensional images. *J. Microscopy* 185, 67–75.
+* Jeulin, D. (1997). Dead leaves models: from space tessellation to random functions.
+  In *Advances in Theory and Applications of Random Sets*, World Scientific, 137–156.
+* Kendall, W. S., Thönnes, E. (1999). Perfect simulation in stochastic geometry.
+  *Pattern Recognit.* 32, 1569–1586.
+* Batten, R. D., Stillinger, F. H., Torquato, S. (2008). Classical disordered ground
+  states: super-ideal gases and stealth and equi-luminous materials. *J. Appl. Phys.*
+  104, 033504.
+* Debye, P., Anderson, H. R., Brumberger, H. (1957). Scattering by an inhomogeneous
+  solid. II. *J. Appl. Phys.* 28, 679–683.
+* Lu, B., Torquato, S. (1992). Lineal-path function for random heterogeneous
+  materials. *Phys. Rev. A* 45, 922–929.
+* Lubachevsky, B. D., Stillinger, F. H. (1990). Geometric properties of random disk
+  packings. *J. Stat. Phys.* 60, 561–583.
+* Prager, S. (1963). Interphase transfer in stationary two-phase media. *Chem. Eng.
+  Sci.* 18, 227–231.
+* Skoge, M., Donev, A., Stillinger, F. H., Torquato, S. (2006). Packing hyperspheres in
+  high-dimensional Euclidean spaces. *Phys. Rev. E* 74, 041127.
+* Torquato, S. (1984). Bulk properties of two-phase disordered media. I. Cluster
+  expansion for the effective dielectric constant of dispersions of penetrable
+  spheres. *J. Chem. Phys.* 81, 5079–5088.
+* Torquato, S., Beasley, J. D., Chiew, Y. C. (1988). Two-point cluster function for
+  continuum percolation. *J. Chem. Phys.* 88, 6540–6547.
+* Torquato, S., Stillinger, F. H. (2003). Local density fluctuations, hyperuniformity,
+  and order metrics. *Phys. Rev. E* 68, 041113.
+* Uche, O. U., Stillinger, F. H., Torquato, S. (2004). Constraints on collective density
+  variables: two dimensions. *Phys. Rev. E* 70, 046122.
+* Torquato, S., Truskett, T. M., Debenedetti, P. G. (2000). Is random close packing of
+  spheres well defined? *Phys. Rev. Lett.* 84, 2064–2067.
+* Yeong, C. L. Y., Torquato, S. (1998). Reconstructing random media. *Phys. Rev. E*
+  57, 495–506.
+* Ohser, J., Mücklich, F. (2000). *Statistical Analysis of Microstructures in Materials
+  Science*. Wiley.
+* Shewchuk, J. R. (1997). Adaptive precision floating-point arithmetic and fast robust
+  geometric predicates. *Discrete Comput. Geom.* 18, 305–363.
+* Sloan, S. W. (1993). A fast algorithm for generating constrained Delaunay
+  triangulations. *Comput. Struct.* 47, 441–450.
+* Meijering, J. L. (1953). Interface area, edge length, and number of vertices in
+  crystal aggregates with random nucleation. *Philips Res. Rep.* 8, 270–290.
+* Adler, R. J., Taylor, J. E. (2007). *Random Fields and Geometry*. Springer.
+* Dapogny, C., Dobrzynski, C., Frey, P. (2014). Three-dimensional adaptive domain
+  remeshing, implicit domain meshing, and applications to free and moving boundary
+  problems. *J. Comput. Phys.* 262, 358–378 (MMG).
+* Schneider, M., Merkert, D., Kabel, M. (2017). FFT-based homogenization for
+  microstructures discretized by linear hexahedral elements. *Int. J. Numer. Methods
+  Eng.* 109, 1461–1489.
+* Moulinec, H., Suquet, P. (1998). A numerical method for computing the overall response
+  of nonlinear composites with complex microstructure. *Comput. Methods Appl. Mech.
+  Eng.* 157, 69–94.
+* de Souza Neto, E. A., Perić, D., Dutko, M., Owen, D. R. J. (1996). Design of simple
+  low order finite elements for large strain analysis of nearly incompressible solids.
+  *Int. J. Solids Struct.* 33, 3277–3296.
+* Gélébart, L., Mondon-Cancel, R. (2013). Non-linear extension of FFT-based methods
+  accelerated by conjugate gradients to evaluate the mechanical behavior of composite
+  materials. *Comput. Mater. Sci.* 77, 430–439.
+* Hughes, T. J. R. (1980). Generalization of selective integration procedures to
+  anisotropic and nonlinear media. *Int. J. Numer. Methods Eng.* 15, 1413–1418.
+* Kabel, M., Böhlke, T., Schneider, M. (2014). Efficient fixed point and Newton–Krylov
+  solvers for FFT-based homogenization of elasticity at large deformations. *Comput.
+  Mech.* 54, 1497–1514.
+* Vaněk, P., Mandel, J., Brezina, M. (1996). Algebraic multigrid by smoothed
+  aggregation for second and fourth order elliptic problems. *Computing* 56, 179–196.
+* Saad, Y. (2003). *Iterative Methods for Sparse Linear Systems*, 2nd ed. SIAM
+  (§12.4, multicolouring).
+* Walpole, L. J. (1966). On bounds for the overall elastic moduli of inhomogeneous
+  systems. *J. Mech. Phys. Solids* 14, 151–162.
+* Anderson, M. P., Srolovitz, D. J., Grest, G. S., Sahni, P. S. (1984). Computer
+  simulation of grain growth — I. Kinetics. *Acta Metall.* 32, 783–791.
+* Andreassen, E., Andreasen, C. S. (2014). How to determine composite material
+  properties using numerical homogenization. *Comput. Mater. Sci.* 83, 488–495.
+* Avrami, M. (1939). Kinetics of phase change. I. General theory. *J. Chem. Phys.* 7,
+  1103–1112.
+* Ammann, R., Grünbaum, B., Shephard, G. C. (1992). Aperiodic tiles. *Discrete Comput.
+  Geom.* 8, 1–25.
+* Baake, M., Grimm, U. (2013). *Aperiodic Order. Vol. 1: A Mathematical Invitation*.
+  Cambridge University Press.
+* Bays, C. (1987). Candidates for the game of life in three dimensions. *Complex Syst.*
+  1, 373–400.
+* Beenker, F. P. M. (1982). Algebraic theory of non-periodic tilings of the plane by two
+  simple building blocks: a square and a rhombus. *TH-Report 82-WSK-04*, Eindhoven
+  University of Technology.
+* Bendsøe, M. P. (1989). Optimal shape design as a material distribution problem.
+  *Struct. Optim.* 1, 193–202.
+* Bourdin, B. (2001). Filters in topology optimization. *Int. J. Numer. Methods Eng.*
+  50, 2143–2158.
+* Bruns, T. E., Tortorelli, D. A. (2001). Topology optimization of non-linear elastic
+  structures and compliant mechanisms. *Comput. Methods Appl. Mech. Eng.* 190,
+  3443–3459.
+* Coulais, C., Teomy, E., de Reus, K., Shokef, Y., van Hecke, M. (2016). Combinatorial
+  design of textured mechanical metamaterials. *Nature* 535, 529–532.
+* de Bruijn, N. G. (1981). Algebraic theory of Penrose's non-periodic tilings of the
+  plane, I and II. *Indag. Math.* 43, 39–52 and 53–66.
+* Deshpande, V. S., Ashby, M. F., Fleck, N. A. (2001). Foam topology: bending versus
+  stretching dominated architectures. *Acta Mater.* 49, 1035–1040.
+* Duneau, M., Mosseri, R., Oguey, C. (1989). Approximants of quasiperiodic structures
+  generated by the inflation mapping. *J. Phys. A* 22, 4549–4564.
+* Eden, M. (1961). A two-dimensional growth process. *Proc. Fourth Berkeley Symp. Math.
+  Stat. Prob.* 4, 223–239.
+* Elser, V., Henley, C. L. (1985). Crystal and quasicrystal structures in Al-Mn-Si
+  alloys. *Phys. Rev. Lett.* 55, 2883–2886.
+* Entin-Wohlman, O., Kléman, M., Pavlovitch, A. (1988). Penrose tiling approximants.
+  *J. Phys. France* 49, 587–598.
+* Eymard, R., Gallouët, T., Herbin, R. (2000). Finite volume methods. In Ciarlet, P. G.,
+  Lions, J.-L. (eds.), *Handbook of Numerical Analysis* VII. North-Holland.
+* Fatès, N. (2014). A guided tour of asynchronous cellular automata. *J. Cell. Autom.*
+  9, 387–416.
+* Gähler, F., Rhyner, J. (1986). Equivalence of the generalised grid and projection
+  methods for the construction of quasiperiodic tilings. *J. Phys. A* 19, 267–277.
+* Goldman, A. I., Kelton, K. F. (1993). Quasicrystals and crystalline approximants.
+  *Rev. Mod. Phys.* 65, 213–230.
+* Guest, S. D., Hutchinson, J. W. (2003). On the determinacy of repetitive structures.
+  *J. Mech. Phys. Solids* 51, 383–391.
+* Hashin, Z., Shtrikman, S. (1963). A variational approach to the theory of the elastic
+  behaviour of multiphase materials. *J. Mech. Phys. Solids* 11, 127–140.
+* Huang, X., Xie, Y. M. (2010). *Evolutionary Topology Optimization of Continuum
+  Structures*. Wiley.
+* Huang, X., Xie, Y. M. (2007). Convergent and mesh-independent solutions for the
+  bi-directional evolutionary structural optimization method. *Finite Elem. Anal. Des.*
+  43, 1039–1049.
+* Huang, X., Radman, A., Xie, Y. M. (2011). Topological design of microstructures of
+  cellular materials for maximum bulk or shear modulus. *Comput. Mater. Sci.* 50,
+  1861–1870.
+* Johnson, W. A., Mehl, R. F. (1939). Reaction kinetics in processes of nucleation and
+  growth. *Trans. AIME* 135, 416–442.
+* Kolmogorov, A. N. (1937). On the statistical theory of the crystallization of metals.
+  *Izv. Akad. Nauk SSSR, Ser. Mat.* 1, 355–359.
+* Henley, C. L. (1986). Sphere packings and local environments in Penrose tilings.
+  *Phys. Rev. B* 34, 797–816.
+* Katz, A., Duneau, M. (1986). Quasiperiodic patterns and icosahedral symmetry.
+  *J. Physique* 47, 181–196.
+* Kramer, P., Neri, R. (1984). On periodic and non-periodic space fillings of E^m
+  obtained by projection. *Acta Cryst. A* 40, 580–587.
+* Maxwell, J. C. (1864). On the calculation of the equilibrium and stiffness of frames.
+  *Phil. Mag.* 27, 294–299.
+* Meakin, P. (1983). Diffusion-controlled cluster formation in 2–6-dimensional space.
+  *Phys. Rev. A* 27, 1495–1507.
+* Pearson, J. E. (1993). Complex patterns in a simple system. *Science* 261, 189–192.
+* Pellegrino, S., Calladine, C. R. (1986). Matrix analysis of statically and
+  kinematically indeterminate frameworks. *Int. J. Solids Struct.* 22, 409–428.
+* Sigmund, O. (1994). Materials with prescribed constitutive parameters: an inverse
+  homogenization problem. *Int. J. Solids Struct.* 31, 2313–2329.
+* Socolar, J. E. S., Steinhardt, P. J. (1986). Quasicrystals. II. Unit-cell
+  configurations. *Phys. Rev. B* 34, 617–647.
+* Svanberg, K. (1987). The method of moving asymptotes — a new method for structural
+  optimization. *Int. J. Numer. Methods Eng.* 24, 359–373.
+* Tovar, A., Patel, N. M., Niebur, G. L., Sen, M., Renaud, J. E. (2006). Topology
+  optimization using a hybrid cellular automaton method with local control rules.
+  *J. Mech. Des.* 128, 1205–1216.
+* Vichniac, G. Y. (1984). Simulating physics with cellular automata. *Physica D* 10,
+  96–116.
+* Wang, F., Lazarov, B. S., Sigmund, O. (2011). On projection methods, convergence and
+  robust formulations in topology optimization. *Struct. Multidiscip. Optim.* 43,
+  767–784.
+* Witten, T. A., Sander, L. M. (1981). Diffusion-limited aggregation, a kinetic critical
+  phenomenon. *Phys. Rev. Lett.* 47, 1400–1403.
+* Young, D. A. (1984). A local activator-inhibitor model of vertebrate skin patterns.
+  *Math. Biosci.* 72, 51–58.
+* Okuta, R., Unno, Y., Nishino, D., Hido, S., Loomis, C. (2017). CuPy: a
+  NumPy-compatible library for NVIDIA GPU calculations. *Workshop on Machine Learning
+  Systems (LearningSys), NIPS 2017*.
+* Cohen, A. (1991). A Padé approximant to the inverse Langevin function. *Rheol. Acta*
+  30, 270–273.
+* Ericson, C. (2005). *Real-Time Collision Detection*. Morgan Kaufmann (sec. 5.1.5:
+  the nearest point of a triangle; sec. 5.1.9:
+  closest points of two segments).
+* Kratky, O., Porod, G. (1949). Röntgenuntersuchung gelöster Fadenmoleküle. *Recl.
+  Trav. Chim. Pays-Bas* 68, 1106–1122.
+* Onsager, L. (1949). The effects of shape on the interaction of colloidal particles.
+  *Ann. N. Y. Acad. Sci.* 51, 627–659.
+* Helfer, T., Michel, B., Proix, J.-M., Salvo, M., Sercombe, J., Casella, M. (2015).
+  Introducing the open-source mfront code generator: application to mechanical behaviours
+  and material knowledge management within the PLEIADES fuel element modelling platform.
+  *Comput. Math. Appl.* 70, 994–1023.
+* Helfer, T., Bleyer, J., Frondelius, T., Yashchuk, I., Nagel, T., Naumov, D. (2020). The
+  MFrontGenericInterfaceSupport project. *J. Open Source Softw.* 5(48), 2003.
+* Doube, M., Kłosowski, M. M., Arganda-Carreras, I., et al. (2010). BoneJ: free and
+  extensible bone image analysis in ImageJ. *Bone* 47, 1076–1079.
+* Harrigan, T. P., Mann, R. W. (1984). Characterization of microstructural anisotropy
+  in orthotropic materials using a second rank tensor. *J. Mater. Sci.* 19, 761–767.
+* Whitehouse, W. J. (1974). The quantitative morphology of anisotropic trabecular bone.
+  *J. Microsc.* 101, 153–168.
+* Saltykov, S. A. (1967). The determination of the size distribution of particles in an
+  opaque material from a measurement of the size distribution of their sections. In
+  Elias, H. (ed.), *Stereology*, Springer, 163–173.
+* Wicksell, S. D. (1925). The corpuscle problem: a mathematical study of a biometric
+  problem. *Biometrika* 17, 84–99.
+* Azulay, R. (2023). *Conception numérique de matériaux architecturés à instabilités*.
+  PhD thesis, Arts et Métiers (supervised by J. Dirrenberger and C. Combescure).
+* Azulay, R., Combescure, C. (2024). Predicting the post-bifurcated patterns of
+  architectured materials using group-theoretic tools. *J. Mech. Phys. Solids* 187,
+  105631.
+* Azulay, R., Combescure, C., Dirrenberger, J. (2023). Instability-induced pattern
+  generation in architectured materials — a review of methods. *Int. J. Solids Struct.*
+  274, 112240.
+* Geymonat, G., Müller, S., Triantafyllidis, N. (1993). Homogenization of nonlinearly
+  elastic materials, microscopic bifurcation and macroscopic loss of rank-one convexity.
+  *Arch. Ration. Mech. Anal.* 122, 231–290.
+* Golubitsky, M., Stewart, I., Schaeffer, D. G. (1988). *Singularities and Groups in
+  Bifurcation Theory*, vol. II. Springer.
+* Vanderbauwhede, A. (1980). Symmetry and bifurcation near families of solutions.
+  *J. Differential Equations* 36, 173–187.
+* Bertoldi, K., Boyce, M. C., Deschanel, S., Prange, S. M., Mullin, T. (2008). Mechanics
+  of deformation-triggered pattern transformations and superelastic behavior in periodic
+  elastomeric structures. *J. Mech. Phys. Solids* 56, 2642–2668.
+* Hill, R. (1958). A general theory of uniqueness and stability in elastic-plastic
+  solids. *J. Mech. Phys. Solids* 6, 236–249.
+* Mullin, T., Deschanel, S., Bertoldi, K., Boyce, M. C. (2007). Pattern transformation
+  triggered by deformation. *Phys. Rev. Lett.* 99, 084301.
+* Sperling, S. O., Guo, T., Peerlings, R. H. J., Kouznetsova, V. G., Geers, M. G. D., Rokoš,
+  O. (2023). A comparative study of enriched computational homogenization schemes applied
+  to two-dimensional pattern-transforming elastomeric mechanical metamaterials.
+  arXiv:2307.10952.
+* Destuynder, P., Djaoua, M. (1981). Sur une interprétation mathématique de l'intégrale
+  de Rice en théorie de la rupture fragile. *Math. Methods Appl. Sci.* 3, 70–87.
+* Erdogan, F., Sih, G. C. (1963). On the crack extension in plates under plane loading
+  and transverse shear. *J. Basic Eng.* 85, 519–525.
+* Begley, J. A., Landes, J. D. (1972). The J integral as a fracture criterion. *Fracture
+  Toughness, ASTM STP* 514, 1–20.
+* Simha, N. K., Fischer, F. D., Shan, G. X., Chen, C. R., Kolednik, O. (2008). J-integral
+  and crack driving force in elastic–plastic materials. *J. Mech. Phys. Solids* 56,
+  2876–2895.
+* Gosz, M., Moran, B. (2002). An interaction energy integral method for computation of
+  mixed-mode stress intensity factors along non-planar crack fronts in three dimensions.
+  *Eng. Fract. Mech.* 69, 299–319.
+* Kassir, M. K., Sih, G. C. (1966). Three-dimensional stress distribution around an
+  elliptical crack under arbitrary loadings. *J. Appl. Mech.* 33, 601–611.
+* Eshelby, J. D. (1975). The elastic energy-momentum tensor. *J. Elasticity* 5, 321–335.
+* Li, F. Z., Shih, C. F., Needleman, A. (1985). A comparison of methods for calculating
+  energy release rates. *Eng. Fract. Mech.* 21, 405–421.
+* Moran, B., Shih, C. F. (1987). Crack tip and associated domain integrals from momentum
+  and energy balance. *Eng. Fract. Mech.* 27, 615–642.
+* Tada, H., Paris, P. C., Irwin, G. R. (2000). *The Stress Analysis of Cracks Handbook*,
+  3rd ed. ASME Press.
+* Yau, J. F., Wang, S. S., Corten, H. T. (1980). A mixed-mode crack analysis of isotropic
+  solids using conservation laws of elasticity. *J. Appl. Mech.* 47, 335–341.
+* Bush, M. B. (1997). The interaction between a crack and a particle cluster. *Int. J.
+  Fract.* 88, 215–232.
+* Erdogan, F., Gupta, G. D., Ratwani, M. (1974). Interaction between a circular inclusion
+  and an arbitrarily oriented crack. *J. Appl. Mech.* 41, 1007–1013.
+* He, M.-Y., Hutchinson, J. W. (1989). Crack deflection at an interface between dissimilar
+  elastic materials. *Int. J. Solids Struct.* 25, 1053–1067.
+* Cotterell, B., Rice, J. R. (1980). Slightly curved or kinked cracks. *Int. J. Fract.* 16,
+  155–169.
+* Bærentzen, J. A., Aanæs, H. (2005). Signed distance computation using the angle weighted
+  pseudonormal. *IEEE Trans. Vis. Comput. Graph.* 11, 243–253.
+* Kirsch, G. (1898). Die Theorie der Elastizität und die Bedürfnisse der
+  Festigkeitslehre. *Z. Ver. Dtsch. Ing.* 42, 797–807.
+* Simha, N. K., Fischer, F. D., Kolednik, O., Chen, C. R. (2003). Inhomogeneity effects on
+  the crack driving force in elastic and elastic–plastic materials. *J. Mech. Phys.
+  Solids* 51, 209–240.
+* Badiche, X., Forest, S., Guibert, T., Bienvenu, Y., Bartout, J.-D., Ienny, P., Croset,
+  M., Bernet, H. (2000). Mechanical properties and non-homogeneous deformation of
+  open-cell nickel foams. *Mater. Sci. Eng. A* 289, 276–288.
+* de Vree, J. H. P., Brekelmans, W. A. M., van Gils, M. A. J. (1995). Comparison of
+  nonlocal approaches in continuum damage mechanics. *Comput. Struct.* 55, 581–588.
+* Dillard, T., Forest, S., Ienny, P. (2006). Micromorphic continuum modelling of the
+  deformation and fracture behaviour of nickel foams. *Eur. J. Mech. A Solids* 25,
+  526–549.
+* Engelen, R. A. B., Geers, M. G. D., Baaijens, F. P. T. (2003). Nonlocal implicit
+  gradient-enhanced elasto-plasticity for the modelling of softening behaviour. *Int. J.
+  Plast.* 19, 403–433.
+* Eringen, A. C., Suhubi, E. S. (1964). Nonlinear theory of simple micro-elastic solids.
+  *Int. J. Eng. Sci.* 2, 189–203 and 389–404.
+* Forest, S. (2009). Micromorphic approach for gradient elasticity, viscoplasticity, and
+  damage. *J. Eng. Mech.* 135, 117–131.
+* Forest, S., Sievert, R. (2003). Elastoviscoplastic constitutive frameworks for
+  generalized continua. *Acta Mech.* 160, 71–111.
+* Geers, M. G. D., de Borst, R., Brekelmans, W. A. M., Peerlings, R. H. J. (1998).
+  Strain-based transient-gradient damage model for failure analyses. *Comput. Methods
+  Appl. Mech. Eng.* 160, 133–153.
+* Johnson, G. R., Cook, W. H. (1985). Fracture characteristics of three metals subjected to
+  various strains, strain rates, temperatures and pressures. *Eng. Fract. Mech.* 21, 31–48.
+* Lemaitre, J. (1985). A continuous damage mechanics model for ductile fracture. *J. Eng.
+  Mater. Technol.* 107, 83–89.
+* Mindlin, R. D. (1964). Micro-structure in linear elasticity. *Arch. Ration. Mech.
+  Anal.* 16, 51–78.
+* Peerlings, R. H. J., de Borst, R., Brekelmans, W. A. M., de Vree, J. H. P. (1996).
+  Gradient enhanced damage for quasi-brittle materials. *Int. J. Numer. Methods Eng.* 39,
+  3391–3403.
+* Rice, J. R., Tracey, D. M. (1969). On the ductile enlargement of voids in triaxial stress
+  fields. *J. Mech. Phys. Solids* 17, 201–217.
+* Simone, A., Askes, H., Sluys, L. J. (2004). Incorrect initiation and propagation of
+  failure in non-local and gradient-enhanced media. *Int. J. Solids Struct.* 41, 351–363.
+* Amos, B., Xu, L., Kolter, J. Z. (2017). Input convex neural networks. *Proc. 34th Int.
+  Conf. Machine Learning*, PMLR 70, 146–155.
+* Cho, K., van Merriënboer, B., Gulcehre, C., Bahdanau, D., Bougares, F., Schwenk, H.,
+  Bengio, Y. (2014). Learning phrase representations using RNN encoder-decoder for
+  statistical machine translation. *Proc. EMNLP 2014*, 1724–1734.
+* Kingma, D. P., Ba, J. (2015). Adam: a method for stochastic optimization. *Proc. 3rd
+  Int. Conf. Learning Representations*; arXiv:1412.6980.
+* Lu, S. C. H., Pister, K. S. (1975). Decomposition of deformation and representation of
+  the free energy function for isotropic thermoelastic solids. *Int. J. Solids Struct.*
+  11, 927–934.
+* Germain, P., Nguyen, Q. S., Suquet, P. (1983). Continuum thermodynamics. *J. Appl.
+  Mech.* 50, 1010–1020.
+* Green, A. E., Naghdi, P. M. (1965). A general theory of an elastic-plastic continuum.
+  *Arch. Ration. Mech. Anal.* 18, 251–281.
+* Halphen, B., Nguyen, Q. S. (1975). Sur les matériaux standard généralisés. *J.
+  Mécanique* 14, 39–63.
+* Miehe, C. (2002). Strain-driven homogenization of inelastic microstructures and
+  composites based on an incremental variational formulation. *Int. J. Numer. Methods
+  Eng.* 55, 1285–1322.
+* Ortiz, M., Stainier, L. (1999). The variational formulation of viscoplastic
+  constitutive updates. *Comput. Methods Appl. Mech. Eng.* 171, 419–444.
+* Taylor, G. I., Quinney, H. (1934). The latent energy remaining in a metal after cold
+  working. *Proc. R. Soc. Lond. A* 143, 307–326.
+* Kurzawski, Ł., Malarz, K. (2012). Simple cubic random-site percolation thresholds for
+  complex neighbourhoods. *Rep. Math. Phys.* 70, 163–169.
+* Lorenz, C. D., Ziff, R. M. (1998). Universality of the excess number of clusters and the
+  crossing probability function in three-dimensional percolation. *J. Phys. A* 31, 8147.
+* Newman, M. E. J., Ziff, R. M. (2001). Fast Monte Carlo algorithm for site or bond
+  percolation. *Phys. Rev. E* 64, 016706.
+* Rintoul, M. D., Torquato, S. (1997). Precise determination of the critical threshold and
+  exponents in a three-dimensional continuum percolation model. *J. Phys. A* 30, L585.
+* Herrmann, H. J., Hong, D. C., Stanley, H. E. (1984). Backbone and elastic backbone of
+  percolation clusters obtained by the new method of 'burning'. *J. Phys. A: Math.
+  Gen.* 17, L261–L266.
+* Stauffer, D., Aharony, A. (1994). *Introduction to Percolation Theory*, 2nd ed. Taylor &
+  Francis.
+* den Nijs, M. P. M. (1979). A relation between the temperature exponents of the
+  eight-vertex and q-state Potts model. *J. Phys. A* 12, 1857–1868.
+* Newman, M. E. J., Ziff, R. M. (2000). Efficient Monte Carlo algorithm and high-precision
+  results for percolation. *Phys. Rev. Lett.* 85, 4104–4107.
+* Nienhuis, B. (1982). Exact critical point and critical exponents of O(n) models in two
+  dimensions. *Phys. Rev. Lett.* 49, 1062–1065.
+* Sykes, M. F., Essam, J. W. (1964). Exact critical percolation probabilities for site and
+  bond problems in two dimensions. *J. Math. Phys.* 5, 1117–1127.
+* Ziff, R. M. (1992). Spanning probability in 2D percolation. *Phys. Rev. Lett.* 69,
+  2670–2673.
+* Derrida, B., Vannimenus, J. (1982). A transfer-matrix approach to random resistor
+  networks. *J. Phys. A* 15, L557–L564.
+* Elam, W. T., Kerstein, A. R., Rehr, J. J. (1984). Critical properties of the void
+  percolation problem for spheres. *Phys. Rev. Lett.* 52, 1516–1519.
+* Efros, A. L., Shklovskii, B. I. (1976). Critical behaviour of conductivity and dielectric
+  constant near the metal-non-metal transition threshold. *Phys. Status Solidi B* 76,
+  475–485.
+* Gingold, D. B., Lobb, C. J. (1990). Percolative conduction in three dimensions. *Phys.
+  Rev. B* 42, 8220–8224.
+* Grassberger, P. (1999). Conductivity exponent and backbone dimension in 2-d percolation.
+  *Physica A* 262, 251–263.
+* Halperin, B. I., Feng, S., Sen, P. N. (1985). Differences between lattice and continuum
+  percolation transport exponents. *Phys. Rev. Lett.* 54, 2391–2394.
+* Kirkpatrick, S. (1973). Percolation and conduction. *Rev. Mod. Phys.* 45, 574–588.
+* Mertens, S., Moore, C. (2012). Continuum percolation thresholds in two dimensions.
+  *Phys. Rev. E* 86, 061109.
+* Sahimi, M. (1994). *Applications of Percolation Theory*. Taylor & Francis.
+* Straley, J. P. (1976). Critical phenomena in resistor networks. *J. Phys. C* 9, 783–795.
+* Arbabi, S., Sahimi, M. (1993). Mechanics of disordered solids. I. Percolation on elastic
+  networks with central forces. *Phys. Rev. B* 47, 695–702.
+* Sahimi, M., Arbabi, S. (1993). Mechanics of disordered solids. II. Percolation on
+  elastic networks with bond-bending forces. *Phys. Rev. B* 47, 703–712.
+* Jacobs, D. J., Thorpe, M. F. (1995). Generic rigidity percolation: the pebble game.
+  *Phys. Rev. Lett.* 75, 4051–4054.
+* Jacobs, D. J., Thorpe, M. F. (1996). Generic rigidity percolation in two dimensions.
+  *Phys. Rev. E* 53, 3682–3693.
+* Kantor, Y., Webman, I. (1984). Elastic properties of random percolating systems. *Phys.
+  Rev. Lett.* 52, 1891–1894.
+* Altendorf, H., Jeulin, D. (2011). Random-walk-based stochastic modeling of
+  three-dimensional fiber systems. *Phys. Rev. E* 83, 041804.
+* Altendorf, H., Jeulin, D., Willot, F. (2014). Influence of the fiber geometry on the
+  macroscopic elastic and thermal properties. *Int. J. Solids Struct.* 51, 3807–3822.
+* Ban, E., Barocas, V. H., Shephard, M. S., Picu, R. C. (2016). Softening in random
+  networks of non-identical beams. *J. Mech. Phys. Solids* 87, 38–50.
+* Miles, R. E. (1970). On the homogeneous planar Poisson point process. *Math. Biosci.* 6,
+  85–127.
+* Peyrega, C., Jeulin, D., Delisée, C., Malvestio, J. (2009). 3D morphological modelling
+  of a random fibrous network. *Image Anal. Stereol.* 28, 129–141.
+* Peyrega, C., Jeulin, D., Delisée, C., Malvestio, J. (2011). 3D morphological
+  characterization of phonic insulation fibrous media. *Adv. Eng. Mater.* 13, 156–164.
+* Peyrega, C., Jeulin, D. (2013). Estimation of acoustic properties and of the
+  representative volume element of random fibrous media. *J. Appl. Phys.* 113, 104901.
+* Bosco, E., Peerlings, R. H. J., Geers, M. G. D. (2017). Asymptotic homogenization of
+  hygro-thermo-mechanical properties of fibrous networks. *Int. J. Solids Struct.*
+  115–116, 180–189.
+* Cox, H. L. (1952). The elasticity and strength of paper and other fibrous materials.
+  *Br. J. Appl. Phys.* 3, 72–79.
+* Hatami-Marbini, H., Picu, R. C. (2008). Scaling of nonaffine deformation in random
+  semiflexible fiber networks. *Phys. Rev. E* 77, 062103.
+* Head, D. A., Levine, A. J., MacKintosh, F. C. (2003). Deformation of cross-linked
+  semiflexible polymer networks. *Phys. Rev. Lett.* 91, 108102.
+* Masters, I. G., Evans, K. E. (1996). Models for the elastic deformation of honeycombs.
+  *Compos. Struct.* 35, 403–422.
+* Picu, R. C. (2011). Mechanics of random fiber networks — a review. *Soft Matter* 7,
+  6768–6785.
+* Shahsavari, A. S., Picu, R. C. (2015). Exceptional stiffening in composite fiber
+  networks. *Phys. Rev. E* 92, 012401.
+* Warren, W. E., Kraynik, A. M. (1997). Linear elastic behavior of a low-density Kelvin
+  foam with open cells. *J. Appl. Mech.* 64, 787–794.
+* Cowper, G. R. (1966). The shear coefficient in Timoshenko's beam theory. *J. Appl.
+  Mech.* 33, 335–340.
+* Friedman, Z., Kosmatka, J. B. (1993). An improved two-node Timoshenko beam finite
+  element. *Comput. Struct.* 47, 473–481.
+* Przemieniecki, J. S. (1968). *Theory of Matrix Structural Analysis*. McGraw-Hill.
+* Timoshenko, S. P., Gere, J. M. (1961). *Theory of Elastic Stability*, 2nd ed.
+  McGraw-Hill.
+* Dassault Systèmes (2016). *Abaqus Analysis User's Guide*, §29.3.3, Choosing a beam
+  element (transverse shear stiffness in beams).
+* Huet, C. (1990). Application of variational concepts to size effects in elastic
+  heterogeneous bodies. *J. Mech. Phys. Solids* 38, 813–841.
+
+* Ambati, M., Gerasimov, T., De Lorenzis, L. (2015). A review on phase-field models of
+  brittle fracture and a new fast hybrid formulation. *Comput. Mech.* 55, 383–405.
+* Amor, H., Marigo, J.-J., Maurini, C. (2009). Regularized formulation of the variational
+  brittle fracture with unilateral contact: numerical experiments. *J. Mech. Phys. Solids*
+  57, 1209–1229.
+* Arruda, E. M., Boyce, M. C. (1993). A three-dimensional constitutive model for the
+  large stretch behavior of rubber elastic materials. *J. Mech. Phys. Solids* 41,
+  389–412.
+* Bažant, Z. P., Oh, B. H. (1983). Crack band theory for fracture of concrete. *Mater.
+  Struct.* 16, 155–177.
+* Biot, M. A. (1941). General theory of three-dimensional consolidation. *J. Appl. Phys.*
+  12, 155–164.
+* Blatz, P. J., Ko, W. L. (1962). Application of finite elastic theory to the
+  deformation of rubbery materials. *Trans. Soc. Rheol.* 6, 223–251.
+* Bourdin, B., Francfort, G. A., Marigo, J.-J. (2000). Numerical experiments in revisited
+  brittle fracture. *J. Mech. Phys. Solids* 48, 797–826.
+* Cohen, A. (1991). A Padé approximant to the inverse Langevin function. *Rheol. Acta*
+  30, 270–273.
+* Coussy, O. (2004). *Poromechanics*. Wiley.
+* de Vree, J. H. P., Brekelmans, W. A. M., van Gils, M. A. J. (1995). Comparison of
+  nonlocal approaches in continuum damage mechanics. *Comput. Struct.* 55, 581–588.
+* Demiray, H. (1972). A note on the elasticity of soft biological tissues. *J. Biomech.*
+  5, 309–311.
+* Dormieux, L., Kondo, D., Ulm, F.-J. (2006). *Microporomechanics*. Wiley.
+* Dykhne, A. M. (1971). Conductivity of a two-dimensional two-phase system. *Sov. Phys.
+  JETP* 32, 63–65.
+* Francfort, G. A., Marigo, J.-J. (1998). Revisiting brittle fracture as an energy
+  minimization problem. *J. Mech. Phys. Solids* 46, 1319–1342.
+* Gasser, T. C., Ogden, R. W., Holzapfel, G. A. (2006). Hyperelastic modelling of
+  arterial layers with distributed collagen fibre orientations. *J. R. Soc. Interface*
+  3, 15–35.
+* Gassmann, F. (1951). Über die Elastizität poröser Medien. *Vierteljahrsschr. Naturforsch.
+  Ges. Zürich* 96, 1–23.
+* Gent, A. N. (1996). A new constitutive relation for rubber. *Rubber Chem. Technol.*
+  69, 59–61.
+* Holzapfel, G. A. (2000). *Nonlinear Solid Mechanics*. Wiley.
+* Holzapfel, G. A., Gasser, T. C., Ogden, R. W. (2000). A new constitutive framework
+  for arterial wall mechanics and a comparative study of material models. *J.
+  Elasticity* 61, 1–48.
+* Joannopoulos, J. D., Johnson, S. G., Winn, J. N., Meade, R. D. (2008). *Photonic
+  Crystals: Molding the Flow of Light*, 2nd ed. Princeton University Press.
+* Kilian, H.-G. (1981). Equation of state of real networks. *Polymer* 22, 209–217.
+* Levin, V. M. (1967). Thermal expansion coefficients of heterogeneous materials. *Mekh.
+  Tverd. Tela* 2, 88–94.
+* Li, J. Y., Dunn, M. L. (1998). Micromechanics of magnetoelectroelastic composite
+  materials: average fields and effective behavior. *J. Intell. Mater. Syst. Struct.* 9,
+  404–416.
+* Hayhurst, D. R. (1972). Creep rupture under multi-axial states of stress. *J. Mech.
+  Phys. Solids* 20, 381–390.
+* Kachanov, L. M. (1958). Time of the rupture process under creep conditions. *Izv. Akad.
+  Nauk SSSR, Otd. Tekh. Nauk* 8, 26–31.
+* Ladevèze, P., Lemaitre, J. (1984). Damage effective stress in quasi unilateral
+  conditions. *16th Int. Congress of Theoretical and Applied Mechanics*, Lyngby.
+* Mazars, J. (1984). *Application de la mécanique de l'endommagement au comportement non
+  linéaire et à la rupture du béton de structure*. Thèse d'État, Université Paris 6.
+* Rabotnov, Y. N. (1969). *Creep Problems in Structural Members*. North-Holland.
+* Mazars, J. (1986). A description of micro- and macroscale damage of concrete structures.
+  *Eng. Fract. Mech.* 25, 729–737.
+* Miehe, C., Hofacker, M., Welschinger, F. (2010). A phase field model for rate-independent
+  crack propagation: robust algorithmic implementation based on operator splits. *Comput.
+  Methods Appl. Mech. Eng.* 199, 2765–2778.
+* Miehe, C., Schänzel, L.-M. (2014). Phase field modeling of fracture in rubbery polymers.
+  Part I: Finite elasticity coupled with brittle failure. *J. Mech. Phys. Solids* 65,
+  93–113.
+* Milton, G. W. (2002). *The Theory of Composites*. Cambridge University Press.
+* Moës, N., Cloirec, M., Cartraud, P., Remacle, J.-F. (2003). A computational approach to
+  handle complex microstructure geometries. *Comput. Methods Appl. Mech. Eng.* 192,
+  3163–3177.
+* Mooney, M. (1940). A theory of large elastic deformation. *J. Appl. Phys.* 11,
+  582–592.
+* Ogden, R. W. (1972). Large deformation isotropic elasticity — on the correlation of
+  theory and experiment for incompressible rubberlike solids. *Proc. R. Soc. Lond. A*
+  326, 565–584.
+* Ogden, R. W., Roxburgh, D. G. (1999). A pseudo-elastic model for the Mullins effect
+  in filled rubber. *Proc. R. Soc. Lond. A* 455, 2861–2877.
+* Rivlin, R. S. (1948). Large elastic deformations of isotropic materials. IV. Further
+  developments of the general theory. *Phil. Trans. R. Soc. A* 241, 379–397.
+* Rivlin, R. S., Thomas, A. G. (1953). Rupture of rubber. I. Characteristic energy for
+  tearing. *J. Polym. Sci.* 10, 291–318.
+* Simo, J. C. (1987). On a fully three-dimensional finite-strain viscoelastic damage
+  model: formulation and computational aspects. *Comput. Methods Appl. Mech. Eng.* 60,
+  153–173.
+* Storåkers, B. (1986). On material representation and constitutive branching in
+  finite compressible elasticity. *J. Mech. Phys. Solids* 34, 125–145.
+* Sukumar, N., Chopp, D. L., Moës, N., Belytschko, T. (2001). Modeling holes and
+  inclusions by level sets in the extended finite-element method. *Comput. Methods Appl.
+  Mech. Eng.* 190, 6183–6200.
+* Taylor, R. L., Pister, K. S., Goudreau, G. L. (1970). Thermomechanical analysis of
+  viscoelastic solids. *Int. J. Numer. Methods Eng.* 2, 45–59.
+* van der Vorst, H. A., Melissen, J. B. M. (1990). A Petrov–Galerkin type method for
+  solving Ax = b, where A is symmetric complex. *IEEE Trans. Magn.* 26, 706–708.
+* Williams, M. L., Landel, R. F., Ferry, J. D. (1955). The temperature dependence of
+  relaxation mechanisms in amorphous polymers and other glass-forming liquids. *J. Am.
+  Chem. Soc.* 77, 3701–3707.
+* Wood, A. B. (1930). *A Textbook of Sound*. Bell.
+* Yeoh, O. H. (1993). Some forms of the strain energy function for rubber. *Rubber
+  Chem. Technol.* 66, 754–771.
+
+* Allard, J.-F., Atalla, N. (2009). *Propagation of Sound in Porous Media*, 2nd ed.
+  Wiley.
+* Champoux, Y., Allard, J.-F. (1991). Dynamic tortuosity and bulk modulus in
+  air-saturated porous media. *J. Appl. Phys.* 70, 1975–1979.
+* Drummond, J. E., Tahir, M. I. (1984). Laminar viscous flow through regular arrays of
+  parallel solid cylinders. *Int. J. Multiphase Flow* 10, 515–540.
+* Ginzburg, I. (2005). Equilibrium-type and link-type lattice Boltzmann models for
+  generic advection and anisotropic-dispersion equation. *Adv. Water Resour.* 28,
+  1171–1195.
+* Ginzburg, I., Verhaeghe, F., d'Humières, D. (2008). Two-relaxation-time lattice
+  Boltzmann scheme: about parametrization, velocity, pressure and mixed boundary
+  conditions. *Commun. Comput. Phys.* 3, 427–478.
+* Johnson, D. L., Koplik, J., Dashen, R. (1987). Theory of dynamic permeability and
+  tortuosity in fluid-saturated porous media. *J. Fluid Mech.* 176, 379–402.
+* Johnson, D. L., Koplik, J., Schwartz, L. M. (1986). New pore-size parameter
+  characterizing transport in porous media. *Phys. Rev. Lett.* 57, 2564–2567.
+* Lafarge, D., Lemarinier, P., Allard, J.-F., Tarnow, V. (1997). Dynamic compressibility
+  of air in porous structures at audible frequencies. *J. Acoust. Soc. Am.* 102,
+  1995–2006.
+* Perrot, C., Chevillotte, F., Panneton, R. (2008). Bottom-up approach for
+  microstructure optimization of sound absorbing materials. *J. Acoust. Soc. Am.* 124,
+  940–948.
+* Sangani, A. S., Acrivos, A. (1982). Slow flow past periodic arrays of cylinders with
+  application to heat transfer. *Int. J. Multiphase Flow* 8, 193–206.
+* Stinson, M. R. (1991). The propagation of plane sound waves in narrow and wide
+  circular tubes, and generalization to uniform tubes of arbitrary cross-sectional
+  shape. *J. Acoust. Soc. Am.* 89, 550–558.
+* Talon, L., Bauer, D., Gland, N., Youssef, S., Auradou, H., Ginzburg, I. (2012).
+  Assessment of the two relaxation time lattice-Boltzmann scheme to simulate Stokes
+  flow in porous media. *Water Resour. Res.* 48, W04526.
+* Torquato, S. (2002). *Random Heterogeneous Materials*. Springer.
+* Zick, A. A., Homsy, G. M. (1982). Stokes flow through periodic arrays of spheres. *J.
+  Fluid Mech.* 115, 13–26.
+* Zwikker, C., Kosten, C. W. (1949). *Sound Absorbing Materials*. Elsevier.
+* Davidson, E. R. (1975). The iterative calculation of a few of the lowest eigenvalues
+  and corresponding eigenvectors of large real-symmetric matrices. *J. Comput. Phys.* 17,
+  87–94.
+* Ho, K. M., Chan, C. T., Soukoulis, C. M. (1990). Existence of a photonic gap in periodic
+  dielectric structures. *Phys. Rev. Lett.* 65, 3152–3155.
+* Johnson, S. G., Joannopoulos, J. D. (2001). Block-iterative frequency-domain methods for
+  Maxwell's equations in a planewave basis. *Opt. Express* 8, 173–190.
+* Meade, R. D., Rappe, A. M., Brommer, K. D., Joannopoulos, J. D., Alerhand, O. L. (1993).
+  Accurate theoretical analysis of photonic band-gap materials. *Phys. Rev. B* 48,
+  8434–8437.
+* Yeh, P., Yariv, A., Hong, C.-S. (1977). Electromagnetic propagation in periodic
+  stratified media. I. General theory. *J. Opt. Soc. Am.* 67, 423–438.
+* Lantuéjoul, C. (1980). On the estimation of mean values in individual analysis of
+  particles. *Microsc. Acta* 5, 266–273.
+* Meyer, F. (1994). Topographic distance and watershed lines. *Signal Process.* 38,
+  113–125.
+* Miles, R. E. (1974). On the elimination of edge effects in planar sampling. In
+  *Stochastic Geometry* (Harding & Kendall, eds), Wiley, 228–247.
+* Bank, R. E., Coughran, W. M., Fichtner, W., Grosse, E. H., Rose, D. J., Smith, R. K.
+  (1985). Transient simulation of silicon devices and circuits. *IEEE Trans. Comput.-Aided
+  Des.* 4, 436–451.
+* Hosea, M. E., Shampine, L. F. (1996). Analysis and implementation of TR-BDF2. *Appl.
+  Numer. Math.* 20, 21–37.
+* Irwin, G. R. (1962). Crack-extension force for a part-through crack in a plate. *J.
+  Appl. Mech.* 29, 651–654.
+* Kassir, M. K., Sih, G. C. (1966). Three-dimensional stress distribution around an
+  elliptical crack under arbitrary loadings. *J. Appl. Mech.* 33, 601–611.
+* Ciarlet, P. G., Raviart, P.-A. (1972). Interpolation theory over curved elements, with
+  applications to finite element methods. *Comput. Methods Appl. Mech. Eng.* 1, 217–249.
+* Lenoir, M. (1986). Optimal isoparametric finite elements and error estimates for
+  domains involving curved boundaries. *SIAM J. Numer. Anal.* 23, 562–580.
+* Sangani, A. S., Acrivos, A. (1983). The effective conductivity of a periodic array of
+  spheres. *Proc. R. Soc. Lond. A* 386, 263–275.
+* Barsoum, R. S. (1976). On the use of isoparametric finite elements in linear fracture
+  mechanics. *Int. J. Numer. Methods Eng.* 10, 25–37.
+* Henshell, R. D., Shaw, K. G. (1975). Crack tip finite elements are unnecessary. *Int. J.
+  Numer. Methods Eng.* 9, 495–507.
+* Dunavant, D. A. (1985). High degree efficient symmetrical Gaussian quadrature rules for
+  the triangle. *Int. J. Numer. Methods Eng.* 21, 1129–1148.
+* Nagtegaal, J. C., Parks, D. M., Rice, J. R. (1974). On numerically accurate finite
+  element solutions in the fully plastic range. *Comput. Methods Appl. Mech. Eng.* 4,
+  153–177.
+* Simo, J. C., Taylor, R. L., Pister, K. S. (1985). Variational and projection methods for
+  the volume constraint in finite deformation elasto-plasticity. *Comput. Methods Appl.
+  Mech. Eng.* 51, 177–208.
+* Hughes, T. J. R., Cottrell, J. A., Bazilevs, Y. (2005). Isogeometric analysis: CAD,
+  finite elements, NURBS, exact geometry and mesh refinement. *Comput. Methods Appl. Mech.
+  Eng.* 194, 4135–4195.
+* Piegl, L., Tiller, W. (1997). *The NURBS Book*, 2nd ed. Springer.
+* Wall, W. A., Frenzel, M. A., Cyron, C. (2008). Isogeometric structural shape
+  optimization. *Comput. Methods Appl. Mech. Eng.* 197, 2976–2988.
+* Qian, X. (2010). Full analytical sensitivities in NURBS based isogeometric shape
+  optimization. *Comput. Methods Appl. Mech. Eng.* 199, 2059–2071.
+* Wang, Z.-P., Poh, L. H., Dirrenberger, J., Zhu, Y., Forest, S. (2017). Isogeometric
+  shape optimization of smoothed petal auxetic structures via computational periodic
+  homogenization. *Comput. Methods Appl. Mech. Eng.* 323, 250–271.
+* Eshelby, J. D. (1975). The elastic energy-momentum tensor. *J. Elast.* 5, 321–335.
+* Vigdergauz, S. (1994). Two-dimensional grained composites of extreme rigidity. *J. Appl.
+  Mech.* 61, 390–394.
+* Cherepanov, G. P. (1974). Inverse problems of the plane theory of elasticity. *J. Appl.
+  Math. Mech.* 38, 915–931.
+* Banichuk, N. V. (1983). *Problems and Methods of Optimal Structural Design*. Plenum.
+* Welsh, D. J. A., Powell, M. B. (1967). An upper bound for the chromatic number of a
+  graph and its application to timetabling problems. *Comput. J.* 10, 85–86.
+* Perrins, W. T., McKenzie, D. R., McPhedran, R. C. (1979). Transport properties of
+  regular arrays of cylinders. *Proc. R. Soc. Lond. A* 369, 207–225.
+* Grima, J. N., Evans, K. E. (2000). Auxetic behavior from rotating squares. *J. Mater.
+  Sci. Lett.* 19, 1563–1565.
+* Bertoldi, K., Reis, P. M., Willshaw, S., Mullin, T. (2010). Negative Poisson's ratio
+  behavior induced by an elastic instability. *Adv. Mater.* 22, 361–366.
+* Taylor, M., Francesconi, L., Gerendás, M., Shanian, A., Carson, C., Bertoldi, K.
+  (2014). Low porosity metallic periodic structures with negative Poisson's ratio.
+  *Adv. Mater.* 26, 2365–2370.
+* Kirsch, G. (1898). Die Theorie der Elastizität und die Bedürfnisse der
+  Festigkeitslehre. *Z. Ver. Dtsch. Ing.* 42, 797–807.
+* Dimitriadis, E. K., Horkay, F., Maresca, J., Kachar, B., Chadwick, R. S. (2002).
+  Determination of elastic moduli of thin layers of soft material using the atomic force
+  microscope. *Biophys. J.* 82, 2798–2810.
+* Garcia, P. D., Garcia, R. (2018). Determination of the elastic moduli of a single cell
+  cultured on a rigid support by force microscopy. *Biophys. J.* 114, 2923–2932.
+* Johnson, K. L. (1985). *Contact Mechanics*. Cambridge University Press.
+* Oliver, W. C., Pharr, G. M. (1992). An improved technique for determining hardness and
+  elastic modulus using load and displacement sensing indentation experiments. *J. Mater.
+  Res.* 7, 1564–1583.
+* Laursen, T. A., Simo, J. C. (1993). A continuum-based finite element formulation for the
+  implicit solution of multibody, large deformation frictional contact problems. *Int. J.
+  Numer. Methods Eng.* 36, 3451–3485.
+* Mindlin, R. D. (1949). Compliance of elastic bodies in contact. *J. Appl. Mech.* 16,
+  259–268.
+* Simo, J. C., Laursen, T. A. (1992). An augmented Lagrangian treatment of contact problems
+  involving friction. *Comput. Struct.* 42, 97–116.
+* Sneddon, I. N. (1965). The relation between load and penetration in the axisymmetric
+  Boussinesq problem for a punch of arbitrary profile. *Int. J. Eng. Sci.* 3, 47–57.
+* Wriggers, P. (2006). *Computational Contact Mechanics*, 2nd ed. Springer.
+* Grippo, L., Lampariello, F., Lucidi, S. (1986). A nonmonotone line search technique for
+  Newton's method. *SIAM J. Numer. Anal.* 23, 707–716.
+* Inglis, H. M., Geubelle, P. H., Matouš, K., Tan, H., Huang, Y. (2007). Cohesive modeling
+  of dewetting in particulate composites: micromechanics vs. multiscale finite element
+  analysis. *Mech. Mater.* 39, 580–595.
+* Needleman, A. (1987). A continuum model for void nucleation by inclusion debonding. *J.
+  Appl. Mech.* 54, 525–531.
+* Segurado, J., LLorca, J. (2005). A computational micromechanics study of the effect of
+  interface decohesion on the mechanical behavior of composites. *Acta Mater.* 53,
+  4931–4942.
+* Crossland, B. (1956). Effect of large hydrostatic pressures on the torsional fatigue
+  strength of an alloy steel. *Proc. Int. Conf. on Fatigue of Metals*, Institution of
+  Mechanical Engineers, London, 138–149.
+* Dang Van, K. (1973). Sur la résistance à la fatigue des métaux. *Sciences et Techniques
+  de l'Armement* 47, 647–722.
+* Dang Van, K., Griveau, B., Message, O. (1989). On a new multiaxial fatigue limit
+  criterion: theory and application. In: Brown, M. W., Miller, K. J. (eds.), *Biaxial and
+  Multiaxial Fatigue*, EGF 3, Mechanical Engineering Publications, London, 479–496.
+* Findley, W. N. (1959). A theory for the effect of mean stress on fatigue of metals
+  under combined torsion and axial load or bending. *J. Eng. Ind.* 81, 301–306.
+* Goodier, J. N. (1933). Concentration of stress around spherical and cylindrical
+  inclusions and flaws. *Trans. ASME (J. Appl. Mech.)* 55, 39–44.
+* Matake, T. (1977). An explanation on fatigue limit under combined stress. *Bull. JSME*
+  20, 257–263.
+* Papadopoulos, I. V., Davoli, P., Gorla, C., Filippini, M., Bernasconi, A. (1997). A
+  comparative study of multiaxial high-cycle fatigue criteria for metals. *Int. J.
+  Fatigue* 19, 219–235.
+* Sines, G. (1959). Behavior of metals under complex static and alternating stresses. In:
+  Sines, G., Waisman, J. L. (eds.), *Metal Fatigue*, McGraw-Hill, 145–169.
+* Yıldırım, E. A. (2008). Two algorithms for the minimum enclosing ball problem. *SIAM J.
+  Optim.* 19, 1368–1391.
+* Anderson, D. G. (1965). Iterative procedures for nonlinear integral equations. *J.
+  ACM* 12, 547–560.
+* Aslan, O., Forest, S. (2009). Crack growth modelling in single crystals based on higher
+  order continua. *Comput. Mater. Sci.* 45, 756–761.
+* Aslan, O., Cordero, N. M., Gaubert, A., Forest, S. (2011). Micromorphic approach to
+  single crystal plasticity and damage. *Int. J. Eng. Sci.* 49, 1311–1325.
+* Christian, J. W., Mahajan, S. (1995). Deformation twinning. *Prog. Mater. Sci.* 39,
+  1–157.
+* Tomé, C. N., Lebensohn, R. A., Kocks, U. F. (1991). A model for texture development
+  dominated by deformation twinning: application to zirconium alloys. *Acta Metallurgica
+  et Materialia* 39, 2667–2680.
+* Van Houtte, P. (1978). Simulation of the rolling and shear texture of brass by the
+  Taylor theory adapted for mechanical twinning. *Acta Metallurgica* 26, 591–604.
+* Lou, X. Y., Li, M., Boger, R. K., Agnew, S. R., Wagoner, R. H. (2007). Hardening
+  evolution of AZ31B Mg sheet. *Int. J. Plasticity* 23, 44–86.
+* Hama, T., Tanaka, Y., Uratani, M., Takuda, H. (2016). Deformation behavior upon
+  two-step loading in a magnesium alloy sheet. *Int. J. Plasticity* 82, 283–304.
+* Kalidindi, S. R. (1998). Incorporation of deformation twinning in crystal plasticity
+  models. *J. Mech. Phys. Solids* 46, 267–290.
+* Marchal, N., Forest, S., Rémy, L., Duvinage, S. (2006). Simulation of fatigue crack
+  growth in single crystal superalloys using local approach to fracture. In: Besson, J.,
+  Moinereau, D., Steglich, D. (eds.), *Local Approach to Fracture*, 9th European
+  Mechanics of Materials Conference (Euromech–Mecamat), Presses de l'École des Mines de
+  Paris, 353–358.
+* Musienko, A., Cailletaud, G. (2009). Simulation of inter- and transgranular crack
+  propagation in polycrystalline aggregates due to stress corrosion cracking. *Acta
+  Mater.* 57, 3840–3855.
+* Parisot, R., Forest, S., Pineau, A., Grillon, F., Demonet, X., Mataigne, J.-M. (2004).
+  Deformation and damage mechanisms of zinc coatings on hot-dip galvanized steel sheets:
+  Part I. Deformation modes. *Metall. Mater. Trans. A* 35, 797–811; Parisot, R., Forest,
+  S., Pineau, A., Nguyen, F., Demonet, X., Mataigne, J.-M. (2004). Part II. Damage modes.
+  *Metall. Mater. Trans. A* 35, 813–823.
+* Yoo, M. H. (1981). Slip, twinning, and fracture in hexagonal close-packed metals.
+  *Metall. Trans. A* 12, 409–418.
+* Beremin, F. M. (1983). A local criterion for cleavage fracture of a nuclear pressure
+  vessel steel. *Metall. Trans. A* 14, 2277–2287.
+* Mathieu, J.-P., Inal, K., Berveiller, S., Diard, O. (2010). A micromechanical
+  interpretation of the temperature dependence of Beremin model parameters for French RPV
+  steel. *J. Nucl. Mater.* 406, 97–112.
+* Storvik, E., Both, J. W., Sargado, J. M., Nordbotten, J. M., Radu, F. A. (2021). An
+  accelerated staggered scheme for variational phase-field models of brittle fracture.
+  *Comput. Methods Appl. Mech. Eng.* 381, 113822.
+* Walker, H. F., Ni, P. (2011). Anderson acceleration for fixed-point iterations. *SIAM
+  J. Numer. Anal.* 49, 1715–1735.
+* Bachmann, F., Hielscher, R., Schaeben, H. (2010). Texture analysis with MTEX — free
+  and open source software toolbox. *Solid State Phenomena* 160, 63–68.
+* Bachmann, F., Hielscher, R., Schaeben, H. (2011). Grain detection from 2d and 3d EBSD
+  data — specification of the MTEX algorithm. *Ultramicroscopy* 111, 1720–1733.
+* Britton, T. B., Jiang, J., Guo, Y., Vilalta-Clemente, A., Wallis, D., Hansen, L. N.,
+  Winkelmann, A., Wilkinson, A. J. (2016). Tutorial: crystal orientations and EBSD — or
+  which way is up? *Mater. Charact.* 117, 113–126.
+* Bunge, H.-J. (1982). *Texture Analysis in Materials Science: Mathematical Methods*.
+  Butterworths, London.
+* Handscomb, D. C. (1958). On the random disorientation of two cubes. *Canad. J. Math.*
+  10, 85–88.
+* Mackenzie, J. K. (1958). Second paper on statistics associated with the random
+  disorientation of cubes. *Biometrika* 45, 229–240.
+* Schmid, E., Boas, W. (1935). *Kristallplastizität, mit besonderer Berücksichtigung der
+  Metalle*. Springer, Berlin.
+* Taylor, G. I. (1938). Plastic strain in metals. *J. Inst. Metals* 62, 307–324.
+* Watson, G. S. (1965). Equatorial distributions on a sphere. *Biometrika* 52, 193–201.

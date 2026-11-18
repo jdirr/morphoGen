@@ -1,0 +1,20 @@
+# RVE study by the window method: variance of the volume fraction over non-overlapping
+# sub-volumes of one large two-phase Voronoi mosaic (integral range 1.179 / theta).
+model:
+  type: voronoi
+  intensity: 1.0
+  phase_fractions: [0.5, 0.5]
+domain:
+  periodic: true
+seed: 2003
+voxels:
+  voxel_size: 0.2
+rve:
+  method: windows
+  size: 40.0
+  window_sizes: [4, 5, 8, 10]  # window edges; keep at least ~30 windows per size
+  gamma: 1.0                   # impose gamma = 1 (finite integral range)
+  min_volume: 100              # fit only windows much larger than the integral range
+outputs:
+  directory: out/rve_voronoi_windows
+  name: mosaic

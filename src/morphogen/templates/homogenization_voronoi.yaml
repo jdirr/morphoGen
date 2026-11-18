@@ -1,0 +1,26 @@
+# Apparent elastic moduli and stiffness tensor of a two-phase Voronoi mosaic (Kanit et
+# al. 2003) by the FFT solver on voxel images (periodic conditions). Tessellations can
+# also be meshed grain by grain and solved by finite elements under any boundary
+# condition: add a 'mesh' section and method: fe (see homogenization_polycrystal).
+model:
+  type: voronoi
+  n_cells: 60
+  phase_fractions: [0.3, 0.7]
+domain:
+  size: 10.0
+  periodic: true
+seed: 2003
+realizations: 2
+voxels:
+  shape: 48
+homogenization:
+  method: fft
+  materials:
+    0: {young: 1.0, poisson: 0.3}      # soft phase
+    1: {young: 100.0, poisson: 0.3}    # hard phase
+  boundary_conditions: [periodic]
+  properties: [bulk_modulus, shear_modulus, stiffness]
+outputs:
+  directory: out/homogenization_voronoi
+  name: mosaic
+  image: [vti]

@@ -1,0 +1,23 @@
+@DSL DefaultFiniteStrain;
+@Behaviour SaintVenantKirchhoff;
+@Author morphoGen;
+@Date 23/10/2026;
+@Description {
+  "Saint Venant-Kirchhoff elasticity, written in the deformation gradient, its moduli "
+  "material properties without glossary names: a finite strain law of the user for the "
+  "tests of the exports to AMITEX and Abaqus."
+}
+@MaterialProperty stress E;
+@MaterialProperty real nu;
+@Integrator{
+  const auto lambda = computeLambda(E, nu);
+  const auto mu = computeMu(E, nu);
+  const auto e = computeGreenLagrangeTensor(F1);
+  const auto S = lambda * trace(e) * StrainStensor::Id() + 2 * mu * e;
+  sig = convertSecondPiolaKirchhoffStressToCauchyStress(S, F1);
+}
+@TangentOperator<DS_DEGL>{
+  const auto lambda = computeLambda(E, nu);
+  const auto mu = computeMu(E, nu);
+  Dt = lambda * Stensor4::IxI() + 2 * mu * Stensor4::Id();
+}

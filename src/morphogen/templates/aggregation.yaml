@@ -1,0 +1,23 @@
+# Diffusion-limited aggregation (Witten and Sander 1981): random walkers stick to clusters
+# grown from seeds, which become fractal (dimension about 2.5 in 3D). Eden growth gives
+# compact clusters and ballistic aggregation dense porous ones; geometry: deposit grows
+# films from the face z = 0 of a non-periodic domain. A sticking probability below 1
+# gives denser, reaction-limited aggregates.
+model:
+  type: aggregation
+  process: dla                 # dla, eden or ballistic
+  geometry: cluster
+  n_seeds: 20
+  volume_fraction: 0.08
+domain:
+  size: 64.0
+  periodic: true
+seed: 1981
+voxels:
+  shape: 64
+outputs:
+  directory: out/aggregation
+  name: dla
+  image: [vti]
+  labels: [vti]                # cluster of each particle
+analysis: [volume_fraction, specific_surface, connectivity]

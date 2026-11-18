@@ -1,0 +1,40 @@
+# A filled rubber in finite strains: stiff particles (15 %) in a rubber whose chains lock
+# (the eight chains of Arruda and Boyce) and which softens along its first loading (the
+# effect of Mullins, after Ogden and Roxburgh). Stretched by 50 %, unloaded, then
+# stretched by 60 %, the sides free: the second loading follows a softer curve up to the
+# stretch already reached, then the first one again. The particles are elastic (the
+# energy of Hencky in finite strains). Nominal strains and stresses, with the true ones
+# (LE11, TS11) in rubber_0000_cycle_periodic.csv; about two minutes.
+model:
+  type: hardcore_spheres
+  radius: 1.0
+  volume_fraction: 0.15
+domain:
+  size: 5.0
+  periodic: true
+seed: 3
+voxels:
+  shape: 16
+homogenization:
+  method: fft
+  materials:
+    0:                                   # the rubber (MPa)
+      young: 3.0
+      poisson: 0.45
+      hyperelasticity:
+        model: eight_chain               # also neo_hookean, mooney_rivlin, yeoh, gent, ogden...
+        lock: 3.0                        # the locking stretch of the chains
+        mullins: [1.5, 0.3, 0.1]         # r, m, beta of the softening
+    1: {young: 300.0, poisson: 0.3}      # the particles
+  properties: []
+  paths:
+    cycle:                               # free components: zero stress
+      times: [0, 1, 2, 3]
+      increments: [8, 6, 10]
+      strain: {"11": [0, 0.5, 0.05, 0.6]}  # nominal: the stretch minus one
+  nonlinear:
+    kinematics: finite                   # total Lagrangian, F-bar voxels
+  fields: true
+outputs:
+  directory: out/homogenization_rubber
+  name: rubber

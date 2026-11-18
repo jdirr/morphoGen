@@ -1,0 +1,24 @@
+# Boolean model of curved fibres: worm-like chains of 12 straight segments whose tangents
+# decorrelate as exp(-s / persistence) along the contour (nonwovens, entangled networks).
+# A persistence much longer than the fibres gives straight fibres; a shorter one,
+# tortuous fibres (theory: mean square end-to-end distance of the chain).
+model:
+  type: curved_fibers
+  radius: 0.3
+  length: 12.0                 # contour length
+  persistence: 6.0
+  segments: 12
+  orientation: isotropic       # first direction; or aligned / planar
+  volume_fraction: 0.1
+domain:
+  size: 30.0
+  periodic: true
+seed: 1
+voxels:
+  voxel_size: 0.15
+outputs:
+  directory: out/curved_fibers
+  name: fibres
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

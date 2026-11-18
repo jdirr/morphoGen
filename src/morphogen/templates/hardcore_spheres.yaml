@@ -1,0 +1,22 @@
+# Non-overlapping spheres by random sequential addition (jamming near 0.38).
+model:
+  type: hardcore_spheres
+  radius: {type: uniform, low: 0.8, high: 1.2}
+  volume_fraction: 0.3
+  min_gap: 0.05
+domain:
+  size: 20.0
+  periodic: true
+seed: 3
+voxels:
+  voxel_size: 0.2
+  supersampling: 2             # exported image holds partial volume fractions
+outputs:
+  directory: out/hardcore_spheres
+  name: particles
+  geometry: [csv]
+  image: [vti]
+  mesh:
+    formats: [inp]
+  periodic_pairs: true         # facing nodes on opposite faces, for periodic BCs
+analysis: [volume_fraction, specific_surface]

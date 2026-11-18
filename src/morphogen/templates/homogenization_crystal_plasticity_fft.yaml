@@ -1,0 +1,52 @@
+# Tension of a polycrystal of a nickel alloy to 5 % in finite strains, on voxels: a
+# periodic Voronoi tessellation of 20 grains with random orientations, 24^3 voxels, solved
+# by the nonlinear FFT solver (the periodic element on trilinear voxels with F-bar, Newton
+# iterations whose corrections are solved by conjugate gradients preconditioned in Fourier
+# space). Each grain is a cubic crystal slipping on its 12 octahedral systems (crystal
+# plasticity of Meric and Cailletaud), as in homogenization_crystal_plasticity (meshed
+# grains). The lateral faces are free of tractions: a uniaxial Cauchy stress. Curves
+# (polycrystal_0000_tension_periodic.csv): nominal strains and stresses E, S (components of
+# the macroscopic gradient F - I and of the first Piola-Kirchhoff stress), true
+# (logarithmic) strains LE and true (Cauchy) stresses TS, mean cumulated plastic strain p.
+# Fields (.vti, at 0.1, 0.5, 2 and 5 %): Cauchy stress, logarithmic strain, plastic
+# strain, current orientations of the lattices and displacement at the centres of the
+# voxels, one array per component (stress_11 ...).
+model:
+  type: voronoi
+  n_cells: 20
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+seed: 11
+voxels:
+  shape: 24                           # about 700 voxels per grain
+homogenization:
+  method: fft                         # voxel image, periodic conditions
+  materials:
+    1:
+      cubic: [250000, 160000, 120000]  # MPa
+      crystal_plasticity:
+        families: [octahedral]          # also cube, bcc110, bcc112
+        tau0: 80                        # critical resolved shear stress (MPa)
+        Q: 20                           # r = tau0 + Q sum_r h_sr (1 - exp(-b v_r))
+        b: 10
+        C: 20000                        # x = C alpha, dalpha = dgamma - D alpha |dgamma|
+        D: 300
+        K: 25                           # dgamma/dt = <(|tau - x| - r) / K>^n
+        n: 10
+        # self, coplanar, Hirth, collinear, glissile and Lomer interactions
+        interaction: [1.0, 1.0, 0.6, 12.3, 1.6, 1.3]
+  boundary_conditions: [periodic]
+  paths:
+    tension:                            # strain rate 1e-3 /s
+      times: [0, 1, 5, 20, 50]
+      increments: [4, 16, 15, 15]       # steps of 0.025 % through the elastic-plastic
+      strain: {"11": [0, 0.001, 0.005, 0.02, 0.05]}  # transition, then 0.1 and 0.2 %
+  nonlinear:
+    kinematics: finite                  # or small
+    integration: bbar                   # F-bar (B-bar in small strains); full: locking
+  fields: true
+outputs:
+  directory: out/homogenization_crystal_plasticity_fft
+  name: polycrystal

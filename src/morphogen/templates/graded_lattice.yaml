@@ -1,0 +1,24 @@
+# A functionally graded octet lattice for additive manufacturing: the strut radius grows
+# linearly from 0.05 to 0.15 cell along x (relative density from about 0.11 to 0.68), the
+# lattice turned by 45 degrees about z. A non-periodic sample (rotated and graded
+# lattices are not periodic), its watertight surface written as STL.
+model:
+  type: strut_lattice
+  cell: octet                  # cubic | bcc | fcc | octet | kelvin
+  cell_size: 1.0
+  radius_gradient: [0.05, 0.15]  # at the lower and upper faces along gradient_axis
+  gradient_axis: 0
+  rotation: [45.0, 0.0, 0.0]   # Bunge angles (degrees) of the lattice
+domain:
+  size: [8.0, 4.0, 4.0]
+  periodic: false
+seed: 1
+voxels:
+  voxel_size: 0.04
+outputs:
+  directory: out/graded_lattice
+  name: lattice
+  geometry: [json]
+  image: [vti]
+  surface: [stl]
+analysis: [volume_fraction, specific_surface, connectivity]

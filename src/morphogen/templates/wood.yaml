@@ -1,0 +1,34 @@
+# Softwood: radial files of tracheids through a growth ring, large thin-walled earlywood
+# cells then small thick-walled latewood ones, prismatic along the grain (z), and rays:
+# ribbons of parenchyma cells that run radially (x) between two files, whose tracheids
+# pass beside them. Along the grain the stiffness is close to the wall fraction times that
+# of the walls. Across it the walls bend: the straight radial walls and the rays make the
+# earlywood about three times stiffer radially than tangentially (y), while the dense
+# latewood band, continuous along y, stiffens the tangential direction; here the two
+# moduli are close (E_R about 2.2 GPa, E_T 2.4 to 2.5 GPa, E_L 3.9 GPa).
+model:
+  type: honeycomb
+  arrangement: wood            # also: hexagonal, square, voronoi
+  cell_size: 0.4               # width of the radial files
+  wall_thickness: 0.05         # earlywood walls
+  ring_width: 4.0
+  latewood_fraction: 0.3
+  latewood_size: 0.4           # radial size of the latewood cells / earlywood
+  latewood_wall: 2.0           # wall thickness of the latewood cells / earlywood
+  ray_fraction: 0.1            # rays, uniseriate (ray_width: 1 cell across)
+  ray_height: 0.72             # three ray cells high (ray_cell_height: 0.6 cell size)
+domain:
+  size: [4.0, 2.4, 1.2]        # one ring, six files; two whole rays
+  periodic: true
+voxels:
+  voxel_size: 0.025
+homogenization:
+  method: fft
+  materials:
+    0: void                              # lumens
+    1: {young: 10.0, poisson: 0.3}       # cell walls (GPa)
+  properties: [stiffness]
+outputs:
+  directory: out/wood
+  name: wood
+analysis: [volume_fraction]

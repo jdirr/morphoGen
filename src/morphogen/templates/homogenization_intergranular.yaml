@@ -1,0 +1,43 @@
+# A polycrystal that breaks along its grain boundaries. The boundaries of the grains of a
+# periodic Voronoi tessellation are cohesive (a strength and a fracture energy); each
+# grain is a cubic crystal with its orientation, elastic. Pulled, the polycrystal is
+# first as stiff as with perfect boundaries; the boundaries most loaded are damaged, the
+# stress passes a peak above the strength of the boundaries (they are not across the
+# load) and falls to zero as a crack crosses the cell from boundary to boundary. The
+# crack is not flat: its area is 1.2 times the section of the cell, and the work that
+# broke the cell is the fracture energy times that area. The curve
+# (grains_0000_tension_periodic.csv) has at each step the debonded area, the mean damage
+# and the largest opening of the boundaries; the fields (.vtu, with fields: true) the
+# damage and the opening of the boundaries of each element. Some ten seconds.
+model:
+  type: voronoi
+  n_cells: 8
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+seed: 2
+mesh:
+  size: 0.2
+  order: 1                     # 4-node tetrahedra, interface elements of three nodes a side
+homogenization:
+  method: fe
+  materials:
+    1: {cubic: [250000.0, 160000.0, 120000.0]}   # a nickel alloy (MPa)
+  properties: []
+  fields: true
+  paths:
+    tension:                   # free components: zero stress
+      times: [0, 1]
+      increments: 50
+      strain: {"11": [0, 0.005]}
+  nonlinear:
+    interfaces:
+      faces: grains            # every boundary between two grains
+      normal_strength: 300.0   # MPa
+      mode_I: 0.5              # the fracture energy (N/mm): tough enough for the boundaries
+                               # to soften without a snap-back (no viscosity needed)
+outputs:
+  directory: out/homogenization_intergranular
+  name: grains
+  conforming_mesh: [vtu]

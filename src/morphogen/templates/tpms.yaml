@@ -1,0 +1,19 @@
+# Sheet gyroid at 20 % relative density (architected material for additive manufacturing).
+model:
+  type: tpms
+  surface: gyroid              # gyroid | schwarz_p | schwarz_d | neovius
+  variant: sheet               # sheet | network
+  cell_size: 5.0
+  volume_fraction: 0.2
+domain:
+  size: 10.0                   # a whole number of cells when periodic
+  periodic: true
+  unit: mm
+voxels:
+  voxel_size: 0.1
+outputs:
+  directory: out/tpms
+  name: gyroid
+  image: [vti]
+  surface: [stl]               # watertight STL, closed on the box faces
+analysis: [volume_fraction, specific_surface]

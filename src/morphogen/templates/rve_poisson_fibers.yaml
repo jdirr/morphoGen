@@ -1,0 +1,22 @@
+# RVE study by the ensemble method (Kanit et al. 2003; Dirrenberger et al. 2014):
+# realizations at several sizes, variance of the volume fraction and specific surface,
+# fit D^2(V) = K V^-gamma (gamma = 2/3 in theory for Poisson fibres), RVE sizes.
+model:
+  type: poisson_fibers
+  radius: 1.0
+  volume_fraction: 0.16
+domain:
+  periodic: false
+seed: 2014
+voxels:
+  voxel_size: 0.5
+rve:
+  method: ensemble
+  sizes: [10, 15, 20, 30, 40]        # cube edges
+  realizations: [64, 48, 32, 16, 8]  # per size (or a single number)
+  properties: [volume_fraction, specific_surface]
+  relative_errors: [0.01, 0.05]
+  n_realizations: [1, 10]
+outputs:
+  directory: out/rve_poisson_fibers
+  name: fibres

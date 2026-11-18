@@ -1,0 +1,1909 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>morphoGen</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f6f2; --panel: #ffffff; --ink: #1d2733; --muted: #66707a; --line: #dcdcd4;
+    --accent: #1f4e79; --accent-soft: #e3ecf5; --warn: #b5432f; --on-accent: #ffffff;
+    /* charts: surface, inks, hairlines, and three categorical slots (validated together) */
+    --surface: #fcfcfb; --c-ink: #0b0b0b; --c-secondary: #52514e; --c-muted: #898781;
+    --c-grid: #e1e0d9; --c-axis: #c3c2b7;
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --other: #898781;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --bg: #0d0d0d; --panel: #1a1a19; --ink: #f0efec; --muted: #c3c2b7; --line: #2c2c2a;
+      --accent: #6da7ec; --accent-soft: #1c2a3d; --warn: #e66767; --on-accent: #0d0d0d;
+      --surface: #1a1a19; --c-ink: #f0efec; --c-secondary: #c3c2b7; --c-muted: #898781;
+      --c-grid: #2c2c2a; --c-axis: #383835;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --other: #898781;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0d0d0d; --panel: #1a1a19; --ink: #f0efec; --muted: #c3c2b7; --line: #2c2c2a;
+    --accent: #6da7ec; --accent-soft: #1c2a3d; --warn: #e66767; --on-accent: #0d0d0d;
+    --surface: #1a1a19; --c-ink: #f0efec; --c-secondary: #c3c2b7; --c-muted: #898781;
+    --c-grid: #2c2c2a; --c-axis: #383835;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --other: #898781;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 24px; padding: 10px 20px;
+           background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
+  header h1 span { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 6px; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav#tabs { padding: 6px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  nav#sections button { font-size: 15px; font-weight: 600; }
+  nav#tabs button { font-size: 13px; padding: 6px 12px; }
+  .sendmore { width: auto; display: inline-block; padding: 5px 8px; }
+  #ws-menu { margin: 0 20px; }
+  nav button { border: 0; background: none; padding: 8px 14px; border-radius: 6px;
+               cursor: pointer; font: inherit; color: var(--muted); }
+  nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  main { padding: 18px 20px; }
+  .tab { display: none; gap: 18px; align-items: flex-start; }
+  .tab.active { display: flex; flex-wrap: wrap; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+           padding: 16px; }
+  .form { width: 430px; max-width: 100%; }
+  .results { flex: 1; min-width: 320px; }
+  label { display: block; margin: 8px 0 2px; font-weight: 600; font-size: 13px; }
+  label small { font-weight: 400; color: var(--muted); }
+  input, select, textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--line);
+                  border-radius: 6px; font: inherit; background: var(--panel); color: var(--ink); }
+  textarea { resize: vertical; font-family: ui-monospace, monospace; font-size: 12px; }
+  input[type=checkbox] { width: auto; margin-right: 6px; }
+  .row { display: flex; gap: 8px; } .row > * { flex: 1; }
+  .doc { color: var(--muted); font-size: 13px; white-space: pre-line; margin: 6px 0 4px; }
+  fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 12px 0 0;
+             padding: 4px 12px 10px; }
+  legend { color: var(--muted); font-size: 12px; padding: 0 4px; }
+  button.go { margin-top: 14px; width: 100%; padding: 9px; border: 0; border-radius: 7px;
+              background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600;
+              cursor: pointer; }
+  button.go:disabled { opacity: .5; cursor: wait; }
+  .images { display: flex; gap: 12px; flex-wrap: wrap; }
+  .images figure { margin: 0; text-align: center; }
+  .images img { image-rendering: pixelated; border: 1px solid var(--line); border-radius: 4px;
+                width: 260px; max-width: 100%; }
+  figcaption { color: var(--muted); font-size: 12px; }
+  table { border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  td, th { padding: 3px 10px 3px 0; text-align: left; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  h3 { font-size: 14px; margin: 14px 0 4px; }
+  .error { color: var(--warn); white-space: pre-wrap; }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  .player img { width: 360px; max-width: 100%; image-rendering: pixelated;
+                border: 1px solid var(--line); border-radius: 4px; }
+  svg.chart { width: 100%; max-width: 420px; height: 120px; background: var(--surface);
+              border: 1px solid var(--line); border-radius: 4px; }
+  button.plain { margin-top: 8px; padding: 6px 10px; border: 1px solid var(--line);
+                 border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit;
+                 cursor: pointer; }
+  button.stopjob { margin: 0 0 0 10px; padding: 2px 12px; }
+  details.each { margin-top: 10px; } details.each summary { cursor: pointer; color: var(--muted); }
+  .viz { position: relative; }
+  .viz svg { display: block; background: var(--surface); border-radius: 6px; }
+  .viz .tip { position: absolute; pointer-events: none; background: var(--panel);
+              color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+              padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+              white-space: nowrap; display: none; }
+  .viz .tip b { font-weight: 600; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 2px 0 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .numbers td { font-variant-numeric: tabular-nums; }
+  .views { display: flex; gap: 12px; flex-wrap: wrap; }
+  .views figure { margin: 0; text-align: center; }
+  .views img, .views video { border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .views img { width: auto; height: auto; max-width: min(100%, 640px); }
+  .views video { width: 480px; max-width: 100%; }
+  .files { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; }
+  .files b { color: var(--muted); font-weight: 600; margin-right: 4px; }
+  .steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12px; }
+  .steps span { padding: 2px 8px; border-radius: 10px; background: var(--accent-soft);
+                color: var(--accent); }
+  .mat label { margin-top: 4px; }
+  .workspace { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 20px;
+               background: var(--panel); border-bottom: 1px solid var(--line); font-size: 12px; }
+  #workspace { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+  #workspace > b { color: var(--muted); font-weight: 600; margin-right: 4px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px;
+          border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+          cursor: pointer; max-width: 320px; }
+  .chip img { width: 22px; height: 22px; border-radius: 50%; image-rendering: auto; }
+  .chip .kind { font-weight: 700; color: var(--accent); }
+  .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .chip.more { border-style: dashed; cursor: pointer; }
+  .source { display: flex; gap: 10px; align-items: center; margin: 8px 0 2px; padding: 8px;
+            border: 1px dashed var(--line); border-radius: 8px; font-size: 12px; }
+  .source img { width: 64px; height: 64px; border-radius: 4px; border: 1px solid var(--line); }
+  .sendto { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .sendto button { padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px;
+                   background: var(--accent-soft); color: var(--accent); font: inherit;
+                   font-weight: 600; cursor: pointer; }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .checks label { font-weight: 400; margin: 4px 0; }
+  .images.smooth img { image-rendering: auto; width: 300px; }
+  .note { font-size: 12px; color: var(--muted); margin: 4px 0; }
+  [id^="toolform-"] { display: flex; flex-wrap: wrap; gap: 0 10px; }
+  [id^="toolform-"] .field { flex: 1 1 100%; min-width: 0; }
+  [id^="toolform-"] .field.half { flex: 1 1 calc(50% - 10px); }
+  .fgroup { flex: 1 1 100%; min-width: 0; box-sizing: border-box; border: 1px solid var(--line);
+            border-radius: 8px; padding: 0 10px 4px; margin: 8px 0 0; }
+  .fgrid .field select, .fgrid .field input:not([type="checkbox"]) { max-width: 100%; }
+  .fgroup > summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 6px 0;
+                      color: var(--accent); }
+  .fgroup:not([open]) { padding-bottom: 0; }
+  .fgrid { display: flex; flex-wrap: wrap; gap: 0 10px; }
+  .fdoc { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  [hidden] { display: none !important; }
+  #help { margin: 0 20px; }
+  #help dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 6px 0; }
+  #help dt { font-weight: 600; } #help dd { margin: 0; color: var(--muted); }
+  button.help { border: 1px solid var(--line); border-radius: 50%; width: 26px; height: 26px;
+                background: var(--panel); color: var(--accent); font-weight: 700; cursor: pointer;
+                padding: 0; display: inline-flex; align-items: center; justify-content: center;
+                flex: none; }
+  .progress { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden;
+              margin: 6px 0; max-width: 420px; }
+  .progress > div { height: 100%; background: var(--accent); transition: width .3s; }
+  .tablewrap { overflow-x: auto; max-width: 100%; }
+  .tablewrap table { font-variant-numeric: tabular-nums; }
+  pre.report { white-space: pre-wrap; font-size: 12px; background: var(--surface);
+               border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+  /* the menu of a tab: its tools under their headings, or the models by family */
+  .sidemenu { width: 224px; max-width: 100%; padding: 10px; position: sticky; top: 12px;
+              max-height: calc(100vh - 24px); overflow-y: auto; }
+  .sidemenu h4 { margin: 12px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: .5px;
+                 text-transform: uppercase; color: var(--muted); }
+  .sidemenu h4:first-child, .sidemenu input + h4 { margin-top: 4px; }
+  .sidemenu button { display: block; width: 100%; text-align: left; border: 0; background: none;
+                     padding: 6px 8px; border-radius: 6px; cursor: pointer; font: inherit;
+                     font-size: 13px; line-height: 1.3; color: var(--ink); }
+  .sidemenu button:hover { background: var(--bg); }
+  .sidemenu button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .sidemenu button:disabled { opacity: .5; cursor: wait; }
+  .sidemenu input { margin-bottom: 6px; }
+  .sidemenu .none { margin: 6px 8px; }
+  h2.title { font-size: 16px; margin: 0 0 2px; }
+  h2.title small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+  /* the button that runs a form stays in sight under the long ones */
+  .runbar { position: sticky; bottom: 0; z-index: 2; margin-top: 12px; padding: 10px 0 4px;
+            background: var(--panel); border-top: 1px solid var(--line); }
+  .runbar .go { margin-top: 0; }
+  /* the search of the header: tools, models, the options of their forms */
+  #search-box { position: relative; margin-left: auto; width: 320px; max-width: 100%; }
+  #search-results { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+                    width: 480px; max-width: calc(100vw - 40px); max-height: 70vh;
+                    overflow-y: auto; padding: 6px; box-shadow: 0 8px 28px rgba(0,0,0,.18); }
+  .hit { display: block; width: 100%; text-align: left; border: 0; background: none;
+         padding: 7px 9px; border-radius: 6px; cursor: pointer; font: inherit; color: var(--ink); }
+  .hit.active, .hit:hover { background: var(--accent-soft); }
+  .hit .where { float: right; margin-left: 10px; font-size: 11px; color: var(--muted); }
+  .hit small { display: block; font-size: 12px; color: var(--muted); overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  .found { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  #help h3 a { color: inherit; text-decoration: none; }
+  #help dd a { margin-right: 4px; white-space: nowrap; }
+  kbd { font: 11px ui-monospace, monospace; padding: 1px 5px; border: 1px solid var(--line);
+        border-radius: 4px; background: var(--surface); color: var(--muted); }
+  @media (max-width: 900px) {  /* narrow windows: the menu of a tab above its form, in lines */
+    .sidemenu { position: static; width: 100%; max-height: 250px; }
+    .sidemenu button { display: inline-block; width: auto; }
+    .sidemenu h4 { margin-top: 8px; }
+    .form { width: 100%; }
+    #search-box { order: 5; width: 100%; margin-left: 0; }
+    #theme-toggle { margin-left: auto; }
+  }
+  /* the stand-alone application (morphogen desktop): the buttons of the system's dialogs */
+  .browse { display: none; }
+  body.desktop .browse { display: inline-block; }
+  .pathrow { display: flex; gap: 6px; align-items: center; }
+  .pathrow input { flex: 1; }
+  body.desktop .pathrow button.browse { margin-top: 0; white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1>morphoGen <span id="version"></span></h1>
+  <nav id="sections" aria-label="sections of the work"></nav>
+  <div id="search-box">
+    <input id="search" type="search" autocomplete="off" placeholder="Find a tool, a model, an option…  ( / )"
+           aria-label="find a tool, a model or an option of their forms">
+    <div class="panel" id="search-results" hidden></div>
+  </div>
+  <button class="help" id="theme-toggle" title="colours: those of the system" aria-label="colours of the page"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1.5a6.5 6.5 0 0 0 0 13z" fill="currentColor"/></svg></button>
+  <button class="help" id="help-toggle" title="map of the interface: what each tab and each tool does">?</button>
+</header>
+<nav id="tabs" aria-label="tabs of the section"></nav>
+<div class="panel" id="help" hidden></div>
+<div class="workspace"><span id="workspace"><b>Workspace</b><span class="muted">empty: generate a morphology</span></span>
+  <span style="margin-left:auto"><button class="plain" id="ws-save" title="write the workspace to a folder">Save…</button>
+  <button class="plain" id="ws-open" title="add the items of a saved workspace">Open…</button></span></div>
+<div class="panel" id="ws-menu" hidden></div>
+<main>
+  <section class="tab active" id="tab-generate">
+    <nav class="panel sidemenu" id="gen-menu" aria-label="models by family">
+      <input id="gen-filter" type="search" autocomplete="off" placeholder="Filter the models…" aria-label="filter the models">
+      <div id="gen-list"></div>
+    </nav>
+    <div class="panel form">
+      <select id="gen-model" hidden></select>
+      <h2 class="title" id="gen-title"></h2>
+      <p class="doc" id="gen-doc"></p>
+      <div id="gen-params"></div>
+      <fieldset><legend>Domain</legend>
+        <div class="row">
+          <div><label>Size <small>(edge, or x, y, z)</small></label><input id="gen-size" value="10"></div>
+          <div><label>Seed <small>(blank: random)</small></label><input id="gen-seed" type="number" value="1"></div>
+        </div>
+        <label><input id="gen-periodic" type="checkbox" checked>periodic</label>
+      </fieldset>
+      <fieldset><legend>Views</legend>
+        <div class="row">
+          <div><label>Resolution <small>(pixels per edge, up to 2048)</small></label>
+            <input id="gen-resolution" type="number" value="512" min="8" max="2048"></div>
+        </div>
+        <p class="note">Sections of the level set, computed at this resolution without a voxel image of the volume.</p>
+      </fieldset>
+      <div class="runbar"><button class="go" id="gen-go">Generate</button></div>
+      <div id="gen-formation" hidden>
+        <fieldset><legend>Formation</legend>
+          <p class="note">This model grows by a process (automaton, reaction–diffusion, nucleation and growth, aggregation): watch its middle section from the initial state to the realization, with the same parameters, domain and seed.</p>
+          <div class="row"><div><label>Frames</label><input id="evo-frames" type="number" value="24"></div></div>
+          <button class="plain" id="evo-go">Animate the formation</button>
+        </fieldset>
+      </div>
+    </div>
+    <div class="panel results" id="gen-out"><p class="muted">Choose a model and generate a realization. It is kept in the workspace, from which it can be sent to the simulation, the export or the optimization.</p></div>
+  </section>
+
+  <section class="tab" id="tab-simulate">
+    <div class="panel form">
+      <label>Morphology <small>(from the workspace)</small> <select id="sim-source"></select></label>
+      <div id="sim-card"></div>
+      <fieldset><legend>Discretization and solver</legend>
+        <div class="row">
+          <div><label>Method</label><select id="sim-method">
+            <option value="fe">finite elements: conforming mesh of the level set</option>
+            <option value="fft">FFT: voxels</option></select></div>
+        </div>
+        <div class="row">
+          <div><label>Apparent property</label><select id="sim-property">
+            <option value="shear_modulus">shear modulus (unit shear)</option>
+            <option value="bulk_modulus">bulk modulus (unit dilatation)</option></select></div>
+        </div>
+        <div class="row">
+          <div><label>Elements <small>(finite elements)</small></label><select id="sim-order">
+            <option value="2">10-node tetrahedra, curved along the interfaces</option>
+            <option value="1">4-node tetrahedra (fast; stiff)</option></select></div>
+        </div>
+        <div class="row">
+          <div><label>Element size <small>(blank: edge / 12)</small></label><input id="sim-element" placeholder="auto"></div>
+          <div><label>Voxels per edge <small>(FFT, up to 256)</small></label><input id="sim-shape" type="number" value="48"></div>
+        </div>
+        <label id="sim-gpu-row" hidden><input type="checkbox" id="sim-gpu">FFT on the GPU (CuPy, NVIDIA)</label>
+      </fieldset>
+      <fieldset><legend>Materials (isotropic elasticity)</legend><div id="sim-materials"><p class="muted">Choose a morphology.</p></div></fieldset>
+      <fieldset><legend>First view</legend>
+        <div class="row">
+          <div><label>Field</label><select id="sim-field"></select></div>
+          <div><label>Colormap</label><select id="sim-cmap"></select></div>
+        </div>
+        <p class="note">Other views, videos and files: send the result to Export. The whole stiffness tensor, the thermal expansion and the conductivity: <a href="#mechanics/tensors">Mechanics › Linear tensors</a>; the other physics: <a href="#physics/transport">Physics</a>.</p>
+      </fieldset>
+      <div class="runbar"><button class="go" id="sim-go">Simulate</button></div>
+    </div>
+    <div class="panel results" id="sim-out"><p class="muted">Generate a morphology, then simulate it here: its apparent property by finite elements on a conforming mesh of its level set (MMG), or by FFT on its voxels, with its fields. The result is kept in the workspace.</p></div>
+  </section>
+
+  <section class="tab" id="tab-export">
+    <div class="panel form">
+      <label>Item <small>(from the workspace)</small> <select id="exp-source"></select></label>
+      <div id="exp-card"></div>
+      <div id="exp-morphology" hidden>
+        <fieldset><legend>Files</legend>
+          <div class="checks">
+            <label><input type="checkbox" data-out="geometry" checked>geometry (.json)</label>
+            <label><input type="checkbox" data-out="sections" checked>sections (.png)</label>
+            <label title="its implicit function on the voxels: negative inside phase 1; for several phases, the function of each phase"><input type="checkbox" data-out="level_set">level set (.vti)</label>
+            <label><input type="checkbox" data-out="image">voxel image (.vti)</label>
+            <label title="the zero level of its implicit function, closed on the faces of the box; for several phases, the surface of each phase but the last"><input type="checkbox" data-out="surface">surface (.stl)</label>
+            <label title="tetrahedra conforming to its interfaces (MMG), every phase with its number"><input type="checkbox" data-out="mesh">conforming mesh (.vtu)</label>
+          </div>
+          <p class="note">Every model is described by implicit functions: the files follow its interfaces, not a voxel image. A morphology of several phases (coatings, inclusions, dead leaves, osteons, cells with phases) gives the function and the surface of each phase (<code>level_set_phase1.vti</code>, <code>surface_phase1.stl</code>…) and a mesh conforming to all their interfaces. Other formats (Gmsh, Abaqus, Neper, TIFF…): <a href="#interop/mesh_formats">Solvers &amp; formats</a>.</p>
+          <div class="row">
+            <div><label>Sections <small>(pixels per edge, ≤ 2048)</small></label><input id="exp-resolution" type="number" value="1024"></div>
+            <div><label>Voxels per edge <small>(images, surface; ≤ 2048)</small></label><input id="exp-shape" type="number" value="128"></div>
+          </div>
+          <div class="row"><div><label>Element size <small>(mesh; blank: edge / 12)</small></label><input id="exp-element" placeholder="auto"></div></div>
+        </fieldset>
+        <fieldset><legend>Video</legend>
+          <div class="row">
+            <div><label>Kind</label><select id="exp-mvideo">
+              <option value="none">none</option>
+              <option value="sweep">sections of the level set sweeping it</option>
+              <option value="orthoslices">orthoslices (voxels)</option>
+              <option value="turntable">turntable (voxels)</option>
+              <option value="formation">formation (models grown by a process)</option></select></div>
+          </div>
+        </fieldset>
+      </div>
+      <div id="exp-simulation" hidden>
+        <fieldset><legend>Files</legend>
+          <div class="checks">
+            <label><input type="checkbox" data-sout="figure" checked>view of the fields</label>
+            <label><input type="checkbox" data-sout="tables" checked>tables (.csv, .txt, .xlsx)</label>
+            <label><input type="checkbox" data-sout="fields">fields (.vtu, .vti)</label>
+            <label><input type="checkbox" data-sout="mesh">mesh (.vtu)</label>
+            <label><input type="checkbox" data-sout="configuration" checked>configuration (.yaml)</label>
+          </div>
+        </fieldset>
+        <fieldset><legend>View of the fields</legend>
+          <div class="row">
+            <div><label>Field</label><select id="exp-field"></select></div>
+            <div><label>Colormap</label><select id="exp-cmap"></select></div>
+          </div>
+          <div class="row">
+            <div><label>Magnification <small>(blank: auto)</small></label><input id="exp-mag" placeholder="auto"></div>
+            <div><label>Cut <small>(plane normal to)</small></label><select id="exp-cut">
+              <option value="none">no cut</option><option>x</option><option>y</option><option>z</option></select></div>
+          </div>
+          <div class="row">
+            <div><label>at <small id="exp-frac-label">50 %</small></label>
+              <input id="exp-frac" type="range" min="0" max="1" step="0.05" value="0.5"></div>
+          </div>
+          <div class="row">
+            <div><label>Colour range <small>(blank: full)</small></label><input id="exp-lo" placeholder="min"></div>
+            <div><label>&nbsp;</label><input id="exp-hi" placeholder="max"></div>
+          </div>
+        </fieldset>
+        <fieldset><legend>Video</legend>
+          <div class="row">
+            <div><label>Kind</label><select id="exp-svideo">
+              <option value="field">field on the deformed mesh</option>
+              <option value="turntable">turntable</option>
+              <option value="sweep">cross-section sweeping</option>
+              <option value="orthoslices">orthoslices (FFT)</option>
+              <option value="none">none</option></select></div>
+            <div><label>Load</label><select id="exp-wave">
+              <option value="ramp">growing</option><option value="sine">oscillating</option></select></div>
+          </div>
+        </fieldset>
+      </div>
+      <fieldset id="exp-playback"><legend>Playback of the videos</legend>
+        <div class="row">
+          <div><label>Mode</label><select id="exp-mode">
+            <option value="bounce">back and forth</option><option value="loop">loop</option>
+            <option value="once">once</option></select></div>
+          <div><label>Frames</label><input id="exp-frames" type="number" value="36"></div>
+          <div><label>Frames/s</label><input id="exp-fps" type="number" value="18"></div>
+          <div><label>Axis</label><select id="exp-axis"><option>x</option><option>y</option>
+            <option selected>z</option></select></div>
+        </div>
+      </fieldset>
+      <div class="runbar"><button class="go" id="exp-go">Export</button></div>
+    </div>
+    <div class="panel results" id="exp-out"><p class="muted">Files of a morphology or a simulation of the workspace, with an archive of them all: figures, videos (the colours of a field following its load), tables, data and the configuration to rerun a simulation with <code>morphogen run</code>.</p></div>
+  </section>
+
+  <section class="tab" id="tab-optimize">
+    <div class="panel form">
+      <label>Start from <select id="opt-start"></select></label>
+      <div id="opt-card"></div>
+      <div class="row" id="opt-phase-row" hidden>
+        <div><label>Solid phase <small>(density 1)</small></label><select id="opt-phase"></select></div>
+      </div>
+      <div class="row">
+        <div><label>Objective</label><select id="opt-objective">
+          <option value="bulk_modulus">bulk modulus (max)</option>
+          <option value="shear_modulus">shear modulus (max)</option>
+          <option value="poisson_ratio">Poisson's ratio (min: auxetic)</option>
+          <option value="conductivity">conductivity (max)</option></select></div>
+        <div><label>Method</label><select id="opt-method">
+          <option value="mma">MMA</option><option value="oc">optimality criteria</option>
+          <option value="beso">BESO</option><option value="hca">hybrid cellular automaton</option></select></div>
+      </div>
+      <div class="row">
+        <div><label>Volume fraction</label><input id="opt-volume" value="0.4"></div>
+        <div><label>Grid <small>(nx, ny, nz)</small></label><input id="opt-grid" value="48, 48, 1"></div>
+      </div>
+      <div class="row">
+        <div><label>Filter radius <small>(voxels)</small></label><input id="opt-filter" value="2"></div>
+        <div><label>Projection <small>(final sharpness)</small></label><input id="opt-projection" value="32"></div>
+      </div>
+      <div class="row">
+        <div><label>Symmetry</label><select id="opt-symmetry"><option>cubic</option>
+          <option>orthotropic</option><option>none</option></select></div>
+        <div><label>Iterations</label><input id="opt-iterations" type="number" value="300"></div>
+      </div>
+      <p class="doc">Densities on a grid, from a void ball, noise, or a morphology of the workspace (the fraction of its solid phase in each voxel; from a simulation, its morphology and solid material). Planar grids (nz = 1) take the middle section of a 3D morphology; the symmetry chosen averages the start. A projection of 32 makes stiff designs black and white; auxetic designs need a softer one (8) and a filter radius of 2 to 3 voxels.</p>
+      <div class="runbar"><button class="go" id="opt-go">Optimize</button></div>
+    </div>
+    <div class="panel results" id="opt-out"><p class="muted">Inverse homogenization with the FFT solver: the cell evolves live. The design is kept in the workspace as a morphology (its level set: the densities about 1/2), to simulate on a conforming mesh or to export.</p></div>
+  </section>
+
+  <section class="tab" id="tab-tiles">
+    <div class="panel form">
+      <p class="doc">Combinatorial metamaterials: a box of tiles whose faces must match those of their neighbours (polarized blocks, after Coulais, Teomy, de Reus, Shokef &amp; van Hecke, Nature 2016; or pipes, networks without dead ends). The exact number of compatible assemblies is counted, and one assembly is drawn by wave function collapse. To simulate such structures, generate them with the model <code>tile_assembly</code>.</p>
+      <label>Tile set <select id="des-tiles">
+        <option value="polarized">polarized blocks (combinatorial metamaterials)</option>
+        <option value="pipes">pipes (networks without dead ends)</option></select></label>
+      <label>Box <small>(tiles along x, y, z)</small><input id="des-shape" value="3, 3, 3"></label>
+      <label><input id="des-periodic" type="checkbox">periodic</label>
+      <button class="go" id="des-go">Count and assemble</button>
+    </div>
+    <div class="panel results" id="des-out"><p class="muted">Exact number of compatible assemblies, and one drawn by wave function collapse.</p></div>
+  </section>
+
+  <section class="tab" id="tab-ashby">
+    <div class="panel form">
+      <label for="db-path">Database <small>(results of runs: morphogen run --db, morphogen db add)</small></label>
+        <div class="pathrow"><input id="db-path" value="morphogen.db"><button class="plain browse" data-browse="file" data-for="db-path">Browse…</button></div>
+      <div class="row">
+        <div><label for="db-run">Add a run <small>(its output directory)</small></label>
+          <div class="pathrow"><input id="db-run" placeholder="path/to/run"><button class="plain browse" data-browse="folder" data-for="db-run">Browse…</button></div></div>
+      </div>
+      <button class="plain" id="db-add">Add the run</button>
+      <button class="plain" id="db-session" title="the simulations of the workspace, each a run">Add the simulations of the session</button>
+      <button class="plain" id="db-load">Read the database</button>
+      <label>Conditions <small>(one per line, e.g. model.type == tpms, solid_fraction &lt; 0.3)</small></label>
+      <textarea id="db-where" rows="3"></textarea>
+      <div class="row">
+        <div><label>x</label><select id="db-x"></select></div>
+        <div><label>y</label><select id="db-y"></select></div>
+      </div>
+      <div class="row">
+        <div><label>Families</label><select id="db-by"></select></div>
+        <div><label>Lines y = x<sup>n</sup> <small>(n)</small></label><input id="db-guides" placeholder="1, 2"></div>
+      </div>
+      <label><input type="checkbox" id="db-log" checked>logarithmic axes</label>
+      <p class="doc">Normalized charts: a relative property (P / Ps) against the relative density; n = 1 is the rule of mixtures (stretching-dominated lattices), n = 2 bending-dominated foams. Three families in colour; the others are grouped.</p>
+      <button class="go" id="db-go">Draw</button>
+    </div>
+    <div class="panel results" id="db-out"><p class="muted">Read a database of results, then draw its records.</p></div>
+  </section>
+</main>
+
+<script src="/viewer.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let MODELS = [];
+let WS = [];  // the workspace: morphologies and simulations of the session, newest first
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+}
+async function api(path, body) {
+  const opts = body === undefined ? {} : {method: "POST", body: JSON.stringify(body),
+    headers: {"Content-Type": "application/json"}};
+  const res = await fetch(path, opts);
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+  return data;
+}
+function numbers(text) {
+  return String(text).split(/[\s,;]+/).filter((s) => s.length).map(Number);
+}
+function table(obj) {
+  const rows = Object.entries(obj || {}).map(([k, v]) =>
+    `<tr><th>${esc(k)}</th><td>${typeof v === "number" ? +v.toPrecision(6) : esc(typeof v === "string" ? v : JSON.stringify(v))}</td></tr>`);
+  return rows.length ? `<table>${rows.join("")}</table>` : '<p class="muted">—</p>';
+}
+function images(list, smooth) {  // sections: a click opens the large ones at full resolution
+  return `<div class="images${smooth ? " smooth" : ""}">${(list || []).map((s) => {
+    const img = `<img src="${s.png}" alt="${esc(s.title)}">`;
+    const view = s.png.startsWith("data:") ? img : `<a href="${s.png}" target="_blank" title="full resolution">${img}</a>`;
+    return `<figure>${view}<figcaption>${esc(s.title)}</figcaption></figure>`;
+  }).join("")}</div>`;
+}
+function wait(ms) { return new Promise((ok) => setTimeout(ok, ms)); }
+
+// -- parameter forms built from the models' metadata -------------------------------------
+function exampleText(v) {  // a value of the example configuration, as typed in a field
+  if (Array.isArray(v) && v.every((x) => typeof x === "number")) return v.join(", ");
+  if (typeof v === "object" && v !== null) return JSON.stringify(v);
+  return String(v);
+}
+function exampleDomain(sizeId, periodicId, model) {  // the domain of the model's example
+  const d = model.example_domain || {};
+  if (d.size !== undefined) $(sizeId).value = Array.isArray(d.size) ? d.size.join(", ") : d.size;
+  if (d.periodic !== undefined) $(periodicId).checked = !!d.periodic;
+}
+function buildForm(container, model) {
+  container.innerHTML = "";
+  const example = model.example || {};
+  for (const p of model.parameters) {
+    const wrap = document.createElement("div");
+    const unit = p.unit ? ` [${esc(p.unit)}]` : "";
+    const req = p.required ? " *" : "";
+    const given = Object.prototype.hasOwnProperty.call(example, p.name);
+    if (p.kind === "bool") {
+      const on = given ? !!example[p.name] : !!p.default;
+      wrap.innerHTML = `<label title="${esc(p.doc)}"><input type="checkbox" data-name="${p.name}" data-kind="bool"
+        ${on ? "checked" : ""}>${esc(p.name)}</label>`;
+    } else {
+      const def = p.default === null || p.default === undefined ? "" :
+        (typeof p.default === "object" ? JSON.stringify(p.default) : p.default);
+      const value = given ? ` value="${esc(exampleText(example[p.name]))}"` : "";
+      wrap.innerHTML = `<label title="${esc(p.doc)}">${esc(p.name)}${req}<small>${unit} — ${esc(p.doc)}</small></label>
+        <input data-name="${p.name}" data-kind="${p.kind}" placeholder="${esc(def)}"${value}>`;
+    }
+    container.appendChild(wrap);
+  }
+}
+function readForm(container) {
+  const out = {};
+  for (const el of container.querySelectorAll("[data-name]")) {
+    const kind = el.dataset.kind, name = el.dataset.name;
+    if (kind === "bool") { out[name] = el.checked; continue; }
+    const v = el.value.trim();
+    if (!v) continue;
+    if (kind === "float" || kind === "fraction" || kind === "int") out[name] = Number(v);
+    else if (kind === "floats" || kind === "vector") out[name] = numbers(v).length > 1 ? numbers(v) : Number(v);
+    else if (kind === "ints") out[name] = numbers(v);
+    else if (kind === "str") out[name] = v;
+    else { try { out[name] = JSON.parse(v); } catch { out[name] = jsonless(v); } }
+  }
+  return out;
+}
+function jsonless(v) {  // a value that is not JSON: numbers as typed ("0.012, 0.012"), else text
+  const list = numbers(v);
+  if (list.length > 1 && list.every(Number.isFinite)) return list;
+  return isNaN(Number(v)) ? v : Number(v);
+}
+function fillSelect(select, models, onChange) {  // the models in groups by family
+  const families = [...new Set(models.map((m) => m.family || "Models"))];
+  select.innerHTML = families.map((f) => `<optgroup label="${esc(f)}">${models.filter((m) => (m.family || "Models") === f)
+    .map((m) => `<option value="${m.name}">${m.name} — ${esc(m.summary)}</option>`).join("")}</optgroup>`).join("");
+  select.onchange = () => onChange(models.find((m) => m.name === select.value));
+  onChange(models[0]);
+}
+function plainDoc(text) {  // a docstring as running text: its lines joined, its paragraphs kept
+  const paragraphs = String(text).replace(/``/g, "").replace(/:\w+:`~?([^`]*)`/g, "$1").split(/\n\s*\n/);
+  return paragraphs.map((p) => p.split("\n").map((line) => line.trim()).filter(Boolean).join(" ")).join("\n\n").trim();
+}
+function fold(text) {  // in lower case, without accents nor punctuation: the words to match
+  const plain = String(text).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return plain.replace(/[^a-z0-9]+/g, " ").trim();
+}
+function modelMenu(models) {  // the models of Generate by family: the menu of its tab
+  const families = [...new Set(models.map((m) => m.family || "Models"))];
+  $("gen-list").innerHTML = families.map((f) => `<h4>${esc(f)}</h4>` + models.filter((m) => (m.family || "Models") === f)
+    .map((m) => `<button data-model="${esc(m.name)}" title="${esc(m.summary)}">${esc(m.name)}</button>`).join("")).join("") +
+    '<p class="muted none" id="gen-none" hidden>No model matches.</p>';
+}
+function filterModels() {  // the models whose name, summary or family hold every word typed
+  const words = fold($("gen-filter").value).split(" ").filter(Boolean);
+  let heading = null, any = false, shown = 0;
+  for (const el of $("gen-list").children) {
+    if (el.tagName === "H4") {
+      if (heading) heading.hidden = !any;
+      heading = el; any = false;
+    } else if (el.tagName === "BUTTON") {
+      const m = MODELS.find((x) => x.name === el.dataset.model);
+      const text = fold(`${m.name} ${m.summary} ${m.family || ""}`);
+      el.hidden = !words.every((w) => text.includes(w));
+      if (!el.hidden) { any = true; shown += 1; }
+    }
+  }
+  if (heading) heading.hidden = !any;
+  $("gen-none").hidden = shown > 0;
+}
+function chooseModel(name) {  // the model Generate shows: its form, its entry of the menu
+  const select = $("gen-model");
+  if (![...select.options].some((o) => o.value === name)) return false;
+  if (select.value !== name) { select.value = name; select.onchange(); }
+  return true;
+}
+$("gen-list").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-model]");
+  if (b) chooseModel(b.dataset.model);
+});
+$("gen-filter").addEventListener("input", filterModels);
+$("gen-filter").addEventListener("keydown", (e) => {  // Enter: the first model left
+  if (e.key !== "Enter") return;
+  const first = [...$("gen-list").querySelectorAll("button[data-model]")].find((b) => !b.hidden);
+  if (first) chooseModel(first.dataset.model);
+});
+
+// -- menus: the sections of the work and their tabs --------------------------------------
+const SECTIONS = [
+  {name: "create", title: "Create", doc: "make a morphology: generate a model, optimize a cell, design it inversely, assemble tiles"},
+  {name: "characterize", title: "Characterize", doc: "its statistics: measures, correlation functions, stereology, percolation, the size of its representative volume, reconstructions"},
+  {name: "simulate", title: "Simulate", doc: "its mechanics and physics: linear homogenization, loading paths and behaviours, behaviours learned from data, fracture, nonlocal damage, stability, transport and waves, couplings"},
+  {name: "share", title: "Export & compare", doc: "files of every kind, the inputs of other solvers, the curves of runs compared, Ashby charts of the results"},
+];
+// the tabs of the page itself; those of the tools come from the catalog with their section
+const TABS = [
+  {name: "generate", title: "Generate", section: "create", order: 10},
+  {name: "optimize", title: "Topology optimization", section: "create", order: 70},
+  {name: "tiles", title: "Tile assemblies", section: "create", order: 90},
+  {name: "simulate", title: "Linear homogenization", section: "simulate", order: 30},
+  {name: "export", title: "Export", section: "share", order: 80},
+  {name: "ashby", title: "Ashby charts", section: "share", order: 100},
+];
+const LAST = {};  // the tab last shown in each section
+function tabOf(name) { return TABS.find((t) => t.name === name); }
+function tabTitle(name) { const t = tabOf(name); return t ? t.title : name; }
+function shownIn(tab) {  // what a tab shows among several: its tool, or the model of Generate
+  if (tab === "generate") return $("gen-model").value || "";
+  const tools = $("tools-" + tab);
+  return tools && tools.options.length > 1 ? tools.value : "";
+}
+function setAddress(tab) {  // #tab/tool, #generate/model: kept on reload, a link to give
+  const shown = shownIn(tab), hash = "#" + tab + (shown ? "/" + shown : "");
+  if (location.hash !== hash) history.replaceState(null, "", hash);
+}
+function go(address) {  // to a tab, to a tool of a tab (mechanics/path), to a model (generate/voronoi)
+  const [name, shown] = String(address || "").split("/");
+  const tab = tabOf(name) ? name : TABS[0].name;
+  if (shown && tab === "generate") chooseModel(shown);
+  else if (shown) chooseTool(tab, shown);
+  showTab(tab);
+}
+function showTab(name) {
+  const tab = tabOf(name) || TABS[0];
+  LAST[tab.section] = tab.name;
+  setAddress(tab.name);
+  $("sections").innerHTML = SECTIONS.map((s) =>
+    `<button data-section="${s.name}" class="${s.name === tab.section ? "active" : ""}" title="${esc(s.doc)}">${esc(s.title)}</button>`).join("");
+  const tabs = TABS.filter((t) => t.section === tab.section).sort((a, b) => a.order - b.order);
+  $("tabs").innerHTML = tabs.map((t) =>
+    `<button data-tab="${t.name}" class="${t.name === tab.name ? "active" : ""}">${esc(t.title)}</button>`).join("");
+  document.querySelectorAll(".tab").forEach((el) => el.classList.toggle("active", el.id === "tab-" + tab.name));
+}
+$("sections").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-section]");
+  if (!b) return;
+  const first = TABS.filter((t) => t.section === b.dataset.section).sort((a, c) => a.order - c.order)[0];
+  showTab(LAST[b.dataset.section] || (first && first.name));
+});
+$("tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-tab]");
+  if (b) showTab(b.dataset.tab);
+});
+
+async function busy(button, task) {
+  button.disabled = true;
+  try { await task(); } finally { button.disabled = false; }
+}
+// a job under way: stopped at its next step (an iteration of its solver, a step it reports)
+const STOPPING = new Set();
+function stopButton(job) {
+  return STOPPING.has(job) ? ' <span class="muted">stopping at its next step…</span>' :
+    ` <button class="plain stopjob" data-job="${job}" title="stop it at its next step">Stop</button>`;
+}
+function stoppedNote(s) {
+  return `<p class="muted">Stopped after ${s.elapsed_s} s: nothing kept.</p>`;
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button.stopjob");
+  if (!b) return;
+  STOPPING.add(b.dataset.job);
+  b.disabled = true;
+  api("/api/job/stop", {job: b.dataset.job}).catch((err) => alert(err.message));
+});
+const KIND = {morphology: "M", simulation: "S", behaviour: "B", result: "R"};  // B: of a material, R: the run of a tool
+function item(key) { return WS.find((i) => i.key === key); }
+function card(it) {  // a summary of an item of the workspace
+  if (!it) return "";
+  const thumb = it.thumbnail ? `<img src="${it.thumbnail}" alt="">` : "";
+  return `<div class="source">${thumb}<div><b>${esc(it.title)}</b>${table(it.info || {})}</div></div>`;
+}
+function options(select, items, extra, keep) {
+  const value = keep === undefined ? select.value : keep;
+  select.innerHTML = (extra || []).map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("") +
+    items.map((i) => `<option value="${i.key}">${KIND[i.kind]} ${esc(i.title)}</option>`).join("");
+  if ([...select.options].some((o) => o.value === value)) select.value = value;
+}
+const RECENT_RUNS = 4;  // the runs of tools shown in the strip, the others behind a chip
+let ALL_RUNS = false;
+function chip(i) {
+  return `<span class="chip" data-key="${i.key}" title="${esc(i.title)}">${i.thumbnail ? `<img src="${i.thumbnail}" alt="">` : ""}<span class="kind">${KIND[i.kind]}</span><span>${esc(i.title)}</span></span>`;
+}
+async function refreshWorkspace(select) {  // select: {tab, key} to show after the update
+  WS = await api("/api/workspace");
+  const strip = $("workspace");
+  // every morphology and simulation first; then the newest runs of tools, the earlier on demand
+  const runs = WS.filter((i) => i.kind === "result");
+  const shown = WS.filter((i) => i.kind !== "result").concat(ALL_RUNS ? runs : runs.slice(0, RECENT_RUNS));
+  const hidden = runs.length - (ALL_RUNS ? runs.length : Math.min(runs.length, RECENT_RUNS));
+  const more = hidden ? `<span class="chip more" id="ws-more" title="show the earlier runs of tools"><span class="kind">R</span><span>+${hidden} earlier runs</span></span>` :
+    (ALL_RUNS && runs.length > RECENT_RUNS ? '<span class="chip more" id="ws-more"><span>fewer runs</span></span>' : "");
+  strip.innerHTML = "<b>Workspace</b>" + (WS.length ? shown.map(chip).join("") + more :
+    '<span class="muted">empty: generate a morphology</span>');
+  for (const c of strip.querySelectorAll(".chip[data-key]")) c.onclick = () => itemMenu(c.dataset.key);
+  if ($("ws-more")) $("ws-more").onclick = () => { ALL_RUNS = !ALL_RUNS; refreshWorkspace(); };
+  const morphs = WS.filter((i) => i.kind === "morphology");
+  options($("sim-source"), morphs);
+  const inputs = WS.filter((i) => ["morphology", "simulation"].includes(i.kind));  // runs are shown, not sent
+  options($("exp-source"), inputs);
+  options($("opt-start"), inputs, [["centered_void", "a void ball (default)"], ["random", "random noise"]]);
+  refreshToolItems();
+  if (select) sendTo(select.tab, select.key);
+  else { simSource(); expSource(); optStart(); }
+}
+function itemMenu(key) {  // a click on a chip: the item, where it can go, its removal
+  const menu = $("ws-menu"), it = item(key);
+  if (!it || (!menu.hidden && menu.dataset.key === key)) { menu.hidden = true; return; }
+  menu.dataset.key = key;
+  // a run of a tool (or the simulation a tool made): shown again in its tab, its form filled
+  const show = it.tool ? `<div class="sendto"><button id="ws-show">Show it in ${esc(tabTitle(it.tab))} →</button></div>` : "";
+  const next = sendButtons(it) + show;  // a run: only to the tools that take runs
+  menu.innerHTML = card(it) + next +
+    `<button class="plain" id="ws-rename">Rename</button> <button class="plain" id="ws-remove">Remove from the workspace</button> <button class="plain" id="ws-close">Close</button>` +
+    (window.MorphoViewer && (["morphology", "simulation"].includes(it.kind) || it.view3d) ? MorphoViewer.slot(key, {label: "View in 3D"}) : "");
+  menu.hidden = false;
+  if ($("ws-show")) $("ws-show").onclick = () => busy($("ws-show"), () => showResult(key));
+  $("ws-close").onclick = () => { menu.hidden = true; };
+  $("ws-rename").onclick = () => busy($("ws-rename"), async () => {
+    const title = prompt("New title:", it.title.replace(/^#\d+ /, ""));
+    if (!title) return;
+    try { await api("/api/workspace/rename", {key, title}); } catch (e) { alert(e.message); return; }
+    menu.hidden = true;
+    await refreshWorkspace();
+  });
+  $("ws-remove").onclick = () => busy($("ws-remove"), async () => {
+    await api("/api/workspace/remove", {key});
+    menu.hidden = true;
+    await refreshWorkspace();
+  });
+}
+async function showResult(key) {  // the run of a tool: its tab, its tool, its form, its result
+  const r = await api(`/api/result?key=${encodeURIComponent(key)}`);
+  $("ws-menu").hidden = true;
+  if (LOCKED[r.tab]) { alert("This tab is running a tool on several items: show the run when they are done."); return; }
+  showTab(r.tab);
+  $("tools-" + r.tab).value = r.tool;
+  buildToolForm(r.tab);
+  fillToolForm(r.tab, r.params || {});
+  $("toolout-" + r.tab).innerHTML = toolResult(r.result);
+  window.scrollTo({top: 0});
+}
+function fillToolForm(tab, params) {  // the values a form sent, written back in it
+  const tool = currentTool(tab), el = (f) => document.getElementById(`tool-${tool.name}-${f.name}`);
+  const later = [];
+  for (const f of tool.fields) {
+    const v = params[f.name], input = el(f);
+    if (v === undefined || v === null || !input) continue;
+    if (f.kind === "materials") later.push([f, v]);
+    else if (f.kind === "bool") input.checked = Boolean(v);
+    else if (f.kind === "choices" || f.kind === "items") {
+      for (const c of input.querySelectorAll("input")) c.checked = [].concat(v).includes(c.value);
+    } else if (f.kind !== "item" || [...input.options].some((o) => o.value === v)) {
+      input.value = typeof v === "object" ? JSON.stringify(v) : String(v);
+    }
+    if (f.kind === "item" || f.kind === "choice") toolVisibility(tab);  // the fields they open
+  }
+  toolVisibility(tab);
+  for (const [f, v] of later) {  // the phases of the item, once its editor is drawn
+    for (const row of el(f).querySelectorAll(".mat")) {
+      const m = v[row.dataset.phase];
+      if (m === undefined) continue;
+      row.querySelector("[data-void]").checked = m === "void";
+      if (m !== "void") {
+        row.querySelector("[data-e]").value = m.young;
+        row.querySelector("[data-nu]").value = m.poisson;
+      }
+    }
+  }
+}
+function sendTo(tab, key) {
+  const select = {simulate: "sim-source", export: "exp-source", optimize: "opt-start"}[tab];
+  if (select && key && [...$(select).options].some((o) => o.value === key)) $(select).value = key;
+  if (!select && key) selectInTool(tab, key);
+  simSource(); expSource(); optStart();
+  $("ws-menu").hidden = true;
+  showTab(tab);
+  window.scrollTo({top: 0});
+}
+function destinations(it) {  // the tabs that take an item: [tab, title]
+  const out = it.kind === "morphology" ? [["simulate", tabTitle("simulate")]] : [];
+  for (const t of toolTabsFor(it)) out.push([t.name, tabTitle(t.name)]);
+  if (["morphology", "simulation"].includes(it.kind)) out.push(["optimize", tabTitle("optimize")], ["export", tabTitle("export")]);
+  return out;
+}
+function sendButtons(it) {  // the usual next steps as buttons, the others in a menu by section
+  if (!it) return "";
+  const all = destinations(it);
+  if (!all.length) return "";
+  const main = {morphology: ["simulate", "statistics", "export"], behaviour: ["mechanics", "fracture", "compare"],
+                result: ["compare"]}[it.kind] || ["export", "optimize", "compare"];
+  const primary = all.filter(([t]) => main.includes(t));
+  const others = all.filter(([t]) => !main.includes(t));
+  const groups = SECTIONS.map((s) => {
+    const opts = others.filter(([t]) => (tabOf(t) || {}).section === s.name);
+    return opts.length ? `<optgroup label="${esc(s.title)}">${opts.map(([t, l]) => `<option value="${t}">${esc(l)}</option>`).join("")}</optgroup>` : "";
+  }).join("");
+  const more = others.length ? `<select class="sendmore" data-key="${it.key}"><option value="">Other tools…</option>${groups}</select>` : "";
+  return `<div class="sendto">${primary.map(([t, l]) => `<button data-to="${t}" data-key="${it.key}">${esc(l)} →</button>`).join("")}${more}</div>`;
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".sendto button");
+  if (b) sendTo(b.dataset.to, b.dataset.key);
+});
+document.addEventListener("change", (e) => {
+  const s = e.target.closest("select.sendmore");
+  if (s && s.value) { const to = s.value; s.value = ""; sendTo(to, s.dataset.key); }
+});
+
+// -- help: what each tab does --------------------------------------------------------------
+const FIXED_TABS = {
+  generate: "a realization of any model, chosen in the menu of the models by family: sections of the implicit functions of its phases (up to 2048 pixels per edge), its measures against theory, the animation of the formation of the models grown by a process",
+  simulate: "the apparent shear or bulk modulus of a morphology: finite elements on the conforming mesh of its level set, or FFT on its voxels (on the GPU when there is one)",
+  optimize: "topology optimization of a periodic cell, from a void ball, noise, or a morphology or simulation of the workspace; the design joins the workspace",
+  export: "the files of any item of the workspace, with an archive: of a morphology, its geometry (JSON), sections (PNG), the implicit function of each of its phases and its voxel image (VTI), the surface of each phase (STL), its conforming mesh (VTU) and videos (sweeps, turntable, formation); of a simulation, figures, videos of its fields under a growing load, tables, fields, mesh and configuration",
+  tiles: "combinatorial metamaterials: the exact number of compatible assemblies of a tile set in a box, and one drawn by wave function collapse",
+  ashby: "normalized Ashby charts of a results database, to which the simulations of the session can be added",
+};
+function toolLinks(tools) {  // the tools of a tab as links, under the headings of its menu
+  const headings = [...new Set(tools.map((x) => x.menu || ""))];
+  return headings.map((h) => (h ? `<b>${esc(h)}:</b> ` : "") + tools.filter((x) => (x.menu || "") === h)
+    .map((x) => `<a href="#${x.tab}/${x.name}" title="${esc(shortDoc(x.doc))}">${esc(x.title)}</a>`).join(" · ")).join("<br>");
+}
+function showHelp() {  // the map of the interface: its sections, their tabs, the tools of each
+  const html = SECTIONS.map((s) => {
+    const rows = TABS.filter((t) => t.section === s.name).sort((a, b) => a.order - b.order).map((t) => {
+      const tab = CATALOG.tabs.find((c) => c.name === t.name);
+      const tools = CATALOG.tools.filter((x) => x.tab === t.name);
+      const links = tools.length > 1 ? `<br>${toolLinks(tools)}` : "";
+      return `<dt><a href="#${t.name}">${esc(t.title)}</a></dt><dd>${esc(tab ? tab.doc : FIXED_TABS[t.name] || "")}${links}</dd>`;
+    }).join("");
+    return `<h3>${esc(s.title)} <span class="muted">— ${esc(s.doc)}</span></h3><dl>${rows}</dl>`;
+  }).join("");
+  $("help").innerHTML = `<p class="doc">The menus follow the work: create a morphology, characterize it, simulate it, export and compare. A section holds tabs; a tab lists its tools on its left, under the headings of what they do, and Generate its models by family. The search of the header (<kbd>/</kbd>) finds a tool, a model or an option of their forms (a behaviour, a law, a file format) and opens it; <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs the form shown; the address of the page (#tab/tool) is a link to what is shown.
+Every morphology, simulation and design is kept in the workspace below the menus, from which any tab takes its input, in any order, and so is every run of a tool (R), shown again with its form filled, and every behaviour of a material (B: a material point, an import of Z-set), which the loading paths, cracks and inputs of other solvers take. Click an item of the workspace to send it on, show it again, view it in 3D or remove it; save the workspace to a folder and open it again later.</p>${html}`;
+}
+$("help-toggle").onclick = () => { $("help").hidden = !$("help").hidden; if (!$("help").hidden) showHelp(); };
+$("help").addEventListener("click", (e) => { if (e.target.closest("a[href^='#']")) $("help").hidden = true; });
+
+// -- colours: those of the system, light or dark ---------------------------------------------
+const THEMES = {auto: "those of the system", light: "light", dark: "dark"};
+function setTheme(theme) {
+  const t = theme in THEMES ? theme : "auto";
+  if (t === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  $("theme-toggle").dataset.theme = t;
+  $("theme-toggle").title = `colours: ${THEMES[t]} (click to change)`;
+  try { localStorage.setItem("morphogen-theme", t); } catch (e) { /* no storage: not kept */ }
+}
+$("theme-toggle").onclick = () => {
+  const names = Object.keys(THEMES);
+  setTheme(names[(names.indexOf($("theme-toggle").dataset.theme) + 1) % names.length]);
+};
+try { setTheme(localStorage.getItem("morphogen-theme") || "auto"); } catch (e) { setTheme("auto"); }
+
+// -- search: the tabs, the tools and the fields of their forms, the models and their parameters --
+let INDEX = [], HITS = [], ACTIVE = 0;
+function searchIndex(catalog, models, fixed = {}) {  // fixed: the texts of the forms of the page itself, by tab
+  const entries = [];
+  // folded texts start with a space: " " + word finds the words that start with it
+  const add = (kind, title, shown, text, where, address, details) => entries.push({
+    kind, title, shown, where, address, ftitle: " " + fold(title), ftext: " " + fold(`${shown} ${text}`),
+    details: details.map((d) => ({...d, folded: " " + fold(d.text)}))});
+  const section = (tab) => SECTIONS.find((s) => s.name === tab.section).title;
+  for (const t of TABS) {
+    const tab = catalog.tabs.find((c) => c.name === t.name);
+    const details = (fixed[t.name] || []).map((text) => ({text}));
+    add("tab", t.title, tab ? tab.doc : FIXED_TABS[t.name] || "", "", section(t), t.name, details);
+  }
+  for (const x of catalog.tools) {
+    const t = tabOf(x.tab), details = [];
+    if (!t) continue;
+    for (const f of x.fields) {  // each option of a choice, then the field itself
+      for (const [value, title] of f.choices || []) details.push({text: `${f.label}: ${title}`, field: f.name, value});
+      details.push({text: f.doc ? `${f.label} — ${f.doc}` : f.label, field: f.name});
+    }
+    add("tool", x.title, x.doc, x.menu || "", `${section(t)} › ${t.title}`, `${x.tab}/${x.name}`, details);
+  }
+  for (const m of models) {
+    const details = m.parameters.map((p) => ({text: `${p.name} — ${p.doc}`, field: p.name}));
+    add("model", m.name, m.summary, `${m.doc} ${m.family || ""}`, `Create › Generate › ${m.family || "Models"}`, `generate/${m.name}`, details);
+  }
+  return entries;
+}
+function searchMatches(index, query, limit = 12) {  // the entries that hold every word, the best first
+  const words = fold(query).split(" ").filter(Boolean);
+  const out = [];
+  for (const e of words.length ? index : []) {
+    // a word of the query: the start of a word of the title, of the text, or of a field of the form
+    let score = e.ftitle === " " + words.join(" ") ? 10 : 0;
+    const loose = [];  // the words that are not in the title
+    for (const w of words) {
+      if (`${e.ftitle} `.includes(` ${w} `)) score += 8;
+      else if (e.ftitle.includes(" " + w)) score += 6;
+      else if (e.ftext.includes(" " + w)) { score += 3; loose.push(w); }
+      else if (e.details.some((d) => d.folded.includes(" " + w))) { score += 2; loose.push(w); }
+      else { score = -1; break; }
+    }
+    if (score < 0) continue;
+    // the field of the form that holds them all, the earliest in its text: where the search lands
+    let detail = null, first = Infinity;
+    for (const d of loose.length ? e.details : []) {
+      const at = loose.map((w) => d.folded.indexOf(" " + w));
+      if (Math.min(...at) >= 0 && Math.max(...at) < first) { detail = d; first = Math.max(...at); }
+    }
+    out.push({entry: e, detail, score: score + (detail ? 1 : 0) + {tool: 0.3, model: 0.2, tab: 0.1}[e.kind]});
+  }
+  out.sort((a, b) => b.score - a.score);  // stable: the ties in the order of the menus
+  return out.slice(0, limit);
+}
+function fixedLabels(tab) {  // the labels, legends and options of a form of the page itself
+  const section = $("tab-" + tab);
+  if (!section || $("tools-" + tab)) return [];  // the tabs of tools: from the catalog
+  // without the parameters of the model of Generate, found with the models
+  return [...section.querySelectorAll(".form label, .form legend, .form option")].filter((el) => !el.closest("#gen-params, #gen-model"));
+}
+function labelText(el) { return el.textContent.replace(/\s+/g, " ").trim(); }
+function fixedTexts() {  // their texts, by tab: what the search looks through
+  const out = {};
+  for (const t of TABS) out[t.name] = [...new Set(fixedLabels(t.name).map(labelText))].filter(Boolean);
+  return out;
+}
+function showMatches() {
+  const box = $("search-results");
+  HITS = searchMatches(INDEX, $("search").value);
+  ACTIVE = 0;
+  if (!fold($("search").value)) { box.hidden = true; return; }
+  box.innerHTML = HITS.length ? HITS.map((h, k) => `<button class="hit${k ? "" : " active"}" data-hit="${k}">
+    <span class="where">${esc(h.entry.where)}</span><b>${esc(h.entry.title)}</b>
+    <small>${esc(h.detail ? h.detail.text : shortDoc(h.entry.shown, 120))}</small></button>`).join("") :
+    '<p class="muted" style="margin:6px 9px">Nothing found: the map of the interface (?) lists every tab and tool.</p>';
+  box.hidden = false;
+}
+function openField(tab, tool, name, value, depth = 0) {  // a field shown: the choices it depends on set, its option chosen
+  const f = tool.fields.find((x) => x.name === name);
+  if (!f || depth > 4) return;
+  for (const [k, values] of Object.entries(f.when || {})) {
+    openField(tab, tool, k, undefined, depth + 1);
+    const control = document.getElementById(`tool-${tool.name}-${k}`), allowed = values.map(String);
+    if (control && control.tagName === "SELECT" && !allowed.includes(control.value)) control.value = allowed[0];
+    else if (control && control.type === "checkbox" && !allowed.includes(String(control.checked))) control.checked = !control.checked;
+  }
+  const el = document.getElementById(`tool-${tool.name}-${name}`);
+  if (el && value !== undefined && f.kind === "choice") el.value = String(value);
+  if (el && value !== undefined && f.kind === "choices") {
+    const box = [...el.querySelectorAll("input")].find((c) => c.value === String(value));
+    if (box) box.checked = true;
+  }
+  toolVisibility(tab);
+}
+function reveal(hit) {  // the field of a form the search found: shown, its option chosen, in sight
+  const [tab, name] = hit.entry.address.split("/");
+  let wrap = null;
+  if (hit.entry.kind === "model") {
+    const input = [...$("gen-params").querySelectorAll("[data-name]")].find((el) => el.dataset.name === hit.detail.field);
+    wrap = input ? input.closest("#gen-params > div") : null;
+  } else if (hit.entry.kind === "tool" && currentTool(tab).name === name) {
+    openField(tab, currentTool(tab), hit.detail.field, hit.detail.value);
+    wrap = [...$("toolform-" + tab).querySelectorAll(".field")].find((el) => el.dataset.name === hit.detail.field);
+    if (wrap && wrap.closest("details")) wrap.closest("details").open = true;
+  } else if (hit.entry.kind === "tab") {  // a label or an option of a form of the page itself
+    const el = fixedLabels(tab).find((x) => labelText(x) === hit.detail.text);
+    wrap = el && el.tagName === "OPTION" ? el.closest("select") : el;
+    if (wrap && wrap.offsetParent === null) wrap = null;  // in a part of the form that is not shown
+  }
+  if (!wrap || wrap.hidden) return false;
+  wrap.classList.add("found");
+  wrap.scrollIntoView({block: "center"});
+  setTimeout(() => wrap.classList.remove("found"), 2600);
+  return true;
+}
+function openHit(k) {
+  const hit = HITS[k];
+  if (!hit) return;
+  $("search-results").hidden = true;
+  $("search").value = "";
+  $("search").blur();
+  $("help").hidden = true;
+  go(hit.entry.address);
+  if (!(hit.detail && reveal(hit))) window.scrollTo({top: 0});
+}
+$("search").addEventListener("input", showMatches);
+$("search").addEventListener("focus", showMatches);
+$("search").addEventListener("keydown", (e) => {
+  const hits = [...$("search-results").querySelectorAll(".hit")];
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    if (!hits.length) return;
+    ACTIVE = (ACTIVE + (e.key === "ArrowDown" ? 1 : hits.length - 1)) % hits.length;
+    hits.forEach((h, k) => h.classList.toggle("active", k === ACTIVE));
+    hits[ACTIVE].scrollIntoView({block: "nearest"});
+  } else if (e.key === "Enter") { e.preventDefault(); openHit(ACTIVE); }
+  else if (e.key === "Escape") { $("search").value = ""; $("search-results").hidden = true; $("search").blur(); }
+});
+$("search-results").addEventListener("click", (e) => {
+  const b = e.target.closest(".hit");
+  if (b) openHit(Number(b.dataset.hit));
+});
+document.addEventListener("click", (e) => { if (!e.target.closest("#search-box")) $("search-results").hidden = true; });
+document.addEventListener("keydown", (e) => {
+  const typing = e.target.closest && e.target.closest("input, textarea, select, [contenteditable]");
+  if ((e.key === "/" && !typing) || (e.key === "k" && (e.ctrlKey || e.metaKey))) {  // to the search
+    e.preventDefault();
+    $("search").focus();
+    $("search").select();
+  } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {  // run the form shown
+    const run = document.querySelector(".tab.active button.go:not(:disabled)");
+    if (run) { e.preventDefault(); run.click(); }
+  }
+});
+
+$("ws-save").onclick = () => busy($("ws-save"), async () => {
+  let directory;
+  if (DESKTOP) {  // the stand-alone application: the dialog of the system
+    directory = await DESKTOP.choose_folder("Folder to save the workspace to", "");
+    if (!directory) return;
+  } else {
+    directory = prompt("Folder to save the workspace to (blank: a new one under ~/morphogen/workspaces):", "");
+    if (directory === null) return;
+  }
+  try {
+    const r = await api("/api/workspace/save", {directory});
+    if (DESKTOP) await DESKTOP.workspace_saved();
+    alert(`${r.saved} items saved to ${r.directory}`);
+  } catch (e) { alert(e.message); }
+});
+$("ws-open").onclick = () => busy($("ws-open"), async () => {
+  const directory = DESKTOP ? await DESKTOP.choose_folder("Folder of a saved workspace", "") :
+    prompt("Folder of a saved workspace:", "");
+  if (!directory) return;
+  try {
+    const r = await api("/api/workspace/open", {directory});
+    await refreshWorkspace();
+    alert(`${r.opened} items opened`);
+  } catch (e) { alert(e.message); }
+});
+
+// -- the stand-alone application (morphogen desktop): the dialogs and files of the system ----
+let DESKTOP = null;  // window.pywebview.api, in the window of the application
+window.addEventListener("pywebviewready", () => {
+  DESKTOP = window.pywebview.api;
+  document.body.classList.add("desktop");
+});
+document.addEventListener("click", async (e) => {  // before the handlers of the page
+  if (!DESKTOP) return;
+  const browse = e.target.closest("button[data-browse]");
+  const reveal = e.target.closest("button[data-reveal]");
+  const link = e.target.closest("a[href^='/files/']");
+  if (!browse && !reveal && !link) return;
+  e.preventDefault();
+  e.stopPropagation();
+  try {
+    if (browse) {  // a path chosen in the dialog of the system
+      const input = $(browse.dataset.for);
+      const path = browse.dataset.browse === "folder" ? await DESKTOP.choose_folder("", input.value) :
+        await DESKTOP.choose_file("", input.value);
+      if (path) { input.value = path; input.dispatchEvent(new Event("input", {bubbles: true})); }
+    } else if (reveal) {
+      await DESKTOP.reveal(reveal.dataset.reveal);
+    } else {  // a file of a result: shown by its application, or saved where one chooses
+      const href = link.getAttribute("href");
+      if (href.includes("?inline") || link.target === "_blank") await DESKTOP.open_file(href);
+      else await DESKTOP.save_file(href);
+    }
+  } catch (err) { alert(err.message || String(err)); }
+}, true);
+
+// -- 1 generate (and formation) ------------------------------------------------------------
+function genRequest() {
+  const size = numbers($("gen-size").value);
+  return {
+    model: $("gen-model").value, params: readForm($("gen-params")),
+    domain: {size: size.length > 1 ? size : size[0], periodic: $("gen-periodic").checked},
+    seed: $("gen-seed").value,
+  };
+}
+$("gen-go").onclick = () => busy($("gen-go"), async () => {
+  const out = $("gen-out");
+  out.innerHTML = '<p class="muted">Generating…</p>';
+  try {
+    const r = await api("/api/generate", {...genRequest(), resolution: $("gen-resolution").value});
+    let html = (r.warnings || []).map((w) => `<p class="error">${esc(w)}</p>`).join("");
+    const how = !r.level_set ? "sections of the phases at the pixel centres" :
+      r.implicit_phases > 2 ? `sections of the implicit functions of its ${r.implicit_phases} phases` : "sections of the level set";
+    html += `<h3>${esc(r.item ? r.item.title : r.model.type)} <span class="muted">— ${how}, ${r.resolution} px per edge, ${r.time_s} s</span></h3>${images(r.sections, true)}`;
+    if (r.labels) html += `<h3>Cells</h3>${images(r.labels, true)}`;
+    if (r.item && window.MorphoViewer) html += MorphoViewer.slot(r.item.key, {auto: true});
+    html += sendButtons(r.item);
+    // the frame of beams of a network model (frame_stiffness), in a table of its own
+    const summary = r.frame ? Object.fromEntries(Object.entries(r.summary).filter(([k]) => !k.startsWith("frame_"))) : r.summary;
+    // with its stiffness C_ij and compliance S_ij (tables of their own, with their .csv)
+    const frame = r.frame ? `<h3>Frame of beams</h3><p class="muted">${esc(r.frame.note)}</p>${table(r.frame.values)}${(r.frame.tables || []).map(dataTable).join("")}` : "";
+    html += `<div class="row"><div><h3>Realization</h3>${table(summary)}${frame}<h3>Measures</h3>${table(r.measures)}</div>
+             <div><h3>Theory</h3>${table(r.theory)}</div></div>`;
+    if (r.files) html += `<p>Download: <a href="${r.files.geometry}">geometry (.json)</a> · more in Export</p>`;
+    out.innerHTML = html;
+    await refreshWorkspace();
+  } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+let player = null;
+$("evo-go").onclick = () => busy($("evo-go"), async () => {
+  const out = $("gen-out");
+  out.innerHTML = '<p class="muted">Simulating the formation…</p>';
+  if (player) clearInterval(player);
+  try {
+    const r = await api("/api/formation", {...genRequest(), frames: Number($("evo-frames").value)});
+    out.innerHTML = `<h3>Formation of ${esc($("gen-model").value)} <span class="muted">(middle section)</span></h3>
+      <div class="player"><img id="evo-img"><br>
+      <input type="range" id="evo-slider" min="0" max="${r.frames.length - 1}" value="0">
+      <button id="evo-play">pause</button> <span class="muted" id="evo-label"></span></div>
+      <p class="note">The share of cells that change between frames tells how fast the structure settles: automata often form their pattern in a few steps, then only refine it.</p>`;
+    let k = 0, playing = true;
+    const show = () => {
+      $("evo-img").src = r.frames[k]; $("evo-slider").value = k;
+      const change = k > 0 && r.changes ? `, ${(100 * r.changes[k - 1]).toFixed(1)} % of the cells changed` : " (initial state)";
+      $("evo-label").textContent = `frame ${k + 1} / ${r.frames.length}${change}`;
+    };
+    show();
+    player = setInterval(() => { if (playing) { k = (k + 1) % r.frames.length; show(); } }, 300);
+    $("evo-slider").oninput = (e) => { k = Number(e.target.value); show(); };
+    $("evo-play").onclick = (e) => { playing = !playing; e.target.textContent = playing ? "pause" : "play"; };
+  } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+
+// -- 2 simulate --------------------------------------------------------------------------------
+const SIM_FIELDS = ["von_mises", "energy_density", "displacement",
+  ...["stress", "strain"].flatMap((n) => ["11", "22", "33", "23", "31", "12"].map((c) => `${n}_${c}`))];
+const CMAPS = ["viridis", "plasma", "inferno", "magma", "cividis", "turbo", "coolwarm", "RdBu_r", "jet", "gray"];
+for (const id of ["sim-field", "exp-field"]) $(id).innerHTML = SIM_FIELDS.map((f) => `<option>${f}</option>`).join("");
+for (const id of ["sim-cmap", "exp-cmap"]) $(id).innerHTML = CMAPS.map((c) => `<option>${c}</option>`).join("");
+$("exp-frac").oninput = (e) => { $("exp-frac-label").textContent = `${Math.round(e.target.value * 100)} %`; };
+function simSource() {
+  const it = item($("sim-source").value);
+  $("sim-card").innerHTML = it ? card(it) : '<p class="muted">No morphology in the workspace yet: generate one.</p>';
+  if (!it) { $("sim-materials").innerHTML = '<p class="muted">Choose a morphology.</p>'; return; }
+  const phases = it.phases || {"0": "matrix", "1": "inclusions"};
+  if ($("sim-materials").dataset.key === it.key) return;
+  $("sim-materials").dataset.key = it.key;
+  // conforming meshes follow a level set: the others are simulated on their voxels
+  if (it.info && it.info["level set"] === false) $("sim-method").value = "fft";
+  $("sim-materials").innerHTML = Object.entries(phases).map(([k, name], i) => `
+    <div class="row mat" data-phase="${esc(k)}">
+      <div><label title="${esc(name)}">${esc(k)}: ${esc(name)} <small>E</small></label><input data-e value="${i === 0 ? 1 : 20}"></div>
+      <div><label><small>Poisson ν</small></label><input data-nu value="0.3"></div>
+      <div><label>&nbsp;</label><label><input type="checkbox" data-void ${name === "void" ? "checked" : ""}>void</label></div>
+    </div>`).join("");
+}
+$("sim-source").onchange = simSource;
+function media(list) {  // the files of a result shown in the page; images given as data URLs as they are
+  return `<div class="views">${(list || []).map((m) => {
+    const data = m.url.startsWith("data:"), src = data ? m.url : `${m.url}?inline`;
+    const view = m.format === "mp4" ? `<video src="${src}" controls autoplay loop muted playsinline></video>` :
+      data ? `<img src="${src}" alt="${esc(m.title)}">` :
+      `<a href="${src}" target="_blank"><img src="${src}" alt="${esc(m.title)}"></a>`;
+    return `<figure>${view}<figcaption>${esc(m.title)}</figcaption></figure>`;
+  }).join("")}</div>`;
+}
+function fileList(files) {
+  const kinds = ["archive", "report", "data", "table", "figure", "video", "configuration"];
+  return `<div class="files">${kinds.map((k) => {
+    const of = (files || []).filter((f) => f.kind === k);
+    return of.length ? `<span><b>${k}</b>${of.map((f) => `<a href="${f.url}">${esc(f.name)}</a>`).join(" · ")}</span>` : "";
+  }).join("")}</div>`;
+}
+$("sim-go").onclick = () => busy($("sim-go"), async () => {
+  const out = $("sim-out");
+  const key = $("sim-source").value;
+  if (!key) { out.innerHTML = '<p class="error">Generate a morphology first (tab 1).</p>'; return; }
+  const materials = {};
+  for (const row of document.querySelectorAll("#sim-materials .mat")) {
+    materials[row.dataset.phase] = row.querySelector("[data-void]").checked ? "void" :
+      {young: Number(row.querySelector("[data-e]").value), poisson: Number(row.querySelector("[data-nu]").value)};
+  }
+  out.innerHTML = '<p class="muted">Starting…</p>';
+  try {
+    const {job} = await api("/api/simulate", {
+      source: key, method: $("sim-method").value, property: $("sim-property").value,
+      element_size: $("sim-element").value.trim(), order: $("sim-order").value,
+      shape: $("sim-shape").value, materials,
+      field: $("sim-field").value, cmap: $("sim-cmap").value, video: "none",
+      device: $("sim-gpu").checked && $("sim-method").value === "fft" ? "gpu" : "cpu",
+    });
+    for (;;) {
+      const s = await api(`/api/job/${job}`);
+      if (s.state === "running") {
+        out.innerHTML = `<p class="muted">Solving: ${$("sim-method").value === "fe" ? "conforming mesh of the level set, finite elements" : "voxels, FFT"}… ${s.elapsed_s} s${stopButton(job)}</p>`;
+        await wait(800);
+        continue;
+      }
+      if (s.state === "stopped") { out.innerHTML = stoppedNote(s); break; }
+      if (s.error) { out.innerHTML = `<p class="error">${esc(s.error)}</p>`; break; }
+      const r = s.result;
+      let html = (r.warnings || []).map((w) => `<p class="error">${esc(w)}</p>`).join("");
+      html += `<h3>${esc(r.item.title)} <span class="muted">(${r.time_s} s)</span></h3>${media(r.figures)}`;
+      if (window.MorphoViewer) html += MorphoViewer.slot(r.item.key, {auto: true, field: $("sim-field").value, cmap: $("sim-cmap").value});
+      html += sendButtons(r.item);
+      html += `<h3>Results</h3>${table(r.values)}`;
+      out.innerHTML = html;
+      await refreshWorkspace();
+      break;
+    }
+  } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+
+// -- 3 export ----------------------------------------------------------------------------------
+function expSource() {
+  const it = item($("exp-source").value);
+  $("exp-card").innerHTML = it ? card(it) : '<p class="muted">The workspace is empty: generate a morphology.</p>';
+  $("exp-morphology").hidden = !it || it.kind !== "morphology";
+  $("exp-simulation").hidden = !it || it.kind !== "simulation";
+  if (it && it.kind === "simulation" && $("exp-field").dataset.key !== it.key) {
+    $("exp-field").dataset.key = it.key;  // the fields of its files (plastic strains, porosity...)
+    api(`/api/fields?key=${encodeURIComponent(it.key)}`).then((r) => {
+      const keep = $("exp-field").value;
+      $("exp-field").innerHTML = r.fields.map((f) => `<option>${esc(f)}</option>`).join("");
+      if (r.fields.includes(keep)) $("exp-field").value = keep;
+    }).catch(() => {});
+  }
+}
+$("exp-source").onchange = expSource;
+$("exp-go").onclick = () => busy($("exp-go"), async () => {
+  const out = $("exp-out");
+  const it = item($("exp-source").value);
+  if (!it) { out.innerHTML = '<p class="error">Nothing to export yet: generate a morphology (tab 1).</p>'; return; }
+  const playback = {mode: $("exp-mode").value, frames: Number($("exp-frames").value),
+                    fps: Number($("exp-fps").value), axis: $("exp-axis").value};
+  let request;
+  if (it.kind === "morphology") {
+    request = {source: it.key, ...playback,
+      outputs: [...document.querySelectorAll("#exp-morphology [data-out]")].filter((c) => c.checked).map((c) => c.dataset.out),
+      resolution: $("exp-resolution").value, shape: $("exp-shape").value,
+      element_size: $("exp-element").value.trim(), video: $("exp-mvideo").value};
+  } else {
+    request = {source: it.key, ...playback,
+      outputs: [...document.querySelectorAll("#exp-simulation [data-sout]")].filter((c) => c.checked).map((c) => c.dataset.sout),
+      field: $("exp-field").value, cmap: $("exp-cmap").value, magnification: $("exp-mag").value.trim(),
+      section_axis: $("exp-cut").value, section_fraction: Number($("exp-frac").value),
+      clim_low: $("exp-lo").value.trim(), clim_high: $("exp-hi").value.trim(),
+      video: $("exp-svideo").value, wave: $("exp-wave").value, formats: ["png", "svg", "tex"]};
+  }
+  out.innerHTML = '<p class="muted">Exporting…</p>';
+  try {
+    const r = await api("/api/export", request);
+    let html = `<h3>${esc(r.source.title)}</h3>`;
+    if (r.archive) html += `<p><a href="${r.archive}"><b>Download everything (.zip)</b></a></p>`;
+    if (r.figures.length) html += `<h3>Figures</h3>${media(r.figures)}`;
+    if (r.videos.length) html += `<h3>Video</h3>${media(r.videos)}`;
+    html += `<h3>Files</h3>${fileList(r.files)}`;
+    out.innerHTML = html;
+  } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+
+// -- 4 optimize --------------------------------------------------------------------------------
+function optStart() {
+  const it = item($("opt-start").value);
+  $("opt-card").innerHTML = it ? card(it) : "";
+  $("opt-phase-row").hidden = !it;
+  if (!it || $("opt-card").dataset.key === it.key) return;
+  $("opt-card").dataset.key = it.key;
+  const phases = it.phases || {"0": "0", "1": "1"};
+  $("opt-phase").innerHTML = Object.entries(phases).map(([k, n]) => `<option value="${k}">${esc(k)}: ${esc(n)}</option>`).join("");
+  $("opt-phase").value = "1" in phases ? "1" : Object.keys(phases)[0];
+  if (typeof it.fraction === "number" && isFinite(it.fraction)) $("opt-volume").value = it.fraction.toFixed(3);
+  if (it.property) $("opt-objective").value = it.property;
+  $("opt-grid").value = it.planar ? "48, 48, 1" : "32, 32, 32";
+}
+$("opt-start").onchange = optStart;
+function chart(values) {
+  if (values.length < 2) return "";
+  const lo = Math.min(...values), hi = Math.max(...values), span = hi - lo || 1;
+  const pts = values.map((v, i) => `${(i / (values.length - 1)) * 400 + 10},${110 - ((v - lo) / span) * 100}`);
+  return `<svg class="chart" viewBox="0 0 420 120"><polyline style="fill:none;stroke:var(--accent)" stroke-width="2" points="${pts.join(" ")}"/>
+    <text x="12" y="14" font-size="11" style="fill:var(--muted)">objective ${+values[values.length - 1].toPrecision(4)}</text></svg>`;
+}
+$("opt-go").onclick = () => busy($("opt-go"), async () => {
+  const out = $("opt-out");
+  out.innerHTML = '<p class="muted">Starting…</p>';
+  try {
+    const projection = Number($("opt-projection").value);
+    const start = $("opt-start").value;
+    const {job} = await api("/api/optimize", {
+      start, solid_phase: item(start) ? Number($("opt-phase").value) : undefined,
+      grid: numbers($("opt-grid").value), volume_fraction: Number($("opt-volume").value),
+      settings: {objective: $("opt-objective").value, method: $("opt-method").value,
+        filter_radius: Number($("opt-filter").value), projection,
+        symmetry: $("opt-symmetry").value, iterations: Number($("opt-iterations").value)},
+    });
+    for (;;) {
+      const s = await api(`/api/job/${job}`);
+      let html = s.png ? `<div class="player"><img src="${s.png}"></div>` : "";
+      html += `<p class="muted">iteration ${s.iteration}${s.volume.length ? ", volume " + s.volume[s.volume.length - 1].toFixed(3) : ""}${s.state === "running" ? stopButton(job).replace("its next step", "the end of this iteration") : ""}</p>${chart(s.objective)}`;
+      if (s.result) {
+        if (s.result.item) html += `<h3>${esc(s.result.item.title)}</h3>` + sendButtons(s.result.item);
+        html += `<h3>Thresholded design</h3>${table(s.result.properties)}${(s.result.tables || []).map(dataTable).join("")}
+          <h3>On a grid twice as fine</h3>${table(s.result.refined_properties)}
+          <p class="muted">${s.result.iterations} iterations (${s.result.converged ? "converged" : s.result.stopped ? "stopped: the design so far" : "not converged"}), ${s.result.time_s} s; volume fraction ${s.result.binary_fraction.toFixed(3)}</p>`;
+        if (s.result.hinges) html += `<p class="error">${s.result.hinges} blocks of voxels touch only at an edge or a corner (hinges, stiff for voxel elements): trust the finer grid, or simulate the design on a conforming mesh.</p>`;
+      }
+      if (s.error) html += `<p class="error">${esc(s.error)}</p>`;
+      out.innerHTML = html;
+      if (s.state !== "running") { if (s.result) await refreshWorkspace(); break; }
+      await wait(700);
+    }
+  } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+
+// -- tools: tabs and forms built from the catalog of the server -------------------------------
+let CATALOG = {tabs: [], tools: []};
+function placeTab(tab, section) {  // a tab of tools among the tabs of its section
+  TABS.push({name: tab.name, title: tab.title, section: tab.section || "simulate", order: tab.order});
+  document.querySelector("main").appendChild(section);
+}
+function toolMenu(tools) {  // the tools of a tab under the headings of their menu
+  let html = "", heading = "";
+  for (const x of tools) {
+    if ((x.menu || "") !== heading) {
+      heading = x.menu || "";
+      if (heading) html += `<h4>${esc(heading)}</h4>`;
+    }
+    html += `<button data-tool="${esc(x.name)}" title="${esc(shortDoc(x.doc))}">${esc(x.title)}</button>`;
+  }
+  return html;
+}
+const LOCKED = {};  // the tabs whose tool runs on several items: it stays until they are done
+function chooseTool(tab, name) {  // the tool a tab shows: its form, its entry of the menu
+  const select = $("tools-" + tab);
+  if (!select || LOCKED[tab] || ![...select.options].some((o) => o.value === name)) return false;
+  if (select.value !== name) { select.value = name; buildToolForm(tab); keepItem(tab); }
+  return true;
+}
+function lockTools(tab, on) {
+  LOCKED[tab] = on;
+  for (const b of $("toolmenu-" + tab).querySelectorAll("button")) b.disabled = on;
+}
+function fieldHtml(tool, f) {
+  const id = `tool-${tool.name}-${f.name}`;
+  const unit = f.unit ? ` [${esc(f.unit)}]` : "";
+  // the documentation on one line, all of it on hover
+  const label = `${esc(f.label)}${f.required ? " *" : ""}<small class="fdoc" title="${esc(f.doc)}">${unit}${f.doc ? " — " + esc(f.doc) : ""}</small>`;
+  const def = f.default === null || f.default === undefined ? "" :
+    (Array.isArray(f.default) ? f.default.join(", ") : (typeof f.default === "object" ? JSON.stringify(f.default) : f.default));
+  if (f.kind === "bool") {
+    return `<label title="${esc(f.doc)}"><input type="checkbox" id="${id}" ${f.default ? "checked" : ""}>${esc(f.label)}</label>`;
+  }
+  let input;
+  if (f.kind === "choice") {
+    input = `<select id="${id}">${f.choices.map(([v, t]) => `<option value="${esc(v)}"${v === f.default ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+  } else if (f.kind === "choices") {
+    input = `<div class="checks" id="${id}">${f.choices.map(([v, t]) => `<label><input type="checkbox" value="${esc(v)}"${(f.default || []).includes(v) ? " checked" : ""}>${esc(t)}</label>`).join("")}</div>`;
+  } else if (f.kind === "items") {
+    input = `<div class="checks" id="${id}" data-multi="1" data-items="${f.items.join(",")}" data-needs="${(f.needs || []).join(",")}"></div>`;
+  } else if (f.kind === "item") {
+    input = `<select id="${id}" data-items="${f.items.join(",")}" data-needs="${(f.needs || []).join(",")}" data-none="${esc(f.none || "")}"></select>`;
+  } else if (f.kind === "materials") {
+    input = `<div id="${id}" class="materials"><p class="muted">Choose the item first.</p></div>`;
+  } else if (f.kind === "json" || f.kind === "text") {
+    input = `<textarea id="${id}" rows="3">${esc(def)}</textarea>`;
+  } else {
+    input = `<input id="${id}" value="${esc(def)}"${f.required ? " placeholder=\"required\"" : ""}>`;
+    if (f.browse) {  // a path: the dialog of the system in the stand-alone application
+      input = `<div class="pathrow">${input}<button type="button" class="plain browse" data-browse="${esc(f.browse)}" data-for="${id}">Browse…</button></div>`;
+    }
+  }
+  return `<label for="${id}">${label}</label>${input}`;
+}
+function buildToolTabs(catalog) {
+  CATALOG = catalog;
+  for (const t of catalog.tabs) {
+    const tools = catalog.tools.filter((x) => x.tab === t.name);
+    if (!tools.length) continue;
+    const section = document.createElement("section");
+    section.className = "tab"; section.id = "tab-" + t.name;
+    // the menu of the tab (its tools under their headings), the form of the tool chosen, its results
+    section.innerHTML = `<nav class="panel sidemenu" id="toolmenu-${t.name}" aria-label="tools of ${esc(t.title)}"${tools.length > 1 ? "" : " hidden"}>${toolMenu(tools)}</nav>
+      <div class="panel form">
+        <select id="tools-${t.name}" hidden>${tools.map((x) => `<option value="${x.name}">${esc(x.title)}</option>`).join("")}</select>
+        <h2 class="title" id="tooltitle-${t.name}"></h2>
+        <p class="doc" id="tooldoc-${t.name}"></p>
+        <div id="toolform-${t.name}"></div>
+        <div class="runbar"><button class="go" id="toolgo-${t.name}" title="run the form (Ctrl + Enter)">Run</button></div>
+        <details class="each" id="toolmany-${t.name}" hidden><summary>Run on several items</summary>
+          <p class="muted">The form above for each item checked, one after another, each run kept in the workspace.</p>
+          <div class="checks" id="toolmanyitems-${t.name}"></div>
+          <button class="plain" id="toolmanygo-${t.name}">Run on each</button></details>
+      </div>
+      <div class="panel results" id="toolout-${t.name}"><p class="muted">${esc(t.doc)}</p></div>`;
+    placeTab(t, section);
+    $("toolmenu-" + t.name).addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-tool]");
+      if (b) chooseTool(t.name, b.dataset.tool);
+    });
+    $("toolgo-" + t.name).onclick = () => busy($("toolgo-" + t.name), () => runTool(t.name));
+    $("toolmanygo-" + t.name).onclick = () => busy($("toolmanygo-" + t.name), () => runMany(t.name));
+    buildToolForm(t.name);
+  }
+}
+function currentTool(tab) { return CATALOG.tools.find((x) => x.name === $("tools-" + tab).value); }
+function shortDoc(doc, size = 220) {  // the first sentence, or the first words, of a long text
+  if (doc.length <= size + 60) return doc;
+  const end = doc.search(/\.\s/);
+  if (end > 40 && end < size) return doc.slice(0, end + 1);
+  return doc.slice(0, doc.lastIndexOf(" ", size)) + "…";
+}
+function setDoc(el, doc) {  // a long explanation shortened, the whole of it on demand
+  const short = shortDoc(doc);
+  if (short === doc) { el.textContent = doc; return; }
+  el.innerHTML = `${esc(short)} <a href="#" class="more">more</a>`;
+  el.querySelector(".more").onclick = (e) => { e.preventDefault(); el.textContent = doc; };
+}
+function buildToolForm(tab) {
+  const tool = currentTool(tab);
+  $("tooltitle-" + tab).textContent = tool.title;
+  for (const b of $("toolmenu-" + tab).querySelectorAll("button")) b.classList.toggle("active", b.dataset.tool === tool.name);
+  if ($("tab-" + tab).classList.contains("active")) setAddress(tab);
+  setDoc($("tooldoc-" + tab), tool.doc);
+  const form = $("toolform-" + tab);
+  // short fields (numbers, words) two by two; the others on a line of their own
+  const short = (f) => ["float", "int", "str", "floats", "ints", "choice", "bool"].includes(f.kind);
+  // in the boxes of their group (specimen, material, loading...), the seldom changed folded
+  let html = "", box = "";
+  for (const f of tool.fields) {
+    if ((f.group || "") !== box) {
+      if (box) html += "</div></details>";
+      box = f.group || "";
+      if (box) html += `<details class="fgroup"${f.fold ? "" : " open"}><summary>${esc(box)}</summary><div class="fgrid">`;
+    }
+    html += `<div class="field${short(f) ? " half" : ""}" data-name="${f.name}">${fieldHtml(tool, f)}</div>`;
+  }
+  form.innerHTML = html + (box ? "</div></details>" : "");
+  form.oninput = form.onchange = () => toolVisibility(tab);
+  fillToolItems(tab);
+  fillMany(tab);
+  toolVisibility(tab);
+}
+function manyField(tool) {  // the field of the item a tool runs on, if it can run on several
+  return tool.fields.find((f) => f.kind === "item" && !f.none);
+}
+function fillMany(tab) {  // the items the run on several items offers: those the field takes
+  const tool = currentTool(tab), f = manyField(tool), box = $("toolmanyitems-" + tab);
+  $("toolmany-" + tab).hidden = !f;
+  if (!f) return;
+  const checked = new Set([...box.querySelectorAll("input:checked")].map((c) => c.value));
+  const its = WS.filter((i) => takes(f, i));
+  box.innerHTML = its.length ? its.map((i) => `<label><input type="checkbox" value="${i.key}"${checked.has(i.key) ? " checked" : ""}>${KIND[i.kind]} ${esc(i.title)}</label>`).join("") :
+    '<span class="muted">none in the workspace yet</span>';
+}
+async function runMany(tab) {  // the form for each item checked, one after another
+  const tool = currentTool(tab), keys = [...$("toolmanyitems-" + tab).querySelectorAll("input:checked")].map((c) => c.value);
+  if (!keys.length) { $("toolout-" + tab).innerHTML = '<p class="error">Check the items to run on.</p>'; return; }
+  const done = [];
+  lockTools(tab, true);  // the same tool for every item
+  try {
+    for (const [k, key] of keys.entries()) {
+      const it = item(key);
+      if (!it || !itemField(tool, it)) continue;  // removed from the workspace meanwhile
+      putItem(tab, tool, key);
+      const s = await runTool(tab, `${k + 1} of ${keys.length}: ${it.title}`);
+      if (!s || s.state !== "done") break;  // stopped or failed: the others not run
+      done.push(s.result.key);
+    }
+  } finally { lockTools(tab, false); }
+  const runs = done.map((key) => item(key)).filter(Boolean);
+  if (!runs.length) return;
+  const curves = runs.every((it) => (it.traits || []).includes("curves"));
+  const summary = `<h3>${runs.length} of ${keys.length} runs done</h3><p>${runs.map((it) => esc(it.title)).join("<br>")}</p>` +
+    (curves && runs.length > 1 ? `<p><button class="plain" id="many-compare-${tab}">Compare their curves →</button></p>` : "");
+  $("toolout-" + tab).insertAdjacentHTML("afterbegin", summary);
+  if ($("many-compare-" + tab)) $("many-compare-" + tab).onclick = () => { for (const it of runs) sendTo("compare", it.key); };
+}
+function readField(el, f) {
+  if (f.kind === "bool") return el.checked;
+  if (f.kind === "choices" || f.kind === "items") return [...el.querySelectorAll("input:checked")].map((c) => c.value);
+  if (f.kind === "materials") {
+    const m = {};
+    for (const row of el.querySelectorAll(".mat")) {
+      m[row.dataset.phase] = row.querySelector("[data-void]").checked ? "void" :
+        {young: Number(row.querySelector("[data-e]").value), poisson: Number(row.querySelector("[data-nu]").value)};
+    }
+    return Object.keys(m).length ? m : null;
+  }
+  return el.value.trim();
+}
+function toolValues(tab) {
+  const tool = currentTool(tab), out = {};
+  for (const f of tool.fields) {
+    const el = document.getElementById(`tool-${tool.name}-${f.name}`);
+    if (el) out[f.name] = readField(el, f);
+  }
+  return out;
+}
+function toolVisibility(tab) {
+  const tool = currentTool(tab), values = toolValues(tab);
+  for (const f of tool.fields) {
+    const wrap = $("toolform-" + tab).querySelector(`.field[data-name="${f.name}"]`);
+    wrap.hidden = !(!f.when || Object.entries(f.when).every(([k, vs]) => vs.map(String).includes(String(values[k]))));
+    if (f.kind === "materials") materialsEditor(document.getElementById(`tool-${tool.name}-${f.name}`), values[f.of], f.default);
+  }
+  for (const box of $("toolform-" + tab).querySelectorAll(".fgroup")) {  // no box left empty
+    box.hidden = [...box.querySelectorAll(".field")].every((w) => w.hidden);
+  }
+}
+function materialsEditor(el, key, given) {  // given: the material of the phases that are not voids
+  const it = item(key);
+  if (!it) { el.innerHTML = "<p class=\"muted\">Choose the item first.</p>"; el.dataset.key = ""; return; }
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  const phases = it.phases || {"0": "0", "1": "1"};
+  const young = (i) => (given && given.young !== undefined ? given.young : (i === 0 ? 1 : 10));
+  const poisson = given && given.poisson !== undefined ? given.poisson : 0.3;
+  el.innerHTML = Object.entries(phases).map(([k, name], i) => `
+    <div class="row mat" data-phase="${esc(k)}">
+      <div><label>${esc(k)}: ${esc(name)} <small>E</small></label><input data-e value="${young(i)}"></div>
+      <div><label><small>Poisson ν</small></label><input data-nu value="${poisson}"></div>
+      <div><label>&nbsp;</label><label><input type="checkbox" data-void ${name === "void" ? "checked" : ""}>void</label></div>
+    </div>`).join("");
+}
+function fillToolItems(tab) {  // the items each field takes: their kinds, with the traits it needs
+  for (const sel of $("toolform-" + tab).querySelectorAll("select[data-items]")) {
+    const f = {kind: "item", items: sel.dataset.items.split(","), needs: sel.dataset.needs.split(",").filter(Boolean)};
+    options(sel, WS.filter((i) => takes(f, i)), sel.dataset.none ? [["", sel.dataset.none]] : []);
+  }
+  for (const box of $("toolform-" + tab).querySelectorAll("div[data-multi]")) {  // several items
+    const f = {kind: "items", items: box.dataset.items.split(","), needs: box.dataset.needs.split(",").filter(Boolean)};
+    const checked = new Set([...box.querySelectorAll("input:checked")].map((c) => c.value));
+    const its = WS.filter((i) => takes(f, i));
+    box.innerHTML = its.length ? its.map((i) => `<label><input type="checkbox" value="${i.key}"${checked.has(i.key) ? " checked" : ""}>${KIND[i.kind]} ${esc(i.title)}</label>`).join("") :
+      '<span class="muted">none in the workspace yet</span>';
+  }
+}
+function takes(f, it) {  // a field of a form takes the item: its kind, the traits it needs
+  return (f.kind === "item" || f.kind === "items") && f.items.includes(it.kind) && (f.needs || []).every((n) => (it.traits || []).includes(n));
+}
+function refreshToolItems() {
+  for (const t of CATALOG.tabs) if ($("toolform-" + t.name)) { fillToolItems(t.name); fillMany(t.name); toolVisibility(t.name); }
+}
+function toolTabsFor(it) {  // the tool tabs that take the item
+  return CATALOG.tabs.filter((t) => CATALOG.tools.some((x) => x.tab === t.name && itemField(x, it)));
+}
+const HELD = {};  // the item last sent to each tab of tools: the tools chosen there take it too
+function itemField(tool, it) {  // the field an item sent goes to: one that needs an item first
+  return tool.fields.find((f) => takes(f, it) && !f.none) || tool.fields.find((f) => takes(f, it));
+}
+function selectInTool(tab, key) {  // the item in the tool shown, or in the first tool taking it
+  const it = item(key);
+  if (!it) return;
+  HELD[tab] = key;
+  // first a tool whose input it is, rather than an option (a behaviour for one phase)
+  const tools = [currentTool(tab), ...CATALOG.tools.filter((x) => x.tab === tab)];
+  const tool = tools.find((x) => x.fields.some((f) => takes(f, it) && !f.none)) ||
+    tools.find((x) => itemField(x, it));
+  if (!tool || (LOCKED[tab] && tool !== currentTool(tab))) return;
+  if ($("tools-" + tab).value !== tool.name) { $("tools-" + tab).value = tool.name; buildToolForm(tab); }
+  putItem(tab, tool, key);
+}
+function keepItem(tab) {  // another tool chosen in a tab: the item sent there, if it takes it
+  const key = HELD[tab], it = item(key);
+  if (it && itemField(currentTool(tab), it)) putItem(tab, currentTool(tab), key);
+}
+function putItem(tab, tool, key) {
+  const f = itemField(tool, item(key));
+  // the choices on which the field of the item depends (e.g. a specimen "morphology")
+  for (const [name, values] of Object.entries(f.when || {})) {
+    const control = document.getElementById(`tool-${tool.name}-${name}`);
+    if (control && control.tagName === "SELECT" && !values.map(String).includes(control.value)) {
+      control.value = String(values[0]);
+    }
+  }
+  toolVisibility(tab);
+  const sel = document.getElementById(`tool-${tool.name}-${f.name}`);
+  if (f.kind === "items") {  // checked among the others
+    const box = [...sel.querySelectorAll("input")].find((c) => c.value === key);
+    if (box) box.checked = true;
+  } else if ([...sel.options].some((o) => o.value === key)) sel.value = key;
+  toolVisibility(tab);
+}
+async function runTool(tab, note) {  // its last status; note: shown above (one of several runs)
+  const tool = currentTool(tab), out = $("toolout-" + tab);
+  const head = note ? `<p><b>${esc(note)}</b></p>` : "";
+  out.innerHTML = head + "<p class=\"muted\">Starting…</p>";
+  try {
+    const {job} = await api("/api/tool", {tool: tool.name, params: toolValues(tab)});
+    for (;;) {
+      const s = await api(`/api/job/${job}`);
+      if (s.state === "running") {
+        out.innerHTML = head + `<p class="muted">${esc(tool.title)}: ${esc(s.message || "running")}… ${s.elapsed_s} s${stopButton(job)}</p>
+          <div class="progress"><div style="width:${Math.round(100 * (s.progress || 0))}%"></div></div>`;
+        await wait(800);
+        continue;
+      }
+      if (s.state === "stopped") { out.innerHTML = head + stoppedNote(s); return s; }
+      if (s.error) { out.innerHTML = head + `<p class="error">${esc(s.error)}</p>`; return s; }
+      await refreshWorkspace();  // the run joined it, with the items it made
+      out.innerHTML = head + toolResult(s.result);
+      return s;
+    }
+  } catch (e) { out.innerHTML = head + `<p class="error">${esc(e.message)}</p>`; return null; }
+}
+function dataTable(t) {
+  const more = t.count > t.rows.length ? `, ${t.count} rows` : "";
+  const link = t.url ? ` <a class="muted" href="${t.url}">(.csv${more})</a>` : "";
+  const cell = (v) => v === null || v === undefined ? "" : esc(typeof v === "number" ? +v.toPrecision(6) : v);
+  return `<h3>${esc(t.title)}${link}</h3><div class="tablewrap"><table class="numbers"><tr>${t.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr>${t.rows.map((r) => `<tr>${r.map((v) => `<td>${cell(v)}</td>`).join("")}</tr>`).join("")}</table></div>`;
+}
+function toolResult(r) {
+  let html = (r.warnings || []).map((w) => `<p class="error">${esc(w)}</p>`).join("");
+  html += `<h3>${esc(r.title)} <span class="muted">(${r.time_s} s)</span></h3>`;
+  if (r.archive) html += `<p><a href="${r.archive}"><b>Download everything (.zip)</b></a></p>`;
+  if (Object.keys(r.values || {}).length) html += table(r.values);
+  for (const made of r.items || []) {  // as the workspace has them now (their traits)
+    const it = item(made.key) || made;
+    html += `<p><b>${esc(it.title)}</b> joined the workspace.</p>` + sendButtons(it);
+  }
+  if (r.view3d && r.key && window.MorphoViewer) html += MorphoViewer.slot(r.key, {label: "View it in 3D"});
+  if ((r.figures || []).length) html += `<h3>Figures</h3>${media(r.figures)}`;
+  if ((r.videos || []).length) html += `<h3>Videos</h3>${media(r.videos)}`;
+  for (const t of r.tables || []) html += dataTable(t);
+  if (r.text) html += `<pre class="report">${esc(r.text)}</pre>`;
+  html += `<h3>Files</h3>${fileList(r.files)}`;
+  if (r.key) html += `<p><button class="plain browse" data-reveal="${esc(r.key)}" title="the folder of this result in the file manager">Show its folder</button></p>`;
+  return html;
+}
+
+// -- tile assemblies ---------------------------------------------------------------------------
+$("des-go").onclick = () => busy($("des-go"), async () => {
+  const out = $("des-out");
+  out.innerHTML = '<p class="muted">Counting…</p>';
+  try {
+    const r = await api("/api/count", {tiles: $("des-tiles").value, shape: numbers($("des-shape").value),
+                                       periodic: $("des-periodic").checked, seed: 1});
+    let html = `<h3>Compatible assemblies</h3>`;
+    html += r.count !== undefined ? `<p><b>${esc(r.count)}</b> assemblies of ${r.n_tiles} tiles` +
+      (r.log2_count !== null ? ` (2<sup>${r.log2_count.toFixed(2)}</sup>)` : "") + `</p>` :
+      `<p class="error">${esc(r.count_error)}</p>`;
+    html += r.assembly ? `<h3>One assembly (wave function collapse)</h3>${images(r.assembly)}` :
+      `<p class="error">${esc(r.assembly_error)}</p>`;
+    out.innerHTML = html;
+  } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+
+// -- Ashby charts ----------------------------------------------------------------------------
+const SLOTS = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
+let ASHBY = null;
+function dbRequest() {
+  return {database: $("db-path").value.trim(), where: $("db-where").value};
+}
+function fmt(v) { return Number(Number(v).toPrecision(3)).toString(); }
+function markerPath(slot, x, y) {
+  // circle, square, triangle: the shape doubles the colour of the three families
+  if (slot === 1) return `<rect x="${x - 4.2}" y="${y - 4.2}" width="8.4" height="8.4" rx="1"/>`;
+  if (slot === 2) return `<path d="M${x},${y - 5.6}L${x + 5.2},${y + 3.6}L${x - 5.2},${y + 3.6}Z"/>`;
+  return `<circle cx="${x}" cy="${y}" r="4.6"/>`;
+}
+function swatch(g) {
+  const fill = g.slot === null ? "var(--other)" : SLOTS[g.slot];
+  return `<svg width="14" height="14" style="fill:${fill}">${markerPath(g.slot === null ? 0 : g.slot, 7, 7)}</svg>`;
+}
+function hull(points) {
+  // monotone chain on [x, y] (transformed coordinates)
+  const p = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return null;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [], upper = [];
+  for (const q of p) { while (lower.length > 1 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q); }
+  for (const q of p.reverse()) { while (upper.length > 1 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
+  const h = lower.slice(0, -1).concat(upper.slice(0, -1));
+  return h.length >= 3 ? h : null;
+}
+function ticks(lo, hi, log) {
+  if (log) {
+    const out = [], fine = hi - lo < 2;
+    for (let e = Math.floor(lo); e <= Math.ceil(hi); e++)
+      for (const m of fine ? [1, 2, 5] : [1]) {
+        const t = e + Math.log10(m);
+        if (t >= lo - 1e-9 && t <= hi + 1e-9) out.push(t);
+      }
+    return out;
+  }
+  const raw = (hi - lo) / 5, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 5, 10].map((k) => k * mag).find((s) => s >= raw);
+  const out = [];
+  for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-12; t += step) out.push(t);
+  return out;
+}
+function drawAshby(d) {
+  const out = $("db-out");
+  const W = Math.max(360, Math.min(820, out.clientWidth - 34)), H = 440;
+  const m = {l: 62, r: 18, t: 14, b: 46};
+  const tf = d.log ? Math.log10 : (v) => v, inv = d.log ? (t) => Math.pow(10, t) : (t) => t;
+  const all = d.groups.flatMap((g) => g.points);
+  if (!all.length) { out.innerHTML = '<p class="error">No record has positive values of both keys.</p>'; return; }
+  const ext = (vals) => {
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (hi - lo < 1e-12) { lo -= 0.5; hi += 0.5; }
+    const pad = 0.06 * (hi - lo);
+    return [lo - pad, hi + pad];
+  };
+  const [x0, x1] = ext(all.map((p) => tf(p.x))), [y0, y1] = ext(all.map((p) => tf(p.y)));
+  const X = (t) => m.l + (t - x0) / (x1 - x0) * (W - m.l - m.r);
+  const Y = (t) => H - m.b - (t - y0) / (y1 - y0) * (H - m.t - m.b);
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(d.y_label)} against ${esc(d.x_label)}">`;
+  for (const t of ticks(x0, x1, d.log)) {
+    svg += `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${H - m.b}" style="stroke:var(--c-grid)" stroke-width="1"/>`;
+    svg += `<text x="${X(t)}" y="${H - m.b + 16}" text-anchor="middle" font-size="11" style="fill:var(--c-muted)">${fmt(inv(t))}</text>`;
+  }
+  for (const t of ticks(y0, y1, d.log)) {
+    svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" style="stroke:var(--c-grid)" stroke-width="1"/>`;
+    svg += `<text x="${m.l - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" style="fill:var(--c-muted)">${fmt(inv(t))}</text>`;
+  }
+  svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}" style="stroke:var(--c-axis)"/>`;
+  svg += `<line x1="${m.l}" x2="${m.l}" y1="${m.t}" y2="${H - m.b}" style="stroke:var(--c-axis)"/>`;
+  svg += `<text x="${(m.l + W - m.r) / 2}" y="${H - 8}" text-anchor="middle" font-size="12" style="fill:var(--c-secondary)">${esc(d.x_label)}</text>`;
+  svg += `<text transform="translate(14 ${(m.t + H - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="12" style="fill:var(--c-secondary)">${esc(d.y_label)}</text>`;
+  const boxes = [];
+  const fits = (b) => b.x0 >= m.l && b.x1 <= W - m.r && b.y0 >= m.t && b.y1 <= H - m.b &&
+    !boxes.some((o) => !(b.x1 < o.x0 || b.x0 > o.x1 || b.y1 < o.y0 || b.y0 > o.y1));
+  const label = (text, x, y, options, style) => {
+    const w = 6.3 * text.length, h = 12;
+    for (const [dx, dy, anchor] of options) {
+      const left = anchor === "end" ? x + dx - w : anchor === "middle" ? x + dx - w / 2 : x + dx;
+      const b = {x0: left, x1: left + w, y0: y + dy - h + 2, y1: y + dy + 2};
+      if (fits(b)) {
+        boxes.push(b);
+        return `<text x="${x + dx}" y="${y + dy}" text-anchor="${anchor}" font-size="11" style="${style}">${esc(text)}</text>`;
+      }
+    }
+    return "";
+  };
+  for (const n of d.guides || []) {
+    const pts = [];
+    for (let k = 0; k <= 64; k++) {
+      const tx = x0 + (x1 - x0) * k / 64, ty = d.log ? n * tx : Math.pow(tx, n);
+      if (ty >= y0 && ty <= y1) pts.push([X(tx), Y(ty)]);
+    }
+    if (pts.length < 2) continue;
+    svg += `<polyline points="${pts.map((p) => p.join(",")).join(" ")}" style="fill:none;stroke:var(--c-muted)" stroke-width="1"/>`;
+    svg += label(`n = ${n}`, pts[0][0], pts[0][1], [[4, -5, "start"], [4, 13, "start"]], "fill:var(--c-muted)");
+  }
+  const marks = [];
+  for (const g of d.groups) {
+    const fill = g.slot === null ? "var(--other)" : SLOTS[g.slot];
+    if (g.slot !== null) {
+      const h = hull(g.points.map((p) => [tf(p.x), tf(p.y)]));
+      if (h) svg += `<polygon points="${h.map((q) => `${X(q[0])},${Y(q[1])}`).join(" ")}" style="fill:${fill};fill-opacity:.1"/>`;
+    }
+    svg += `<g style="fill:${fill};stroke:var(--surface);stroke-width:2">`;
+    for (const p of g.points) {
+      const px = X(tf(p.x)), py = Y(tf(p.y));
+      svg += markerPath(g.slot === null ? 0 : g.slot, px, py);
+      marks.push({px, py, p, g});
+    }
+    svg += "</g>";
+  }
+  if (d.groups.length > 1) {
+    for (const g of d.groups) {
+      if (g.slot === null) continue;
+      const first = g.points.reduce((a, b) => (b.x < a.x ? b : a));
+      svg += label(g.name, X(tf(first.x)), Y(tf(first.y)),
+        [[-9, 4, "end"], [0, 18, "middle"], [0, -9, "middle"], [9, 4, "start"]], "fill:var(--c-secondary)");
+    }
+  }
+  svg += `<circle id="ashby-focus" r="8" style="fill:none;stroke:var(--c-ink);stroke-width:1.5;display:none"/></svg>`;
+  const legend = d.groups.length > 1 ? `<div class="legend">${d.groups.map((g) =>
+    `<span>${swatch(g)}${esc(g.slot === null ? (g.members.length === 1 ? `Other: ${g.members[0]}` :
+      `Other (${g.members.length} families)`) : g.name || "—")} <small>(${g.points.length})</small></span>`).join("")}</div>` : "";
+  const shown = all.length;
+  out.innerHTML = `<h3>${esc(d.y_label)} <span class="muted">— ${shown} of ${d.matched} records${d.by ? ", families: " + esc(d.by) : ""}</span></h3>
+    ${legend}<div class="viz">${svg}<div class="tip"></div></div>
+    <button class="plain" id="ashby-table">Show the table</button><div id="ashby-rows"></div>`;
+  const viz = out.querySelector(".viz"), tip = viz.querySelector(".tip"), focus = viz.querySelector("#ashby-focus");
+  viz.querySelector("svg").addEventListener("mousemove", (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    let best = null, dist = 24;
+    for (const k of marks) {
+      const dd = Math.hypot(k.px - mx, k.py - my);
+      if (dd < dist) { dist = dd; best = k; }
+    }
+    if (!best) { tip.style.display = "none"; focus.style.display = "none"; return; }
+    focus.setAttribute("cx", best.px); focus.setAttribute("cy", best.py); focus.style.display = "";
+    const fam = best.g.slot === null ? "Other" : best.g.name;
+    const run = best.p.run && best.p.run !== fam ? " · " + esc(best.p.run) : "";
+    const real = best.p.realization !== null && best.p.realization !== undefined ? " #" + best.p.realization : "";
+    tip.innerHTML = `<b>${esc(fam)}</b>${run}${real}<br>
+      ${esc(d.x)}: ${fmt(best.p.x)}<br>${esc(d.y)}: ${fmt(best.p.y)}`;
+    tip.style.display = "block";
+    tip.style.left = `${Math.min(best.px + 14, W - tip.offsetWidth - 4)}px`;
+    tip.style.top = `${Math.max(best.py - tip.offsetHeight - 10, 0)}px`;
+  });
+  viz.querySelector("svg").addEventListener("mouseleave", () => { tip.style.display = "none"; focus.style.display = "none"; });
+  $("ashby-table").onclick = () => {
+    const rows = marks.map((k) => `<tr><td>${esc(k.g.slot === null ? "Other: " + k.g.name : k.g.name)}</td><td>${esc(k.p.run || "")}</td>
+      <td>${k.p.realization ?? ""}</td><td>${fmt(k.p.x)}</td><td>${fmt(k.p.y)}</td></tr>`).join("");
+    $("ashby-rows").innerHTML = $("ashby-rows").innerHTML ? "" : `<table class="numbers"><tr><th>family</th><th>run</th><th>#</th>
+      <th>${esc(d.x)}</th><th>${esc(d.y)}</th></tr>${rows}</table>`;
+  };
+}
+function fillKeys(info) {
+  const numeric = info.numeric, text = info.text;
+  const pick = (sel, keys, preferred) => {
+    const keep = sel.value;
+    sel.innerHTML = keys.map((k) => `<option>${esc(k)}</option>`).join("");
+    const want = [keep, ...preferred].find((k) => k && keys.includes(k));
+    if (want) sel.value = want;
+  };
+  const relative = numeric.filter((k) => k.endsWith(".relative"));
+  pick($("db-x"), numeric, ["solid_fraction"]);
+  pick($("db-y"), numeric, [relative.find((k) => k.includes(".E1.")), relative[0]]);
+  pick($("db-by"), ["(none)", ...text], ["model.type", "run_name"]);
+}
+async function loadDatabase() {
+  const info = await api("/api/database", dbRequest());
+  fillKeys(info);
+  return info;
+}
+$("db-load").onclick = () => busy($("db-load"), async () => {
+  try {
+    const info = await loadDatabase();
+    $("db-out").innerHTML = `<p class="muted">${info.runs.length} runs, ${info.records} records. Choose the axes and draw.</p>`;
+  } catch (e) { $("db-out").innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+$("db-add").onclick = () => busy($("db-add"), async () => {
+  try {
+    const r = await api("/api/database/add", {database: $("db-path").value.trim(), directory: $("db-run").value.trim()});
+    const info = await loadDatabase();
+    $("db-out").innerHTML = `<p class="muted">${r.added} records added; ${info.runs.length} runs in the database.</p>`;
+  } catch (e) { $("db-out").innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+$("db-session").onclick = () => busy($("db-session"), async () => {
+  try {
+    const r = await api("/api/database/session", {database: $("db-path").value.trim()});
+    const info = await loadDatabase();
+    $("db-out").innerHTML = `<p class="muted">${r.added} records of ${r.runs} simulations added; ${info.runs.length} runs in the database.</p>`;
+  } catch (e) { $("db-out").innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+$("db-go").onclick = () => busy($("db-go"), async () => {
+  try {
+    if (!$("db-x").value) await loadDatabase();
+    const guides = $("db-guides").value.trim();
+    ASHBY = await api("/api/ashby", {
+      ...dbRequest(), x: $("db-x").value, y: $("db-y").value,
+      by: $("db-by").value === "(none)" ? "" : $("db-by").value, log: $("db-log").checked,
+      guides: guides ? numbers(guides) : null,
+    });
+    drawAshby(ASHBY);
+  } catch (e) { $("db-out").innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+});
+window.addEventListener("resize", () => { if (ASHBY && $("tab-ashby").classList.contains("active")) drawAshby(ASHBY); });
+
+// -- start -----------------------------------------------------------------------------------
+(async () => {
+  try {
+    const info = await api("/api/info");
+    $("version").textContent = info.version;
+    $("sim-gpu-row").hidden = !info.gpu;
+    const address = location.hash.slice(1);  // the tab, tool or model asked for
+    MODELS = await api("/api/models");
+    modelMenu(MODELS);
+    fillSelect($("gen-model"), MODELS, (m) => {
+      $("gen-title").innerHTML = `${esc(m.name)}<small>${esc(m.family || "")}</small>`;
+      for (const b of $("gen-list").querySelectorAll("button")) b.classList.toggle("active", b.dataset.model === m.name);
+      setDoc($("gen-doc"), plainDoc(m.doc)); buildForm($("gen-params"), m);
+      exampleDomain("gen-size", "gen-periodic", m);
+      $("gen-formation").hidden = !m.evolution;
+      if ($("tab-generate").classList.contains("active")) setAddress("generate");
+    });
+    buildToolTabs(await api("/api/tools"));
+    INDEX = searchIndex(CATALOG, MODELS, fixedTexts());
+    if (address) go(address);
+    else showTab("generate");
+    window.addEventListener("hashchange", () => go(location.hash.slice(1)));  // a link #tab/tool
+    await refreshWorkspace();
+  } catch (e) { document.body.insertAdjacentHTML("beforeend", `<p class="error">${esc(e.message)}</p>`); }
+})();
+</script>
+</body>
+</html>

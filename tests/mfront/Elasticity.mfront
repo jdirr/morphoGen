@@ -1,0 +1,16 @@
+@DSL Default;
+@Behaviour Elasticity;
+@Author morphoGen;
+@Date 23/10/2026;
+@Description{"Isotropic linear elasticity with its moduli as material properties: the material properties of MFront behaviours in morphoGen's tests."}
+@MaterialProperty stress E;
+@MaterialProperty real nu;
+@ProvidesSymmetricTangentOperator;
+@Integrator{
+  const auto lambda = computeLambda(E, nu);
+  const auto mu = computeMu(E, nu);
+  sig = lambda * trace(eto + deto) * Stensor::Id() + 2 * mu * (eto + deto);
+  if (computeTangentOperator_) {
+    Dt = lambda * Stensor4::IxI() + 2 * mu * Stensor4::Id();
+  }
+}

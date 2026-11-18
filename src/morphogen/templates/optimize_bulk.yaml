@@ -1,0 +1,23 @@
+# Periodic cell of maximal bulk modulus at a volume fraction of 30 % (Sigmund 2000):
+# 3D, cubic symmetry, method of moving asymptotes. The thresholded design reaches about
+# 97 % of the Hashin-Shtrikman upper bound (0.117 E for a solid of Poisson's ratio 0.3)
+# on its grid, 93 % on a grid twice as fine (optimization.json: properties and check),
+# in about a minute. Other methods: oc (optimality criteria), beso (solid/void voxels)
+# and hca (hybrid cellular automaton).
+optimization:
+  objective: bulk_modulus
+  volume_fraction: 0.3
+  grid: 24
+  cell_size: 1.0
+  material: {young: 1.0, poisson: 0.3}
+  method: mma
+  filter_radius: 1.5
+  projection: 8.0
+  symmetry: cubic
+  iterations: 200
+seed: 2000
+outputs:
+  directory: out/optimize_bulk
+  name: bulk
+  image: [vti]
+  geometry: [json]

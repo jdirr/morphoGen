@@ -1,0 +1,50 @@
+# Tension of a polycrystal of a nickel alloy to 10 % in finite strains: a periodic Voronoi
+# tessellation of 12 grains with random orientations, meshed grain by grain with
+# quadratic tetrahedra (linear ones lock under plastic flow), each grain a cubic crystal
+# slipping on its 12 octahedral systems (crystal plasticity of Meric and Cailletaud). The
+# lateral faces are free of tractions: a uniaxial Cauchy stress. Curves
+# (polycrystal_0000_tension_periodic.csv): nominal strains and stresses E, S (components of
+# the macroscopic gradient F - I and of the first Piola-Kirchhoff stress), true
+# (logarithmic) strains LE and true (Cauchy) stresses TS, mean cumulated plastic strain p.
+# Fields (.vtu, at 0.1, 0.5, 2 and 10 %): Cauchy stress, logarithmic strain, plastic
+# strain, current orientations of the lattices and displacement of the nodes (warp the
+# mesh by it in ParaView).
+model:
+  type: voronoi
+  n_cells: 12
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+seed: 11
+mesh:
+  size: 0.2
+  min_feature: 0.05
+  order: 2                          # quadratic tetrahedra
+homogenization:
+  materials:
+    1:
+      cubic: [250000, 160000, 120000]  # MPa
+      crystal_plasticity:
+        families: [octahedral]          # also cube, bcc110, bcc112
+        tau0: 80                        # critical resolved shear stress (MPa)
+        Q: 20                           # r = tau0 + Q sum_r h_sr (1 - exp(-b v_r))
+        b: 10
+        C: 20000                        # x = C alpha, dalpha = dgamma - D alpha |dgamma|
+        D: 300
+        K: 25                           # dgamma/dt = <(|tau - x| - r) / K>^n
+        n: 10
+        # self, coplanar, Hirth, collinear, glissile and Lomer interactions
+        interaction: [1.0, 1.0, 0.6, 12.3, 1.6, 1.3]
+  boundary_conditions: [periodic]
+  paths:
+    tension:                            # strain rate 1e-3 /s
+      times: [0, 1, 5, 20, 100]
+      increments: [4, 16, 15, 32]       # steps of 0.025 % through the elastic-plastic
+      strain: {"11": [0, 0.001, 0.005, 0.02, 0.1]}  # transition, then 0.1 and 0.25 %
+  nonlinear:
+    kinematics: finite                  # or small
+  fields: true
+outputs:
+  directory: out/homogenization_crystal_plasticity
+  name: polycrystal

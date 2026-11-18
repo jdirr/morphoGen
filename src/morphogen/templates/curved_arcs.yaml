@@ -1,0 +1,28 @@
+# Curved fibres as in NASA's PuMA: circular arcs whose radii of curvature are uniform
+# between 15 and 30, here without overlap (random sequential addition, no two fibres
+# closer than min_gap), lying in planes close to xy as in fibrous preforms. Other shapes:
+# shape: worm_like (persistent random walk, persistence) or helix (crimp: helix_radius,
+# helix_pitch); overlap: true gives the Boolean model.
+model:
+  type: curved_fibers
+  shape: arc
+  radius: 0.5
+  length: 16.0                 # contour length
+  segments: 12
+  curvature_radius: {type: uniform, low: 15.0, high: 30.0}
+  orientation: {type: planar, normal: [0, 0, 1]}   # the tangents at the middles of the arcs
+  overlap: false
+  min_gap: 0.1
+  volume_fraction: 0.1
+domain:
+  size: 40.0
+  periodic: true
+seed: 7
+voxels:
+  voxel_size: 0.25
+outputs:
+  directory: out/curved_arcs
+  name: fibres
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity, minkowski]

@@ -1,0 +1,23 @@
+# Vascular tree grown by space colonization toward 3000 random points of the tissue,
+# from a root on the lower face; the radii follow Murray's law (r^3 of a vessel = sum of
+# r^3 of its branches), from capillaries of radius 0.004.
+model:
+  type: branching
+  n_attractors: 3000
+  step: 0.02
+  roots: 1
+  root_position: face
+  tip_radius: 0.004
+  murray_exponent: 3.0         # 2: the pipe model of plants (da Vinci's rule)
+domain:
+  size: 1.0
+  periodic: false
+seed: 2
+voxels:
+  shape: 160
+outputs:
+  directory: out/vascular_tree
+  name: tree
+  geometry: [csv]              # the segments: end points and radii
+  surface: [stl]
+analysis: [volume_fraction, connectivity]

@@ -1,0 +1,26 @@
+# Nanolayered film (Bironeau et al. 2016): layers of two polymers of lognormal
+# thicknesses stacked along z, the thinner layers (phase 1) broken up by holes covering
+# 20 % of their area. Two scales of heterogeneity: the layers along z, the holes in the
+# plane. Without holes, the variance of the volume fraction of a cube of edge L
+# decreases as 1/L only (theory: integral_range_1d).
+model:
+  type: random_laminate
+  thickness: {type: lognormal, mean: 0.1, std: 0.05}    # layers of phase 1 (um)
+  spacing: {type: lognormal, mean: 0.3, std: 0.1}       # layers of phase 0
+  axis: 2
+  hole_fraction: 0.2
+  hole_radius: {type: uniform, low: 0.1, high: 0.3}
+domain:
+  size: 5.0
+  periodic: true
+  unit: um
+seed: 2016
+realizations: 2
+voxels:
+  shape: 128
+outputs:
+  directory: out/random_laminate
+  name: film
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, chords, thickness]

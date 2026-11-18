@@ -1,0 +1,47 @@
+# A perforated rubber sheet that tears, by the phase-field method in finite strains: a
+# neo-Hookean rubber with holes (20 %), stretched across with its width held and its
+# thickness free (the pure shear test of rubbers). The energy of the cell is that of the
+# deformation gradient over the reference configuration; the isochoric energy and the
+# expansion drive the damage (split: volumetric). The ligaments between the holes
+# stretch to 1.4, then a crack runs through them across the sheet. Lengths in mm,
+# stresses in MPa (G_c in kJ/m2). voxels.section: one layer of voxels through the middle
+# of the volume. About four minutes, most of them in the step where the crack runs.
+# Curve: sheet_0000_stretch_periodic.csv (nominal and true measures, damage).
+model:
+  type: hardcore_spheres       # the holes
+  radius: 1.0
+  volume_fraction: 0.2
+domain:
+  size: 8.0
+  periodic: true
+  unit: mm
+seed: 6
+voxels:
+  shape: 32
+  section: z
+homogenization:
+  method: fft
+  materials:
+    0:                                   # the rubber
+      young: 3.0
+      poisson: 0.45
+      hyperelasticity: {model: neo_hookean}
+    1: void                              # the holes
+  properties: []
+  paths:
+    stretch:
+      times: [0, 1]
+      increments: 10
+      strain: {"11": [0, 0.5], "22": [0, 0]}   # nominal; the thickness (33) is free
+  nonlinear:
+    kinematics: finite                   # the phase field in finite strains
+  fracture:
+    toughness: {0: 1.0}
+    length: 0.5
+    model: AT1
+    split: volumetric                    # a rubber: volumetric or none
+    residual: 1.0e-3                     # stiffness left in the broken voxels
+  fields: true
+outputs:
+  directory: out/fracture_rubber
+  name: sheet

@@ -1,0 +1,56 @@
+# Reduced model of an elasto-plastic composite by the nonuniform transformation field
+# analysis (NTFA, Michel & Suquet 2003): SiC spheres in an aluminium alloy, voxelized.
+# The model is trained once on full-field paths (here tension and shear), whose plastic
+# strain fields give six modes of the matrix; the paths are then followed by the reduced
+# model in milliseconds (results <name>.ntfa), and also by the full field here
+# (full_field: true) to compare them (<name>.periodic). The training paths must span
+# the loading directions of the paths followed. Isotropic and kinematic (Armstrong-
+# Frederick) hardening; norton: {K, n} for viscoplasticity.
+model:
+  type: hardcore_spheres
+  radius: 1.0
+  volume_fraction: 0.2
+domain:
+  size: 5.0
+  periodic: true
+seed: 7
+voxels:
+  shape: 24
+homogenization:
+  method: fft
+  materials:
+    0:                                   # aluminium alloy (MPa)
+      young: 70000
+      poisson: 0.33
+      plasticity:
+        yield: 100                       # R0
+        hardening: 1000                  # R(p) = H p + Q (1 - exp(-b p))
+        isotropic: [{Q: 30, b: 50}]
+        kinematic: [{C: 10000, D: 100}]  # Armstrong-Frederick backstress
+    1: {young: 400000, poisson: 0.2}     # SiC particles, elastic
+  boundary_conditions: [periodic]
+  paths:
+    tension:
+      times: [0, 1]
+      increments: [10]
+      strain: {"11": [0, 0.01]}
+    cycle:
+      times: [0, 1, 2]
+      increments: [10, 10]
+      strain: {"11": [0, 0.01, -0.006]}
+  ntfa:
+    training:                            # full-field paths whose snapshots give the modes
+      tension:
+        times: [0, 1]
+        increments: [10]
+        strain: {"11": [0, 0.01]}
+      shear:
+        times: [0, 1]
+        increments: [10]
+        strain: {"12": [0, 0.02]}
+    modes: 6                             # per plastic phase
+    save: ntfa_model.npz                 # the reduced model, for later runs
+    full_field: true                     # also the full-field paths, to compare
+outputs:
+  directory: out/homogenization_ntfa
+  name: composite

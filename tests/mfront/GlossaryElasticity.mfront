@@ -1,0 +1,23 @@
+@DSL Default;
+@Behaviour GlossaryElasticity;
+@Author morphoGen;
+@Date 23/10/2026;
+@Description{"Isotropic elasticity whose moduli have glossary names, with a material property and a state variable of its own: the coefficients that the umat interface merges, in morphoGen's tests of the exports of MFront materials."}
+@MaterialProperty stress young;
+young.setGlossaryName("YoungModulus");
+@MaterialProperty real nu;
+nu.setGlossaryName("PoissonRatio");
+@MaterialProperty real k;
+k.setEntryName("Rate");
+@StateVariable real q;
+q.setEntryName("Clock");
+@ProvidesSymmetricTangentOperator;
+@Integrator{
+  const auto lambda = computeLambda(young, nu);
+  const auto mu = computeMu(young, nu);
+  sig = lambda * trace(eto + deto) * Stensor::Id() + 2 * mu * (eto + deto);
+  dq = k * dt;
+  if (computeTangentOperator_) {
+    Dt = lambda * Stensor4::IxI() + 2 * mu * Stensor4::Id();
+  }
+}

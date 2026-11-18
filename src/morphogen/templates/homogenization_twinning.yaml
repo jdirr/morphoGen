@@ -1,0 +1,54 @@
+# The twins of a textured magnesium. A polycrystal of 20 grains on voxels whose axes c
+# are near the axis 3 (a fibre texture: the law of von Mises-Fisher), each grain a
+# hexagonal crystal that slips on its basal, prismatic and pyramidal <c + a> systems and
+# twins on {10-12}. A twin shears in one sense only, the one that lengthens the axis c
+# (c / a < sqrt 3): pulled along 3, the grains twin and the polycrystal flows at a low
+# stress, the twinned fraction growing with the strain (the twins give 6.4 % at most);
+# compressed along 3, it does not twin and must slip on its hard pyramidal systems: it
+# is twice as hard, the asymmetry of textured magnesium. The curves
+# (magnesium_0000_tension_periodic.csv, ..._compression_periodic.csv) have the twinned
+# fraction at each step; the fields (.vti) that of each voxel. A minute.
+model:
+  type: voronoi
+  n_cells: 20
+  crystal_orientations: true
+  texture:                     # of the axes c of the grains; the grains turned about them
+    type: von_mises_fisher
+    kappa: 30.0                # the mean of 1 - cos of their angle to the axis: 1 / kappa
+    axis: [0, 0, 1]
+domain:
+  size: 1.0
+  periodic: true
+seed: 5
+voxels:
+  shape: 16
+homogenization:
+  method: fft
+  materials:
+    1:
+      hexagonal: [59400.0, 25600.0, 21400.0, 61600.0, 16400.0]   # c11, c12, c13, c33, c44 (MPa)
+      crystal_plasticity:
+        c_over_a: 1.624
+        K: 5.0                 # dgamma/dt = <(tau - r) / K>^n
+        n: 10.0
+        families:              # critical resolved shear stresses (MPa)
+          basal: {tau0: 10.0}
+          prismatic: {tau0: 60.0}
+          pyramidal2_ca: {tau0: 100.0}
+        twins:                 # {10-12}<10-1-1>: a shear of 0.129, in one sense
+          twin1012: {tau0: 25.0, Q: 15.0, b: 20.0}
+        twin_saturation: 1.0   # the fraction of a grain that may twin
+  properties: []
+  fields: true
+  paths:
+    tension:                   # the other components: zero stress
+      times: [0, 1]
+      increments: 15
+      strain: {"33": [0, 0.03]}
+    compression:
+      times: [0, 1]
+      increments: 15
+      strain: {"33": [0, -0.03]}
+outputs:
+  directory: out/homogenization_twinning
+  name: magnesium

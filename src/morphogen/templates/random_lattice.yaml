@@ -1,0 +1,27 @@
+# Strut lattice with defects: octet-truss struts removed at random down to a mean
+# coordination of 7 struts per node (at least 3 at every node), and nodes displaced by up
+# to 10 % of the cell size. The rigidity of the pin-jointed framework is analysed
+# (results.csv: mechanisms, self-stresses, floppy macroscopic strains): below a mean
+# coordination of about 6 (Maxwell), macroscopic strains become floppy and the lattice
+# turns bending-dominated. Use mesh and homogenization sections (see
+# homogenization_gyroid) for its apparent moduli.
+model:
+  type: random_lattice
+  cell: octet                  # cubic, bcc, fcc or octet
+  cell_size: 1.0
+  strut_radius: 0.07
+  coordination: 7.0
+  perturbation: 0.1
+domain:
+  size: 4.0                    # periodic: a whole number of cells
+  periodic: true
+seed: 2001
+realizations: 3
+voxels:
+  shape: 96
+outputs:
+  directory: out/random_lattice
+  name: lattice
+  geometry: [json]             # struts, and the framework (nodes, struts, shifts)
+  image: [vti]
+analysis: [volume_fraction, connectivity]

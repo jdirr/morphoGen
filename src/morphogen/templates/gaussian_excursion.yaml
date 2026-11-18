@@ -1,0 +1,17 @@
+# Excursion set of a Gaussian random field (bicontinuous porous medium).
+model:
+  type: gaussian_excursion
+  correlation_length: 1.0
+  volume_fraction: 0.4
+domain:
+  size: 16.0
+  periodic: true
+seed: 5
+voxels:
+  shape: 128
+outputs:
+  directory: out/gaussian_excursion
+  name: field
+  image: [vti]
+  surface: [stl]               # needs scikit-image
+analysis: [volume_fraction, specific_surface, connectivity]

@@ -1,0 +1,14 @@
+# Normalise text files to LF in the repository (Windows checkouts convert as configured).
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+
+# Binary data
+*.npy binary
+*.npz binary
+*.png binary
+*.pdf binary
+*.ico binary

@@ -1,0 +1,21 @@
+# Octet-truss strut lattice at 15 % relative density.
+model:
+  type: strut_lattice
+  cell: octet                  # cubic | bcc | fcc | octet
+  cell_size: 5.0
+  volume_fraction: 0.15        # or strut_radius
+domain:
+  size: 15.0
+  periodic: true
+  unit: mm
+voxels:
+  voxel_size: 0.1
+outputs:
+  directory: out/strut_lattice
+  name: octet
+  geometry: [csv]              # struts: end points and radius
+  surface: [stl]
+  mesh:
+    formats: [vtu]
+    phases: [1]
+analysis: [volume_fraction]

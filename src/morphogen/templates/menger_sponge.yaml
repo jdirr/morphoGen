@@ -1,0 +1,17 @@
+# Menger sponge of level 3: 20 of the 27 sub-cubes kept at each level, fractal
+# dimension ln 20 / ln 3 = 2.727 (box counting on the voxels gives it back). Other
+# patterns: vicsek, cantor_dust, or any list of kept sub-cubes.
+model:
+  type: fractal_sponge
+  pattern: menger
+  level: 3
+  cell_size: 1.0
+domain:
+  size: 1.0
+  periodic: true
+voxels:
+  shape: 81                    # 3^4: the smallest holes three voxels wide
+outputs:
+  directory: out/menger_sponge
+  name: menger
+analysis: [volume_fraction, fractal_dimension]

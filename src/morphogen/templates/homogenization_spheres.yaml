@@ -1,0 +1,31 @@
+# Apparent elastic moduli of a Boolean model of stiff spheres in a soft matrix under the
+# four boundary conditions, by finite elements on conforming tetrahedral meshes (MMG).
+# The apparent bulk moduli satisfy Reuss <= SUBC <= PBC <= KUBC <= Voigt, and MBC lies
+# between SUBC and KUBC (Kanit et al. 2003; Dirrenberger et al. 2014). The elements have
+# ten nodes, those of the interfaces on the spheres (curved edges), and the mesh follows
+# the grooves where two spheres overlap (its sharp edges); the grid of the mesher is
+# fine enough for the necks and the gaps between the spheres. About six minutes for the
+# two realizations (110,000 nodes each).
+model:
+  type: boolean_spheres
+  radius: 1.0
+  volume_fraction: 0.3
+domain:
+  size: 6.0
+  periodic: true
+seed: 2003
+realizations: 2
+mesh:
+  size: 1.0                 # largest element size (the interface is refined)
+  background: 0.25          # the grid on which the mesher samples the spheres
+  order: 2                  # 10-node tetrahedra (the default of an analysis); 1: 4-node
+homogenization:
+  materials:
+    0: {young: 1.0, poisson: 0.3}      # matrix
+    1: {young: 20.0, poisson: 0.3}     # spheres
+  boundary_conditions: [kubc, periodic, mixed, subc]
+  properties: [bulk_modulus, shear_modulus]
+outputs:
+  directory: out/homogenization_spheres
+  name: spheres
+  conforming_mesh: [vtu]

@@ -1,0 +1,26 @@
+# Entangled cross-linked fibres (Mezeix et al. 2009; Chatti et al. 2018, 2020): carbon
+# fibres of 7 um at 8.5 %, long enough to cross the volume element (infinite fibres on
+# Poisson lines: the domain must be non-periodic), gathered about the plane normal to the
+# axis of compression by moulding (their Gaussian girdle, sigma = 0.4 rad), half their
+# contacts bonded by epoxy cross-links (phase 2). Contacts 42 um apart along the fibres
+# on average (39 um if isotropic; d / 2f = 41 um at small fractions), cross-links 84 um.
+model:
+  type: cross_linked_fibers
+  radius: 3.5
+  orientation: {type: girdle, sigma: 0.4, axis: [0, 0, 1]}
+  volume_fraction: 0.085
+  bonded_fraction: 0.5
+  link_radius: 5.0
+domain:
+  size: 200.0
+  periodic: false
+  unit: um
+seed: 2018
+voxels:
+  voxel_size: 1.0
+outputs:
+  directory: out/cross_linked_fibers
+  name: fibres
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

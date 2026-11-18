@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+message: >-
+  If you use morphoGen in your work, please cite it as below, with the papers of the
+  methods you use (docs/theory.md).
+type: software
+title: "morphoGen: morphological modelling and generation of virtual microstructures"
+abstract: >-
+  morphoGen generates random media from models of mathematical morphology and stochastic
+  geometry, architected and bio-inspired materials, polycrystals textured after
+  orientation maps, fibre and scale-rich networks and the microstructures grown by
+  cellular automata on periodic and quasi-periodic tilings; measures them, their
+  percolation thresholds and critical exponents included, against the theory of their
+  models where it exists; estimates the size of their representative volume elements;
+  meshes them from the exact functions of their phases; computes their apparent
+  properties by finite elements on conforming meshes and by FFT on voxel images, on the
+  CPU or an NVIDIA GPU: elasticity, transport and coupled problems, linear and nonlinear
+  behaviours (von Mises, Hill, crystal and porous plasticity, hyperelasticity, MFront
+  behaviours) in small and finite strains, fracture (phase field, cohesive zones, crack
+  growth) and contact, and impacts by explicit dynamics with OpenRadioss; identifies
+  their macroscopic law or learns one from their responses; and writes them for other
+  codes (Z-set, MFront, AMITEX_FFTP, Abaqus, FEniCSx, Neper, DAMASK, OpenRadioss). A
+  graphical interface, in the web browser or as a stand-alone application, chains these
+  steps.
+authors:
+  - family-names: Dirrenberger
+    given-names: Justin
+    affiliation: "PIMM, Arts et Métiers, Cnam, CNRS UMR 8006, Paris, France"
+    orcid: "https://orcid.org/0000-0002-3964-305X"
+license: GPL-3.0-or-later
+version: 0.6.0
+repository-code: "https://github.com/jdirr/morphoGen"
+keywords:  # those of pyproject.toml, and architected materials
+  - microstructure
+  - random media
+  - mathematical morphology
+  - representative volume element
+  - homogenization
+  - finite elements
+  - FFT
+  - Boolean model
+  - Voronoi
+  - TPMS
+  - cellular automata
+  - metamaterials
+  - topology optimization
+  - architected materials

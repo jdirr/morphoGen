@@ -1,0 +1,34 @@
+# Glass beads in a viscoelastic resin (a Prony series of its shear and bulk moduli): the
+# storage and loss moduli of the composite over five decades of frequency (the
+# correspondence principle, complex laws on the voxels) and, in time, its relaxation
+# after a fast stretch (the same law integrated exactly along a loading path).
+model:
+  type: boolean_spheres
+  radius: 1.0
+  volume_fraction: 0.25
+domain:
+  size: 6.0
+  periodic: true
+seed: 5
+voxels:
+  shape: 20
+homogenization:
+  method: fft
+  materials:
+    0:                       # resin: instantaneous moduli, then (relative modulus, time)
+      young: 3.0e+9
+      poisson: 0.35
+      viscoelasticity:
+        shear: [[0.4, 0.01], [0.3, 1.0], [0.15, 100.0]]
+        bulk: [[0.2, 1.0]]
+    1: {young: 70.0e+9, poisson: 0.22}                               # glass
+  properties: [dynamic_stiffness]
+  frequencies: [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]                  # rad/s
+  paths:
+    relaxation:              # stretch in 0.01 s, then hold; the other stresses are free
+      times: [0, 0.01, 1, 100]
+      increments: [4, 6, 6]
+      strain: {"11": [0, 0.01, 0.01, 0.01]}
+outputs:
+  directory: out/homogenization_viscoelastic
+  name: composite

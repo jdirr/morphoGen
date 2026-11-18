@@ -1,0 +1,47 @@
+# The ductile damage of a particle-reinforced alloy: elastic SiC particles (20 %) in an
+# aluminium matrix whose plasticity (isotropic and kinematic hardenings) is coupled to
+# Lemaitre's damage, dD = (Y / S)^s dp beyond a plastic strain of 1 %: the stress of the
+# matrix is (1 - D) times its effective stress, Y the energy release rate of the
+# effective stress, which grows with the triaxiality between the particles. Pulled to
+# 6 %, the composite reaches its strength near 3.6 % and softens as the matrix is
+# damaged, then unloads along its damaged modulus. A local damage law that softens has
+# no width of its own: the time of the delayed damage (viscosity) keeps the steps well
+# posed. The variable p_0 of the curve (spheres_0000_tension_periodic.csv) is the mean
+# damage of the matrix; about a minute and a half (FFT, 16 voxels per edge).
+model:
+  type: hardcore_spheres
+  radius: 1.0
+  volume_fraction: 0.2
+domain:
+  size: 5.0
+  periodic: true
+seed: 7
+voxels:
+  shape: 16
+homogenization:
+  method: fft
+  materials:
+    0:                                   # aluminium alloy (MPa)
+      young: 70000
+      poisson: 0.33
+      plasticity:
+        yield: 100                       # R0
+        isotropic: [{Q: 80, b: 20}]      # R(p) = Q (1 - exp(-b p))
+        kinematic: [{C: 10000, D: 100}]  # Armstrong-Frederick backstress
+      damage:
+        law: lemaitre                    # also kachanov (creep), with plasticity.norton
+        S: 0.35                          # the strength of the damage (MPa)
+        s: 1.0
+        threshold: 0.01                  # plastic strain at which the damage starts
+        closure: 0.2                     # compressions count for a fifth in Y
+        viscosity: 0.05                  # the time of the delayed damage
+    1: {young: 400000, poisson: 0.2}     # SiC particles, elastic
+  properties: []
+  paths:
+    tension:                             # free components: zero stress
+      times: [0, 1, 2]
+      increments: [30, 6]
+      strain: {"11": [0, 0.06, 0.054]}
+outputs:
+  directory: out/homogenization_ductile_damage
+  name: spheres

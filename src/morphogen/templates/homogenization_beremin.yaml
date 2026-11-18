@@ -1,0 +1,50 @@
+# The probability of cleavage of a ferritic steel, by the local approach of Beremin. A
+# polycrystal of 20 grains on voxels, each a cubic crystal that slips on its {110}<111>
+# and {112}<111> systems, pulled to 3 % at a low temperature. Cleavage starts at
+# microcracks that the plastic strain nucleates: every voxel that has yielded is a link
+# of a chain, driven by the largest normal stress of the {100} planes of its grain, and
+# the Weibull stress of the cell, (sum of sigma^m V / V0)^(1/m), gives the probability
+# that the weakest link has failed, 1 - exp(-(sigma_w / sigma_u)^m). The cell stands
+# for a point of the gauge of a tensile bar of 10^6 such cells, 1 cm^3: the reference
+# volume V0 = (50 micrometres)^3 is divided by their number. The probability rises
+# with the hardening, from nothing at the yield stress to a half near 2 %: the scatter
+# of the strain to failure of a brittle steel. The curve
+# (steel_0000_tension_periodic.csv) has the Weibull stress and the probability at each
+# step; the field (..._beremin.vti) the stress that drives each voxel. Half a minute.
+model:
+  type: voronoi
+  n_cells: 20
+  crystal_orientations: true
+domain:
+  size: 0.1                    # mm: grains of some 40 micrometres
+  periodic: true
+seed: 7
+voxels:
+  shape: 12
+homogenization:
+  method: fft
+  materials:
+    1:
+      cubic: [230000.0, 135000.0, 117000.0]   # c11, c12, c44 (MPa)
+      crystal_plasticity:
+        families: [bcc110, bcc112]
+        tau0: 250.0            # a low temperature
+        Q: 80.0
+        b: 15.0
+        K: 10.0
+        n: 10.0
+  properties: []
+  paths:
+    tension:                   # the other components: zero stress
+      times: [0, 1]
+      increments: 20
+      strain: {"33": [0, 0.03]}
+  beremin:
+    modulus: 22.0              # m of Weibull
+    scale: 1550.0              # sigma_u (MPa)
+    volume: 1.25e-10           # V0 = (0.05 mm)^3 over the 10^6 cells of the gauge (mm^3)
+    planes: cube               # the normal stress of {100}; left out: the principal stress
+    plastic: 1.0e-4            # the plastic zone: the points beyond this plastic strain
+outputs:
+  directory: out/homogenization_beremin
+  name: steel

@@ -1,0 +1,33 @@
+# RVE study of the apparent elastic and thermal properties of Poisson fibres, after
+# Dirrenberger, Forest & Jeulin (2014): steel fibres (16 %) in a porous matrix, kinematic
+# (KUBC) and mixed (MBC) boundary conditions, gamma = 2/3 imposed for the RVE sizes.
+# Each realization is meshed conformingly (only the fibres: the pores carry no stress
+# nor flux) and solved by finite elements (10-node elements whose nodes lie on the
+# fibres). This is a laptop-sized version (about four
+# minutes): increase the sizes and realizations, and split the study across cluster
+# jobs (--task-id, --n-tasks), for real studies.
+model:
+  type: poisson_fibers
+  radius: 1.0
+  volume_fraction: 0.16
+domain:
+  periodic: false
+seed: 2014
+mesh:
+  size: 1.0                   # the fibre radius; the interface is refined
+homogenization:
+  materials:
+    0: void                   # pores
+    1: {young: 210000.0, poisson: 0.3, conductivity: 100.0}   # steel, MPa and W/(m K)
+  boundary_conditions: [kubc, mixed]
+  properties: [bulk_modulus, shear_modulus, conductivity]
+rve:
+  method: ensemble
+  sizes: [5, 7, 9]
+  realizations: [12, 8, 5]
+  gamma: 0.6666667            # theoretical exponent of Poisson fibres (Jeulin 2011)
+  relative_errors: [0.01, 0.05]
+  n_realizations: [1, 10]
+outputs:
+  directory: out/rve_poisson_fibers_fe
+  name: fibres

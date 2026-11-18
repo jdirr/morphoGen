@@ -1,0 +1,28 @@
+# Cortical (Haversian) bone in micrometres: osteons remodelled one after another (a
+# dead-leaves model of cylinders), each with a Haversian canal and a cement line; the
+# bone not remodelled is interstitial. Four phases, the canals forming the porosity.
+model:
+  type: osteons
+  radius: {type: normal, mean: 100.0, std: 15.0}
+  coverage: 0.65
+  canal_ratio: 0.2
+  cement_thickness: 4.0
+  axis: 2                      # the bone axis
+domain:
+  size: [1000.0, 1000.0, 8.0]  # prismatic along the axis
+  periodic: true
+  unit: um
+voxels:
+  voxel_size: 2.0
+homogenization:
+  method: fft
+  materials:
+    0: {young: 22.0, poisson: 0.3}       # interstitial bone (GPa)
+    1: {young: 18.0, poisson: 0.3}       # osteonal lamellar bone
+    2: {young: 12.0, poisson: 0.3}       # cement lines
+    3: void                              # Haversian canals
+  properties: [stiffness]
+outputs:
+  directory: out/osteons
+  name: cortical
+analysis: [phase_fractions]

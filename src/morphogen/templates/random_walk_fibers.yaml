@@ -1,0 +1,26 @@
+# Bending fibres without overlap at a high volume fraction (Altendorf & Jeulin 2011): random
+# walks whose steps follow a von Mises-Fisher law between the main direction of their fibre
+# (reliability kappa1) and the previous step (kappa2, the smoothness of the bending), packed
+# by forces, repulsions of the overlapping segments against springs that keep their
+# lengths and the angles of the joints, until no two fibres overlap. Up to about 0.5 for
+# isotropic fibres of aspect ratio 11, more when aligned (beta -> 0).
+model:
+  type: random_walk_fibers
+  radius: 0.5
+  length: 10.0                 # contour length: aspect ratio (L + 2r) / 2r = 11
+  orientation: {type: beta, beta: 0.5}   # Schladitz's beta law about z (1: isotropic)
+  kappa1: 10.0
+  kappa2: 100.0
+  volume_fraction: 0.35
+domain:
+  size: 20.0
+  periodic: true
+seed: 1
+voxels:
+  voxel_size: 0.1
+outputs:
+  directory: out/random_walk_fibers
+  name: fibres
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

@@ -1,0 +1,23 @@
+# Transparent dead leaves (Jeulin 1997): spherical leaves of random grey levels fall on
+# each other, each letting 1 - alpha = 60 % of what it covers show through; the random
+# function they make is thresholded to a volume fraction of 0.35 (the threshold from the
+# law of its series). Its mean, variance and covariance are exact; alpha = 1 gives the
+# dead leaves.
+model:
+  type: transparent_dead_leaves
+  radius: {type: lognormal, mean: 0.06, std: 0.02}
+  transparency: 0.4
+  values: uniform
+  volume_fraction: 0.35
+domain:
+  size: 1.0
+  periodic: true
+seed: 1997
+realizations: 2
+voxels:
+  shape: 96
+outputs:
+  directory: out/transparent_dead_leaves
+  name: transparent
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

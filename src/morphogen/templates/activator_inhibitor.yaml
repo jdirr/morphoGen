@@ -1,0 +1,22 @@
+# Turing-like patterns of Young's (1984) activator-inhibitor cellular automaton: each cell
+# weighs the active cells of a near ball against those of a surrounding shell. The
+# inhibition radius sets the wavelength (about 1.5 to 2 times its value); a volume
+# fraction turns the threshold into a rank rule (the most activated cells win).
+model:
+  type: activator_inhibitor
+  activation_radius: 0.5
+  inhibition_radius: 1.25
+  volume_fraction: 0.35
+  steps: 20
+  cell_size: 0.125             # a lattice of 64^3 cells
+domain:
+  size: 8.0
+  periodic: true
+seed: 1984
+voxels:
+  shape: 64
+outputs:
+  directory: out/activator_inhibitor
+  name: turing
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

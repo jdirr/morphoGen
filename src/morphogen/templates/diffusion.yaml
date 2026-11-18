@@ -1,0 +1,33 @@
+# Moisture uptake of a fibre composite: flax-like hollow fibres (lumens in phase 0, here
+# the matrix) aligned along z in a polymer, the plate exposed on its faces x- and x+ to a
+# humidity raised from 0 to 1 in an hour, then held. Each phase has its diffusivity and
+# its solubility (the concentration at equilibrium with the outside activity 1); the
+# activity is continuous across the interfaces. Outputs: the uptake curve
+# (fibres_0000_diffusion.csv: mean concentration, its ratio to saturation, the mean of
+# each phase) and the concentration fields at the times (.vti). Units: mm and s.
+model:
+  type: hardcore_fibers
+  radius: 0.04
+  length: 0.3                      # shorter than half the periodic box
+  orientation: {type: aligned, direction: [0, 0, 1]}
+  volume_fraction: 0.3
+  lumen: 0.4
+domain:
+  size: 1.0
+  periodic: true
+seed: 5
+voxels:
+  shape: 48
+diffusion:
+  phases:
+    0: {diffusivity: 1.0e-6, solubility: 0.02}   # polymer matrix
+    1: {diffusivity: 5.0e-6, solubility: 0.15}   # fibre walls, more hygroscopic
+  exposed: [x-, x+]                # the other faces: periodic (impermeable if not periodic)
+  activity: {times: [0, 3600], values: [0, 1]}
+  times: [600, 3600, 36000, 360000]
+  steps: 30
+  fields: true
+outputs:
+  directory: out/diffusion
+  name: fibres
+analysis: [volume_fraction]

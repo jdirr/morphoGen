@@ -1,0 +1,49 @@
+# A cleavage crack that closes. A polycrystal of iron at a low temperature on voxels (the
+# crystals of the template homogenization_cleavage: hard slip, {100} planes that cleave),
+# pulled until a crack has crossed its grains, then pushed. The opening of a cleavage
+# plane goes back under pressure (closure: true, the default): the crack closes at a low
+# stress, and once closed the polycrystal carries the pressure nearly as the sound one,
+# its lips rubbing on each other (friction). Without the closure (closure: false) the
+# planes keep their opening: the lattice alone is pressed as soon as the strain goes
+# down, yields, and the planes break further in shear. The curve
+# (iron_0000_cycle_periodic.csv) has the opening and the damage of the planes at each
+# step; the fields (.vti) those of each voxel. A minute.
+model:
+  type: voronoi
+  n_cells: 6
+  crystal_orientations: true
+domain:
+  size: 0.1                    # mm
+  periodic: true
+seed: 2
+voxels:
+  shape: 8
+homogenization:
+  method: fft
+  materials:
+    1:
+      cubic: [230000.0, 135000.0, 117000.0]   # c11, c12, c44 (MPa)
+      crystal_plasticity:
+        K: 10.0
+        n: 10.0
+        families:
+          bcc110: {tau0: 300.0, Q: 100.0, b: 20.0}
+        cleavage:
+          planes: cube         # {100}
+          strength: 500.0      # the normal stress that opens a plane (MPa)
+          energy: 0.05         # the fracture energy of the planes (N/mm)
+          length: 0.0125       # the size of the voxels that dissipate it (size / shape)
+          K: 50.0
+          n: 1.0
+          closure: true        # the planes close under pressure (the default)
+          friction: 0.3        # Coulomb's, of the lips of a plane under pressure (default 0)
+  properties: []
+  fields: true
+  paths:
+    cycle:                     # the other components: zero stress
+      times: [0, 1, 2]
+      increments: [40, 24]
+      strain: {"33": [0, 0.01, -0.002]}
+outputs:
+  directory: out/homogenization_crack_closure
+  name: iron

@@ -1,0 +1,20 @@
+# Periodic cell of maximal thermal conductivity at a volume fraction of 30 % by a hybrid
+# cellular automaton (Tovar et al. 2006): every voxel adjusts its density to bring the
+# mean stimulus (dissipation density) of its Moore neighbourhood to a common set point
+# that keeps the volume. The design reaches about 88 % of the Hashin-Shtrikman upper
+# bound 2 f / (3 - f) = 0.222 k on this coarse grid (87 % on a grid twice as fine), in
+# about 20 seconds.
+optimization:
+  objective: conductivity
+  volume_fraction: 0.3
+  grid: 24
+  material: {young: 1.0, poisson: 0.3, conductivity: 1.0}
+  method: hca
+  symmetry: cubic
+  iterations: 150
+seed: 2006
+outputs:
+  directory: out/optimize_conductivity
+  name: conductor
+  image: [vti]
+  geometry: [json]

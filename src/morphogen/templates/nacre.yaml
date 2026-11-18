@@ -1,0 +1,25 @@
+# Nacre: staggered layers of aragonite tablets (brick-and-mortar) bonded by a soft
+# organic mortar, about 90 % of mineral. The effective stiffness (FFT) is far above that
+# of the mortar: the tablets carry the load, the mortar transfers it by shear.
+model:
+  type: nacre
+  arrangement: brick           # brick (staggered) or voronoi (polygonal tablets)
+  tablet_size: 1.0             # square tablets of side 1
+  tablet_thickness: 0.2
+  mortar_thickness: 0.05       # between the layers, and between tablets (gap)
+  overlap: 0.5                 # shift of a layer from the previous one, in tablets
+domain:
+  size: [2.0, 2.0, 1.0]        # 4 layers of 0.25
+  periodic: true
+voxels:
+  voxel_size: 0.0125           # 4 voxels across the mortar
+homogenization:
+  method: fft
+  materials:
+    0: {young: 4.0, poisson: 0.4}        # biopolymer mortar (GPa)
+    1: {young: 100.0, poisson: 0.3}      # aragonite tablets (GPa)
+  properties: [stiffness]
+outputs:
+  directory: out/nacre
+  name: nacre
+analysis: [volume_fraction]

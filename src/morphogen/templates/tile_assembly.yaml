@@ -1,0 +1,28 @@
+# Combinatorial design: a random compatible assembly of building blocks. Pipe tiles join
+# a node to some of their faces; an open face must meet an open face, so the network has
+# no dead end at the tile boundaries, and 'degrees' sets the allowed node degrees (here:
+# no dead ends at all). The assembly is drawn by wave function collapse (constraint
+# propagation with backtracking). With tiles: polarized (blocks of combinatorial
+# metamaterials, after Coulais et al. 2016), periodic boxes need an even number of tiles
+# along each axis; method: uniform draws uniformly among all compatible assemblies of
+# narrow boxes (exact transfer matrices), method: random ignores compatibility.
+model:
+  type: tile_assembly
+  tiles: pipes
+  degrees: [0, 2, 3, 4]
+  open_probability: 0.6
+  pipe_radius: 0.18
+  tile_length: 1.0
+  tile_cells: 12               # lattice cells per tile edge
+domain:
+  size: 8.0
+  periodic: true
+seed: 2016
+voxels:
+  shape: 96                    # one voxel per lattice cell
+outputs:
+  directory: out/tile_assembly
+  name: pipes
+  geometry: [json]             # lattice and tile indices of the assembly
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

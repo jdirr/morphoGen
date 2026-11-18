@@ -1,0 +1,43 @@
+# The size of the representative volume element for several physics at once: the bulk
+# modulus, the thermal conductivity, the swelling by moisture and the loss modulus at
+# 10 rad/s of glass beads in a viscoelastic resin, and the stress of a loading path, on
+# the same realizations (ensemble method, FFT solver). Every result can be named in
+# rve.properties: scalars, <property>.<result> of tensors, couplings and harmonic
+# properties, <path>.<quantity> of loading paths (a column, the strength, the work).
+model:
+  type: boolean_spheres
+  radius: 1.0
+  volume_fraction: 0.2
+domain:
+  periodic: true
+seed: 1
+voxels:
+  voxel_size: 0.5
+homogenization:
+  method: fft
+  materials:
+    0:
+      young: 3.0e+9
+      poisson: 0.35
+      conductivity: 0.2
+      swelling: 0.4                        # strain per unit moisture content
+      viscoelasticity: {shear: [[0.5, 0.01], [0.3, 1.0]]}
+    1: {young: 70.0e+9, poisson: 0.22, conductivity: 1.0}
+  properties: [bulk_modulus, conductivity, swelling, dynamic_stiffness]
+  frequencies: [10.0]
+  paths:
+    pull: {times: [0, 1], increments: 4, strain: {"11": [0, 0.01]}}
+rve:
+  sizes: [4.0, 6.0, 8.0]
+  realizations: [16, 8, 4]
+  properties:
+    - volume_fraction
+    - bulk_modulus
+    - conductivity
+    - swelling.mean
+    - dynamic_stiffness.shear_loss_1
+    - pull.S11
+    - pull.work
+outputs:
+  directory: out/rve_multiphysics
+  name: spheres

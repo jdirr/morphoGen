@@ -1,0 +1,30 @@
+# Apparent elastic moduli of a copper polycrystal: a periodic Voronoi tessellation whose
+# grains are cubic crystals with uniformly random orientations, meshed grain by grain
+# (exact cells, conforming grain boundaries, matching periodic faces) and solved by
+# finite elements. The bulk modulus is exactly (C11 + 2 C12) / 3 for every boundary
+# condition; the shear moduli satisfy Reuss <= SUBC <= PBC <= KUBC <= Voigt. With 50
+# grains, each shear component (C44, C55, C66) depends on the texture of the sample (a
+# few GPa); the isotropic projection of the stiffness tensor (column
+# stiffness.periodic.shear_modulus) lies close to the Hashin-Shtrikman bounds (45.96 -
+# 49.45 GPa).
+model:
+  type: voronoi
+  n_cells: 50
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+seed: 1962
+realizations: 2
+mesh:
+  size: 0.12                # largest element size (10-node elements, the default)
+  min_feature: 0.02         # cell edges and caps smaller than this are removed first
+homogenization:
+  materials:
+    1: {cubic: [168.4, 121.4, 75.4], conductivity: 400.0}   # copper, GPa and W/m/K
+  boundary_conditions: [kubc, periodic, subc]
+  properties: [bulk_modulus, shear_modulus, stiffness]
+outputs:
+  directory: out/homogenization_polycrystal
+  name: copper
+  conforming_mesh: [vtu, inp]   # grains: cell data / element sets and orientations

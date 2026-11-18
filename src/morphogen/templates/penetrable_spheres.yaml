@@ -1,0 +1,21 @@
+# Penetrable spheres with impenetrable cores, the cherry-pit model of Torquato (1984):
+# spheres of radius R whose cores of radius 0.5 R do not overlap, between the Boolean
+# model (impenetrability 0: fraction 1 - exp(-eta)) and hard spheres (1: fraction eta),
+# eta being the number of spheres per unit volume times their volume.
+model:
+  type: penetrable_spheres
+  radius: 0.5
+  impenetrability: 0.5
+  reduced_density: 0.6
+domain:
+  size: 10.0
+  periodic: true
+seed: 1984
+realizations: 3
+voxels:
+  voxel_size: 0.05
+outputs:
+  directory: out/penetrable_spheres
+  name: cherry_pit
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

@@ -1,0 +1,29 @@
+# Scale-rich network (Both, Chen, ..., Portela & Barabási, Nature 659, 345, 2026):
+# ligaments lambda_0 t^-alpha thick grown one after another from points of the voids until
+# they meet, so that their thicknesses, lengths and connectivities span orders of
+# magnitude in one sample (power-law tails of exponents 1 + 1/alpha, 3 and 3). The network
+# lies in the x-y plane and is extruded along z: a planar image one voxel thick, as the
+# prismatic specimens of the paper (plane strain).
+model:
+  type: scale_rich_network
+  n_ligaments: 500             # T, as the printed specimens of the paper
+  decay: 0.5                   # alpha: 0 uniform thicknesses, 0.9 a few thick ligaments
+  volume_fraction: 0.4         # solved on each realization (or initial_thickness: 0.06)
+  # angles: [0, 90]            # aligned ligaments (default: uniform orientations)
+  # pole: [0.5, 0.5]           # polarized: along the direction of the pole...
+  # pole_angle: 90             # ...turned by 90 degrees: tangential, for...
+  # polarized_fraction: 0.2    # ...the first 20 % of the ligaments
+  # nucleation_gradient: [1, 4]  # nucleation four times denser at the upper face along x
+  # frame: 0.005               # a frame of material: the sample as a periodic cell
+domain:
+  size: [1.0, 1.0, 0.001]
+  periodic: false              # the ligaments end on the boundary of the box
+seed: 1
+voxels:
+  voxel_size: 0.001            # the thinnest ligament, 0.06 / sqrt(500) = 0.0027 here
+outputs:
+  directory: out/scale_rich_network
+  name: network
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

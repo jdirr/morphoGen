@@ -1,0 +1,42 @@
+# Three phases meshed conformingly: spheres, their interphase of constant thickness and
+# the matrix. Each phase has its implicit function, exact on the interfaces of the model
+# (distances to the spheres); the mesher (MMG) cuts the box by them one after the other,
+# so that the elements follow the two interfaces of each particle and match on opposite
+# faces; the coatings that overlap are cut group by group, and the grooves where two of
+# them meet are edges of the mesh. Finite elements under periodic conditions for the
+# stiffness and the conductivity; compare with the voxels of the template coated_spheres
+# (method: fft).
+# The files: the mesh (coated_0000_tet.vtu), the implicit function of each phase on the
+# voxels (coated_0000_levelset_phase<k>.vti) and the surface of each phase but the last
+# (coated_0000_phase<k>.stl). The elements have ten nodes (the default of an analysis),
+# those of the two interfaces of each particle on their spheres: curved edges, which keep
+# the volumes of the spheres and of their interphase within a percent with elements twice
+# as large as the interphase is thick. About two minutes.
+model:
+  type: coating
+  model: {type: hardcore_spheres, radius: 1.0, volume_fraction: 0.2}
+  thickness: 0.3
+  side: outside
+domain:
+  size: 5.0
+  periodic: true
+seed: 2
+mesh:
+  size: 0.7                    # largest edge of the elements
+voxels:
+  shape: 64                    # of the implicit functions and of the surfaces
+homogenization:
+  method: fe
+  materials:
+    0: {young: 3.0, poisson: 0.35, conductivity: 0.2}    # matrix
+    1: {young: 70.0, poisson: 0.22, conductivity: 1.0}   # spheres
+    2: {young: 10.0, poisson: 0.3, conductivity: 0.5}    # interphase
+  boundary_conditions: [periodic]
+  properties: [stiffness, conductivity]
+outputs:
+  directory: out/homogenization_interphase
+  name: coated
+  conforming_mesh: [vtu]
+  level_set: [vti]
+  surface: [stl]
+analysis: [phase_fractions]

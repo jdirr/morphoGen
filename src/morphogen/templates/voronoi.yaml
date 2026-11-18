@@ -1,0 +1,20 @@
+# Poisson-Voronoi polycrystal with random crystal orientations (Yang et al. 2019).
+model:
+  type: voronoi
+  n_cells: 343
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+  unit: mm
+seed: 7
+voxels:
+  shape: 64
+outputs:
+  directory: out/voronoi
+  name: grains
+  geometry: [json, csv]        # csv: germs, phases and Euler angles per cell
+  labels: [vti]                # cell labels (grain ids)
+  mesh:
+    formats: [inp]
+analysis: [cells]

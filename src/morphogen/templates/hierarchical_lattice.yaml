@@ -1,0 +1,22 @@
+# Hierarchical lattice of hollow tubes (Rayneau-Kirkhope, Mao and Farr, PRL 109, 2012):
+# the nodes of an fcc lattice joined by frames of generation 1, columns of regular
+# octahedra whose compressed edges are tubes. Each generation lowers the exponent of
+# the material needed to carry a load without buckling.
+model:
+  type: hierarchical_lattice
+  cell_size: 1.0
+  generations: 1
+  cells: 3                     # octahedra per frame
+  tube_radius: [0.012, 0.012]  # tubes of the frames of generation 1 and 0
+  wall_thickness: 0.004        # hollow tubes (omit for solid ones)
+  connections: nn+nnn          # octet truss (nn) and cube edges (nnn)
+domain:
+  size: 1.0
+  periodic: true
+voxels:
+  shape: 256
+outputs:
+  directory: out/hierarchical_lattice
+  name: frames
+  geometry: [json]             # the tubes and their bores, regenerated exactly
+analysis: [volume_fraction]

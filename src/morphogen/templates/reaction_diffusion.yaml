@@ -1,0 +1,22 @@
+# Turing patterns of the Gray-Scott reaction-diffusion system (Pearson 1993): spots,
+# worms, labyrinth or holes, or any feed and kill rates. The activator concentration is
+# thresholded at the requested volume fraction; its smooth field gives smooth interfaces
+# at any resolution and for conforming meshes. Patterns have a period of about 12 cells.
+model:
+  type: reaction_diffusion
+  pattern: labyrinth
+  steps: 4000
+  volume_fraction: 0.4
+  cell_size: 0.0625            # a lattice of 64^3 cells, a period of about 0.75
+domain:
+  size: 4.0
+  periodic: true
+seed: 1993
+voxels:
+  shape: 128                   # twice the lattice resolution (interpolated field)
+outputs:
+  directory: out/reaction_diffusion
+  name: labyrinth
+  image: [vti]
+  surface: [stl]               # needs scikit-image
+analysis: [volume_fraction, specific_surface, connectivity]

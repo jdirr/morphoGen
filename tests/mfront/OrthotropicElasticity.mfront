@@ -1,0 +1,16 @@
+@DSL Default;
+@Behaviour OrthotropicElasticity;
+@Author morphoGen;
+@Date 23/10/2026;
+@Description{"Orthotropic linear elasticity whose three shear moduli differ (G12 = 10000, G23 = 20000, G13 = 30000): the order of the shear components of MGIS against morphoGen's in the tests."}
+@ModellingHypothesis Tridimensional;
+@OrthotropicBehaviour;
+@ComputeStiffnessTensor<UnAltered>{200000, 150000, 100000, 0.3, 0.25, 0.2,
+                                   10000, 20000, 30000};
+@ProvidesSymmetricTangentOperator;
+@Integrator{
+  sig = D * (eto + deto);
+  if (computeTangentOperator_) {
+    Dt = D;
+  }
+}

@@ -1,0 +1,33 @@
+# Thermo-elastic homogenization of a unidirectional glass-epoxy composite with the
+# macroscopic strain and stress of the periodic cell as unknowns, as the periodic
+# element of Z-set: named loadings mix prescribed strain and stress components, and a
+# temperature change. A Bouligand structure with no twist is a unidirectional
+# composite: one fibre of radius 2 (12.6 %) along z per 10 x 10 cell.
+model:
+  type: bouligand
+  fiber_radius: 2.0
+  fiber_spacing: 10.0
+  layer_thickness: 10.0
+  pitch_angle: 0.0
+  start_angle: 90.0            # along z in the (y, z) plane of the layers
+  axis: 0
+domain:
+  size: [10.0, 10.0, 0.3125]   # prismatic along the fibre: 4 voxels
+  periodic: true
+voxels:
+  shape: [128, 128, 4]
+homogenization:
+  method: fft
+  materials:
+    0: {young: 2800.0, poisson: 0.39, expansion: 9.5e-5}   # epoxy (MPa, 1/K)
+    1: {young: 89000.0, poisson: 0.3, expansion: 5.5e-6}   # glass fibre
+  properties: [stiffness, thermal_expansion]
+  loadings:
+    free_heating: {temperature: 100.0}                   # stress-free: the expansion
+    blocked_heating: {strain: {"11": 0, "22": 0, "33": 0, "23": 0, "31": 0, "12": 0},
+                      temperature: 100.0}                # the thermal stresses
+    tension_33: {stress: {"33": 100.0}}                  # uniaxial stress along the fibre
+    plane_strain_11: {strain: {"11": 0.001, "33": 0.0}}  # mixed: the rest stress-free
+outputs:
+  directory: out/homogenization_mixed_loading
+  name: unidirectional

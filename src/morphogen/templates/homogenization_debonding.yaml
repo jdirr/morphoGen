@@ -1,0 +1,43 @@
+# Glass beads that debond from their matrix. The interfaces of the two phases are
+# cohesive: a bilinear traction-separation law (a strength and a fracture energy) whose
+# broken points touch again in compression and rub (Coulomb's friction). Pulled, the
+# composite is first as stiff as with bonded beads; between one and two percent of strain
+# the beads debond, from their poles, and its tangent modulus falls to that of a matrix
+# with holes. Unloaded, it comes back to the origin along the softer modulus; pushed, the
+# poles of the beads close and carry the load again: nearly the modulus of the bonded
+# composite, in compression only. The curve (beads_0000_tension_periodic.csv) has at
+# each step the debonded area, the mean damage and the largest opening of the interfaces
+# and the energy that friction dissipated; about a minute.
+model:
+  type: hardcore_spheres
+  radius: 0.45
+  number: 2
+domain:
+  size: 2.0
+  periodic: true
+seed: 3
+mesh:
+  size: 0.45
+  hausdorff: 0.04              # the distance of the faces to the spheres
+  order: 1                     # 4-node tetrahedra, interface elements of three nodes a side
+homogenization:
+  method: fe
+  materials:
+    0: {young: 3000.0, poisson: 0.35}    # the matrix (an epoxy, MPa)
+    1: {young: 70000.0, poisson: 0.22}   # the beads (glass)
+  properties: []
+  paths:
+    tension:                   # free components: zero stress
+      times: [0, 1, 2, 3]
+      increments: [24, 8, 8]
+      strain: {"11": [0, 0.03, 0, -0.01]}
+  nonlinear:
+    interfaces:
+      normal_strength: 30.0    # MPa: the shear strength is the same unless given
+      mode_I: 0.05             # the fracture energy (N/mm)
+      friction: 0.3            # of the broken interfaces
+      viscosity: 0.02          # a bead debonds at once: the damage is slowed (time of the path)
+outputs:
+  directory: out/homogenization_debonding
+  name: beads
+  conforming_mesh: [vtu]

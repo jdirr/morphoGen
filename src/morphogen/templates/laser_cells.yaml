@@ -1,0 +1,38 @@
+# Cellular design of a laser-architectured sheet (morphogen laser; docs/laser.md, §6): the
+# corrugated track of martensite of Wang et al. (2023, steel res. int. 94, 2200695) drawn
+# by a 1 mm spot on cells of 0.5 mm, then changed by a cellular automaton (neighbour
+# exchanges tested by finite elements, periodic and symmetric, treatable by the spot) for
+# the failure strain at a tensile strength of at least 700 MPa; the phases of the paper
+# with the fracture of the martensite; the tracks of the result treated by the laser.
+laser_sheet:
+  material: annealed_ms1500        # the process model of the tracks of the result
+  configuration: symmetric         # a fibre beam above, a diode below
+  layers: 4
+  laser:
+    beam: {power: 150, speed: 10, radius: 0.5, absorptivity: 0.55}
+    bottom: {power: 100, speed: 10, radius: 0.6, absorptivity: 0.55, profile: tophat}
+  specimen: {kind: dogbone, length: 30, width: 5, thickness: 1.0}
+  element: 0.5                     # mm
+  pattern: {kind: corrugated, count: 1, amplitude: 1.5, period: 10}
+  compare:
+    straight: {kind: straight, count: 1}
+cellular:
+  phases: wang                     # ferrite and martensite (Hollomon laws), brittle martensite
+  size: 0.5                        # mm, the cells
+  objective: ductility             # the failure strain (fracture of the martensite or necking)
+  constraints:
+    tensile_strength: [700, null]  # MPa
+  start: {amplitude: 1.5, period: 10}  # the track of the pattern above, drawn by the spot
+  method: exchange                 # swap (BESO rule), hca, topology
+  symmetry: [point]
+  period: 10                       # mm: the cells change by periods of the pattern
+  min_width: 2                     # cells: the 1 mm spot
+  candidates: 6                    # moves tested by finite elements per iteration
+  iterations: 30
+  realize: true                    # the tracks of the result treated by the laser
+seed: 1
+outputs:
+  directory: laser_cells
+  figures: true
+  fields: [vti]
+  gcode: true

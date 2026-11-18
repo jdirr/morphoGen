@@ -1,0 +1,29 @@
+# Four transport phenomena of a scalar potential on the same voxels (FFT solver): the
+# thermal and electrical conductivities, the permittivity and the diffusivity of
+# conducting, impermeable spheres in a polymer, each with its bounds (Wiener,
+# Hashin-Shtrikman). Below their percolation threshold the spheres leave the composite an
+# electrical insulator; its diffusivity is that of the matrix divided by its tortuosity.
+model:
+  type: boolean_spheres
+  radius: 1.0
+  volume_fraction: 0.2
+domain:
+  size: 8.0
+  periodic: true
+seed: 7
+realizations: 2
+voxels:
+  shape: 32
+homogenization:
+  method: fft
+  materials:                # SI units; a zero coefficient: a phase inert for that physics
+    0: {conductivity: 0.2, electrical_conductivity: 1.0e-12, permittivity: 3.0,
+        diffusivity: 1.0e-12}
+    1: {conductivity: 30.0, electrical_conductivity: 1.0e+4, permittivity: 10.0,
+        diffusivity: 0.0}
+  properties: [conductivity, electrical_conductivity, permittivity, diffusivity,
+               conductivity_tensor]
+outputs:
+  directory: out/homogenization_transport
+  name: composite
+  image: [vti]

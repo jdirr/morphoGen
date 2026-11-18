@@ -1,0 +1,56 @@
+# The whole chain on one example: a morphological model (stiff SiC spheres in an
+# elasto-plastic aluminium alloy), its voxel image and conforming mesh, the apparent shear
+# modulus and a tension path computed by finite elements on the mesh, and the exports:
+# tables (csv, txt, xlsx), figures (png, svg, pdf, TikZ) and videos (mp4) of the image,
+# the mesh and the fields (von Mises stress on the deformed mesh, cumulated plastic
+# strain). The 3D views need VTK and the mp4 videos ffmpeg: pip install 'morphogen[video]'.
+model:
+  type: hardcore_spheres
+  radius: 0.8
+  volume_fraction: 0.2
+domain:
+  size: 5.0
+  periodic: true
+seed: 7
+voxels:
+  shape: 48
+mesh:
+  size: 0.8
+homogenization:
+  materials:
+    0:                                   # aluminium alloy (MPa)
+      young: 70000
+      poisson: 0.33
+      plasticity: {yield: 100, isotropic: [{Q: 80, b: 20}]}
+    1: {young: 400000, poisson: 0.2}     # SiC particles
+  boundary_conditions: [periodic]
+  properties: [shear_modulus]            # its fields: a unit shear
+  paths:
+    tension:                             # 1 % in 10 steps, the lateral stresses free
+      times: [0, 1]
+      increments: [10]
+      strain: {"11": [0, 0.01]}
+outputs:
+  directory: out/workflow
+  name: composite
+  geometry: [json]
+  image: [vti]
+  conforming_mesh: [vtu]
+  tables: [txt, xlsx]                    # results, homogenization, curves (besides .csv)
+analysis: [volume_fraction, specific_surface]
+visualization:
+  realizations: 1                        # figures and videos of the first realization
+  cmap: viridis
+  size: [800, 600]                       # pixels of the 3D views and videos
+  figures:
+    - {of: image, formats: [png, svg, tex]}                 # three sections (TikZ: LaTeX)
+    - {of: mesh}                                            # 3D view coloured by phase
+    - {of: shear_modulus.periodic, color: von_mises, section: {axis: 2, fraction: 0.5}}
+    - {of: tension.periodic, formats: [pdf, tex]}           # its curves
+    - {of: tension.periodic, kind: field, color: p}         # plastic strain at the end
+  videos:
+    - {of: image, kind: orthoslices, mode: bounce}          # as the orthoslices of Avizo
+    - {of: mesh, kind: turntable}
+    - {of: mesh, kind: sweep, axis: 0}                      # a cross-section sweeping
+    - {of: shear_modulus.periodic, wave: sine, mode: loop, repeat: 3, part: fluctuation}
+    - {of: tension.periodic, color: von_mises, frames: 60, section: {axis: 1, fraction: 0.5}}

@@ -1,0 +1,42 @@
+# Elastic SiC particles (20 %) in an elasto-viscoplastic aluminium alloy: tension at the
+# strain rate 1e-3 /s to 2 %, relaxation for 100 s, then unloading, the lateral stresses
+# free (periodic element: E22, E33 and the shears are degrees of freedom). The matrix
+# yields first; the particles carry a growing share of the load, and the residual
+# stresses make the matrix yield again in reverse during the unloading (Bauschinger
+# effect). Curves: spheres_0000_tension_periodic.csv; plastic strain fields: .vtu.
+# The mesh is analysed with 10-node elements (the default; the 4-node ones lock when the
+# matrix flows, and overestimate the stress): about three and a half minutes.
+model:
+  type: hardcore_spheres
+  radius: 1.0
+  volume_fraction: 0.2
+domain:
+  size: 5.0
+  periodic: true
+seed: 7
+mesh:
+  size: 0.9
+homogenization:
+  materials:
+    0:                                   # aluminium alloy (MPa, s)
+      young: 70000
+      poisson: 0.33
+      plasticity:
+        yield: 100                       # R0
+        isotropic: [{Q: 80, b: 20}]      # R(p) = Q (1 - exp(-b p))
+        kinematic: [{C: 10000, D: 100}]  # Armstrong-Frederick backstress
+        norton: {K: 50, n: 5}            # dp/dt = <f / K>^n (omit: rate-independent)
+    1: {young: 400000, poisson: 0.2}     # SiC particles, elastic
+  boundary_conditions: [periodic]        # also kubc
+  properties: [stiffness]                # the elastic stiffness, for comparison
+  paths:
+    tension:                             # values at the times; free components: zero stress
+      times: [0, 20, 120, 130]
+      increments: [10, 10, 5]
+      strain: {"11": [0, 0.02, 0.02, 0.017]}
+  nonlinear:
+    tolerance: 1.0e-6                    # relative residual of the Newton iterations
+  fields: true                           # stress and plastic strain at the end of each segment
+outputs:
+  directory: out/homogenization_viscoplastic
+  name: spheres

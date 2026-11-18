@@ -1,0 +1,22 @@
+# Boolean model of spheres: porous or granular medium with overlapping grains.
+model:
+  type: boolean_spheres
+  radius: 1.0                  # or {type: lognormal, mean: 1.0, std: 0.2}
+  volume_fraction: 0.3         # of the union of spheres (or give `intensity`)
+domain:
+  size: 20.0                   # cube edge (or [Lx, Ly, Lz])
+  periodic: true
+  unit: um
+seed: 1
+realizations: 2
+voxels:
+  voxel_size: 0.2
+outputs:
+  directory: out/boolean_spheres
+  name: spheres
+  geometry: [json, csv]        # json | csv | geo
+  image: [vti]                 # vti | vtk | mhd | npz | npy | tif
+  mesh:
+    formats: [inp]             # inp | msh | vtu (others through meshio)
+    phases: [0, 1]
+analysis: [volume_fraction, specific_surface, connectivity]
