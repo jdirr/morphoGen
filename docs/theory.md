@@ -7432,8 +7432,8 @@ differences of the exponential).
 ## 58. Architectured sheets by localized laser treatment (`laser`)
 
 The simulation and the optimization of steel sheets
-architectured by a laser path (Wang 2022; ANR SCOLASTIC). The study, its choices, its
-results and its references are in [laser.md](laser.md). Units: mm, s, °C, W, MPa; the
+architectured by a laser path (Wang 2022; ANR SCOLASTIC). Its choices, its checks, its
+use and its references are in [laser.md](laser.md). Units: mm, s, °C, W, MPa; the
 thermal properties in SI.
 
 **Moving beams** (`heat`). A source of energy `dE` on the face `z = 0` of a plate

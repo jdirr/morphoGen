@@ -69,7 +69,7 @@ What the replays miss: they hold the kinematics, so that the strain a change mov
 its neighbours (a gap that necks, a corner that concentrates) escapes them — the
 finite element tests of the automata keep only the true gains, and the derivatives of
 :func:`hca` and :func:`topology` see the strength a cell adds, not the fracture it
-causes next to it (``docs/laser.md``, §6 and §7).
+causes next to it.
 """
 
 from __future__ import annotations

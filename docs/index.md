@@ -217,7 +217,6 @@ design
 :hidden:
 
 Laser-architectured sheets <laser>
-Laser treatments: a literature survey <laser_materials>
 dynamics
 ```
 

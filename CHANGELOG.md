@@ -1,5 +1,14 @@
 # Change log
 
+## 1.0.2 — 2026-11-19
+
+* The documentation of the laser-architectured sheets reduced to the model:
+  [docs/laser.md](docs/laser.md) keeps the choices of a study, the chain of models, its
+  checks and its use. The studies, their figures, the literature survey and the scripts
+  that ran them (`examples/laser_*.py`) are withdrawn, and the entries of this log on
+  them keep the functions they added. The package `morphogen.laser`, its interface, its
+  tests and its templates are unchanged.
+
 ## 1.0.1 — 2026-11-18
 
 The window of the stand-alone application on Windows, which closed as it opened, and a
@@ -63,9 +72,7 @@ behaviours.
 * The words of the laser-architectured sheets: a sheet is treated by the laser, and
   printing is that of additive manufacturing. `treatment_measures` for `print_measures`,
   `treatable` and `make_treatable` for `printable` and `make_printable` (all new in this
-  version); §14 and §15 of [docs/laser.md](docs/laser.md) retitled (*Architectures at
-  the scale of the spot*, *Geometric work hardening in one laser-treated steel*), the
-  examples, the tests, the survey of the materials and the earlier entries of this log
+  version); the pages, the examples, the tests and the earlier entries of this log
   reworded.
 * The explicit dynamics with OpenRadioss and the stand-alone application
   (`morphogen.dynamics`, `morphogen.io.radioss`, `packaging/desktop`; developed apart
@@ -1322,9 +1329,9 @@ behaviours.
     *Rigidity* was wrong for the Kelvin lattice; `Frame.from_framework` (and
     `network_stiffness(dimension=2)`) projected a framework in space onto the plane x-y
     when none of its bars crossed the box along z: it is now refused.
-  * **Laser-treated sheets in their volume** (`morphogen.laser.solid`, theory §74,
-    [docs/laser.md](docs/laser.md) §10): the treated sheets were membranes in plane
-    stress. `case_volume` draws the periodic cell of a sheet treated all over as a voxel
+  * **Laser-treated sheets in their volume** (`morphogen.laser.solid`, theory §74): the
+    treated sheets were membranes in plane stress. `case_volume` draws the periodic cell
+    of a sheet treated all over as a voxel
     image for the solvers of three-dimensional fields: the hardness that the laser path
     leaves in each layer sorted into classes (`sheet_volume`: a phase per class, with the
     flow law of the mean hardness of its voxels), a gap of void voxels above the sheet
@@ -1658,110 +1665,30 @@ behaviours.
   (the laws, the density against `alpha`, and an elastic anisotropy `E_min / E_max` that
   follows the geometric one, correlation 0.92, falling with `alpha` at 40 %). Public
   interface: these names added (`tests/public_api.txt`).
-* The drawing side of forming and crossed families that lock ([docs/laser.md](docs/laser.md)
-  §17), continuing §16. `cell_test(free_shear=False)` holds the
-  shear of the cell at zero, the principal axes of the mean stretch fixed (the path of
-  the strains prescribed in full); `PeriodicCell.build(shape=...)` meshes a cell by the
-  numbers of elements asked. `examples/laser_drawing.py`: the Marciniak–Kuczyński
-  analysis with inclined grooves, the groove along a vector of the lattice of the
-  pattern in a parallelogram cell 60 mm across (checked against the classical analysis of
-  Hutchinson and Neale within 0.007 and at its critical angle, `mk_limit`), straight,
-  corrugated and crossed families on the drawing side, their tensile tests
-  (`--study tension`) and the groove under uniaxial stress (`--study uniaxial`);
-  `examples/laser_crossed_specimen.py` (dog-bones), `laser_crossed_mechanism.py` (the
-  stress along the tracks), `laser_cell_fields.py` (snapshots of the cell),
-  `laser_corrugation_fine.py` (corrugations about `θ*`: the optimum stays at
-  `H/P` = 0.25), `laser_fraction_inverse.py` (the treated fraction from 6 to 60 %, the
-  homogeneous sheets in every laser state, the phases switched),
-  `laser_crossed_specimens_table.py`,
-  `laser_drawing_figure.py`. Found: single families of tracks, straight or corrugated, do
-  not raise the forming limit of the drawing side (the inclined necks follow their
-  matrix); two families of straight tracks crossed at ±θ about the load form a scissor
-  network that locks when its tracks pass the line of zero extension, `cos²θ = 1/(1 + λ +
-  λ²)`, at the necking of the matrix for `θ*` = 59.5° (`n` = 0.24): in the periodic
-  sheet 42.9 % of uniform elongation and 245 MJ/m³ at 60° against 26.8 % and 135 MJ/m³,
-  the as-quenched martensite unbroken, a sharp drop beyond 61°; the free edges of a
-  dog-bone cut the cells open (60°: 23.6 %), an angle below `θ*` keeps the gain (57°:
-  631 MPa, 33.3 %, 194 MJ/m³ ductile, the as-quenched martensite breaking at 24.4 %);
-  crossed families beyond the line of zero extension raise the forming limit near
-  uniaxial tension (0.420, 0.449 and 0.499 at ±55, ±60 and ±65° against 0.362), not at
-  `ρ` = −¼.
-* Where geometric hardening works ([docs/laser.md](docs/laser.md) §16), continuing §15:
-  the corrugated sheet pulled in the directions of the plane, square
-  and triangular networks of corrugated tracks at the same treated fraction (24 %), and
-  the forming limits from plane strain to equibiaxial stretching. `cell_test(ratio=...)`
-  follows linear paths of the true strains (biaxial stretching, the stresses in
-  `fields["nominal"]`); `mean_nominal`, the mean nominal stress of a membrane;
-  `cell_test(until=...)` and `load_test(until=...)` stop a test on a condition;
-  `load_test` follows a nonlinear path of its moved dofs (`direction` a function).
-  `examples/laser_networks.py` (the directions; the forming limits by a
-  Marciniak–Kuczyński groove in the periodic cell, a neck being a band that strains ten
-  times faster than its images in the other periods, checked against the classical
-  analysis within 0.006), `examples/laser_networks_specimen.py` (dog-bones with oblique
-  tracks), `examples/laser_networks_figure.py`. Found: the corrugation pays along its axis
-  only (30.3 % at 0°, 14.6 % at 15°); straight tracks at 45° harden late as the sheet
-  shears (35.3 %, 215 MJ/m³ in the periodic sheet, the as-quenched martensite unbroken;
-  dog-bones 44 mm wide, their edges cutting the tracks: 23.5 to 26.6 %, the as-quenched
-  martensite 18 % stronger than the untreated sheet for its energy);
-  no network hardens geometrically in any direction; every architecture lowers
-  the forming limit on the stretching side (0.07 to 0.13 in plane strain against 0.195,
-  0.14 to 0.36 in equibiaxial stretching against 0.65). The rule: a track hardens the
-  sheet late when it lies on a line that the deformation first shortens (beyond 54.7°
-  from the load in uniaxial tension, 45° in the plane-strain sections of Fraser et al.,
-  none for biaxial stretching), which accounts for the optimum height of §15 and for the
-  threshold of Fraser et al. New: `mean_nominal`; `cell_test(ratio=..., until=...)`;
+* The shear of the periodic cell of laser-architectured sheets:
+  `cell_test(free_shear=False)` holds the shear of the cell at zero, the principal axes
+  of the mean stretch fixed (the path of the strains prescribed in full);
+  `PeriodicCell.build(shape=...)` meshes a cell by the numbers of elements asked.
+* Biaxial paths of the periodic cell of laser-architectured sheets:
+  `cell_test(ratio=...)` follows linear paths of the true strains (biaxial stretching,
+  the stresses in `fields["nominal"]`); `mean_nominal`, the mean nominal stress of a
+  membrane; `cell_test(until=...)` and `load_test(until=...)` stop a test on a
+  condition; `load_test` follows a nonlinear path of its moved dofs (`direction` a
+  function). New: `mean_nominal`; `cell_test(ratio=..., until=...)`;
   `load_test(until=...)` and a callable `direction`.
-* Geometric work hardening in one laser-treated steel ([docs/laser.md](docs/laser.md) §15):
-  the corrugated reinforcements of Fraser et al. obtained from a single laser-treated
-  material, over a sheet free of the gauge of a specimen;
-  `Membrane` takes Young's modulus point by point (phases of different stiffness;
-  `design_membrane` one modulus per phase); `morphogen.laser.architectures.track_membrane`
-  (smooth tracks over a mesh, several treatments, a treatment that changes along a track)
-  and `periodic_lines` (the images of tracks over a periodic cell).
-  `examples/laser_geometric_hardening.py`: the periodic sheet of corrugated tracks (three
-  contrasts, three fractions, three periods, heights over period up to 0.3, two rules of
-  fracture), the stiffness contrast against the strength contrast (the modulus of the
-  tracks from 70 to 630 GPa at fixed strengths, the stresses and strains of each phase
-  recorded from 0.01 % of strain), tracks of several heights, the copper and steel of
-  Fraser et al. (2018) as a check, softer crests, dog-bones of four and eight tracks;
-  `examples/laser_geometric_hardening_figure.py`. Found: the stiffness contrast neither
-  produces nor helps the effect (moduli in the ratios 1.8 and 3 alone change nothing; a
-  modulus of the tracks nine times larger moves the uniform elongation by 0.9 point; the
-  heterogeneity of a stiffness contrast vanishes once the phases yield, within 1 % of
-  strain), the strength contrast does it all; with a
-  ductile reinforcement the corrugated sheet is stronger and more ductile than the
-  untreated one (36 %, `P` = 30 mm, `H/P` = 0.25: 716 MPa, 39.4 %, 266 MJ/m³ against
-  552 MPa, 26.8 %, 135 MJ/m³), the optimum at a slack of about 46 %; the as-quenched
-  martensite breaks at the crests, where the track bends (19.5 % at best); a check
-  against Fraser et al. within one point (40.5 and 55.2 % against 40 and 55 %). New:
-  `periodic_lines`, `track_membrane`; `Membrane(young=...)` and
-  `design_membrane(young=...)` accept arrays; `cell_test(monitors=...)` records more
-  quantities at each step.
-* Architectures at the scale of the spot for laser-architectured sheets
-  ([docs/laser.md](docs/laser.md) §14, [docs/laser_materials.md](docs/laser_materials.md)):
-  morphoGen's 2D morphological models on sheets of tens of
-  centimetres whose smallest treated feature is 1 mm², the materials to test, the
-  stiffness, the steering of a ductile crack; `morphogen.laser.architectures`, a design
-  of pixels (`pixelate`, the majority phase of each pixel; `spot_opening`, the opening
-  by a square spot), its treatment (`treatment_measures`: connectivity of the phases,
-  heat-affected share, raster length, time and switches of the beam) and the sheet it
-  makes (`design_membrane`, `sheet_tests`: the periodic cell pulled in several
-  directions). `examples/laser_morphologies.py`: sixteen designs (the laser patterns,
-  honeycombs and their complement, nacre, a Gaussian excursion, Boolean discs, a Turing
-  pattern, a coarsening automaton, Wang tiles, a Delaunay fibre network, a random
-  laminate, Johnson–Mehl grains, a meta-polycrystal) with the as-quenched and a tempered
-  martensite; `examples/laser_crack_paths.py`: soft corridors, arcs, walls, bricks and
-  networks on the ligament of a CT specimen, the map of steering against the angle, the
-  width and the contrast; `examples/laser_stiffness.py`: the plane-stress stiffness of
-  the designs by FFT homogenization (steel, beta titanium, NiTi);
-  `examples/laser_architecture_figures.py`; a survey of 88 references. Found: strength
-  needs a hard phase connected along the load (islands +7 to +14 % of yield strength), a
-  connected hard phase must be tough (networks of as-quenched martensite break at 4 to
-  8 %, tempered at 12 to 21 %), thin soft layers across the load localize (hard cells
-  in soft walls fail at 3 to 5 %), isotropy costs strength unless a network carries it;
-  a soft corridor in a hard sheet steers a ductile crack up to 60° from a contrast of 3
-  on (confirmed on elements of 0.25 mm; at 2, a drift of the coarse mesh only); no
-  stiffness architecture in steel (205.5 to 208.8 GPa), 37 to 57 GPa in NiTi. New: `design_membrane`, `pixelate`, `sheet_tests`, `spot_opening`,
+* Phases of different stiffness and smooth tracks for laser-architectured sheets:
+  `Membrane` takes Young's modulus point by point (`design_membrane` one modulus per
+  phase); `morphogen.laser.architectures.track_membrane` (smooth tracks over a mesh,
+  several treatments, a treatment that changes along a track) and `periodic_lines` (the
+  images of tracks over a periodic cell). New: `periodic_lines`, `track_membrane`;
+  `Membrane(young=...)` and `design_membrane(young=...)` accept arrays;
+  `cell_test(monitors=...)` records more quantities at each step.
+* Designs of pixels for laser-architectured sheets (`morphogen.laser.architectures`):
+  a design of pixels (`pixelate`, the majority phase of each pixel; `spot_opening`, the
+  opening by a square spot), its treatment (`treatment_measures`: connectivity of the
+  phases, heat-affected share, raster length, time and switches of the beam) and the
+  sheet it makes (`design_membrane`, `sheet_tests`: the periodic cell pulled in several
+  directions). New: `design_membrane`, `pixelate`, `sheet_tests`, `spot_opening`,
   `treatment_measures`.
 * The processes of the tests, of the command line and of the process pools kept at full
   speed on Windows (tests run in the background were several times slower):
@@ -1778,31 +1705,15 @@ behaviours.
   of 23 and 24, the site 5 min instead of 9). The throttling depends on the state of the
   desktop: without the setting, a run of `tools/ci_local.sh` at a moment when Windows did
   not throttle took 14 min.
-* The strength contrast of the reinforcement, the third axis of the design space of
-  laser-architectured sheets ([docs/laser.md](docs/laser.md) §5,
-  `examples/laser_contrast.py`): the pattern geometry, the
-  reinforced fraction and the strength contrast within process limits, for strength,
-  necking strain and dissipated energy; `contrast_phases`, reinforcements between the
-  annealed 0.23 C steel and its laser martensite (the Hollomon parameters interpolated: a
-  yield stress 1 to 4.64 times the matrix's, a harder state hardening less) under three
-  rules of fracture (`FRACTURE_RULES`: `graded`, the critical strain of the martensite
-  over the square of the interpolation share, and its bounds `brittle` and `ductile`);
-  1450 tensile tests over the height over the period, the treated fraction and the
-  contrast, feasible when the radius of curvature of the track is at least 1.5 mm and
-  the track stays within the gauge (beyond it the specimen holds less of the
-  treatment, the maps of §5 from `H/P` = 0.25 among them), run in parallel (the
-  processes opted out of the power throttling of Windows: five to seven times faster),
-  their CSV and figure, checked on elements of 0.25 mm. Found: below a contrast of about
-  3 a reinforcement that flows with the matrix gains nothing from its corrugation (the
-  hardened AISI 430 of the thesis); above it the gain grows with the contrast and the
-  brittleness of the reinforcement (the martensite: +55 % of failure strain at the
-  process limit, `R_m` −9 %); the limits of the process bind; the most energy goes to a
-  reinforcement of intermediate contrast (146 MJ/m³ against 133 for the matrix alone).
-  New: `contrast_phases`, `FRACTURE_RULES`.
-* Barlat's Yld2000-2d criterion, crack growth and the anisotropy of an architecture for
-  laser-architectured sheets ([docs/laser.md](docs/laser.md) §10), to compensate the
-  yield strengths too, to guide the crack of a CT specimen along a spiral and to explore
-  the anisotropy set by the architecture: Yld2000-2d in plane stress
+* The strength contrast of the reinforcement of laser-architectured sheets:
+  `contrast_phases`, reinforcements between the annealed 0.23 C steel and its laser
+  martensite (the Hollomon parameters interpolated: a yield stress 1 to 4.64 times the
+  matrix's, a harder state hardening less) under three rules of fracture
+  (`FRACTURE_RULES`: `graded`, the critical strain of the martensite over the square of
+  the interpolation share, and its bounds `brittle` and `ductile`). New:
+  `contrast_phases`, `FRACTURE_RULES`.
+* Barlat's Yld2000-2d criterion and crack growth for laser-architectured sheets:
+  Yld2000-2d in plane stress
   (`yld2000_from_data`: the eight α fitted exactly to the yield stresses and Lankford
   coefficients at 0°, 45°, 90° and in equibiaxial tension; closest-point return with a
   line search and substeps, its consistent tangent; points of 10 values in
@@ -1815,8 +1726,7 @@ behaviours.
   `CompactTension(refine=..., propagate=True)`, `graded(box=...)`; the pattern `spiral`.
   Changed signatures: `Fracture.ratios` (`alive`), `load_test` (`erosion`,
   `max_breaks`), `ct_mesh` (`refine`), `graded` (`box`).
-* The rolling texture of a laser-architectured sheet and its compensation by the
-  treatment ([docs/laser.md](docs/laser.md) §10):
+* The rolling texture of a laser-architectured sheet:
   Hill's 1948 criterion in plane stress (`SheetMaterial.anisotropy`, the Lankford
   coefficients of the sheet; return mapping with its consistent tangent, the axes of the
   texture turning with the material; `hill_from_r`), the treated points isotropic or
@@ -1834,37 +1744,28 @@ behaviours.
   `case_measures` (`inside`); new: `hill_from_r`, `ISOTROPIC`, `SheetCase.cell`,
   `PeriodicCell`, `cell_test`, `lattice`, `reduce_basis`.
 * Load cases beyond the tensile test and alternative materials for laser-architectured
-  sheets (`morphogen.laser.structures`, [docs/laser.md](docs/laser.md) §10–§11,
-  `examples/laser_structures.py`): the crack blunting and the
-  anisotropy control of SCOLASTIC, the L-shaped plate, other materials; graded meshes
-  of a compact tension specimen (its pins as stars of bars, the compliance of Saxena &
-  Hudak within 2.5 %) and of an L-shaped plate, a displacement-controlled test with the
-  initiation of a crack in any phase (the nonlocal average now within each phase), the
-  cells of a design over any region (`CellProblem(case=...)`, cells without elements
-  left out); hard bands that shield a crack (+79 % of energy of initiation),
-  softened bands around the tip of a crack in hard sheets, flanges of hard tracks for
-  the limit load of the L-shaped plate (+26 % by BESO); Lankford's coefficient of the
-  gauge, `r̄`, `Δr` and Hill's 1948 coefficients of a sheet tested in several directions,
-  the objective `flow_isotropy`; `PeakSoftening` and the presets `22mnb5` and
-  `aa6082_t6`; `Membrane(springs=...)`.
-* Cellular design of laser-architectured sheets (`morphogen.laser.cells`,
-  [docs/laser.md](docs/laser.md) §5–§9, `examples/laser_cells.py`), to reach the thesis
-  and design with the cellular automata and the topology
-  optimization of SCOLASTIC: the fracture of brittle points in the tensile test (a
-  critical plastic strain, local or averaged over a radius, `Fracture`; the failure
-  strain among the measures; `SheetMaterial.fracture` by hardness); Swift laws and two
-  laws mixed at a point; the phases of Wang et al. (2023), whose six samples it
-  reproduces (the five corrugated failure strains within 0.006 of the tests with a
-  critical strain fitted to the straight one), and their design maps; `replay`, the
-  history of a test integrated again with other laws (the external work within 3e-5),
-  the sensitivities of every switch of a cell (with the weakest cross-section); the
-  automata `beso` (BESO swaps or neighbour exchanges, tested by finite elements,
-  periodic and symmetric orbits, treatability by a spot, multigrid), `hca` and
-  `topology` (MMA); `design_tracks`, the tracks that draw a design, treated by the
-  process model; the `cellular` section of `morphogen laser` configurations and the
-  template `laser_cells` (its card in the gallery). The martensite of the preset `annealed_ms1500` follows the Hollomon law
-  of the paper (uniform elongation 0.062): the straight track necks at the measured
-  8.3 %. Changed signatures: `Membrane` (`critical`, `fracture_radius`), `tensile_test`
+  sheets (`morphogen.laser.structures`): graded meshes of a compact tension specimen (its
+  pins as stars of bars, the compliance of Saxena & Hudak within 2.5 %) and of an
+  L-shaped plate, a displacement-controlled test with the initiation of a crack in any
+  phase (the nonlocal average now within each phase), the cells of a design over any
+  region (`CellProblem(case=...)`, cells without elements left out); Lankford's
+  coefficient of the gauge, `r̄`, `Δr` and Hill's 1948 coefficients of a sheet tested in
+  several directions, the objective `flow_isotropy`; `PeakSoftening` and the presets
+  `22mnb5` and `aa6082_t6`; `Membrane(springs=...)`.
+* Cellular design of laser-architectured sheets (`morphogen.laser.cells`), with the
+  cellular automata and the topology optimization of SCOLASTIC: the fracture of brittle
+  points in the tensile test (a critical plastic strain, local or averaged over a radius,
+  `Fracture`; the failure strain among the measures; `SheetMaterial.fracture` by
+  hardness); Swift laws and two laws mixed at a point; the phases of Wang et al. (2023);
+  `replay`, the history of a test integrated again with other laws (the external work
+  within 3e-5), the sensitivities of every switch of a cell (with the weakest
+  cross-section); the automata `beso` (BESO swaps or neighbour exchanges, tested by
+  finite elements, periodic and symmetric orbits, treatability by a spot, multigrid),
+  `hca` and `topology` (MMA); `design_tracks`, the tracks that draw a design, treated by
+  the process model; the `cellular` section of `morphogen laser` configurations and the
+  template `laser_cells` (its card in the gallery). The martensite of the preset
+  `annealed_ms1500` follows the Hollomon law of the paper (uniform elongation 0.062).
+  Changed signatures: `Membrane` (`critical`, `fracture_radius`), `tensile_test`
   (`failure_margin`, `record_history`), `TensileResult` (`failure_strain`, `history`),
   `SheetMaterial` (`fracture`).
 * Architectured sheets by localized laser treatment (`morphogen.laser`, the command
@@ -1890,9 +1791,7 @@ behaviours.
   dog-bone specimens; the optimization of the path (grid, Nelder–Mead, differential
   evolution, genetic, Bayesian with a Gaussian process and the expected improvement)
   for a strength–ductility objective under constraints of strength and process.
-  Reproduced: corrugated martensite in an annealed 0.23 C steel trades yield and tensile
-  strength for uniform elongation as the height over the period grows (Wang et al.
-  2023), AISI 430 gains nothing from corrugation (too little contrast), and the 430
+  Reproduced: AISI 430 gains nothing from corrugation (too little contrast), and the 430
   fully treated at 15, 20 and 25 kJ/m within 4 % of its measured yield strength, 0.5 %
   of its tensile strength and 0.3 % of its uniform elongation (its hardening fitted to
   the mean hardness of these sheets). Two more load cases: three-point bending of a

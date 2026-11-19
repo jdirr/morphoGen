@@ -1,4 +1,4 @@
-# Cellular design of a laser-architectured sheet (morphogen laser; docs/laser.md, §6): the
+# Cellular design of a laser-architectured sheet (morphogen laser; docs/laser.md): the
 # corrugated track of martensite of Wang et al. (2023, steel res. int. 94, 2200695) drawn
 # by a 1 mm spot on cells of 0.5 mm, then changed by a cellular automaton (neighbour
 # exchanges tested by finite elements, periodic and symmetric, treatable by the spot) for

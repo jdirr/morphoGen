@@ -27,8 +27,8 @@ authors:
     affiliation: "PIMM, Arts et Métiers, Cnam, CNRS UMR 8006, Paris, France"
     orcid: "https://orcid.org/0000-0002-3964-305X"
 license: GPL-3.0-or-later
-version: 1.0.1
-date-released: 2026-11-18
+version: 1.0.2
+date-released: 2026-11-19
 repository-code: "https://github.com/jdirr/morphoGen"
 url: "https://jdirr.github.io/morphoGen/"
 doi: 10.5281/zenodo.24340315  # all the versions (1.0.0: 10.5281/zenodo.24340316)
