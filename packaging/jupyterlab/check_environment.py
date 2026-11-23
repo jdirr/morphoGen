@@ -96,7 +96,7 @@ def notebook(environment: Path, folder: Path) -> None:
     spec = KernelSpecManager().get_kernel_spec("python3")
     check(
         "launch_kernel.py" in " ".join(spec.argv)
-        and Path(spec.resource_dir).is_relative_to(environment),
+        and Path(spec.resource_dir).resolve().is_relative_to(environment),  # long names (8.3)
         f"the kernel python3 is that of the environment ({spec.resource_dir})",
     )
     nb = nbformat.read(environment / "welcome.ipynb", as_version=4)

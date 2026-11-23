@@ -138,17 +138,23 @@ def build(morphogen: str, version: str, out: Path) -> None:
     for marker in python.rglob("EXTERNALLY-MANAGED"):  # uv's mark: this Python is ours
         marker.unlink()
     exe = interpreter(python)
-    spec = (
-        f"morphogen[all] @ {ROOT.as_uri()}"
-        if morphogen == "checkout"
-        else f"morphogen[all]=={morphogen}"
-    )
+    if morphogen == "checkout":  # the wheel of this checkout
+        wheels = work / "wheels"
+        shutil.rmtree(wheels, ignore_errors=True)
+        _run(*_uv(), "build", "--wheel", "--out-dir", wheels, ROOT)
+        spec = f"morphogen[all] @ {next(wheels.glob('morphogen-*.whl')).as_uri()}"
+    else:
+        spec = f"morphogen[all]=={morphogen}"
+    # binary wheels only: where the latest version of a dependency has none for this system
+    # (llvmlite on macOS Intel), the latest one that has
     _run(
         *_uv(),
         "pip",
         "install",
         "--python",
         exe,
+        "--only-binary",
+        ":all:",
         "--link-mode",
         "copy",
         "--compile-bytecode",
