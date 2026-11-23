@@ -39,6 +39,37 @@ conda activate morphogen
 python -m pip install "morphogen[all]"
 ```
 
+## Without Python: the JupyterLab installers
+
+For those who have no Python, or do not want to manage one, the installers
+*morphoGen JupyterLab* of the [releases](https://github.com/jdirr/morphoGen/releases) install
+a ready-to-use environment of notebooks: a Python of its own, morphoGen with its extras,
+JupyterLab and the usual packages of notebooks (NumPy, SciPy, matplotlib, pandas, ipywidgets),
+about 800 MB once installed, without administrator rights:
+
+* Windows (x64): `morphoGen-JupyterLab-<version>-windows-x64-setup.exe` installs it for the
+  current user, with a shortcut *morphoGen JupyterLab* in the Start menu and an uninstaller.
+  It is not signed, so that Windows SmartScreen may first tell that its publisher is unknown
+  (*More info*, then *Run anyway*);
+* macOS: `morphoGen-JupyterLab-<version>-macos-arm64.pkg` (Apple Silicon) or
+  `-macos-x86_64.pkg` (Intel) installs the application *morphoGen JupyterLab* in the
+  Applications folder of the user (*Install for me only*) or of all the users. It is not signed
+  by an Apple developer: macOS first refuses to open it, and *System Settings*, *Privacy &
+  Security*, then *Open Anyway* opens it (on macOS 14 and earlier, a right click on the
+  package, then *Open*).
+
+The shortcut opens JupyterLab in the web browser on the folder `Documents/morphoGen`, made at
+the first start with a first notebook; a window (a console, a window of Terminal) shows its
+messages, and closing it stops JupyterLab. In this environment, `%pip install <package>` in a
+notebook adds a package, and the terminals of JupyterLab run `morphogen` and `pip`.
+Uninstalling removes the environment, not the notebooks. The recipe of these installers is in
+`packaging/jupyterlab` of the repository.
+
+**Tablets and phones.** morphoGen compiles its kernels as it runs (Numba), which iOS does not
+allow, and its compiled dependencies are not built for Android: on a tablet or a phone, run the
+notebooks where Python runs, in the browser of the device, on a JupyterHub or on a cloud
+service of notebooks (with Google Colab, a first cell `%pip install "morphogen[all]"`).
+
 ## From the sources
 
 To change the code, or to run the examples and the tests of the repository:

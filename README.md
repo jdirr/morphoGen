@@ -53,7 +53,9 @@ python -m pip install "morphogen[all]"
 morphoGen needs Python 3.12 or newer, on Windows, macOS or Linux; every dependency comes
 as a binary wheel. The [installation guide](https://jdirr.github.io/morphoGen/installation.html)
 gives the environments, the installation from the sources and the optional components
-(NVIDIA GPUs, the stand-alone application, OpenRadioss, MFront).
+(NVIDIA GPUs, the stand-alone application, OpenRadioss, MFront). Without Python, the
+installers *morphoGen JupyterLab* of the [releases](https://github.com/jdirr/morphoGen/releases)
+(Windows, macOS) install a Python of their own with morphoGen and JupyterLab.
 
 ## A first study
 

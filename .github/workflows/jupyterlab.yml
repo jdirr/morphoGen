@@ -1,0 +1,91 @@
+name: JupyterLab installers
+
+# The installers of a ready-to-use environment of notebooks (packaging/jupyterlab): a Python of
+# its own, morphoGen with its extras and JupyterLab, for Windows (x64) and macOS (Apple Silicon
+# and Intel), each built, installed, checked and removed on its system. The installers are the
+# artifacts of the run, and are attached to each release (or, on demand, to the release named:
+# its version of morphoGen is then taken from PyPI). They are built again when their recipe
+# changes.
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "The tag of a release to attach the installers to (none: artifacts only)"
+        required: false
+        default: ""
+  release:
+    types: [published]
+  push:
+    paths:
+      - "packaging/jupyterlab/**"
+      - ".github/workflows/jupyterlab.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    name: installer (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows-x64 }
+          - { os: macos-latest, name: macos-arm64 } # Apple Silicon
+          - { os: macos-15-intel, name: macos-x86_64 }
+    env:
+      RELEASE: ${{ inputs.release }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: uv
+        run: python -m pip install uv
+      - name: The environment
+        shell: bash
+        run: |
+          if [ -n "$RELEASE" ]; then morphogen="${RELEASE#v}"; else morphogen=checkout; fi
+          python packaging/jupyterlab/build_environment.py --morphogen "$morphogen" --out build/jupyterlab
+          echo "VERSION=$(cat build/jupyterlab/VERSION)" >> "$GITHUB_ENV"
+      - name: The installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          & $iscc /Qp "/DAppVersion=$env:VERSION" packaging\jupyterlab\morphogen-jupyterlab.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: The package (macOS)
+        if: runner.os == 'macOS'
+        run: sh packaging/jupyterlab/build_pkg.sh build/jupyterlab "dist/morphoGen-JupyterLab-$VERSION-${{ matrix.name }}.pkg"
+      - name: Installed, checked and removed
+        shell: bash
+        run: python packaging/jupyterlab/check_installer.py dist/morphoGen-JupyterLab-*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: morphoGen-JupyterLab-${{ matrix.name }}
+          path: dist/morphoGen-JupyterLab-*
+          retention-days: 30
+
+  release:
+    name: the installers attached to the release
+    needs: installer
+    if: ${{ !cancelled() && (github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release != '')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: morphoGen-JupyterLab-*
+          merge-multiple: true
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.release }}
+        run: gh release upload "$TAG" morphoGen-JupyterLab-* --clobber --repo "$GITHUB_REPOSITORY"

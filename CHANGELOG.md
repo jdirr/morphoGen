@@ -1,5 +1,24 @@
 # Change log
 
+## Unreleased
+
+* Installers of a ready-to-use environment of notebooks, *morphoGen JupyterLab*
+  (`packaging/jupyterlab`), for those who have no Python: a Python of its own (a relocatable
+  CPython), morphoGen with its extras, JupyterLab and the usual packages of notebooks, about
+  800 MB once installed, without administrator rights and without a connection once
+  downloaded. On Windows (x64), `morphoGen-JupyterLab-<version>-windows-x64-setup.exe` (Inno
+  Setup 6) installs it for the current user with a shortcut in the Start menu and an
+  uninstaller; on macOS, `morphoGen-JupyterLab-<version>-macos-arm64.pkg` (Apple Silicon) and
+  `-macos-x86_64.pkg` (Intel) install the application *morphoGen JupyterLab* in the
+  Applications folder of the user or of all the users. The shortcut opens JupyterLab on
+  `Documents/morphoGen`, made at the first start with a first notebook (the first study of the
+  README); the kernel of the notebooks opts out of the power throttling of Windows 11; the
+  programs of the packages run from wherever the environment is installed. The workflow
+  `jupyterlab.yml` builds the three, installs each one on its system, checks the environment
+  it installs (the programs, a realization, the FFT solver, a conforming mesh and the finite
+  elements, a plastic loading path, the first notebook through the kernel, the server of
+  JupyterLab), removes it, and attaches them to each release (to an earlier one on demand).
+
 ## 1.0.2 — 2026-11-19
 
 * The documentation of the laser-architectured sheets reduced to the model:
