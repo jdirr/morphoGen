@@ -21,10 +21,11 @@ How the structures are sampled (:attr:`Section.sampling`):
   and random lattices, foams, trees), TPMS, tessellations, Gaussian fields, lattice
   fields (automata, growth, reconstructions, tile assemblies; the cells themselves when
   the grid is their lattice), laminates, honeycombs, nacre, Bouligand plywoods, level-set
-  foams, osteons, fractal sponges, scale-rich networks, grains with subgrains, woven
-  textiles and the shapes of Microgen: they only evaluate the points of the grid they are
-  given. So are the combinations of such structures, Cox spheres in such aggregates, and
-  the coatings and shells of unions of spheres and segments (exact distances);
+  foams, osteons, fractal sponges, scale-rich networks, woven textiles, grains with
+  subgrains or filled with another structure, and the shapes of Microgen: they only
+  evaluate the points of the grid they are given. So are the combinations of such
+  structures, Cox spheres in such aggregates, and the coatings and shells of unions of
+  spheres and segments (exact distances);
 * ``plane`` too for dead leaves and transparent dead leaves, on a cell as thick as the box
   along the axis (centred on the plane): their kernels wrap the leaves over the grid, a
   periodic grid being the whole box;
@@ -141,8 +142,8 @@ _POINTWISE = (
     ScaleRichStructure,
     ScaleRichPlates,
     ScaleRichBeams,
-    TextileStructure,
     MicrogenStructure,
+    TextileStructure,
 )
 #: Structures whose kernels wrap over the grid (sampled on a cell as thick as the box).
 _LEAVES = (DeadLeaves, TransparentDeadLeaves)
