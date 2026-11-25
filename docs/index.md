@@ -39,9 +39,9 @@ package, a command line and a graphical interface in the web browser; free softw
 ::::{container} card
 **[Generate](models.md)**
 
-44 models of random and architected media: Boolean models, packings, fibres,
+43 models of random and architected media: Boolean models, packings, fibres,
 tessellations, Gaussian fields, dead leaves, automata and growths, lattices, foams,
-triply periodic surfaces, bio-inspired structures; periodic or not, combined, nested.
+triply periodic surfaces, bio-inspired structures; periodic or not, combined, nested; and the shapes of Microgen (3MAH).
 ::::
 
 ::::{container} card
@@ -130,7 +130,7 @@ computations, the same files.
 
 Meshes, images, behaviours and results for Abaqus and CalculiX, AMITEX_FFTP, MFront,
 Z-set, Gmsh, Neper, DAMASK, FEniCSx and ParaView; particles for LMGC90, LAMMPS and YADE,
-scenes for Blender, arrays for JAX and PyTorch, shapes for Microgen.
+scenes for Blender, arrays for JAX and PyTorch, shapes for Microgen (3MAH).
 ::::
 
 :::::

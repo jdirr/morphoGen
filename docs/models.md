@@ -4,7 +4,9 @@ A model holds the parameters of a random set or of a deterministic architecture,
 closed-form characteristics of the set when they exist (`model.theory()`: volume
 fraction, specific surface, covariance, integral range...). `model.generate(domain,
 seed)` draws one realization of it in a box, periodic or not; the same seed gives the
-same realization. morphoGen has 44 models, listed below by family: `morphogen models`
+same realization. morphoGen has 43 models, listed below by family, and takes the shapes of
+[Microgen](https://github.com/3MAH/microgen) (3MAH) through the model `microgen`
+([below](#shapes-of-microgen)): `morphogen models`
 lists them, `morphogen models <type>` gives the parameters of one, and the
 [gallery](gallery.md) shows each with a configuration that generates it. In a
 configuration file, a model is the mapping of its `type` and its parameters
@@ -68,7 +70,6 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | Model | Description |
 |---|---|
 | `tpms` | Gyroid, Schwarz P, Schwarz D and Neovius, sheet or network |
-| `microgen` | A shape of Microgen (3MAH) that has a field: its TPMS (sheets and skeletons of the surfaces morphoGen's `tpms` does not have), spinodoids and primitives, voxelized, meshed and homogenized like the other models |
 | `strut_lattice` | Cubic, BCC, FCC, octet, Kelvin, diamond and pyrochlore lattices, with solid or hollow struts; rotated and functionally graded lattices (non-periodic samples) |
 | `random_lattice` | Strut lattices with missing struts and displaced nodes, with their rigidity (Maxwell–Calladine) |
 | `hierarchical_lattice` | Hierarchical lattices of (hollow) tubes: frames of generation G of regular octahedra (Rayneau-Kirkhope, Mao & Farr 2012) |
@@ -105,6 +106,19 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | `combination` | Union, intersection, difference and complement of models; inclusions in a matrix, e.g. a polycrystal; nested models (each fills the phase 1 of the previous one) |
 | `cox_spheres` | Spheres clustered in the phase 1 of another model: Cox models of nanocomposites (particles in aggregates), hard-core or not |
 | `coating` | A coating (interphase) around the phase 1 of any model, or a shell inside it: hollow spheres, fibres and struts, core–shell particles |
+
+### Shapes of Microgen
+
+[Microgen](https://github.com/3MAH/microgen), developed by the 3MAH team, generates and
+meshes microstructures from implicit fields. morphoGen calls it, installed apart (`pip install --pre microgen`), and
+copies none of it: its shapes are built and evaluated by Microgen, then voxelized, meshed,
+measured and homogenized by morphoGen like its own models
+([Other codes](interop.md#libraries-and-programs)). Cite Microgen when you use them
+([Citing](citing.md)).
+
+| Model | Description |
+|---|---|
+| `microgen` | A shape of Microgen that has a field: the TPMS sheets and skeletons of its many surfaces, its spinodoids and primitives |
 
 ## Anisotropy
 
@@ -294,6 +308,6 @@ finite elements on the conforming mesh of its exact geometry), `cross_linked_fib
 `delaunay_network` (a fibre network on the edges of a Delaunay triangulation, Ban et
 al.), `graded_lattice` (an octet lattice graded and turned, with its STL surface for
 additive manufacturing), `microgen` (a sheet of Schoen's I-WP surface built by
-Microgen). Dead leaves and Torquato's models: `sequential_dead_leaves`,
+Microgen, 3MAH). Dead leaves and Torquato's models: `sequential_dead_leaves`,
 `transparent_dead_leaves`, `dense_packing`, `penetrable_spheres`, `reconstruction`,
 `hyperuniform_cells`.

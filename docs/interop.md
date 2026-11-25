@@ -67,13 +67,17 @@ back ([optional](installation.md#optional-components); morphoGen never requires 
   ensembles of realizations for `jax.vmap` rollouts: microstructures as initial
   conditions of phase-field coarsening and of differentiable pipelines, their fields
   back as images to measure and homogenize.
-* **Microgen** (3MAH; `morphogen.interop.microgen`, the model `microgen`). The shapes of
-  Microgen that have a field — TPMS sheets and skeletons of its many surfaces (Schoen's
-  I-WP, lidinoid, Fischer–Koch S...), spinodoids, spheres, boxes, cylinders, capsules,
-  ellipsoids — as a model of morphoGen, described in a configuration and saved; the
-  phases of any realization of morphoGen as shapes of Microgen (its field the implicit
-  function of the phase), for its surface and volume meshes, infills and smooth
-  booleans; the tetrahedral meshes of both through PyVista.
+* **Microgen** ([3MAH/microgen](https://github.com/3MAH/microgen), developed by the 3MAH
+  team; GPL-3.0, installed apart; `morphogen.interop.microgen`, the model `microgen`).
+  morphoGen calls Microgen and copies none of it. The shapes of Microgen that have a field
+  — TPMS sheets and skeletons of its many surfaces (Schoen's I-WP, lidinoid, Fischer–Koch
+  S...), spinodoids, spheres, boxes, cylinders, capsules, ellipsoids — taken by morphoGen
+  through its model `microgen`, described in a configuration and saved; the phases of any realization of
+  morphoGen as shapes of Microgen (its field the implicit function of the phase), for its
+  surface and volume meshes, infills and smooth booleans; the tetrahedral meshes of both
+  through PyVista. Cite Microgen
+  ([10.5281/zenodo.6793573](https://doi.org/10.5281/zenodo.6793573)) when you use them
+  ([Citing](citing.md)).
 * **Alloys** (`morphogen.interop.alloys`, `morphogen alloy`). The phases of an alloy as
   a tool of alloy design gives them (CALPHAD equilibria and Scheil solidification, the
   KWN kinetics of the precipitates, the grain size, the moduli it predicts: Leil-Mat,
