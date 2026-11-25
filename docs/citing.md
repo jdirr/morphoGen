@@ -10,7 +10,7 @@ release. Each public release has its DOI on Zenodo, and the DOI of all the versi
 @software{morphogen,
   author  = {Dirrenberger, Justin},
   title   = {morphoGen: morphological modelling and generation of virtual microstructures},
-  version = {1.0.2},
+  version = {1.1.0},
   year    = {2026},
   doi     = {10.5281/zenodo.24340315},
   url     = {https://github.com/jdirr/morphoGen},

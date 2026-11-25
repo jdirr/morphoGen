@@ -1,6 +1,23 @@
 # Change log
 
-## Unreleased
+## 1.1.0 — 2026-11-25
+
+Long fibres, woven textiles and grains with subgrains, meshed from their exact geometry;
+monodisperse or polydisperse sizes in every model; finite elements on conforming meshes
+by default, the voxels as the last resort; the voxels of morphoGen as the arrays of JAX
+for spectral phase-field solvers; Microgen, Blender (its rigid bodies, and scenes for its
+fluid simulations), the discrete element method (the Gmsh meshes of LMGC90 among its
+formats) and the tools of alloy design; the workspace closed in one click, the fields of
+every tool drawn in the page, their videos made on demand by the export; installers of a
+JupyterLab environment for Windows and macOS.
+
+Changed (the entries below say how): a configuration without a method and without a
+`mesh` section computes by finite elements on a light conforming mesh where it ran the
+FFT solver (`method: fft` keeps the voxels; without the mesher MMG, the voxels with a
+warning), and so do the tools of Mechanics of the interface; the size parameters of a
+model are laws once it is built (`PoissonFibers(radius=0.03, volume_fraction=0.1).radius`
+is `Constant(0.03)`, its value `.mean()`); no tool of the interface writes a video unless
+asked.
 
 * Installers of a ready-to-use environment of notebooks, *morphoGen JupyterLab*
   (`packaging/jupyterlab`), for those who have no Python: a Python of its own (a relocatable
@@ -389,6 +406,8 @@
   configurations and homogenizes them; `examples/alloy_design.py`. Leil-Mat gives its
   programming interface on request only: the description is filled from its canvas
   meanwhile.
+* Version 1.1.0 (`morphogen.__version__`, `CITATION.cff` with its date of release, the
+  recipe of conda-forge, the citation of [docs/citing.md](docs/citing.md)).
 
 ## 1.0.2 — 2026-11-19
 
