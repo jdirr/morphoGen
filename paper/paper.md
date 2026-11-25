@@ -35,7 +35,7 @@ The effective properties of a heterogeneous material follow from its microstruct
 through a representative volume element (RVE): a volume large enough for its apparent
 properties to stand for the material, and small enough to be computed. morphoGen is a
 Python package that covers the whole chain of such a study. It generates virtual
-microstructures from 44 models: those of mathematical morphology and stochastic geometry
+microstructures from 43 models: those of mathematical morphology and stochastic geometry
 (Boolean models, straight, curved and cross-linked fibres, dead leaves, tessellations,
 Gaussian fields, packings), most of them anisotropic as well; architected and
 bio-inspired geometries (minimal surfaces, lattices, foams, scale-rich networks, nacre,

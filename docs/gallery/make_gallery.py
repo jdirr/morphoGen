@@ -252,9 +252,10 @@ FAMILIES = [
         [
             ("tpms", "A sheet gyroid at 20 % relative density, with its watertight STL "
              "surface."),
-            ("microgen", "A sheet of Schoen's I-WP surface built by Microgen (3MAH): any "
-             "shape of Microgen with a field (TPMS, spinodoids, primitives) is a model of "
-             "morphoGen (needs the package microgen)."),
+            ("microgen", "A sheet of Schoen's I-WP surface built by "
+             "[Microgen](https://github.com/3MAH/microgen) (3MAH), which morphoGen calls: "
+             "any shape of Microgen with a field (TPMS, spinodoids, primitives) is taken as "
+             "a model (needs the package microgen; cite Microgen when you use it)."),
         ],
     ),
     (

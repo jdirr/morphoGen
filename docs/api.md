@@ -19,14 +19,14 @@ the steps of a study:
 
 | Step | Package | What it holds |
 |---|---|---|
-| Generate | [`morphogen.models`](api/morphogen.models.rst) | the 44 models of microstructures, their realizations and their theory |
+| Generate | [`morphogen.models`](api/morphogen.models.rst) | the 43 models of microstructures and the shapes of Microgen (3MAH), their realizations and their theory |
 | | [`morphogen.automata`](api/morphogen.automata.rst) | cellular automata and lattice growth processes, on grids and tilings |
 | | [`morphogen.design`](api/morphogen.design.rst) | tile assemblies, strut frameworks and their rigidity, searches of design spaces |
 | | [`morphogen.optimization`](api/morphogen.optimization.rst) | topology optimization of periodic cells by inverse homogenization |
 | | [`morphogen.iga`](api/morphogen.iga.rst) | isogeometric analysis of NURBS geometries and their shape optimization |
 | Describe | [`morphogen.mesh`](api/morphogen.mesh.rst) | conforming, exact and voxel meshes |
 | | [`morphogen.io`](api/morphogen.io.rst) | images, meshes, geometries and the inputs of other codes, read and written |
-| | [`morphogen.interop`](api/morphogen.interop.rst) | other libraries and programs: the arrays of JAX, PyTorch and CuPy, Microgen, Blender, the tools of alloy design |
+| | [`morphogen.interop`](api/morphogen.interop.rst) | other libraries and programs: the arrays of JAX, PyTorch and CuPy, Microgen (3MAH), Blender, the tools of alloy design |
 | | [`morphogen.viz`](api/morphogen.viz.rst) | sections, figures, 3D views and videos |
 | Measure | [`morphogen.analysis`](api/morphogen.analysis.rst) | the morphological measures of images, percolation, stereology |
 | | [`morphogen.theory`](api/morphogen.theory.rst) | the closed forms of stochastic geometry used by the models |

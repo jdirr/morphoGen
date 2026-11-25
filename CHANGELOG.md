@@ -1,5 +1,14 @@
 # Change log
 
+## Unreleased
+
+* Microgen credited as the work of its authors: the link to its repository, its team and the
+  DOI of its record in the pages on the models, the other codes, the installation, the
+  citation and the theory notes, and Microgen among the references to cite; the model
+  `microgen` presented as the shapes of Microgen, which morphoGen calls without copying any
+  of it, beside its own 43 models (the README, the user guide, the API reference, the JOSS
+  draft).
+
 ## 1.1.0 — 2026-11-25
 
 Long fibres, woven textiles and grains with subgrains, meshed from their exact geometry;

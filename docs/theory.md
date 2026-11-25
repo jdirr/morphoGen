@@ -12355,7 +12355,7 @@ spheres on 99.99 % of the voxels, across the periodic faces too (`tests/test_ble
 
 ## 101. Microgen (`models.microgen`, `interop.microgen`)
 
-Microgen (3MAH; version 2) describes its shapes by implicit fields $f(x, y, z)$ negative inside,
+[Microgen](https://github.com/3MAH/microgen) (3MAH, version 2; called by morphoGen, installed apart) describes its shapes by implicit fields $f(x, y, z)$ negative inside,
 as morphoGen its phases. The model `microgen` calls a class of Microgen (`shape`) with its
 keyword `arguments` (a `surface_function` by its name in `microgen.surface_functions`; `center`
 and `orientation`, Bunge angles ZXZ in degrees, put into the field by its `translate` and
@@ -13343,7 +13343,9 @@ See [specification.md](specification.md#14-references). In addition:
   Metalle*. Springer, Berlin.
 * Taylor, G. I. (1938). Plastic strain in metals. *J. Inst. Metals* 62, 307–324.
 * Watson, G. S. (1965). Equatorial distributions on a sphere. *Biometrika* 52, 193–201.
-* 3MAH. *Microgen*, version 2: <https://github.com/3MAH/microgen>.
+* Marchais, K., Chemisky, Y., d'Esparbès, R., Guevara, M. R., Legerstee, Y., et al. (3MAH).
+  *3MAH/microgen: microstructure generation and meshing*, version 2. <https://github.com/3MAH/microgen>,
+  doi:10.5281/zenodo.6793573.
 * Allen, S. M., Cahn, J. W. (1979). A microscopic theory for antiphase boundary motion and
   its application to antiphase domain coarsening. *Acta Metall.* 27, 1085–1095.
 * Ansar, M., Xinwei, W., Chouwei, Z. (2011). Modeling strategies of 3D woven composites:

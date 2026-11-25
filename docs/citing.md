@@ -18,6 +18,11 @@ release. Each public release has its DOI on Zenodo, and the DOI of all the versi
 }
 ```
 
+morphoGen also calls libraries that have their own references. With the model `microgen` or
+`morphogen.interop.microgen`, cite Microgen: K. Marchais, Y. Chemisky, R. d'Esparbès,
+M. R. Guevara, Y. Legerstee et al., *3MAH/microgen: microstructure generation and meshing*,
+Zenodo, [10.5281/zenodo.6793573](https://doi.org/10.5281/zenodo.6793573) ([github.com/3MAH/microgen](https://github.com/3MAH/microgen)).
+
 Cite also the papers of the methods you use: the models, measures and solvers of
 morphoGen follow the references given with them in the [theory notes](theory.md) and
 in the [references](references.md).

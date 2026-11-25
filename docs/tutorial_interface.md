@@ -23,7 +23,7 @@ opens its menu (where to send it, its 3D view, a new title), its cross **×** (o
 middle click) closes it — **Undo** beside the strip brings it back for a few seconds;
 its files stay in the folder of the session either way.
 
-In *Create › Generate*, the menu lists the 44 models by family (the filter above it
+In *Create › Generate*, the menu lists the 43 models and the shapes of Microgen by family (the filter above it
 finds one by a word of its name or of its summary). Choose `boolean_spheres`: its form
 opens filled with its template; set the radius to 1, the volume fraction to 0.2, the
 size of the domain to 10 and the seed to 1, then **Generate** (or `Ctrl + Enter`, which

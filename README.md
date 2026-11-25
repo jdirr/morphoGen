@@ -30,7 +30,7 @@ A study follows one chain, and each step is a part of the package:
 
 | Step | What morphoGen does |
 |---|---|
-| **Generate** | 44 models: Boolean models, packings, fibres, tessellations, Gaussian fields, dead leaves, automata and growths, lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures; monodisperse or polydisperse; periodic or not, combined, nested |
+| **Generate** | 43 models: Boolean models, packings, fibres, tessellations, Gaussian fields, dead leaves, automata and growths, lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures; monodisperse or polydisperse; periodic or not, combined, nested; and the shapes of Microgen (3MAH) |
 | **Describe** | an exact description of each realization (centres, axes, cells) and an implicit function for each phase, from which voxel images, surfaces and conforming meshes are cut at any resolution |
 | **Measure** | fractions, specific surface, covariance, chords, tortuosity, percolation thresholds, stereology..., each beside the closed form of its model when there is one |
 | **Compute** | elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their couplings, harmonic regimes, waves, flow and sound: finite elements on conforming meshes (by default), an FFT solver on voxels (CPU or GPU), extended finite elements |
@@ -44,7 +44,7 @@ laser treatment (`morphogen.laser`) and explicit dynamics with OpenRadioss
 (`morphogen.dynamics`). Meshes, images, behaviours and results go to Abaqus, CalculiX,
 AMITEX_FFTP, MFront, Z-set, Gmsh, Neper, DAMASK, FEniCSx and ParaView; particles to the
 codes of discrete elements (LMGC90, LAMMPS, YADE), scenes to Blender, voxel images to JAX
-and PyTorch, shapes to and from Microgen.
+and PyTorch, shapes to and from Microgen (3MAH).
 
 ## Installation
 
