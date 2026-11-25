@@ -21,10 +21,10 @@ How the structures are sampled (:attr:`Section.sampling`):
   and random lattices, foams, trees), TPMS, tessellations, Gaussian fields, lattice
   fields (automata, growth, reconstructions, tile assemblies; the cells themselves when
   the grid is their lattice), laminates, honeycombs, nacre, Bouligand plywoods, level-set
-  foams, osteons, fractal sponges and scale-rich networks: they only evaluate the points
-  of the grid they are given. So are the combinations of such structures, Cox spheres in
-  such aggregates, and the coatings and shells of unions of spheres and segments (exact
-  distances);
+  foams, osteons, fractal sponges, scale-rich networks, grains with subgrains, woven
+  textiles and the shapes of Microgen: they only evaluate the points of the grid they are
+  given. So are the combinations of such structures, Cox spheres in such aggregates, and
+  the coatings and shells of unions of spheres and segments (exact distances);
 * ``plane`` too for dead leaves and transparent dead leaves, on a cell as thick as the box
   along the axis (centred on the plane): their kernels wrap the leaves over the grid, a
   periodic grid being the whole box;
@@ -80,6 +80,7 @@ from morphogen.models.honeycomb import PrismaticCells
 from morphogen.models.laminate import Laminate
 from morphogen.models.lattice_field import LatticeField
 from morphogen.models.levelset_foam import DistanceFieldFoam
+from morphogen.models.microgen import MicrogenStructure
 from morphogen.models.nacre import NacreStructure
 from morphogen.models.nested import ClusteredSpheres, CoatedStructure, FractalStructure
 from morphogen.models.nested_grains import NestedGrainStructure
@@ -88,6 +89,7 @@ from morphogen.models.planar import plane_axes
 from morphogen.models.scale_rich import ScaleRichStructure
 from morphogen.models.scale_rich_3d import ScaleRichBeams, ScaleRichPlates
 from morphogen.models.tessellation import Tessellation
+from morphogen.models.textile import TextileStructure
 from morphogen.models.tpms import TPMSStructure
 from morphogen.models.transparent import TransparentDeadLeaves
 from morphogen.models.union import PrimitiveUnion
@@ -139,6 +141,8 @@ _POINTWISE = (
     ScaleRichStructure,
     ScaleRichPlates,
     ScaleRichBeams,
+    TextileStructure,
+    MicrogenStructure,
 )
 #: Structures whose kernels wrap over the grid (sampled on a cell as thick as the box).
 _LEAVES = (DeadLeaves, TransparentDeadLeaves)
