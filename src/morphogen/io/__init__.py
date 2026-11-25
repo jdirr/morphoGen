@@ -16,6 +16,10 @@ Solvers        periodic equations (Abaqus/CalculiX), DAMASK grids and materials,
                (:mod:`morphogen.io.radioss`, run by :mod:`morphogen.dynamics`)
 Orientations   ``.ang`` (EDAX/TSL) and ``.ctf`` (Oxford Instruments/HKL) orientation
                maps of EBSD, and their grains (:mod:`morphogen.io.ebsd`)
+Particles      one phase without its matrix, for the discrete element method: a closed
+               surface per particle (``.stl``, ``.obj``, ``.vtu``), tables, LAMMPS /
+               LIGGGHTS data files and YADE columns of the spheres
+               (:mod:`morphogen.io.dem`)
 =============  ======================================================================
 
 Images larger than memory are written slab by slab by :func:`voxelize_to_file`.
@@ -36,6 +40,7 @@ from morphogen.io.amitex import (
     write_amitex_field,
     write_amitex_loading,
 )
+from morphogen.io.dem import particles, write_particles
 from morphogen.io.ebsd import EBSDMap, read_ebsd, write_ebsd
 from morphogen.io.export import export
 from morphogen.io.geometry import read_json, write_csv, write_geo, write_json
@@ -187,6 +192,7 @@ __all__ = [
     "load_image",
     "load_microstructure",
     "mfront_source",
+    "particles",
     "read_amitex",
     "read_amitex_materials",
     "read_amitex_run",
@@ -231,6 +237,7 @@ __all__ = [
     "write_neper",
     "write_npy",
     "write_npz",
+    "write_particles",
     "write_periodic_equations",
     "write_periodic_pairs",
     "write_radioss",

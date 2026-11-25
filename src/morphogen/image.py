@@ -121,6 +121,19 @@ class VoxelImage:
         origin = tuple(o + i * h for o, i, h in zip(self.origin, s, self.spacing, strict=True))
         return VoxelImage(sub, self.spacing, origin, False, self.name, dict(self.metadata))
 
+    # -- arrays of other libraries without copies (DLPack) ------------------------------
+
+    def __dlpack__(self, **kwargs):
+        """The array of the image through the DLPack protocol, without a copy: JAX
+        (``jax.numpy.from_dlpack(image)``), PyTorch (``torch.from_dlpack``), CuPy and
+        NumPy take it (:mod:`morphogen.interop.arrays`; JAX on the CPU shares buffers
+        aligned on 64 bytes, :func:`~morphogen.interop.arrays.aligned`)."""
+        return self.data.__dlpack__(**kwargs)
+
+    def __dlpack_device__(self):
+        """The device of the array (the CPU), for the DLPack protocol."""
+        return self.data.__dlpack_device__()
+
     def __repr__(self) -> str:
         return (
             f"VoxelImage(name={self.name!r}, shape={self.shape}, dtype={self.data.dtype}, "

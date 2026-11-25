@@ -182,7 +182,8 @@ def test_inclusions_in_a_polycrystal(tmp_path):
         "domain": {"size": 1.0, "periodic": True},
         "seed": 3,
         "voxels": {"shape": 16},
-        "homogenization": {
+        "homogenization": {  # the FFT solver, compared with its run on the image below
+            "method": "fft",
             "materials": {0: grain_boundary, 1: COPPER, 2: grain_boundary},
             "properties": ["bulk_modulus", "shear_modulus"],
         },

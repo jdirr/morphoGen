@@ -388,7 +388,13 @@ def _title(p) -> str:
             doc="wave vectors per reciprocal vector over the Brillouin zone of the primitive "
             "cell (blank: 12 in the plane, 4 in space; 0: none)",
         ),
-        Field("video", "bool", True, doc="a video of each pattern of the first bifurcation"),
+        Field(
+            "video",
+            "bool",
+            False,
+            doc="a video of each pattern of the first bifurcation (its frames kept for the "
+            "export otherwise)",
+        ),
     ],
     order=1,
     menu="Bifurcations",
@@ -483,14 +489,15 @@ def frame_bifurcation(p: dict, ctx) -> dict:
             else f"patterns of the {len(drawn)} first irreps"
         )
         ctx.figure(b.figure(frame, irreps=drawn), "patterns_all", title)
-    if p["video"] and critical:
+    if critical:  # the frames of the patterns: their videos if asked, else kept
         from morphogen.viz.video import frame_pattern_frames
 
         shown = _patterns_of(b, critical)[:SHOWN]
         for k, pattern in enumerate(shown):
-            ctx.progress(0.7 + 0.1 * k / len(shown), "videos of the patterns")
+            ctx.progress(0.7 + 0.1 * k / len(shown), "frames of the patterns")
             frames = frame_pattern_frames(frame, pattern.mode, frames=FRAMES, size=420)
-            ctx.video(frames, f"pattern_{k + 1}", _title(pattern), mode="loop")
+            ctx.video(frames, f"pattern_{k + 1}", _title(pattern), mode="loop",
+                      wanted=p["video"])  # fmt: skip
     if grid and compressed:
         ctx.progress(0.82, "Bloch waves of the primitive cell")
         bloch = _frame_bloch(cell, strain, grid, space, b, n)
@@ -1011,7 +1018,13 @@ def _mesh_fields(default_mesh: str = "auto", resolution: int = 8) -> list:
         Field("materials", "materials", of="source"),
         *_loading_fields(),
         Field("patterns", "choice", "critical", choices=PATTERNS, doc="the patterns computed"),
-        Field("video", "bool", True, doc="a video of each pattern of the first bifurcation"),
+        Field(
+            "video",
+            "bool",
+            False,
+            doc="a video of each pattern of the first bifurcation (the export makes them from "
+            "patterns.vtu)",
+        ),
     ],
     order=2,
     menu="Bifurcations",
@@ -1318,7 +1331,13 @@ def _ellipticities(nodes, u, radius: float, band: float) -> np.ndarray:
             doc="the path followed again with an imperfection of 2 % of the cell along "
             "the critical pattern",
         ),
-        Field("video", "bool", True, doc="a video of the critical pattern oscillating"),
+        Field(
+            "video",
+            "bool",
+            False,
+            doc="a video of the critical pattern oscillating (the export makes it from "
+            "patterns.vtu)",
+        ),
     ],
     order=3,
     groups=(
@@ -1468,6 +1487,8 @@ def path_bifurcation_tool(p: dict, ctx) -> dict:
     if p["behaviour"] == "plastic" and order == 1:
         text.append("4-node tetrahedra lock under plastic flow: prefer 10-node ones.")
     if critical:
+        if b.patterns:  # the patterns on the mesh, which the export animates
+            b.write(ctx.path("patterns.vtu"), irreps=critical)
         _show_patterns(b, ctx, critical, planar=cell["planar"], video=p["video"], start=0.78)
     return {"values": values, "text": " ".join(text)}
 

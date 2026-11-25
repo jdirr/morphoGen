@@ -13,6 +13,12 @@ voxels, surface)       .csv .txt .xlsx (nodes and elements); .mp4 .gif (``kind``
                        ``field`` colours them)
 microstructure         .json .csv .geo; the others voxelized (``shape``, by default 64,
                        or ``voxel_size``)
+particles of a phase   with ``particles=k`` (a microstructure or a voxel image): the phase
+(DEM)                  ``k`` without its matrix (:mod:`morphogen.io.dem`), .stl .obj .vtu
+                       .msh (a closed surface per particle, whole across periodic faces;
+                       Gmsh 2.2 for LMGC90, its tetrahedra with ``elements="tetrahedra"``),
+                       .csv .txt .xlsx (the particles, or the exact spheres), .data
+                       (LAMMPS, LIGGGHTS), ``format="yade"``
 band structure         .csv .txt .xlsx (the bands); figure suffixes (the plot)
 bifurcation analysis   .csv .txt .xlsx (irreps and patterns); .vtu (patterns of a mesh);
                        figure suffixes with ``frame`` (patterns of a frame)
@@ -129,6 +135,12 @@ def export(obj, path, **options) -> Path | list[Path]:
 
     path = Path(path)
     suffix = path.suffix.lower()
+    if options.get("particles") not in (None, False):  # one phase without its matrix (DEM)
+        from morphogen.io.dem import write_particles
+
+        phase = options.pop("particles")
+        return write_particles(path, obj, 1 if phase is True else int(phase), **options)
+    options.pop("particles", None)
     if isinstance(obj, Microstructure) and suffix not in (".json", ".csv", ".geo"):
         shape, size = options.pop("shape", None), options.pop("voxel_size", None)
         shape = 64 if shape is None and size is None else shape

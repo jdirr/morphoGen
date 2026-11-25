@@ -1861,11 +1861,84 @@ def _visualization(data, homog: HomogenizationSpec | None) -> VisualizationSpec:
     )
 
 
-def _check_method(homog: HomogenizationSpec, mesh: MeshSpec | None) -> None:
-    """Resolve ``method: auto`` (finite elements when a mesh is described) and check
-    that the boundary conditions suit the method."""
+#: The element size of the conforming meshes that ``method: auto`` describes when a
+#: configuration gives none: the shortest edge of the domain over this number
+DEFAULT_ELEMENTS_PER_EDGE = 10
+#: Their Hausdorff distance and smallest element, as fractions of that size: the curved
+#: interfaces followed within an eighth of an element, no element below a third of one
+#: (a mesh some times lighter than the defaults of ``conforming_mesh``, for a first run)
+DEFAULT_HAUSDORFF, DEFAULT_MIN_SIZE = 1.0 / 8.0, 1.0 / 3.0
+
+
+def default_mesh(domain: Domain, voxels: VoxelSpec | None = None) -> MeshSpec:
+    """The conforming mesh that ``method: auto`` describes for a configuration without a
+    ``mesh`` section: elements of the shortest edge of the domain over
+    :data:`DEFAULT_ELEMENTS_PER_EDGE`, a Hausdorff distance and a smallest element of
+    :data:`DEFAULT_HAUSDORFF` and :data:`DEFAULT_MIN_SIZE` of that size, the level set
+    sampled at the voxels of a ``voxels`` section (the grid route), if any."""
+    size = float(np.min(domain.lengths)) / DEFAULT_ELEMENTS_PER_EDGE
+    background = None
+    if voxels is not None:  # the resolution the configuration asks for its images
+        if voxels.voxel_size is not None:
+            background = float(voxels.voxel_size)
+        elif voxels.shape is not None:
+            background = float(np.max(domain.lengths)) / float(np.max(voxels.shape))
+    return MeshSpec(size=size, hausdorff=DEFAULT_HAUSDORFF * size,
+                    min_size=DEFAULT_MIN_SIZE * size, background=background)  # fmt: skip
+
+
+def voxels_only(homog: HomogenizationSpec, rve=None, voxels: VoxelSpec | None = None) -> list[str]:
+    """What only the solvers of voxel images do among the options of a homogenization (and
+    of the RVE study and voxels of its configuration): the reasons for which ``method:
+    auto`` takes the FFT solver on voxels, the last resort, rather than finite elements
+    on conforming meshes."""
+    reasons = []
+    if homog.device == "gpu":
+        reasons.append("the GPU (device: gpu) runs the FFT solver")
+    voxel = [p for p in homog.properties if PHYSICS[p] in ("coupled", "harmonic", "flow")]
+    if voxel:
+        reasons.append(f"the properties {voxel} are solved on voxel images")
+    if homog.fracture is not None:
+        reasons.append("the phase-field fracture runs on voxel images")
+    if homog.ntfa:
+        reasons.append("the reduced models (ntfa) are those of voxel images")
+    if rve is not None and rve.method == "windows":
+        reasons.append("the window method solves its realization by FFT")
+    if voxels is not None and voxels.section is not None:
+        reasons.append("a planar study is a layer of voxels (voxels.section)")
+    return reasons
+
+
+def _check_method(
+    homog: HomogenizationSpec,
+    mesh: MeshSpec | None,
+    *,
+    rve=None,
+    voxels: VoxelSpec | None = None,
+    domain: Domain | None = None,
+) -> MeshSpec | None:
+    """Resolve ``method: auto``: finite elements on conforming meshes (exact where the
+    model knows its geometry), with the mesh of :func:`default_mesh` when the
+    configuration describes none; the FFT solver on voxels only for what only it does
+    (:func:`voxels_only`) or without a conforming mesher (MMG). Check that the boundary
+    conditions suit the method; return the mesh."""
     if homog.method == "auto":
-        homog.method = "fe" if mesh is not None else "fft"
+        reasons = voxels_only(homog, rve, voxels)
+        if not reasons:
+            from morphogen.mesh.conforming import has_mmg
+
+            if not has_mmg():
+                import warnings
+
+                warnings.warn(
+                    "homogenization: no conforming mesher here (MMG: pip install pymmg); the "
+                    "FFT solver on voxels instead of finite elements",
+                    stacklevel=3,
+                )
+                reasons.append("no conforming mesher (MMG)")
+        homog.method = "fft" if reasons else "fe"
+        if homog.method == "fe" and mesh is None and domain is not None:
+            mesh = default_mesh(domain, voxels)
     if homog.method == "fe" and mesh is None:
         raise ConfigError(
             "homogenization.method 'fe': describe the conforming meshes in a 'mesh' section "
@@ -1947,6 +2020,7 @@ def _check_method(homog: HomogenizationSpec, mesh: MeshSpec | None) -> None:
             )
         if homog.ntfa:
             raise ConfigError("homogenization.ntfa: a reduced model of voxel images (method: fft)")
+    return mesh
 
 
 def _model_paths(model, base: Path):
@@ -2048,7 +2122,7 @@ def load_config(source, *, base_dir=None) -> RunConfig:
     outputs = _outputs(data.get("outputs") or {}, base)
     analysis = _list_of("analysis", data.get("analysis"), MEASURES)
     if homog is not None:
-        _check_method(homog, mesh)
+        mesh = _check_method(homog, mesh, rve=rve, voxels=voxels, domain=domain)
     if mesh is not None and mesh.order is None:
         # quadratic elements for the finite element analyses: linear tetrahedra are stiff,
         # and lock under isochoric plastic flow; a mesh that is only written stays linear

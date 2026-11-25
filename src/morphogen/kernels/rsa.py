@@ -256,14 +256,14 @@ def random_sequential_addition_fibres(radii, lengths, box, gap, rng, orientation
 
 
 @njit(cache=True)
-def rsa_insert_polylines(offsets, extents, radius, gap, box, cell_h, cell_n, head, nxt, pos,
+def rsa_insert_polylines(offsets, extents, radii, gap, box, cell_h, cell_n, head, nxt, pos,
                          placed, candidates):  # fmt: skip
     """Try ``candidates`` (centres) in turn for the fibre ``placed``, a chain of
-    spherocylinders of radius ``radius`` whose axis passes through the points
+    spherocylinders of radius ``radii[placed]`` whose axis passes through the points
     ``offsets[placed]`` (relative to its centre; ``extents``: their largest distance to
     it), then the next fibres, in a periodic box with linked cell lists (cells at least
     as large as the reach of two fibres). A candidate is rejected when one of its
-    segments comes closer than ``2 radius + gap`` to a segment of the nearest periodic
+    segments comes closer than ``r_a + r_b + gap`` to a segment of the nearest periodic
     image of a fibre already placed. Returns the new number of placed fibres and the
     number of candidates used."""
     n_total, m1 = offsets.shape[0], offsets.shape[1]
@@ -274,7 +274,6 @@ def rsa_insert_polylines(offsets, extents, radius, gap, box, cell_h, cell_n, hea
     da = np.empty(3)
     b0 = np.empty(3)
     db = np.empty(3)
-    lim = 2.0 * radius + gap
     for c in range(candidates.shape[0]):
         if placed >= n_total:
             break
@@ -302,6 +301,7 @@ def rsa_insert_polylines(offsets, extents, radius, gap, box, cell_h, cell_n, hea
                             d -= box[k] * math.floor(d / box[k] + 0.5)
                             dc[k] = d
                             d2 += d * d
+                        lim = radii[placed] + radii[s] + gap
                         reach = extents[placed] + extents[s] + lim
                         if d2 < reach * reach:
                             for i in range(m1 - 1):
@@ -339,9 +339,9 @@ def rsa_insert_polylines(offsets, extents, radius, gap, box, cell_h, cell_n, hea
 def random_sequential_addition_polylines(offsets, radius, box, gap, rng, max_attempts,
                                          batch=4096):  # fmt: skip
     """Centres (in ``[0, box)``) of non-overlapping curved fibres: chains of
-    spherocylinders of radius ``radius`` along the polylines ``offsets`` (n x points x
-    3, relative to the centres), inserted in the given order with uniformly random
-    centres. Raises ``RuntimeError`` when they cannot all be placed within
+    spherocylinders of radius ``radius`` (one value, or one per fibre) along the polylines
+    ``offsets`` (n x points x 3, relative to the centres), inserted in the given order with
+    uniformly random centres. Raises ``RuntimeError`` when they cannot all be placed within
     ``max_attempts`` trials (jamming)."""
     offsets = np.ascontiguousarray(offsets, dtype=float)
     box = np.asarray(box, dtype=float)
@@ -349,8 +349,9 @@ def random_sequential_addition_polylines(offsets, radius, box, gap, rng, max_att
     pos = np.zeros((n, 3))
     if n == 0:
         return pos
+    radii = np.ascontiguousarray(np.broadcast_to(np.asarray(radius, dtype=float), (n,)))
     extents = np.ascontiguousarray(np.sqrt((offsets**2).sum(axis=-1)).max(axis=1))
-    reach = 2.0 * extents.max() + 2.0 * radius + gap
+    reach = 2.0 * extents.max() + 2.0 * float(radii.max()) + gap
     cell_n = np.maximum(1, np.floor(box / reach)).astype(np.int64)
     cell_h = box / cell_n
     head = np.full(int(np.prod(cell_n)), -1, dtype=np.int64)
@@ -359,8 +360,8 @@ def random_sequential_addition_polylines(offsets, radius, box, gap, rng, max_att
     while placed < n and attempts < max_attempts:
         m = int(min(batch, max_attempts - attempts))
         cand = rng.random((m, 3)) * box
-        placed, used = rsa_insert_polylines(offsets, extents, float(radius), float(gap),
-                                            box, cell_h, cell_n, head, nxt, pos, placed,
+        placed, used = rsa_insert_polylines(offsets, extents, radii, float(gap), box,
+                                            cell_h, cell_n, head, nxt, pos, placed,
                                             cand)  # fmt: skip
         attempts += used
     if placed < n:

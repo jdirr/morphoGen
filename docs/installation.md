@@ -122,6 +122,14 @@ separate program: `morphogen radioss install` downloads its latest release from 
 sources on macOS); `morphogen radioss info` shows the installation found. Without it,
 morphoGen writes the inputs and the scripts that run them elsewhere.
 
+**Other libraries.** JAX, PyTorch and Exponax take the voxel images and the
+phase fields of `morphogen.interop.arrays` (`python -m pip install jax exponax`);
+Microgen 2 (3MAH, GPL-3.0) gives its shapes to the model `microgen` and takes the phases
+of morphoGen (`python -m pip install --pre microgen`; its mesher gmsh needs the system's
+GLU library, e.g. `apt install libglu1-mesa`). Blender, a separate
+program, runs the scenes of `morphogen.interop.blender` (`blender` on the path, or
+`MORPHOGEN_BLENDER`; or a Python with the module `bpy`). morphoGen never requires them.
+
 **MFront behaviours.** MGIS and MFront are not on PyPI: install them from
 conda-forge in morphoGen's environment, with a C++ compiler for the behaviours:
 

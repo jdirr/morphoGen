@@ -661,6 +661,51 @@ def test_loading_path_fft(tmp_path):
     assert "voxels per edge" in _error(session, "path", {**common, "voxels": 2})
 
 
+def test_fields_of_the_steps_in_the_page(tmp_path):
+    """The fields of a loading path are drawn in the page, step by step, without another
+    program: the result opens the 3D view (on the voxels of an FFT run too) at the field of
+    the form; the view goes through the steps of the manifest, the end by default; no video
+    unless asked, and Export makes one from the steps (one frame each), with the files of
+    the steps and their ParaView collection."""
+    from morphogen.gui import tools
+
+    session, key = _workspace(tmp_path)
+    fields = {f.name: f for f in tools.TOOLS["path"].fields}
+    assert fields["video"].default is False
+    params = {"source": key, "method": "fft", "voxels": 8, "integration": "full",
+              "increments": 4, "amplitude": 0.01, "materials": ELASTIC,
+              "behaviour": "elastic", "field": "stress_11"}  # fmt: skip
+    out = _run(session, "path", params)
+    assert out["videos"] == [] and out["view3d"] is True
+    assert out["fields3d"] == {"field": "stress_11", "cmap": "viridis"}
+    (item,) = out["items"]
+    folder = session.file(item["key"], "results.csv").parent
+    steps = api.path_steps(folder)
+    assert [s["file"] for s in steps] == [f"tension_step{k:03d}.vti" for k in range(1, 5)]
+    assert [s["time"] for s in steps] == pytest.approx([0.25, 0.5, 0.75, 1.0])
+    assert steps[-1]["label"] == "t = 1, E11 = 0.01"
+    end = api.surface({"key": item["key"], "field": "stress_11", "budget": 20000}, session)
+    assert end["step"] == 3
+    assert [s["time"] for s in end["steps"]] == pytest.approx([0.25, 0.5, 0.75, 1.0])
+    first = api.surface({"key": item["key"], "field": "stress_11", "step": "0"}, session)
+    assert first["step"] == 0 and first["field"]["name"] == "stress_11"
+    # linear: the stress of the first step a quarter of that of the end
+    assert first["field"]["range"][1] == pytest.approx(end["field"]["range"][1] / 4, rel=1e-4)
+    with pytest.raises(ValueError, match="step: from 0 to 3"):
+        api.surface({"key": item["key"], "step": "4"}, session)
+    # the export: the files of the steps, their collection, a video of the path
+    request = {"source": item["key"], "outputs": ["fields"], "field": "stress_11",
+               "video": "field"}  # fmt: skip
+    exported = api.export(request, session)
+    names = {f["name"] for f in exported["files"]}
+    assert {"tension_step001.vti", "tension_step004.vti", "steps.pvd"} <= names
+    assert len(exported["videos"]) == 1
+    pvd = (session.root / exported["archive"].split("/")[2] / "steps.pvd").read_text()
+    assert pvd.count("<DataSet") == 4 and 'timestep="0.25"' in pvd
+    frames = api._step_frames(folder, steps, "stress_11", {"axis": "z"})
+    assert len(frames) == 4  # one per step
+
+
 def test_loading_path_of_a_damaged_matrix(tmp_path):
     """A loading path with the damage of the form in the matrix, delayed by its viscosity:
     the response softens and the damage is that of the matrix."""
@@ -1046,6 +1091,7 @@ def test_linear_tensors(tmp_path):
         "materials": {"1": {"young": 1, "poisson": 0.3}},
         "crystal": "cubic",
         "constants": [c11, c12, c44],
+        "method": "fft",
         "voxels": 12,
     }
     out = _run(session, "tensors", params)
@@ -1072,6 +1118,7 @@ def test_linear_tensors(tmp_path):
     params = {
         "source": key,
         "materials": ELASTIC,
+        "method": "fft",
         "voxels": 12,
         "tensors": ["stiffness", "thermal_expansion", "conductivity_tensor"],
         "expansions": list(alphas),
@@ -1121,7 +1168,8 @@ def test_linear_tensors_by_extended_finite_elements(tmp_path):
     bounds = _bounds(out)
     for name in ("bulk_modulus", "shear_modulus"):
         assert bounds[name]["reuss"] < values[f"stiffness.{name}"] < bounds[name]["voigt"]
-    fft = _run(session, "tensors", {"source": key, "materials": ELASTIC, "voxels": 24})["values"]
+    fft = _run(session, "tensors", {"source": key, "materials": ELASTIC, "method": "fft",
+                                    "voxels": 24})["values"]  # fmt: skip
     assert values["fraction_1"] == pytest.approx(fft["fraction_1"], abs=0.02)
     for name in ("bulk_modulus", "shear_modulus"):
         assert values[f"stiffness.{name}"] == pytest.approx(fft[f"stiffness.{name}"], rel=0.08)

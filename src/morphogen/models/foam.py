@@ -23,7 +23,11 @@ in the box shortened by that factor along the axis, then stretched back), or by 
 stretches of an affine anisotropy along the box axes (:mod:`morphogen.models.affine`: the
 schema of the other models, here with struts of circular sections). The strut
 radius is given, or solved on each realization for a relative density
-(``volume_fraction``, measured on voxels a few times finer than the struts).
+(``volume_fraction``, measured on voxels a few times finer than the struts). A
+distribution of radii makes the struts polydisperse, a radius drawn for each; with a
+``volume_fraction``, its law keeps its shape and its scale is solved (the radii ``s X``,
+``X`` drawn from the law); the spheres of the nodes take ``node_ratio`` times the largest
+radius of the struts that meet there.
 
 The edges of a Poisson-Voronoi tessellation of ``lambda`` germs per unit volume are
 ``L_V = 5.832 lambda^(2/3)`` long per unit volume (Meijering 1953) and meet at ``N_V =
@@ -52,8 +56,10 @@ from scipy.spatial import Delaunay, cKDTree
 from morphogen import settings, theory
 from morphogen._utils import check_fraction, check_positive, exactly_one
 from morphogen.design.frames import Framework
+from morphogen.distributions import Distribution
 from morphogen.domain import Domain, Grid
 from morphogen.kernels.rsa import random_sequential_addition
+from morphogen.models import _sizes as sizes
 from morphogen.models.affine import Anisotropy
 from morphogen.models.base import Model, param, register
 from morphogen.models.planar import hardcore_germs, jamming_distance
@@ -194,7 +200,14 @@ class OpenFoam(Model):
         None, doc="Number of cells: exactly in a periodic box, on average otherwise", kind="int"
     )
     intensity: float | None = param(None, doc="Cells per unit volume", unit="1/length^3")
-    strut_radius: float | None = param(None, doc="Radius of the struts", unit="length")
+    strut_radius: Distribution | None = param(
+        None,
+        doc="Radius of the struts: a number (monodisperse) or a distribution (polydisperse, "
+        "one radius per strut; with volume_fraction, the shape of the law whose scale is "
+        "solved)",
+        kind="distribution",
+        unit="length",
+    )
     volume_fraction: float | None = param(
         None, doc="Relative density, reached on each realization", kind="fraction"
     )
@@ -214,13 +227,11 @@ class OpenFoam(Model):
 
     def _validate(self) -> None:
         exactly_one("n_cells", self.n_cells, "intensity", self.intensity)
-        exactly_one("strut_radius", self.strut_radius, "volume_fraction", self.volume_fraction)
+        sizes.check_scale(self.strut_radius, self.volume_fraction, "strut_radius")
         if self.n_cells is not None and self.n_cells < 1:
             raise ValueError("n_cells: at least one cell")
         if self.intensity is not None:
             check_positive(self.intensity, "intensity")
-        if self.strut_radius is not None:
-            check_positive(self.strut_radius, "strut_radius")
         if self.volume_fraction is not None:
             check_fraction(self.volume_fraction, "volume_fraction")
         if not 1.0 <= self.node_ratio < math.inf:
@@ -260,17 +271,40 @@ class OpenFoam(Model):
             germs = lloyd_step(germs, size, samples, rng)
         return germs
 
-    def _union(self, domain, ends, vertices, r: float, **kwargs) -> PrimitiveUnion:
-        segments = Segments(ends[:, 0], ends[:, 1], np.full(len(ends), r), round_caps=True)
+    def _union(self, domain, ends, vertices, r, bars=None, **kwargs) -> PrimitiveUnion:
+        """The struts of radius ``r`` (one value, or one per strut) and the spheres of the
+        nodes, ``node_ratio`` times the radius (the largest of the struts ``bars`` that
+        meet at a node, for struts of several radii)."""
+        if np.ndim(r) == 0:
+            radii, nodes = np.full(len(ends), r), np.full(len(vertices), self.node_ratio * r)
+        else:
+            radii = np.asarray(r, dtype=float).reshape(-1)
+            nodes = sizes.node_radii(bars, radii, len(vertices), self.node_ratio)
+        segments = Segments(ends[:, 0], ends[:, 1], radii, round_caps=True)
         spheres = None
         if self.node_ratio > 1.0:
-            spheres = Spheres(vertices, np.full(len(vertices), self.node_ratio * r))
+            spheres = Spheres(vertices, nodes)
         return PrimitiveUnion(domain, spheres=spheres, segments=segments, **kwargs)
 
-    def _solve_radius(self, domain, ends, vertices, length: float) -> float:
+    def _solve_radius(self, domain, ends, vertices, length: float, unit=None, bars=None) -> float:
         """Radius of the struts of a realization for the relative density (voxels about
-        a quarter of the radius wide)."""
+        a quarter of the radius wide); with ``unit`` radii (one per strut, drawn from a
+        law), the scale ``s`` of the radii ``s unit``."""
         target = float(self.volume_fraction)
+        if unit is not None:
+            unit = np.asarray(unit, dtype=float)
+            lengths = np.linalg.norm(ends[:, 1] - ends[:, 0], axis=1)
+            guess = math.sqrt(target * domain.volume / (math.pi * float(np.sum(unit**2 * lengths))))
+            h = guess * float(unit.mean()) / 4.0
+            shape = np.clip(np.ceil(domain.lengths / h), 16, 256).astype(int)
+            grid = Grid(domain, tuple(int(s) for s in shape))
+
+            def fraction(s):
+                union = self._union(domain, ends, vertices, s * unit, bars=bars)
+                return float(union.voxelize(grid=grid).data.mean())
+
+            limit = 0.5 * float(domain.lengths.min()) / float(unit.max())
+            return sizes.solve_scale(fraction, target, guess, limit, 1e-3 * guess)
         guess = math.sqrt(target * domain.volume / (math.pi * length))
         h = guess / 4.0
         shape = np.clip(np.ceil(domain.lengths / h), 16, 256).astype(int)
@@ -284,6 +318,22 @@ class OpenFoam(Model):
         while excess(hi) < 0 and hi < 0.5 * float(domain.lengths.min()):
             lo, hi = hi, 2.0 * hi
         return float(optimize.brentq(excess, lo, hi, xtol=1e-3 * guess))
+
+    def _radii(self, law, rng, domain, ends, vertices, length, bars) -> tuple:
+        """The radius of the struts of a realization: one value (a number, or solved for
+        the volume fraction), or one per strut (a distribution, its scale solved for the
+        volume fraction), and the summary of the radii."""
+        if self.volume_fraction is not None and law is None:
+            r = self._solve_radius(domain, ends, vertices, length)
+            return r, {}
+        if not sizes.polydisperse(law):
+            return float(law.moment(1)), {}
+        radii = sizes.draw(law, rng, len(ends))
+        out = {}
+        if self.volume_fraction is not None:
+            s = self._solve_radius(domain, ends, vertices, length, unit=radii, bars=bars)
+            radii, out = s * radii, {"radius_scale": s}
+        return radii, {**out, **sizes.size_summary("radius", radii, law)}
 
     @property
     def stretch(self) -> np.ndarray:
@@ -321,16 +371,22 @@ class OpenFoam(Model):
         ends = ends * stretch + domain.lower
         vertices = vertices * stretch + domain.lower
         length = float(np.linalg.norm(ends[:, 1] - ends[:, 0], axis=1).sum())
-        if self.strut_radius is not None:
-            r = float(self.strut_radius)
-        else:
-            r = self._solve_radius(domain, ends, vertices, length)
-        summary = {"n_cells": n, "strut_radius": r, "edge_length_density": length / domain.volume}
+        r, spread = self._radii(self.strut_radius, rng, domain, ends, vertices, length,
+                                frame.bars)  # fmt: skip
+        mean = float(np.mean(r))
+        summary = {
+            "n_cells": n,
+            "strut_radius": mean,
+            "edge_length_density": length / domain.volume,
+        }
+        summary.update({f"strut_{k}": v for k, v in spread.items()})
         if self.frame_stiffness:
             summary.update(frame_summary(frame, r))
         metadata = {"summary": summary, "framework": frame.to_dict()}
-        return self._union(domain, ends, vertices, r, model=self, seed=seed_info,
-                           metadata=metadata)  # fmt: skip
+        if np.ndim(r):  # the radius of each strut, in the order of the bars of the framework
+            metadata["radii"] = np.asarray(r).tolist()
+        return self._union(domain, ends, vertices, r, bars=frame.bars, model=self,
+                           seed=seed_info, metadata=metadata)  # fmt: skip
 
     # -- theory ----------------------------------------------------------------------------
 
@@ -349,8 +405,10 @@ class OpenFoam(Model):
         if self.regularity == 0 and self.relaxation == 0 and a is not None:
             lv = VORONOI_EDGE_COEFF * (a * theta) ** (2 / 3) * stretch_factor(a) / a
             out["edge_length_density"] = lv
-            if self.strut_radius is not None:
-                out["volume_fraction_first_order"] = math.pi * self.strut_radius**2 * lv
+            if self.strut_radius is not None and self.volume_fraction is None:
+                out["volume_fraction_first_order"] = sizes.first_order_fraction(
+                    self.strut_radius, lv
+                )
         return out
 
 
@@ -432,11 +490,13 @@ class DelaunayNetwork(Model):
     (hard-core points), or moved ``relaxation`` times to the centroids of their Voronoi
     cells (space only). ``dimension: 2``: a planar network of points of the plane ``z`` in
     the middle of the domain (the planar Delaunay graph; ``intensity`` per unit area).
-    The radius is given, or solved on each realization for a ``volume_fraction``. The
-    framework of the nodes and fibres (:class:`morphogen.design.frames.Framework`) is kept
-    in the metadata, its coordination and fibre lengths in the summary, and with
-    ``frame_stiffness`` the stiffness of its frame of beams
-    (:mod:`morphogen.homogenization.networks`).
+    The radius is given, or solved on each realization for a ``volume_fraction``; a
+    distribution of radii makes the fibres polydisperse, a radius drawn for each (with a
+    ``volume_fraction``, its law scaled to reach it, as for the struts of
+    :class:`OpenFoam`). The framework of the nodes and fibres
+    (:class:`morphogen.design.frames.Framework`) is kept in the metadata, its coordination
+    and fibre lengths in the summary, and with ``frame_stiffness`` the stiffness of its
+    frame of beams (:mod:`morphogen.homogenization.networks`).
     """
 
     name = "delaunay_network"
@@ -449,7 +509,14 @@ class DelaunayNetwork(Model):
     intensity: float | None = param(
         None, doc="Nodes per unit volume (per unit area in a plane)", unit="1/length^3"
     )
-    radius: float | None = param(None, doc="Radius of the fibres", unit="length")
+    radius: Distribution | None = param(
+        None,
+        doc="Radius of the fibres: a number (monodisperse) or a distribution (polydisperse, "
+        "one radius per fibre; with volume_fraction, the shape of the law whose scale is "
+        "solved)",
+        kind="distribution",
+        unit="length",
+    )
     volume_fraction: float | None = param(
         None, doc="Volume fraction of the fibres, reached on each realization", kind="fraction"
     )
@@ -466,12 +533,13 @@ class DelaunayNetwork(Model):
     # the germs and the radius of a fraction of the open foams
     _germs = OpenFoam._germs
     _solve_radius = OpenFoam._solve_radius
+    _radii = OpenFoam._radii
 
-    def _union(self, domain, ends, vertices, r: float, **kwargs) -> PrimitiveUnion:
+    def _union(self, domain, ends, vertices, r, bars=None, **kwargs) -> PrimitiveUnion:
         """The struts of the open foams; in a box that is not periodic, with their periodic
         images: the periodic network cut by the box, the fibres leaving it by a face
         entering it again by the opposite one."""
-        union = OpenFoam._union(self, domain, ends, vertices, r, **kwargs)
+        union = OpenFoam._union(self, domain, ends, vertices, r, bars, **kwargs)
         if domain.periodic:
             return union
         spheres = with_periodic_images(union.spheres, domain)
@@ -480,15 +548,13 @@ class DelaunayNetwork(Model):
 
     def _validate(self) -> None:
         exactly_one("n_points", self.n_points, "intensity", self.intensity)
-        exactly_one("radius", self.radius, "volume_fraction", self.volume_fraction)
+        sizes.check_scale(self.radius, self.volume_fraction, "radius")
         if self.dimension not in DIMENSIONS:
             raise ValueError("dimension: 2 or 3")
         if self.n_points is not None and self.n_points < self.dimension + 2:
             raise ValueError(f"n_points: at least {self.dimension + 2}")
         if self.intensity is not None:
             check_positive(self.intensity, "intensity")
-        if self.radius is not None:
-            check_positive(self.radius, "radius")
         if self.volume_fraction is not None:
             check_fraction(self.volume_fraction, "volume_fraction")
         if not 1.0 <= self.node_ratio < math.inf:
@@ -544,11 +610,7 @@ class DelaunayNetwork(Model):
         vertices = frame.nodes + domain.lower
         lengths = np.linalg.norm(vectors, axis=1)
         total = float(lengths.sum())
-        r = (
-            self.radius
-            if self.radius is not None
-            else self._solve_radius(domain, ends, vertices, total)
-        )
+        r, spread = self._radii(self.radius, rng, domain, ends, vertices, total, frame.bars)
         summary = {
             "nodes": frame.n_nodes,
             "fibres": frame.n_bars,
@@ -556,15 +618,18 @@ class DelaunayNetwork(Model):
             "mean_fibre_length": float(lengths.mean()),
             "fibre_length_cv": float(lengths.std() / lengths.mean()),
             "fibre_length_density": total / domain.volume,
-            "radius": float(r),
+            "radius": float(np.mean(r)),
+            **spread,
         }
         if self.dimension == 2:
             summary["fibre_length_per_area"] = total / self._measure(domain)
         if self.frame_stiffness:
-            summary.update(frame_summary(frame, float(r), self.dimension))
+            summary.update(frame_summary(frame, r, self.dimension))
         metadata = {"summary": summary, "framework": frame.to_dict()}
-        return self._union(domain, ends, vertices, float(r), model=self, seed=seed_info,
-                           metadata=metadata)  # fmt: skip
+        if np.ndim(r):  # the radius of each fibre, in the order of the bars of the framework
+            metadata["radii"] = np.asarray(r).tolist()
+        return self._union(domain, ends, vertices, r, bars=frame.bars, model=self,
+                           seed=seed_info, metadata=metadata)  # fmt: skip
 
     def expected_count(self, domain: Domain) -> float:
         return self.theta(domain) * self._measure(domain)

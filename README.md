@@ -30,10 +30,10 @@ A study follows one chain, and each step is a part of the package:
 
 | Step | What morphoGen does |
 |---|---|
-| **Generate** | 40 models: Boolean models, packings, fibres, tessellations, Gaussian fields, dead leaves, automata and growths, lattices, foams, triply periodic surfaces, bio-inspired structures; periodic or not, combined, nested |
+| **Generate** | 44 models: Boolean models, packings, fibres, tessellations, Gaussian fields, dead leaves, automata and growths, lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures; monodisperse or polydisperse; periodic or not, combined, nested |
 | **Describe** | an exact description of each realization (centres, axes, cells) and an implicit function for each phase, from which voxel images, surfaces and conforming meshes are cut at any resolution |
 | **Measure** | fractions, specific surface, covariance, chords, tortuosity, percolation thresholds, stereology..., each beside the closed form of its model when there is one |
-| **Compute** | elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their couplings, harmonic regimes, waves, flow and sound: an FFT solver on voxels (CPU or GPU), finite elements on conforming meshes, extended finite elements |
+| **Compute** | elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their couplings, harmonic regimes, waves, flow and sound: finite elements on conforming meshes (by default), an FFT solver on voxels (CPU or GPU), extended finite elements |
 | **Load** | plasticity, crystal plasticity, viscoelasticity, hyperelasticity, damage and MFront laws along loading paths, in small or finite strains; macroscopic laws identified, reduced or learned from the responses |
 | **Break** | the phase field of fracture, cohesive zones, cracks of any front, ductile growth; contact and friction; high-cycle fatigue |
 | **Size the RVE** | the statistics of Kanit et al. (2003): the variance against the volume, the integral range, the volume and the number of realizations for a precision |
@@ -42,7 +42,9 @@ A study follows one chain, and each step is a part of the package:
 Two application modules build on this chain: metal sheets architectured by localized
 laser treatment (`morphogen.laser`) and explicit dynamics with OpenRadioss
 (`morphogen.dynamics`). Meshes, images, behaviours and results go to Abaqus, CalculiX,
-AMITEX_FFTP, MFront, Z-set, Gmsh, Neper, DAMASK, FEniCSx and ParaView.
+AMITEX_FFTP, MFront, Z-set, Gmsh, Neper, DAMASK, FEniCSx and ParaView; particles to the
+codes of discrete elements (LMGC90, LAMMPS, YADE), scenes to Blender, voxel images to JAX
+and PyTorch, shapes to and from Microgen.
 
 ## Installation
 

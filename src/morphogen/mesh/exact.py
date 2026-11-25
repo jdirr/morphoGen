@@ -393,6 +393,7 @@ def pieces_mesh(
     gradation: float = 2.0,
     phases: str = "all",
     cells=None,
+    orientations=None,
     thin: float | None = None,
     order: int = 1,
     periodic: bool = False,
@@ -404,7 +405,8 @@ def pieces_mesh(
     ``(vertices, face offsets, labels, normals, planes)`` of each, its ``phase``): the
     face-to-face complex of the pieces (:func:`face_to_face`), cones from their centroids,
     remeshed by MMG keeping their facets and the faces of the box (every element knows its
-    phase, and its cell when ``cells`` are given: ``mesh.cell``). Pieces thinner than the
+    phase, and its cell when ``cells`` are given: ``mesh.cell``, with the crystal
+    ``orientations`` of the cells if given). Pieces thinner than the
     elements (plates) get flat elements, one through their thickness, of aspect ratio
     ``size`` over the thickness; ``thin``: the elements of a piece at most ``thin`` times
     its width (twice the radius of its largest ball) and at least ``min_size`` (default
@@ -496,6 +498,7 @@ def pieces_mesh(
         upper=upper,
         periodic=periodic,
         cell=cells[piece] if given else None,
+        orientations=orientations if given else None,
         metadata={
             "mesher": "exact convex pieces (mmg3d)",
             "size": size,
@@ -518,21 +521,26 @@ def pieces_mesh(
     return mesh
 
 
-def polyhedral_mesh(micro, *, size: float, by_piece: bool = False, **options) -> TetMesh:
+def polyhedral_mesh(micro, *, size: float, by_piece: bool | None = None, **options) -> TetMesh:
     """Conforming tetrahedral mesh of a faceted microstructure from its exact convex pieces
     (``micro.convex_pieces()``: the pieces, their phases and cells; ``by_piece``: every
-    element knows the cell of its piece, ``mesh.cell``), periodic (matching faces) when
-    the microstructure is; see :func:`pieces_mesh` for the options."""
+    element knows the cell of its piece, ``mesh.cell``, by default when the cells carry
+    crystal orientations, given with them), periodic (matching faces) when the
+    microstructure is; see :func:`pieces_mesh` for the options."""
     if not callable(getattr(micro, "convex_pieces", None)):
         raise TypeError(f"{type(micro).__name__}: no convex pieces, no polyhedral mesh")
     pieces, phase, cells = micro.convex_pieces()
     domain = micro.domain
+    orientations = getattr(micro, "orientations", None)
+    if by_piece is None:
+        by_piece = orientations is not None
     if options.get("periodic") is None:
         options["periodic"] = bool(domain.periodic)
     if options["periodic"] and not domain.periodic:
         raise ValueError("matching periodic faces need a periodic microstructure")
     return pieces_mesh(pieces, phase, domain.lower, domain.upper, size=size,
-                       cells=cells if by_piece else None, **options)  # fmt: skip
+                       cells=cells if by_piece else None,
+                       orientations=orientations if by_piece else None, **options)  # fmt: skip
 
 
 # -- the adaptive meshes of level sets --------------------------------------------------------
@@ -1634,13 +1642,16 @@ def _on_box(points, lower, upper, tol) -> np.ndarray:
 def exact_route(micro, grains: bool | None = None) -> str:
     """How :func:`exact_mesh` meshes a microstructure: ``"cells"`` (the exact cells of
     Voronoi and Laguerre tessellations, grain by grain), ``"pieces"`` (exact convex pieces:
-    faceted microstructures), ``"level_set"`` (the adaptive mesh of the exact point-wise
-    functions of its phases, :meth:`~morphogen.models.base.Microstructure.
-    phase_level_sets_at`: the other structures, of two phases or more, the tessellations
-    with a grain-boundary phase, and those meshed by their phases, ``grains`` false), or
-    ``""`` (none: the structures whose functions are those of grids only, and those whose
-    cells carry crystal orientations but tessellations, whose meshes come from their voxel
-    images)."""
+    faceted microstructures, the subgrains of nested grains with their crystals),
+    ``"level_set"`` (the adaptive mesh of the exact point-wise functions of its phases,
+    :meth:`~morphogen.models.base.Microstructure.phase_level_sets_at`: the other
+    structures, of two phases or more, the tessellations with a grain-boundary phase, and
+    those meshed by their phases, ``grains`` false; the structures whose cells are known at
+    any point, ``point_cells``, give each element the cell of its centre, and those whose
+    labels carry orientations and that give them at any point, ``label_of`` — the segments
+    of woven textiles —, each element labelled by :func:`labelled`), or ``""`` (none: the
+    structures whose functions are those of grids only, and the other structures whose
+    cells carry crystal orientations, whose meshes come from their voxel images)."""
     from morphogen.models.implicit import point_functions
     from morphogen.models.tessellation import Tessellation
 
@@ -1650,9 +1661,48 @@ def exact_route(micro, grains: bool | None = None) -> str:
         return "level_set" if point_functions(micro) else ""
     if callable(getattr(micro, "convex_pieces", None)):
         return "pieces"
-    if getattr(micro, "orientations", None) is not None:
+    oriented = getattr(micro, "orientations", None) is not None
+    known = getattr(micro, "point_cells", False) or callable(getattr(micro, "label_of", None))
+    if oriented and not known:
         return ""  # crystals turned by their cells: a mesh by cell (their images)
     return "level_set" if point_functions(micro) else ""
+
+
+def labelled(micro, mesh: TetMesh) -> TetMesh:
+    """The mesh of a structure whose labels carry orientations and that gives them at any
+    point (``label_of``, ``cell_phases``, ``orientations``: the segments of the yarns of a
+    woven textile, the matrix): each element takes the label at its centroid
+    (``mesh.cell``), and the orientations of the labels (``mesh.orientations``) turn its
+    anisotropic phases in the finite elements. The interfaces of the phases are those of
+    the mesh, within its Hausdorff distance: an element whose centroid falls on the other
+    side takes the label of the nearest element of its phase. Other meshes come back as
+    they are."""
+    import dataclasses
+
+    label_of = getattr(micro, "label_of", None)
+    orientations = getattr(micro, "orientations", None)
+    phases_of = getattr(micro, "cell_phases", None)
+    if not callable(label_of) or orientations is None or phases_of is None:
+        return mesh
+    if mesh.cell is not None or not mesh.n_elements:
+        return mesh
+    phases_of = np.asarray(phases_of)
+    centroids = mesh.nodes[mesh.elements[:, :4]].mean(axis=1)
+    cell = np.asarray(label_of(centroids), dtype=np.int64)
+    phase = np.asarray(mesh.phase)
+    wrong = phases_of[cell] != phase
+    for p in np.unique(phase[wrong]):
+        ours = np.flatnonzero(phase == p)
+        good = ours[~wrong[ours]]
+        bad = ours[wrong[ours]]
+        if len(good):
+            _, nearest = cKDTree(centroids[good]).query(centroids[bad])
+            cell[bad] = cell[good[nearest]]
+        else:  # no element of the phase on its side: any label of the phase
+            cell[bad] = int(np.flatnonzero(phases_of == p)[0])
+    out = dataclasses.replace(mesh, cell=cell, orientations=np.asarray(orientations, float))
+    out.metadata = {**mesh.metadata, "labelled_elements": int(wrong.sum())}
+    return out
 
 
 def exact_mesh(
@@ -1702,8 +1752,16 @@ def exact_mesh(
         mesh = polyhedral_mesh(micro, **common, **options)
     elif route == "level_set":
         common["hausdorff"] = hausdorff
-        return adaptive_mesh(micro, periodic=periodic, sharp_edges=sharp_edges, **common,
+        mesh = adaptive_mesh(micro, periodic=periodic, sharp_edges=sharp_edges, **common,
                              **options)  # fmt: skip
+        if getattr(micro, "point_cells", False):  # the label of the centre of each element
+            centres = mesh.nodes[mesh.elements[:, :4]].mean(axis=1)
+            mesh.cell = np.asarray(micro.cell_of(centres), dtype=np.int64)
+            mesh.orientations = getattr(micro, "orientations", None)
+            if mesh.orientations is not None:
+                mesh.orientations = np.ascontiguousarray(mesh.orientations, dtype=np.float64)
+            return mesh
+        return labelled(micro, mesh)
     else:
         raise TypeError(
             f"{type(micro).__name__}: neither exact cells, convex pieces nor point-wise "

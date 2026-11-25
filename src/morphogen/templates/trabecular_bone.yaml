@@ -18,6 +18,8 @@ seed: 3
 voxels:
   shape: 96
 homogenization:
+  # the voxels, the last resort here: struts of some hundredths of the box would take a conforming mesh of
+  # some millions of elements (method: fe, or auto, with a mesh section, to use it)
   method: fft
   materials:
     0: void

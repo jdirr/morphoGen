@@ -341,3 +341,103 @@ print(sorted(p.name for p in files.files)[:3])  # the fields, the XML files and 
 ```python
 mg.io.write_mfront(alloy, "laws/Alloy.mfront")  # for Abaqus, Cast3M, code_aster, AMITEX_FFTP
 ```
+
+### ... give the particles of a phase to a code of discrete elements?
+
+One phase without its matrix: a closed surface per particle (a connected part of the
+phase: here the clusters of the overlapping spheres), whole across the faces of a
+periodic box (a cluster that winds around it is cut by them), or the exact spheres of
+the models of spheres and fibres:
+
+```python
+bodies = mg.io.particles(micro, phase=1, shape=48)  # clusters of overlapping spheres
+print(len(bodies), sum(p.whole for p in bodies))  # whole, but one winding around the box
+mg.io.write_particles("grains.stl", micro, shape=48)  # one solid each (or separate=True)
+mg.io.write_particles("grains.data", micro)  # the exact spheres for LAMMPS or LIGGGHTS
+mg.io.write_particles("grains.txt", micro, format="yade")  # for YADE's ymport.text
+mg.io.write_particles("grains.msh", micro, shape=48, exact=False)  # the clusters, for LMGC90
+mg.io.write_particles("bodies.msh", micro, elements="tetrahedra")  # each sphere filled
+```
+
+`morphogen export spheres.json grains.stl --particles 1` does the same from the command
+line (`grains.msh --tetrahedra` for the tetrahedra, `--element-size h` to remesh the
+surfaces), and the box *Particles (DEM)* of the tab Export in the interface. LMGC90's
+pre-processor makes a rigid body of each particle of a Gmsh file:
+
+```text
+from pylmgc90 import pre
+
+bodies, mats, mods = pre.avatars(), pre.materials(), pre.models()
+stone = pre.material(name="STONE", materialType="RIGID", density=2700.0)
+rigid = pre.model(name="rigid", physics="MECAx", element="Rxx3D", dimension=3)
+mats.addMaterial(stone)
+mods.addModel(rigid)
+mesh = pre.readMesh("grains.msh", 3)
+for entity, part in mesh.separateMeshes(dim=2, entity_type="geometricalEntity").items():
+    bodies.addAvatar(pre.surfacicMeshToRigid3D(part, model=rigid, material=stone,
+                                               color="BLUEx"))
+```
+
+(`dim=3` and `volumicMeshToRigid3D` for the tetrahedra; `pre.buildMeshedAvatar` makes
+deformable bodies of them); their contactors are polyhedra (`POLYR`), whose contacts
+between non-convex particles `PRPRx_UseNcDetection` detects.
+
+### ... let Blender's physics settle the particles?
+
+The particles become rigid bodies dropped in a box; Blender runs the scene, and the
+packing comes back as a microstructure:
+
+```python
+from morphogen.interop import blender
+
+scene = blender.write_blender("settle", micro, frames=200)  # scene.json and its script
+print(scene.particles, scene.kinds)  # the spheres of the model, Bullet's own spheres
+```
+
+`blender --background --python settle/morphogen_blender.py` (or a Python with the module
+`bpy`: `blender.run_blender(scene, python=...)`) runs it, and
+`blender.read_blender(scene)` gives the settled spheres in the box up to the top of the
+packing; `blender.settle(micro, folder="settle")` does the three.
+
+### ... take a microstructure to Blender, for its fluids?
+
+Each phase becomes a closed surface from the mesh conforming to its interfaces, and the
+fluid of Blender (Mantaflow) is set up around them: its domain along the axis of the
+flow, the phases its obstacles, an inflow and an outflow:
+
+```python
+from morphogen.interop import blender
+
+stream = blender.write_blender_scene(
+    "tunnel", micro, fluid="gas", axis=0, surfaces="implicit", shape=48
+)
+print(stream.objects, stream.route)  # phase_1, marching cubes (surfaces="mesh": conforming)
+```
+
+By default (`surfaces="mesh"`) the surfaces are the boundaries of the conforming mesh,
+from the exact geometry: minutes for the overlapping spheres above, whose sharp edges the
+mesh follows; `surfaces="implicit"` takes the marching cubes of the implicit function on
+voxels (`shape`), in a fraction of a second. `blender --background --python
+tunnel/morphogen_blender_scene.py` writes `tunnel/scene.blend` (with `bake=True`,
+Mantaflow bakes the flow too), and `blender.read_blender_flow("tunnel")` reads the
+velocity it caches back as voxel images (`.images()`, for `mg.io.vtk.write_vti`). The STL
+files of the phases are those that OpenFOAM's snappyHexMesh takes.
+
+### ... hand a realization to JAX, PyTorch or a spectral phase-field solver?
+
+An image gives its voxels by DLPack, without a copy; a phase becomes a diffuse
+interface, the initial condition of Allen–Cahn or Cahn–Hilliard equations (Exponax):
+
+```python
+from morphogen.interop import arrays
+
+u = arrays.phase_field(micro, phase=1, shape=32)  # tanh(-d / (sqrt 2 epsilon)), float32
+print(arrays.spectral_grid(u))  # the arguments of Exponax's steppers
+shared = np.from_dlpack(u)  # jax.numpy.from_dlpack(u), torch.from_dlpack(u) alike
+print(np.shares_memory(shared, u.data), arrays.state(u).shape)  # no copy; (1, 32, 32, 32)
+```
+
+`arrays.to_jax(u)` gives the JAX array on the same buffer (aligned on 64 bytes, as XLA
+wants it), `arrays.realizations(model, domain, seeds, shape=32)` an ensemble of initial
+conditions for `jax.vmap`, and `arrays.from_dlpack(state, like=u, channel=0)` a field of
+the solver back as an image, to measure or homogenize.

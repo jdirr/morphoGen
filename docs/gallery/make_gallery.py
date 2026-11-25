@@ -173,7 +173,7 @@ FAMILIES = [
     (
         "Fibres and layers",
         "Straight, curved and bending fibres, with or without overlap, networks of fibres, "
-        "and laminates.",
+        "laminates and woven textiles.",
         [
             ("boolean_cylinders", "Boolean model of finite fibres (cylinders or "
              "spherocylinders) of any law of orientations."),
@@ -189,6 +189,8 @@ FAMILIES = [
              "(Altendorf & Jeulin 2011)."),
             ("contact_fibers", "The same bending fibres drawn into contact by contact forces "
              "(Keilmann, Redenbach & Willot 2026)."),
+            ("long_fibers", "A unidirectional composite: long fibres of slightly scattered "
+             "radii at 0.6, their sections a random packing, misaligned by 3 degrees."),
             ("cross_linked_fibers", "Entangled carbon fibres moulded about a plane, half "
              "their contacts bonded by epoxy cross-links (Chatti et al.)."),
             ("delaunay_network", "A fibre network on the edges of the Delaunay "
@@ -196,6 +198,9 @@ FAMILIES = [
              "2016)."),
             ("random_laminate", "A nanolayered film: layers of lognormal thicknesses, the "
              "thinner ones broken up by holes (Bironeau et al. 2016)."),
+            ("woven_textile", "A 3D orthogonal woven composite: straight warp and weft tows "
+             "tied through the thickness by binders, each tow turned along its path, its "
+             "stiffness by finite elements on the conforming mesh of its exact geometry."),
         ],
     ),
     (
@@ -207,6 +212,9 @@ FAMILIES = [
              "orientations."),
             ("laguerre", "A Laguerre (power) tessellation as a two-phase mosaic (Kanit et al. "
              "2003)."),
+            ("nested_grains", "Grains with subgrains: each grain of a polycrystal divided by "
+             "the germs of a finer tessellation, its subgrains turned by 1 to 3° from its "
+             "crystal (low-angle boundaries)."),
             ("hyperuniform_cells", "The walls of the Voronoi cells of stealthy hyperuniform "
              "germs: disordered but regular closed cells."),
             ("ebsd", "A measured polycrystal: windows of an orientation map (EBSD, an .ang "
@@ -244,6 +252,9 @@ FAMILIES = [
         [
             ("tpms", "A sheet gyroid at 20 % relative density, with its watertight STL "
              "surface."),
+            ("microgen", "A sheet of Schoen's I-WP surface built by Microgen (3MAH): any "
+             "shape of Microgen with a field (TPMS, spinodoids, primitives) is a model of "
+             "morphoGen (needs the package microgen)."),
         ],
     ),
     (

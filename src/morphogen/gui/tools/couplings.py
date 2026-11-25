@@ -126,8 +126,9 @@ def _voxel_image(item: dict, resolution: int):
     "first-order consumption k, S du/dt = div(D S grad u) - k S u (finite volumes on the "
     "voxels, implicit Euler steps). The uptake curve, against Fick's √t at short times and "
     "Crank's slab with the effective diffusivity fitted to it; the concentration fields at "
-    "the times and their video; the steady effective diffusivity of the homogenized "
-    "permeability over the mean solubility, between its bounds.",
+    "the times, in 3D time after time (their video on demand, here or in the export); the "
+    "steady effective diffusivity of the homogenized permeability over the mean solubility, "
+    "between its bounds.",
     [
         Field("source", "item", label="morphology", required=True),
         Field("resolution", "int", 32, label="voxels per edge"),
@@ -169,7 +170,12 @@ def _voxel_image(item: dict, resolution: int):
             label="steady effective diffusivity",
             doc="the homogenized permeability (FFT) over the mean solubility",
         ),
-        Field("video", "bool", True),
+        Field(
+            "video",
+            "bool",
+            False,
+            doc="a video of the middle section along the uptake (the export makes it too)",
+        ),
     ],
     order=1,
     menu="Diffusion",
@@ -346,6 +352,20 @@ def diffusion(p: dict, ctx) -> dict:
         ax.set_yticks([])
     fig.colorbar(im, ax=list(axes_), shrink=0.85, label=p["field"])
     ctx.figure(fig, "fields", f"{p['field']} in the middle section (x-y) at the times")
+    # the fields at the times, which the 3D view goes through and the export animates
+    from morphogen.io.vtk import write_vti
+
+    solubility = np.zeros(max(present) + 1)
+    solubility[present] = [s[k] for k in present]
+    steps = []
+    for i, t in enumerate(times):
+        c = np.asarray(res.fields[i], dtype=float)
+        name = f"diffusion_step{i + 1:03d}.vti"
+        activity = image.with_data(c / solubility[labels], name="activity")
+        write_vti(ctx.path(name), [image.with_data(c, name="concentration"), activity])
+        steps.append({"file": name, "time": float(t), "label": f"t = {t:.3g}"})
+    ctx.steps("diffusion", steps)
+    write_vti(ctx.path("sample_0000.vti"), [image.with_data(labels.astype(np.int32), name="phase")])
     if p["video"]:
         from morphogen.viz.video import time_section_frames
 
@@ -361,7 +381,8 @@ def diffusion(p: dict, ctx) -> dict:
             label=p["field"][:13],
         )
         ctx.video(frames, "diffusion", f"{p['field']} along the uptake", fps=3, mode="once")
-    return {"values": values, "title": f"Transient diffusion in {item['title']}"}
+    return {"values": values, "title": f"Transient diffusion in {item['title']}",
+            "fields3d": {"field": p["field"], "cmap": "viridis"}}  # fmt: skip
 
 
 # -- thermal oxidation -----------------------------------------------------------------------

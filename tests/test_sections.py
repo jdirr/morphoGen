@@ -17,12 +17,13 @@ from morphogen.models import Laminate, PrimitiveUnion, model_from_config
 from morphogen.primitives import Spheres
 from morphogen.viz import sections as vs
 from morphogen.viz.png import PALETTE, label_colors, slice_of
-from test_models_base import CONFIGS
+from test_models_base import CONFIGS, needs
 
 
 @functools.cache
 def realization(name: str):
     """The realization of a model of CONFIGS used by these tests (a cube of edge 8)."""
+    needs(name)
     params, periodic = CONFIGS[name]
     model = model_from_config({"type": name, **params})
     return model.generate(mg.Domain.cube(8.0, periodic=periodic), seed=3)

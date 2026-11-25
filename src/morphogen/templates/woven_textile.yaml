@@ -1,0 +1,44 @@
+# A 3D orthogonal woven composite: two layers of straight warp tows between three layers
+# of straight weft tows, tied through the thickness by binder tows that pass over the top
+# wefts and under the bottom ones, in the gaps between the weft columns. The tows are
+# transversely isotropic (carbon/epoxy, their fibres along the tows), the matrix epoxy;
+# the stiffness by finite elements on the conforming mesh of the exact geometry of the
+# tows (no voxels: an octree and MMG follow the functions of their sections, the faces of
+# the box matching), each element turned with the segment of its tow (the axis 3 of its
+# material along it). The FFT solver on a voxel image is the other way (method: fft, and
+# a voxels section). 2D weaves (plain, twill, satin, basket: plies of crimped warps and
+# wefts) and the angle interlocks (layer_to_layer, through_thickness) take the same
+# parameters.
+model:
+  type: woven_textile
+  weave: orthogonal            # or plain, twill, satin, basket, layer_to_layer, through_thickness
+  layers: 2                    # warp layers, between three weft layers
+  warp_spacing: 2.0            # mm, between the warps (and between the wefts)
+  yarn_width: 1.45
+  yarn_thickness: 0.5
+  binder_width: 0.5
+  binder_thickness: 0.25
+  section: power               # power ellipse |u/a|^q + |v/c|^q <= 1: squarish tows; or ellipse, lenticular
+  section_power: 4
+  fibre_fraction_in_yarns: 0.7
+domain:
+  size: [4.0, 4.0, 3.0]        # one repeat: two weft columns by two warp rows; the fabric 3 thick
+  periodic: true
+mesh:
+  size: 0.6                    # mm, the largest element
+  hausdorff: 0.05              # the faces of the tows within 0.05 of their exact surfaces
+  min_size: 0.05
+  order: 1                     # 4-node tetrahedra (order 2: 10-node ones, finer and slower)
+homogenization:
+  method: fe
+  solver: direct               # a factorization: the stiff tows slow the iterations
+  materials:
+    0: {young: 3.5, poisson: 0.35}                          # epoxy (GPa)
+    1: {hexagonal: [12.087, 4.944, 5.109, 143.066, 5.0]}    # warp tows: E_L 140, E_T 10, G_LT 5 GPa
+    2: {hexagonal: [12.087, 4.944, 5.109, 143.066, 5.0]}    # weft tows
+    3: {hexagonal: [12.087, 4.944, 5.109, 143.066, 5.0]}    # binder tows
+  properties: [stiffness]
+outputs:
+  directory: out/woven_textile
+  name: textile
+analysis: [volume_fraction]

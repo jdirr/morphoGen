@@ -18,9 +18,12 @@ The menus follow the work. Four **sections** in the header — *Create*, *Charac
 on its left, under the headings of what they do, with the form of the tool chosen beside
 them and its results on the right. Below the menus, the **workspace** keeps every
 morphology (M), simulation (S), behaviour of a material (B) and run of a tool (R) of the
-session: any tab takes its input from it, in any order.
+session: any tab takes its input from it, in any order. Each item is a chip: a click
+opens its menu (where to send it, its 3D view, a new title), its cross **×** (or a
+middle click) closes it — **Undo** beside the strip brings it back for a few seconds;
+its files stay in the folder of the session either way.
 
-In *Create › Generate*, the menu lists the 39 models by family (the filter above it
+In *Create › Generate*, the menu lists the 44 models by family (the filter above it
 finds one by a word of its name or of its summary). Choose `boolean_spheres`: its form
 opens filled with its template; set the radius to 1, the volume fraction to 0.2, the
 size of the domain to 10 and the seed to 1, then **Generate** (or `Ctrl + Enter`, which
@@ -86,8 +89,8 @@ with its parameters, to change them and run again.
 morphology and the elastic constants of its phases, the behaviour of one of them (von
 Mises, crystal and porous plasticity, viscoelasticity, the hyperelastic energies, damage,
 a Z-set file, an MFront law, a behaviour of the workspace), the loading (a tension, a
-shear, cycles, or the components over time), the solver (FFT on voxels, or finite
-elements on a conforming mesh; small or finite strains). Two folded boxes go further:
+shear, cycles, or the components over time), the solver (finite elements on a conforming
+mesh by default, or FFT on voxels; small or finite strains). Two folded boxes go further:
 *Interfaces* (on the mesh, those of the phases or of the grains debond: a strength, a
 fracture energy, friction), *Fatigue* (a criterion and its two fatigue limits judge the
 points along the cycle: the utilization, the factor of safety) and *Cleavage* (the
@@ -100,7 +103,13 @@ given way). With the defaults, the matrix yields under a tension to 1 %:
 ```
 
 The result is a simulation (S) of the workspace, with its curves, its fields and the
-configuration that runs it again with `morphogen run`. The other tabs of *Simulate*:
+configuration that runs it again with `morphogen run`. Its fields open in the 3D view
+below the curves, without another program: any field (stresses, strains, the plastic
+strain, the displacement...) on the deformed mesh or on the voxels, cut by a section, and
+any step of the path by the slider under it (**▶ Play** goes through them on one colour
+scale). No video is made unless asked: *Export* makes one from the steps when wanted,
+and writes the files of the steps with a ParaView collection (`steps.pvd`). The other
+tabs of *Simulate*:
 **Linear homogenization** (an apparent modulus with its fields), **Learning** (a
 behaviour learned from responses), **Fracture**, **Contact** (a morphology between two
 platens, or under an indenter), **Nonlocal damage**, **Stability**
@@ -128,8 +137,17 @@ A long computation is stopped by **Stop** beside its progress, at its next step.
 *Export & compare › Export* writes the files of an item with an archive of them all: of
 a morphology, its geometry (JSON), its sections, its implicit function and its voxel
 image (VTI), its surface (STL) and its conforming mesh (VTU) — for a morphology of
-several phases, the function and the surface of each phase —, and videos; of a
-simulation, figures, videos of its fields, tables and its configuration. **Solvers &
+several phases, the function and the surface of each phase —, the particles of one phase
+without its matrix for the discrete element method (a closed surface per particle, whole
+across the periodic faces; its triangles or tetrahedra in a Gmsh file for LMGC90, the
+surfaces remeshed at a triangle size if given; the spheres for LAMMPS, LIGGGHTS or YADE),
+a scene for Blender (the surfaces of the phases from the conforming mesh, the fluid of
+Mantaflow around them along an axis, the script that builds it; box *Blender (CFD)*),
+and videos; of a
+simulation or of the run of a tool, figures, videos of its fields (along the steps of a
+loading path or of a run, or the frames that a tool kept: no tool writes a video unless
+its option asks for one), tables,
+the fields of its steps and its configuration. **Solvers &
 formats** writes the inputs of AMITEX_FFTP and Abaqus, meshes and images for Gmsh,
 Neper, DAMASK..., the MFront sources of the behaviours; **Comparisons** draws the curves
 of several runs on one figure; **Ashby charts** the records of a database of results.

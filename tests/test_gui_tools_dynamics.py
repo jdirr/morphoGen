@@ -183,6 +183,10 @@ def test_dynamic_test_and_its_page(session, tmp_path):
     # the 3D view of the result, and its curves compared with another run
     shown = api.surface({"key": result["key"]}, s)
     assert shown["field"] is not None and "von_mises" in shown["field"]["names"]
+    # its frames are the steps of the 3D view; no video unless asked, the export makes one
+    assert result["videos"] == [] and len(shown["steps"]) == 6 and shown["step"] == 5
+    first = api.surface({"key": result["key"], "step": 0}, s)
+    assert first["step"] == 0 and first["steps"][0]["label"].startswith("t = ")
     item = s.item(result["key"], ("result",))
     assert "curves" in api.item_traits(item)
     again, _ = _run(s, "radioss_test", {**params, "strain_rate": 500})

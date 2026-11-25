@@ -13,6 +13,8 @@
                              Jeulin's random walks), drawn into contact (Keilmann et al.)
 ``cross_linked_fibers``      Straight fibres bonded by cross-links at their contacts
                              (entangled cross-linked fibres, Chatti et al.)
+``long_fibers``              Long fibres along an axis (unidirectional composites): parallel
+                             or misaligned, their sections packed at random or in arrays
 ``voronoi``                  Poisson-Voronoi tessellation (multiphase mosaic, polycrystal)
 ``laguerre``                 Laguerre (power) tessellation with random weights
 ``gaussian_excursion``       Excursion set of a Gaussian random field
@@ -48,9 +50,17 @@
 ``branching``                Vascular trees grown by space colonization (Murray's law)
 ``ebsd``                     Polycrystal of a measured orientation map (EBSD): its grains
                              and their orientations, in windows of the map
+``nested_grains``            Grains with subgrains turned by small angles, or filled with
+                             another structure turned grain by grain (lamellar colonies)
 ``scale_rich_network``       Ligaments of power-law thicknesses grown until they meet: scale-
                              rich networks (Both et al. 2026), extruded prisms, or plates
                              (closed cells) or beams (struts) in 3D
+``woven_textile``            Woven composites: warp and weft yarns of elliptic, lenticular
+                             or power-ellipse sections along crimped paths, 2D weaves
+                             (plain, twill, satin, basket) and 3D weaves (orthogonal,
+                             layer-to-layer, through-thickness angle interlock)
+``microgen``                 A shape of Microgen (3MAH): TPMS sheets and skeletons, spinodoids,
+                             primitives, by their fields (needs the package microgen)
 ===========================  ===============================================================
 
 The point processes, tessellations, fields, leaves, growths and lattices take an
@@ -101,6 +111,9 @@ from morphogen.models.levelset_foam import (
     SeedCalibration,
     calibrate_seeds,
 )
+from morphogen.models.long_fibers import LongFibers
+from morphogen.models.mesh_particles import MeshParticles
+from morphogen.models.microgen import Microgen, MicrogenStructure
 from morphogen.models.nacre import Nacre, NacreStructure
 from morphogen.models.nested import (
     ClusteredSpheres,
@@ -110,11 +123,13 @@ from morphogen.models.nested import (
     FractalSponge,
     FractalStructure,
 )
+from morphogen.models.nested_grains import NestedGrains, NestedGrainStructure
 from morphogen.models.osteons import Osteons, OsteonStructure
 from morphogen.models.reconstruction import Reconstruction
 from morphogen.models.scale_rich import ScaleRichNetwork, ScaleRichStructure
 from morphogen.models.scale_rich_3d import ScaleRichBeams, ScaleRichPlates
 from morphogen.models.tessellation import Laguerre, Tessellation, Voronoi
+from morphogen.models.textile import TextileStructure, WovenTextile
 from morphogen.models.tiling_field import TilingField
 from morphogen.models.tpms import TPMS, TPMSStructure
 from morphogen.models.transparent import TransparentDeadLeaves, TransparentDeadLeavesModel
@@ -157,10 +172,16 @@ __all__ = [
     "Laminate",
     "LatticeField",
     "LevelSetFoam",
+    "LongFibers",
+    "MeshParticles",
+    "Microgen",
+    "MicrogenStructure",
     "Microstructure",
     "Model",
     "Nacre",
     "NacreStructure",
+    "NestedGrainStructure",
+    "NestedGrains",
     "NucleationGrowthModel",
     "OpenFoam",
     "OsteonStructure",
@@ -182,11 +203,13 @@ __all__ = [
     "StrutLattice",
     "TPMSStructure",
     "Tessellation",
+    "TextileStructure",
     "TileAssembly",
     "TilingField",
     "TransparentDeadLeaves",
     "TransparentDeadLeavesModel",
     "Voronoi",
+    "WovenTextile",
     "calibrate_seeds",
     "get_model",
     "list_models",

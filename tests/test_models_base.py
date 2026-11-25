@@ -37,6 +37,14 @@ CONFIGS = {
         {"radius": 0.3, "length": 3.0, "volume_fraction": 0.1, "link_radius": 0.45},
         True,
     ),
+    "long_fibers": (
+        {
+            "radius": {"type": "uniform", "low": 0.3, "high": 0.4},
+            "volume_fraction": 0.5,
+            "misalignment": 3.0,
+        },
+        False,
+    ),
     "voronoi": ({"n_cells": 30, "phase_fractions": [0.5, 0.5], "crystal_orientations": True}, True),
     "laguerre": (
         {"intensity": 0.05, "radius": {"type": "uniform", "low": 0.5, "high": 1.0}},
@@ -105,6 +113,14 @@ CONFIGS = {
         },
         True,
     ),
+    "nested_grains": (
+        {
+            "grains": {"type": "voronoi", "n_cells": 12, "crystal_orientations": True},
+            "inner": {"type": "voronoi", "n_cells": 120},
+            "misorientation": {"type": "uniform", "low": 1.0, "high": 3.0},
+        },
+        True,
+    ),
     "cox_spheres": (
         {
             "aggregates": {"type": "boolean_spheres", "radius": 1.0, "volume_fraction": 0.3},
@@ -147,7 +163,34 @@ CONFIGS = {
     # (the demonstration map that comes with morphoGen)
     "ebsd": ({"file": "ebsd_map.ctf", "window": "random"}, False),
     "scale_rich_network": ({"n_ligaments": 80, "decay": 0.5, "volume_fraction": 0.3}, False),
+    "woven_textile": (
+        {
+            "weave": "twill",
+            "pattern": [2, 2],
+            "layers": 2,
+            "yarn_thickness": {"type": "uniform", "low": 0.3, "high": 0.4},
+            "random_shift": True,
+        },
+        True,
+    ),
+    # a shape of Microgen (3MAH), when the package is installed (OPTIONAL)
+    "microgen": (
+        {
+            "shape": "Tpms",
+            "arguments": {"surface_function": "gyroid", "offset": 0.6, "cell_size": 4.0},
+            "part": "sheet",
+        },
+        True,
+    ),
 }
+#: The models that need a package that morphoGen does not require, by the package
+OPTIONAL = {"microgen": "microgen"}
+
+
+def needs(name: str) -> None:
+    """Skip the test of a model whose optional package is missing."""
+    if name in OPTIONAL:
+        pytest.importorskip(OPTIONAL[name])
 
 
 def test_registry_lists_all_models():
@@ -158,6 +201,7 @@ def test_registry_lists_all_models():
 
 @pytest.mark.parametrize("name", sorted(CONFIGS))
 def test_config_and_json_round_trips(name):
+    needs(name)
     params, periodic = CONFIGS[name]
     model = model_from_config({"type": name, **params})
     assert model_from_config(model.to_config()) == model

@@ -12,8 +12,10 @@ import numpy as np
 from scipy import optimize
 
 from morphogen._utils import check_fraction, check_positive
-from morphogen.domain import Domain
+from morphogen.distributions import Distribution
+from morphogen.domain import Domain, Grid
 from morphogen.kernels.union import UnionAccelerator
+from morphogen.models import _sizes as sizes
 from morphogen.models.affine import ANISOTROPY, Anisotropy, anisotropic
 from morphogen.models.base import Model, param, register
 from morphogen.models.union import PrimitiveUnion
@@ -109,6 +111,28 @@ def _unique_segments(start: np.ndarray, end: np.ndarray, scale: float):
     return start[idx], end[idx]
 
 
+def periodic_struts(start, end, domain: Domain) -> tuple[np.ndarray, np.ndarray]:
+    """The struts of a periodic box, each once: those that are periodic images of one
+    another (the struts of opposite faces of the box) kept once, the middle of each moved
+    into the box."""
+    start, end = np.asarray(start, dtype=float), np.asarray(end, dtype=float)
+    period = np.asarray(domain.lengths, dtype=float)
+    tol = 1e-9 * float(period.max())
+    middle = 0.5 * (start + end)
+    wrapped = np.mod(middle - domain.lower, period)
+    wrapped = np.where(np.abs(wrapped - period) <= tol, 0.0, wrapped)
+    shift = domain.lower + wrapped - middle
+    a, b = start + shift, end + shift
+    d = b - a
+    first = np.argmax(np.abs(d) > tol, axis=1)
+    flip = d[np.arange(len(d)), first] < 0  # each strut with its direction one way
+    d = np.where(flip[:, None], -d, d)
+    keys = np.round(np.hstack([wrapped, d]) / tol)
+    _, keep = np.unique(keys, axis=0, return_index=True)
+    keep.sort()
+    return a[keep], b[keep]
+
+
 def lattice_struts(cell: str, cell_size: float, lower, upper) -> tuple[np.ndarray, np.ndarray]:
     """All struts of the lattice anchored at the origin whose cells meet [lower, upper]."""
     unit = unit_cell_struts(cell) * cell_size
@@ -198,6 +222,13 @@ class StrutLattice(Model):
     graded: with ``radius_gradient`` (the radii at the lower and upper faces of the
     domain along ``gradient_axis``), each strut takes the radius interpolated linearly at
     its midpoint, a functionally graded lattice.
+
+    A distribution of the strut radius draws a radius for each strut (the scatter of the
+    struts of printed lattices; in a periodic box, each strut once, its periodic images
+    alike); with a ``volume_fraction``, its law keeps its shape and its scale is solved on
+    each realization (voxels a quarter of the mean radius wide). The theory then gives
+    the mean radius and the fraction to first order, ``pi E[R^2] L_V`` (``L_V`` the length
+    of the struts per unit volume; the nodes, where they overlap, left out).
     """
 
     name = "strut_lattice"
@@ -210,7 +241,13 @@ class StrutLattice(Model):
         kind="str",
     )
     cell_size: float = param(1.0, doc="Edge of the cubic unit cell", unit="length")
-    strut_radius: float | None = param(None, doc="Strut radius", unit="length")
+    strut_radius: Distribution | None = param(
+        None,
+        doc="Strut radius: a number (monodisperse) or a distribution (polydisperse, one "
+        "radius per strut; with volume_fraction, the shape of the law whose scale is solved)",
+        kind="distribution",
+        unit="length",
+    )
     volume_fraction: float | None = param(None, doc="Target relative density", kind="fraction")
     wall_thickness: float | None = param(
         None, doc="Wall thickness of hollow struts (default: solid)", unit="length"
@@ -253,29 +290,41 @@ class StrutLattice(Model):
                 if r >= 0.5 * self.cell_size:
                     raise ValueError("radius_gradient: radii smaller than half the cell size")
             return
-        if (self.strut_radius is None) == (self.volume_fraction is None):
-            raise ValueError("give exactly one of 'strut_radius' and 'volume_fraction'")
-        if self.strut_radius is not None:
-            check_positive(self.strut_radius, "strut_radius")
-            if self.strut_radius >= 0.5 * self.cell_size:
-                raise ValueError("strut_radius: must be smaller than half the cell size")
-        else:
+        sizes.check_scale(self.strut_radius, self.volume_fraction, "strut_radius")
+        law = self.strut_radius
+        if self.volume_fraction is not None:
             check_fraction(self.volume_fraction, "volume_fraction")
+        elif law.upper() >= 0.5 * self.cell_size:
+            raise ValueError("strut_radius: must be smaller than half the cell size")
         if self.wall_thickness is not None:
             check_positive(self.wall_thickness, "wall_thickness")
-            if self.strut_radius is not None and self.wall_thickness >= self.strut_radius:
+            if law is not None and self.volume_fraction is not None:
+                raise ValueError(
+                    "wall_thickness: hollow struts of several radii take their strut_radius, "
+                    "not a volume_fraction"
+                )
+            if law is not None and self.wall_thickness >= law.moment(1):
                 raise ValueError("wall_thickness: smaller than the strut radius")
 
     @property
     def radius(self) -> float:
         """Strut radius (solved numerically from the volume fraction if needed; the mean
-        of the gradient of a graded lattice)."""
+        of the gradient of a graded lattice; the mean of the law of polydisperse struts,
+        that of uniform struts of the volume fraction when the fraction sets its scale)."""
         if self.radius_gradient is not None:
             return 0.5 * (self.radius_gradient[0] + self.radius_gradient[1])
-        if self.strut_radius is not None:
-            return self.strut_radius
+        if self.strut_radius is not None and self.volume_fraction is None:
+            return self.strut_radius.moment(1)
         t = 0.0 if self.wall_thickness is None else self.wall_thickness / self.cell_size
         return strut_radius(self.cell, float(self.volume_fraction), t) * self.cell_size
+
+    @property
+    def length_density(self) -> float:
+        """Length of the struts per unit volume, each strut of the periodic lattice once."""
+        unit = Domain.cube(1.0, periodic=True)
+        start, end = lattice_struts(self.cell, 1.0, unit.lower, unit.upper)
+        start, end = periodic_struts(start, end, unit)
+        return float(np.linalg.norm(end - start, axis=1).sum()) / self.cell_size**2
 
     def _struts(self, domain: Domain) -> tuple[np.ndarray, np.ndarray]:
         """Ends of the struts that may meet the domain (turned by ``rotation``)."""
@@ -301,8 +350,24 @@ class StrutLattice(Model):
         r0, r1 = self.radius_gradient
         return r0 + (r1 - r0) * np.clip(s, 0.0, 1.0)
 
+    def _scaled(self, domain: Domain, start, end, unit) -> float:
+        """The scale ``s`` of the radii ``s unit`` (one per strut) of a realization at its
+        volume fraction, from that of uniform struts of the same fraction."""
+        guess = self.radius / float(np.mean(unit))
+        h = self.radius / 4.0
+        shape = np.clip(np.ceil(domain.lengths / h), 16, 256).astype(int)
+        grid = Grid(domain, tuple(int(n) for n in shape))
+
+        def fraction(s):
+            union = PrimitiveUnion(domain, segments=Segments(start, end, s * unit, True))
+            return float(union.voxelize(grid=grid).data.mean())
+
+        limit = 0.5 * self.cell_size / float(np.max(unit))
+        return sizes.solve_scale(fraction, float(self.volume_fraction), guess, limit,
+                                 1e-3 * guess)  # fmt: skip
+
     def generate(self, domain: Domain, seed: SeedLike = None) -> PrimitiveUnion:
-        _, seed_info = make_rng(seed)
+        rng, seed_info = make_rng(seed)
         a = self.cell_size
         if domain.periodic:
             if self.rotation is not None or self.radius_gradient is not None:
@@ -315,12 +380,30 @@ class StrutLattice(Model):
                     "strut_lattice: a periodic domain must contain a whole number of cells"
                 )
         start, end = self._struts(domain)
-        segments = Segments(start, end, self._radii(domain, start, end), round_caps=True)
+        law, metadata = self.strut_radius, {}
+        if sizes.polydisperse(law):  # a radius per strut, each strut of the box once
+            if domain.periodic:
+                start, end = periodic_struts(start, end, domain)
+            radii = sizes.draw(law, rng, len(start))
+            if self.volume_fraction is not None:
+                s = self._scaled(domain, start, end, radii)
+                radii, metadata = s * radii, {"radius_scale": s}
+            metadata.update(sizes.size_summary("strut_radius", radii, law))
+            if self.wall_thickness is not None and np.any(radii <= self.wall_thickness):
+                raise ValueError(
+                    f"wall_thickness: smaller than every strut radius (the smallest drawn: "
+                    f"{float(radii.min()):.4g})"
+                )
+        else:
+            radii = self._radii(domain, start, end)
+        segments = Segments(start, end, radii, round_caps=True)
         if not domain.periodic:
             lo, hi = segments.bounds()
             keep = np.all((hi >= domain.lower) & (lo <= domain.upper), axis=1)
             segments = segments.subset(keep)
         struts = PrimitiveUnion(domain, segments=segments, model=self, seed=seed_info)
+        if metadata:
+            struts.metadata["summary"] = metadata
         if self.wall_thickness is None:
             return struts
         from morphogen.models.combination import Combined
@@ -343,6 +426,15 @@ class StrutLattice(Model):
                 "volume_fraction": float(np.dot(w, local) / 2.0),
                 "volume_fraction_lower": strut_fraction(self.cell, float(r0)),
                 "volume_fraction_upper": strut_fraction(self.cell, float(r1)),
+            }
+        if sizes.polydisperse(self.strut_radius):  # the mean radius; thin struts
+            if self.volume_fraction is not None:
+                return {"volume_fraction": float(self.volume_fraction)}
+            law, lv = self.strut_radius, self.length_density
+            return {
+                "strut_radius": law.moment(1),
+                "length_density": lv,
+                "volume_fraction_first_order": sizes.first_order_fraction(law, lv),
             }
         r = self.radius / self.cell_size
         t = 0.0 if self.wall_thickness is None else self.wall_thickness / self.cell_size

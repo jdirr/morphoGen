@@ -22,7 +22,7 @@ from morphogen.models.tessellation import Tessellation
 from morphogen.models.transparent import TransparentDeadLeaves
 from morphogen.models.union import PrimitiveUnion
 from morphogen.primitives import Spheres
-from test_models_base import CONFIGS
+from test_models_base import CONFIGS, needs
 
 #: Configurations of more than two phases, or of other phases than 0 and 1, beside those
 #: of the registry (name, parameters, periodic)
@@ -104,6 +104,7 @@ CASES = [(name, params, periodic) for name, (params, periodic) in CONFIGS.items(
 def test_every_phase_of_every_model_has_an_implicit_function(name, params, periodic):
     """Its sign is that of the voxel image, on the grid of the model and on another (but
     at the points exactly on an interface), and the phases partition the points."""
+    needs(name)
     model = model_from_config({"type": name, **params})
     micro = model.generate(mg.Domain((8.0, 8.0, 8.0), periodic=periodic), seed=1)
     phases = micro.implicit_phases()

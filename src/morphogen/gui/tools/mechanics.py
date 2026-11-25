@@ -1466,12 +1466,20 @@ def _steps_written(res, folder: Path, name: str, bc: str, which: str) -> list[st
                 out[extra] = np.asarray(arrays[extra])
         return out
 
-    written = []
+    written, steps = [], []
+    strain, _, e_name, _, i = _driven(res)
+    all_times = np.asarray(res.times, dtype=float)
     for k, t in enumerate(times, start=1):
         if which == "steps" or (which == "segments" and np.isclose(t, ends).any()):
             target = folder / f"{name}_step{k:03d}.vtu"
             written.append(write_path_fields(target, res.support, named(t)).name)
+            j = int(np.argmin(np.abs(all_times - t)))
+            label = f"t = {t:.4g}, {e_name}{COMPONENTS[i]} = {float(strain[j, i]):.4g}"
+            steps.append({"file": written[-1], "time": float(t), "label": label})
     last = write_path_fields(folder / f"{STEM}_{name}_{bc}.vtu", res.support, named(times[-1]))
+    if steps:  # the steps that the 3D view of the page goes through, in their order
+        manifest = {"path": name, "steps": steps}
+        (folder / f"{name}_steps.json").write_text(json.dumps(manifest), encoding="utf-8")
     return [*written, last.name]
 
 
@@ -1656,9 +1664,10 @@ def _fatigue_figure(cycle, title: str = ""):
     "cohesive zones that open, break and rub. A fatigue criterion judges the points along "
     "the cycle of the path (utilization, factor of safety), and the criterion of Beremin "
     "gives the probability of cleavage along it. The curves (macroscopic and "
-    "mean of each phase), the values at the end, the fields of the steps and a video of a "
-    "field along the path; the result joins the workspace as a simulation, with the "
-    "configuration that runs it again.",
+    "mean of each phase), the values at the end, and the fields of the steps, drawn in the "
+    "page in 3D (any field, any step; no other program needed) and written as files; a "
+    "video of a field along the path on demand (here, or later in Export); the result "
+    "joins the workspace as a simulation, with the configuration that runs it again.",
     [
         Field("source", "item", label="morphology", required=True),
         Field(
@@ -1679,10 +1688,10 @@ def _fatigue_figure(cycle, title: str = ""):
         Field(
             "method",
             "choice",
-            "fft",
+            "fe",
             choices=(
+                ("fe", "finite elements on the conforming mesh of its geometry"),
                 ("fft", "FFT on its voxels (periodic; B-bar or full integration)"),
-                ("fe", "finite elements on the conforming mesh of its level set"),
             ),
         ),
         Field("voxels", "int", 16, label="voxels per edge", when={"method": "fft"}),
@@ -1914,15 +1923,18 @@ def _fatigue_figure(cycle, title: str = ""):
             "field",
             "choice",
             "von_mises",
-            label="field of the video",
+            label="field shown",
+            doc="the field drawn first in the 3D view of the result (the view offers every "
+            "field of the steps), and that of the video",
             choices=(*FIELDS_SHOWN, *INTERFACE_FIELDS, *CRYSTAL_FIELDS),
         ),
         Field(
             "video",
             "bool",
-            True,
+            False,
             label="video of the field along the path",
-            doc="3D views of the deformed mesh (VTK), sections of the voxels",
+            doc="3D views of the deformed mesh (VTK), sections of the voxels; written on "
+            "demand only (Export makes it later from the fields of the steps)",
         ),
         Field("cmap", "choice", "viridis", label="colormap", choices=CMAPS),
         Field(
@@ -2188,7 +2200,8 @@ def loading_path(p: dict, ctx) -> dict:
         files={"folder": ctx.url("")},
     )
     ctx.items.append(ctx.session.public(item))
-    return {"values": values}
+    # the fields drawn in the page at once: those of the steps, in the 3D view
+    return {"values": values, "fields3d": {"field": p["field"], "cmap": p["cmap"]}}
 
 
 def _check_voxels(micro, n: int, steps: int, what: str) -> None:
@@ -2977,10 +2990,10 @@ LOADING_CHOICES = (
         Field(
             "method",
             "choice",
-            "fft",
+            "fe",
             choices=(
+                ("fe", "finite elements on the conforming mesh of its geometry"),
                 ("fft", "FFT on its voxels (periodic)"),
-                ("fe", "finite elements on the conforming mesh of its level set"),
             ),
         ),
         Field("voxels", "int", 16, label="voxels per edge", when={"method": "fft"}),
@@ -3266,10 +3279,10 @@ CRYSTALS = (
         Field(
             "method",
             "choice",
-            "fft",
+            "fe",
             choices=(
+                ("fe", "finite elements on the conforming mesh of its geometry"),
                 ("fft", "FFT on its voxels (periodic)"),
-                ("fe", "finite elements on the conforming mesh of its level set"),
                 (
                     "xfem",
                     "extended finite elements (XFEM) on a grid cut by its level set (periodic, "

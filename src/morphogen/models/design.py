@@ -21,7 +21,9 @@ from morphogen._utils import check_fraction, check_positive
 from morphogen.design.csp import sample_uniform, wave_function_collapse
 from morphogen.design.frames import Framework
 from morphogen.design.tiles import TILE_SETS, pipe_tiles, polarized_blocks
+from morphogen.distributions import Constant, Distribution
 from morphogen.domain import Domain
+from morphogen.models import _sizes as sizes
 from morphogen.models.affine import ANISOTROPY, Anisotropy, anisotropic
 from morphogen.models.base import Model, param, register
 from morphogen.models.foam import FRAME_STIFFNESS, frame_summary
@@ -172,7 +174,8 @@ class RandomLattice(Model):
     the pin-jointed framework tells whether it is stretching-dominated (no floppy
     macroscopic strain; Maxwell's count needs a coordination of at least 6), and with
     ``frame_stiffness`` the stiffness of its frame of beams (rigid joints) is added to the
-    summary.
+    summary. A distribution of the strut radius gives each strut its own (the scatter of
+    the struts of printed lattices), kept in the metadata for the frame of beams.
     """
 
     name = "random_lattice"
@@ -181,7 +184,13 @@ class RandomLattice(Model):
 
     cell: str = param("octet", doc="Parent unit cell: cubic, bcc, fcc or octet", kind="str")
     cell_size: float = param(1.0, doc="Edge of the cubic unit cell", unit="length")
-    strut_radius: float = param(0.08, doc="Strut radius", unit="length")
+    strut_radius: Distribution = param(
+        Constant(0.08),
+        doc="Strut radius: a number (monodisperse) or a distribution (polydisperse, one "
+        "radius per strut)",
+        kind="distribution",
+        unit="length",
+    )
     coordination: float | None = param(
         None,
         doc="Target mean number of struts per node: struts are removed at random, "
@@ -210,8 +219,7 @@ class RandomLattice(Model):
         if self.cell not in CELLS:
             raise ValueError(f"cell: one of {list(CELLS)}")
         check_positive(self.cell_size, "cell_size")
-        check_positive(self.strut_radius, "strut_radius")
-        if self.strut_radius >= 0.5 * self.cell_size:
+        if self.strut_radius.upper() >= 0.5 * self.cell_size:
             raise ValueError("strut_radius: smaller than half the cell size")
         if self.coordination is not None and self.removal_fraction is not None:
             raise ValueError("give at most one of 'coordination' and 'removal_fraction'")
@@ -259,7 +267,9 @@ class RandomLattice(Model):
             n_cells = np.ceil(ratio).astype(int) + 2
             origin = domain.lower - a
         frame = self.framework(n_cells, rng)
-        segments = frame.segments(self.strut_radius, origin)
+        law = self.strut_radius
+        radii = sizes.draw(law, rng, frame.n_bars) if sizes.polydisperse(law) else law.moment(1)
+        segments = frame.segments(radii, origin)
         if not domain.periodic:
             lo, hi = segments.bounds()
             keep = np.all((hi >= domain.lower) & (lo <= domain.upper), axis=1)
@@ -270,6 +280,7 @@ class RandomLattice(Model):
             "n_nodes": frame.n_nodes,
             "n_struts": frame.n_bars,
             "coordination": round(frame.coordination(), 6),
+            **sizes.size_summary("strut_radius", radii, law),
         }
         if self.rigidity and domain.periodic and frame.n_nodes <= MAX_RIGIDITY_NODES:
             r = frame.rigidity()
@@ -279,11 +290,9 @@ class RandomLattice(Model):
                 floppy_strains=r["floppy_strains"],
             )
         if self.frame_stiffness:  # the periodic lattice (larger than a window)
-            summary.update(frame_summary(frame, self.strut_radius))
-        return PrimitiveUnion(
-            domain,
-            segments=segments,
-            model=self,
-            seed=seed_info,
-            metadata={"summary": summary, "framework": frame.to_dict()},
-        )
+            summary.update(frame_summary(frame, radii))
+        metadata = {"summary": summary, "framework": frame.to_dict()}
+        if np.ndim(radii):  # the radius of each strut, in the order of the bars
+            metadata["radii"] = np.asarray(radii).tolist()
+        return PrimitiveUnion(domain, segments=segments, model=self, seed=seed_info,
+                              metadata=metadata)  # fmt: skip

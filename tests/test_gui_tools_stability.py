@@ -162,7 +162,12 @@ def test_post_bifurcation_of_a_honeycomb_frame(workspace):
         "patterns of every irrep",
         "Bloch-wave buckling of the primitive cell",
     ]
-    assert len(r["videos"]) == 3 and "triple point" in r["text"]
+    # no videos unless asked: the frames of the three patterns kept, the export makes them
+    assert r["videos"] == [] and "triple point" in r["text"]
+    kept = {f["name"] for f in r["files"] if f["name"].endswith(".frames.npz")}
+    assert kept == {f"pattern_{k}.frames.npz" for k in (1, 2, 3)}
+    videos = api.export({"source": r["key"], "outputs": [], "video": "run"}, session)["videos"]
+    assert len(videos) == 3
     r = _run(session, "frame_bifurcation", {"loading": "uniaxial", "axis": "x", "video": False,
                                             "patterns": "critical", "bloch_grid": 0})  # fmt: skip
     v = r["values"]

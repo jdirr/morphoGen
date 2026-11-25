@@ -1,0 +1,26 @@
+# Long fibres along z (a unidirectional composite): the fibres cross the periodic box and
+# close on themselves across it, their sections a random packing (grown to the fraction
+# without overlap, beyond the 0.55 of random sequential addition), their radii slightly
+# scattered as those of carbon or glass fibres. Misaligned by 3 degrees (the RMS angle of
+# their segments to z): each fibre waves about the position of its section, neighbouring
+# fibres together over the correlation lengths (0 degrees: straight parallel fibres).
+model:
+  type: long_fibers
+  radius: {type: normal, mean: 0.5, std: 0.03}   # a number for monodisperse fibres
+  volume_fraction: 0.6
+  arrangement: random          # or hexagonal / square arrays, with a disorder
+  misalignment: 3.0            # degrees
+  waviness_length: 4.0         # along the fibres (default: a quarter of the box along z)
+  min_gap: 0.02
+domain:
+  size: [10.0, 10.0, 16.0]
+  periodic: true
+seed: 1
+voxels:
+  voxel_size: 0.08
+outputs:
+  directory: out/long_fibers
+  name: fibres
+  geometry: [json]
+  image: [vti]
+analysis: [volume_fraction, specific_surface]

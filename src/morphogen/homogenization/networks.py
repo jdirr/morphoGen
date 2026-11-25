@@ -616,20 +616,34 @@ def network_stiffness(
     return frame_stiffness(SpaceFrame.from_framework(framework, radius, **options))
 
 
-#: The radius of the fibres of a realization of a network model: the first of these keys
-#: in its summary (``delaunay_network``, ``open_foam``: the radius solved for a volume
-#: fraction), else of the parameters of its model (``random_lattice``)
+#: The radius of the fibres of a realization of a network model: the radius of each bar
+#: in its metadata (``radii``: polydisperse fibres), else the first of these keys in its
+#: summary (``delaunay_network``, ``open_foam``: the radius solved for a volume fraction),
+#: else of the parameters of its model (``random_lattice``)
 RADII = ("radius", "strut_radius")
+
+
+def _radius_of(value) -> float | None:
+    """A radius of a summary or of the parameters of a model: a number, or a constant
+    law of radii (None otherwise)."""
+    from morphogen.distributions import Distribution
+
+    if value is None:
+        return None
+    if isinstance(value, Distribution):
+        return float(value.moment(1)) if value.is_constant else None
+    return float(value)
 
 
 def network_frame(micro, *, young=1.0, poisson=0.3, shear_coefficient=None, rigid_joints=None):
     """The frame of beams of a realization of a network model, whose metadata keeps its
     framework (``delaunay_network``, ``open_foam``, ``random_lattice``: that of the
     periodic box, or of the larger periodic lattice of a window): beams of circular
-    sections of the radius of its fibres (:data:`RADII`), with the options of
-    :func:`network_stiffness`; a plane :class:`Frame` when the framework lies in a plane
-    (its nodes at one height, no bar across the box along z: a planar Delaunay network),
-    else a :class:`SpaceFrame`. A microstructure without a framework is refused."""
+    sections of the radius of its fibres (:data:`RADII`; the radius of each fibre of
+    polydisperse networks), with the options of :func:`network_stiffness`; a plane
+    :class:`Frame` when the framework lies in a plane (its nodes at one height, no bar
+    across the box along z: a planar Delaunay network), else a :class:`SpaceFrame`. A
+    microstructure without a framework is refused."""
     from morphogen.design.frames import Framework
 
     metadata = getattr(micro, "metadata", None) or {}
@@ -644,8 +658,11 @@ def network_frame(micro, *, young=1.0, poisson=0.3, shear_coefficient=None, rigi
     if isinstance(framework, dict):
         framework = Framework.from_dict(framework)
     summary = metadata.get("summary") or {}
-    radii = [summary.get(k) for k in RADII] + [getattr(model, k, None) for k in RADII]
-    radius = next((float(r) for r in radii if r is not None), None)
+    if metadata.get("radii") is not None:  # polydisperse: a radius per bar
+        radius = np.asarray(metadata["radii"], dtype=float)
+    else:
+        radii = [summary.get(k) for k in RADII] + [getattr(model, k, None) for k in RADII]
+        radius = next((r for r in map(_radius_of, radii) if r is not None), None)
     if radius is None:
         raise ValueError(f"{name}: no radius of the fibres in its summary or its model")
     options = {

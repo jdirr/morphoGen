@@ -21,6 +21,7 @@ from morphogen.kernels.rsa import (
     random_sequential_addition_fibres,
     random_sequential_addition_polylines,
 )
+from morphogen.models import _sizes as sizes
 from morphogen.models.base import Model, param, register
 from morphogen.models.boolean import _germ_window
 from morphogen.models.combination import Combined
@@ -62,9 +63,11 @@ class PoissonFibers(Model):
     drawn from ``orientation``.
 
     The model is parameterized by the volume fraction ``p`` of fibres or by the mean
-    fibre length per unit volume ``L_V`` (``p = 1 - exp(-L_V pi R^2)`` for any law of
+    fibre length per unit volume ``L_V`` (``p = 1 - exp(-L_V pi E[R^2])`` for any law of
     directions). In the notation of Jeulin and of Dirrenberger et al. (2014) the intensity
-    of the lines is ``theta = L_V / pi`` and ``p = 1 - exp(-theta pi^2 R^2)``.
+    of the lines is ``theta = L_V / pi`` and ``p = 1 - exp(-theta pi^2 R^2)``. The radius is
+    a number (monodisperse fibres) or a distribution (polydisperse: one radius per line,
+    independent of the line), the closed forms then taking the moments of its law.
 
     Infinite lines cannot be made periodic: domains must be non-periodic. The sample is
     the exact restriction of the infinite random medium to the box. The covariance
@@ -76,7 +79,13 @@ class PoissonFibers(Model):
     supports_periodic = False
     count_label = "fibres"
 
-    radius: float = param(1.0, doc="Fibre radius", unit="length")
+    radius: Distribution = param(
+        Constant(1.0),
+        doc="Fibre radius: a number (monodisperse) or a distribution (polydisperse, one "
+        "radius per fibre)",
+        kind="distribution",
+        unit="length",
+    )
     volume_fraction: float | None = param(None, doc="Volume fraction of fibres", kind="fraction")
     length_density: float | None = param(
         None, doc="Mean fibre length per unit volume L_V", unit="1/length^2"
@@ -89,7 +98,6 @@ class PoissonFibers(Model):
     )
 
     def _validate(self) -> None:
-        check_positive(self.radius, "radius")
         exactly_one("volume_fraction", self.volume_fraction, "length_density", self.length_density)
         if self.volume_fraction is not None:
             check_fraction(self.volume_fraction, "volume_fraction")
@@ -101,12 +109,12 @@ class PoissonFibers(Model):
         """Mean fibre length per unit volume."""
         if self.length_density is not None:
             return self.length_density
-        return -math.log1p(-self.volume_fraction) / (math.pi * self.radius**2)
+        return -math.log1p(-self.volume_fraction) / (math.pi * self.radius.moment(2))
 
     def generate(self, domain: Domain, seed: SeedLike = None) -> PrimitiveUnion:
         self._check_domain(domain)
         rng, seed_info = make_rng(seed)
-        r = self.radius
+        r = self.radius.upper()
         # lines hitting the ball containing the box dilated by r: the number is Poisson
         # with mean L_V * pi * rho^2 (mean projected area of the ball)
         rho = 0.5 * domain.diagonal + r
@@ -121,24 +129,29 @@ class PoissonFibers(Model):
             + (radial * np.cos(phi))[:, None] * e1
             + (radial * np.sin(phi))[:, None] * e2
         )
+        radii = sizes.draw(self.radius, rng, n)  # one per line, independent of it
         lower, upper = domain.lower - r, domain.upper + r
         t0, t1 = _clip_lines(points, directions, lower, upper)
         keep = t0 <= t1
         a = points[keep] + t0[keep, None] * directions[keep]
         b = points[keep] + t1[keep, None] * directions[keep]
-        segments = Segments(a, b, np.full(len(a), r), round_caps=True)
-        return PrimitiveUnion(domain, segments=segments, model=self, seed=seed_info)
+        segments = Segments(a, b, radii[keep], round_caps=True)
+        micro = PrimitiveUnion(domain, segments=segments, model=self, seed=seed_info)
+        spread = sizes.size_summary("radius", radii[keep], self.radius)
+        if spread:
+            micro.metadata["summary"] = {"fibres": int(np.sum(keep)), **spread}
+        return micro
 
     # -- theory --------------------------------------------------------------------------
 
     def theory(self, domain: Domain | None = None) -> dict[str, float]:
-        lv, r = self.lv, self.radius
-        q = math.exp(-lv * math.pi * r * r)
+        lv = self.lv
+        q = math.exp(-lv * math.pi * self.radius.moment(2))
         return {
             "length_density": lv,
             "theta_jeulin": lv / math.pi,
             "volume_fraction": 1.0 - q,
-            "specific_surface": 2.0 * math.pi * r * lv * q,
+            "specific_surface": 2.0 * math.pi * self.radius.moment(1) * lv * q,
             "integral_range": math.inf,
             "variance_exponent": 2.0 / 3.0,
         }
@@ -147,26 +160,30 @@ class PoissonFibers(Model):
         """``T(K) = P(K hits A)``: the lines of direction ``u`` hitting a convex body are
         those crossing its projection on the plane normal to ``u`` (on average ``L_V S / 4``
         isotropic lines, Cauchy), and those hitting the fibres hit ``A' (+) K'``: for balls
-        of radius ``size`` a ball of radius R + r (any law), for segments of length
-        ``size`` along ``direction`` a spherocylinder of projection ``pi R^2 + 2 R l |sin
-        g|`` (``g`` its angle to the line, ``E|sin g| = pi/4`` for isotropic lines; without a
-        direction, the mean of the capacities over the directions); pairs of points at
+        of radius ``size`` a ball of radius R + r (any law of directions; ``E[(R + r)^2]``
+        over that of the radii), for segments of length ``size`` along ``direction`` a
+        spherocylinder of projection ``pi R^2 + 2 R l |sin g|`` (``g`` its angle to the
+        line, ``E|sin g| = pi/4`` for isotropic lines; without a direction, the mean of the
+        capacities over the directions; ``E[R^2]`` and ``E[R]``); pairs of points at
         distance ``size``: ``2 p - C(h)``."""
         size = np.asarray(size, dtype=float)
-        lv, r = self.lv, self.radius
+        lv, law = self.lv, self.radius
+        r1, r2 = law.moment(1), law.moment(2)
         if element == "ball":
-            return -np.expm1(-lv * math.pi * (r + size) ** 2)
+            nodes, weights = law.quadrature()
+            dilated = sum(w * (x + size) ** 2 for x, w in zip(nodes, weights, strict=True))
+            return -np.expm1(-lv * math.pi * dilated)
         if element == "segment":
             if isinstance(self.orientation, Isotropic):
-                return -np.expm1(-lv * (math.pi * r * r + 0.5 * math.pi * r * size))
+                return -np.expm1(-lv * (math.pi * r2 + 0.5 * math.pi * r1 * size))
             if direction is None:
                 rule = zip(*half_sphere(6), strict=True)
                 return sum(w * self.choquet_capacity(element, size, u) for u, w in rule)
             b, w = angle_weights(self.orientation, direction)
             sine = float(np.sum(w * np.sin(b)))
-            return -np.expm1(-lv * (math.pi * r * r + 2.0 * r * size * sine))
+            return -np.expm1(-lv * (math.pi * r2 + 2.0 * r1 * size * sine))
         if element == "pair":
-            p = -math.expm1(-lv * math.pi * r * r)
+            p = -math.expm1(-lv * math.pi * r2)
             return 2.0 * p - self.covariance(size, direction)
         raise ValueError('element: "ball", "segment" or "pair"')
 
@@ -193,13 +210,16 @@ class PoissonFibers(Model):
         those crossing the union of two disks of radius R, ``|h| sin(b)`` apart, in the
         plane normal to ``u`` (``b`` the angle between ``h`` and ``u``): ``P(x, x + h not in
         A) = q^2 exp(L_V E_u[lens(|h| sin b)])``, the mean over the law of the directions
-        (cos b uniform for isotropic lines; :func:`morphogen.theory.oriented_covariance`).
+        (cos b uniform for isotropic lines; :func:`morphogen.theory.oriented_covariance`)
+        and over that of the radii (``q = exp(-L_V pi E[R^2])``).
         """
-        lv, r = self.lv, self.radius
-        q = math.exp(-lv * math.pi * r * r)
+        lv, law = self.lv, self.radius
+        q = math.exp(-lv * math.pi * law.moment(2))
+        nodes, weights = law.quadrature(64)
 
         def lens(dist, b):
-            return theory.disk_intersection_area(dist * np.sin(b), r)
+            return sum(w * theory.disk_intersection_area(dist * np.sin(b), x)
+                       for x, w in zip(nodes, weights, strict=True))  # fmt: skip
 
         return theory.oriented_covariance(q, lv, lens, h, self.orientation, direction)
 
@@ -209,16 +229,21 @@ def _check_lumen(lumen: float) -> None:
         raise ValueError("lumen: the inner radius over the radius, in [0, 1)")
 
 
-def _fibres(domain: Domain, segments: Segments, lumen: float, model, seed_info):
+def _fibres(domain: Domain, segments: Segments, lumen: float, model, seed_info, summary=None):
     """The union of the fibres, or, for hollow ones, of their walls: the union of the
     fibres minus that of their lumens (exact without overlaps; a lumen crossing another
-    fibre opens its wall there)."""
+    fibre opens its wall there); ``summary``, that of the model, in the summary of both."""
     outer = PrimitiveUnion(domain, segments=_crop(segments, domain), model=model, seed=seed_info)
     if lumen <= 0.0:
-        return outer
-    inner = Segments(segments.start, segments.end, segments.radii * lumen, segments.round_caps)
-    lumens = PrimitiveUnion(domain, segments=_crop(inner, domain), model=model, seed=seed_info)
-    return Combined(domain, "difference", [outer, lumens], model=model, seed=seed_info)
+        micro = outer
+    else:
+        inner = Segments(segments.start, segments.end, segments.radii * lumen, segments.round_caps)
+        lumens = PrimitiveUnion(domain, segments=_crop(inner, domain), model=model, seed=seed_info)
+        combined = Combined if summary is None else _Bonded
+        micro = combined(domain, "difference", [outer, lumens], model=model, seed=seed_info)
+    if summary is not None:
+        micro.metadata["summary"] = summary
+    return micro
 
 
 def _crop(segments: Segments, domain: Domain) -> Segments:
@@ -407,14 +432,22 @@ class CurvedFibers(Model):
     contours) a Poisson point process. ``overlap: false``: fibres placed one at a time
     by random sequential addition, a trial rejected when it comes closer than
     ``min_gap`` to a fibre already placed (generated in a periodic box, enlarged and
-    cropped for non-periodic domains).
+    cropped for non-periodic domains). The radius is a number (monodisperse fibres) or a
+    distribution (polydisperse: one radius per fibre, the moments of its law in the
+    volumes and fractions of the theory).
     """
 
     name = "curved_fibers"
     phases: ClassVar[dict[int, str]] = {0: "matrix", 1: "fibres"}
     count_label = "fibres"
 
-    radius: float = param(0.5, doc="Fibre radius", unit="length")
+    radius: Distribution = param(
+        Constant(0.5),
+        doc="Fibre radius: a number (monodisperse) or a distribution (polydisperse, one "
+        "radius per fibre)",
+        kind="distribution",
+        unit="length",
+    )
     length: float = param(20.0, doc="Contour length of the fibres", unit="length")
     persistence: float = param(
         10.0,
@@ -463,7 +496,6 @@ class CurvedFibers(Model):
     )
 
     def _validate(self) -> None:
-        check_positive(self.radius, "radius")
         check_positive(self.length, "length")
         check_positive(self.persistence, "persistence")
         if self.segments < 1:
@@ -484,9 +516,11 @@ class CurvedFibers(Model):
 
     @property
     def mean_grain_volume(self) -> float:
-        """Volume of a straight fibre: the union of the segments of a curved one is a
-        little smaller (their caps overlap more at the bends)."""
-        return math.pi * self.radius**2 * self.length + 4.0 / 3.0 * math.pi * self.radius**3
+        """Mean volume of a straight fibre, ``pi E[R^2] L + 4/3 pi E[R^3]``: the union of
+        the segments of a curved one is a little smaller (their caps overlap more at the
+        bends)."""
+        r2, r3 = self.radius.moment(2), self.radius.moment(3)
+        return math.pi * r2 * self.length + 4.0 / 3.0 * math.pi * r3
 
     @property
     def theta(self) -> float:
@@ -565,9 +599,10 @@ class CurvedFibers(Model):
             middle = 0.5 * (points[:, m // 2] + points[:, m // 2 + 1])
         return points - middle[:, None, :]
 
-    def _packed(self, domain: Domain, rng) -> np.ndarray:
-        """Axes of non-overlapping fibres placed by random sequential addition."""
-        reach = self.length + 2.0 * self.radius + self.min_gap
+    def _packed(self, domain: Domain, rng) -> tuple[np.ndarray, np.ndarray]:
+        """Axes and radii of non-overlapping fibres placed by random sequential
+        addition."""
+        reach = self.length + 2.0 * self.radius.upper() + self.min_gap
         if domain.periodic:
             if reach >= min(domain.size) / 2.0:
                 raise ValueError(
@@ -579,25 +614,37 @@ class CurvedFibers(Model):
             box = domain.dilated(reach)
         n = round(self.theta * box.volume)
         offsets = self.axes(rng, n)
+        radii = sizes.draw(self.radius, rng, n)
         max_attempts = self.max_attempts or 10_000 * max(n, 1)
         centres = random_sequential_addition_polylines(
-            offsets, self.radius, box.lengths, self.min_gap, rng, max_attempts
+            offsets, radii, box.lengths, self.min_gap, rng, max_attempts
         )
-        return box.lower + centres[:, None, :] + offsets
+        return box.lower + centres[:, None, :] + offsets, radii
 
     def generate(self, domain: Domain, seed: SeedLike = None) -> PrimitiveUnion:
         rng, seed_info = make_rng(seed)
         if self.overlap:
-            window = _germ_window(domain, 0.5 * self.length + self.radius, self.name)
+            reach = 0.5 * self.length + self.radius.upper()
+            window = _germ_window(domain, reach, self.name)
             n = rng.poisson(self.theta * window.volume)
             centres = window.lower + rng.random((n, 3)) * window.lengths
             points = self.axes(rng, n) + centres[:, None, :]
+            radii = sizes.draw(self.radius, rng, n)
         else:
-            points = self._packed(domain, rng)
+            points, radii = self._packed(domain, rng)
         m = self.segments
-        radii = np.full(len(points) * m, self.radius)
-        segments = Segments(points[:, :-1].reshape(-1, 3), points[:, 1:].reshape(-1, 3), radii)
-        return _fibres(domain, segments, self.lumen, self, seed_info)
+        segments = Segments(points[:, :-1].reshape(-1, 3), points[:, 1:].reshape(-1, 3),
+                            np.repeat(radii, m))  # fmt: skip
+        summary = None
+        if sizes.polydisperse(self.radius):  # the radii of the fibres that reach the domain
+            near = np.ones(len(radii), dtype=bool)
+            if not domain.periodic:
+                lo, hi = segments.bounds()
+                inside = np.all((hi >= domain.lower) & (lo <= domain.upper), axis=1)
+                near = inside.reshape(-1, m).any(axis=1)
+            spread = sizes.size_summary("radius", radii[near], self.radius)
+            summary = {"fibres": int(near.sum()), **spread}
+        return _fibres(domain, segments, self.lumen, self, seed_info, summary)
 
     def expected_count(self, domain: Domain) -> float:
         """Mean number of fibre centres in the domain."""
@@ -635,9 +682,9 @@ class CurvedFibers(Model):
             "mean_square_end_to_end": self.mean_square_end_to_end(),
         }
         if self.lumen > 0.0 and not self.overlap:  # the walls of the hollow fibres
-            lam, r = self.lumen, self.radius
-            wall = math.pi * (1.0 - lam**2) * r * r * self.length
-            wall += 4.0 / 3.0 * math.pi * (1.0 - lam**3) * r**3
+            lam, r2, r3 = self.lumen, self.radius.moment(2), self.radius.moment(3)
+            wall = math.pi * (1.0 - lam**2) * r2 * self.length
+            wall += 4.0 / 3.0 * math.pi * (1.0 - lam**3) * r3
             out["solid_fraction"] = theta * wall
         return out
 
@@ -1083,9 +1130,7 @@ class RandomWalkFibers(Model):
         period = np.asarray(box.lengths, dtype=float)  # the midpoints moved into the box
         shift = box.lower - period * np.floor(0.5 * (start + end) / period)
         segments = Segments(start + shift, end + shift, radii[seg_fibre])
-        micro = _fibres(domain, segments, self.lumen, self, seed_info)
-        micro.metadata["summary"] = summary
-        return micro
+        return _fibres(domain, segments, self.lumen, self, seed_info, summary)
 
     def expected_count(self, domain: Domain) -> float | None:
         """Mean number of fibres in the domain (given a volume fraction)."""
@@ -1109,11 +1154,17 @@ class RandomWalkFibers(Model):
         out["volume_fraction"] = p
         if self.packing:
             out["specific_surface"] = p * self.mean_surface / self.mean_volume
-        reach = 2.0 * self.radius.moment(1) + self.min_gap + self.contact_distance
-        ell = self.length.moment(1)
-        out["toll_contacts_per_fibre"] = intensity * excluded_volume(
-            reach, ell, ell * ell, mean_sine(self.orientation)
-        )
+        gap = self.min_gap + self.contact_distance
+        reach = 2.0 * self.radius.moment(1) + gap
+        ell, sine = self.length.moment(1), mean_sine(self.orientation)
+        if self.radius.is_constant:
+            excluded = excluded_volume(reach, ell, ell * ell, sine)
+        else:  # averaged over the distance D = r_a + r_b + gap of two fibres in contact
+            d1, d2, d3 = sizes.sum_moments(self.radius, gap)
+            excluded = (
+                4.0 / 3.0 * math.pi * d3 + 2.0 * math.pi * d2 * ell + 2.0 * d1 * ell**2 * sine
+            )
+        out["toll_contacts_per_fibre"] = intensity * excluded
         return out
 
 
@@ -1184,7 +1235,8 @@ def _closest_parameters(r, a, b) -> tuple[np.ndarray, np.ndarray]:
 
 
 class _Bonded(Combined):
-    """The fibres and their cross-links of another phase, with the summary of the model."""
+    """Fibres combined (with their cross-links of another phase, or less their lumens),
+    with the summary of the model."""
 
     def summary(self) -> dict:
         return {**super().summary(), **self.metadata.get("summary", {})}
@@ -1220,13 +1272,26 @@ class CrossLinkedFibers(Model):
     finite fibre has on average ``theta (4/3 pi D^3 + 2 pi D^2 l + 2 D l^2 E|sin g|)``
     contacts (its excluded volume). The summary counts the contacts and cross-links
     centred in the domain and their spacings along the axes inside it.
+
+    The radius is a number (monodisperse fibres) or a distribution (polydisperse: one
+    radius per fibre). Two fibres of radii ``r_a`` and ``r_b`` are then in contact where
+    their axes come closer than ``D = r_a + r_b + contact_gap``, and the closed forms take
+    the moments of ``D`` (``E[D] = 2 E[R] + contact_gap`` along the lines, ``E[D^2]`` and
+    ``E[D^3]`` in the excluded volume) and of ``R`` (``pi E[R^2]``, ``4/3 pi E[R^3]`` in the
+    volumes of the fibres).
     """
 
     name = "cross_linked_fibers"
     phases: ClassVar[dict[int, str]] = {0: "pores", 1: "fibres", 2: "cross-links"}
     count_label = "fibres"
 
-    radius: float = param(0.5, doc="Fibre radius", unit="length")
+    radius: Distribution = param(
+        Constant(0.5),
+        doc="Fibre radius: a number (monodisperse) or a distribution (polydisperse, one "
+        "radius per fibre)",
+        kind="distribution",
+        unit="length",
+    )
     length: float | None = param(
         None,
         doc="Length of the cylindrical part of the fibres (round caps); none: infinite "
@@ -1261,7 +1326,6 @@ class CrossLinkedFibers(Model):
     )
 
     def _validate(self) -> None:
-        check_positive(self.radius, "radius")
         if self.length is not None:
             check_positive(self.length, "length")
         exactly_one("volume_fraction", self.volume_fraction, "length_density", self.length_density)
@@ -1286,11 +1350,18 @@ class CrossLinkedFibers(Model):
 
     @property
     def grain_volume(self) -> float:
-        """Volume of a fibre: an infinite cylinder per unit length, or a spherocylinder."""
-        r = self.radius
+        """Mean volume of a fibre: an infinite cylinder per unit length, ``pi E[R^2]``, or
+        a spherocylinder, ``pi E[R^2] l + 4/3 pi E[R^3]``."""
+        law = self.radius
+        if law.is_constant:  # as for a fixed radius, to the last bit
+            r = law.moment(1)
+            if self.length is None:
+                return math.pi * r * r
+            return math.pi * r * r * self.length + 4.0 / 3.0 * math.pi * r**3
+        r2, r3 = law.moment(2), law.moment(3)
         if self.length is None:
-            return math.pi * r * r
-        return math.pi * r * r * self.length + 4.0 / 3.0 * math.pi * r**3
+            return math.pi * r2
+        return math.pi * r2 * self.length + 4.0 / 3.0 * math.pi * r3
 
     @property
     def lv(self) -> float:
@@ -1302,8 +1373,14 @@ class CrossLinkedFibers(Model):
 
     @property
     def contact_reach(self) -> float:
-        """Distance between axes below which two fibres are in contact."""
-        return 2.0 * self.radius + self.contact_gap
+        """Distance between axes below which two fibres are in contact (polydisperse
+        fibres: its mean, ``2 E[R] + contact_gap``; two fibres ``r_a + r_b + contact_gap``)."""
+        return 2.0 * self.radius.moment(1) + self.contact_gap
+
+    @property
+    def _largest_reach(self) -> float:
+        """The largest distance between the axes of two fibres in contact."""
+        return 2.0 * self.radius.upper() + self.contact_gap
 
     def _lines(self, domain: Domain, rng, reach: float) -> tuple[np.ndarray, np.ndarray]:
         """Ends of the Poisson lines within ``reach`` of the box, clipped to the box
@@ -1326,14 +1403,17 @@ class CrossLinkedFibers(Model):
         a = points[keep] + t0[keep, None] * directions[keep]
         return a, points[keep] + t1[keep, None] * directions[keep]
 
-    def contacts(self, start, end, domain: Domain) -> tuple[np.ndarray, np.ndarray]:
-        """The contacts of the fibres of axes ``start -> end``: the pairs ``(i, j)`` of
-        fibres whose axes come closer than :attr:`contact_reach` (nearest periodic images
-        in a periodic domain) and the middles of their closest points (wrapped into a
-        periodic domain)."""
+    def contacts(self, start, end, domain: Domain, radii=None) -> tuple[np.ndarray, np.ndarray]:
+        """The contacts of the fibres of axes ``start -> end`` (and ``radii``, by default
+        the mean radius): the pairs ``(i, j)`` of fibres whose axes come closer than ``r_i +
+        r_j + contact_gap`` (nearest periodic images in a periodic domain) and the middles
+        of their closest points (wrapped into a periodic domain)."""
         start = np.asarray(start, float).reshape(-1, 3)
         vec = np.asarray(end, float).reshape(-1, 3) - start
         n = len(start)
+        if radii is None:
+            radii = np.full(n, self.radius.moment(1))
+        radii = np.asarray(radii, dtype=float).reshape(-1)
         if self.length is None:  # lines: every pair, 256 rows at a time
             blocks = []
             for k in range(0, max(n - 1, 0), 256):
@@ -1341,7 +1421,7 @@ class CrossLinkedFibers(Model):
                 count = n - 1 - rows
                 i = np.repeat(rows, count)
                 j = i + 1 + np.arange(len(i)) - np.repeat(np.cumsum(count) - count, count)
-                blocks.append(self._close(start, vec, i, j, domain))
+                blocks.append(self._close(start, vec, i, j, domain, radii))
         else:
             from scipy import spatial
 
@@ -1351,15 +1431,16 @@ class CrossLinkedFibers(Model):
                 tree = spatial.cKDTree(np.mod(mid - domain.lower, box), boxsize=box)
             else:
                 tree = spatial.cKDTree(mid)
-            pairs = tree.query_pairs(self.length + self.contact_reach, output_type="ndarray")
-            blocks = [self._close(start, vec, pairs[:, 0], pairs[:, 1], domain)]
+            largest = 2.0 * float(radii.max(initial=0.0)) + self.contact_gap
+            pairs = tree.query_pairs(self.length + largest, output_type="ndarray")
+            blocks = [self._close(start, vec, pairs[:, 0], pairs[:, 1], domain, radii)]
         if not blocks:
             return np.zeros((0, 2), dtype=np.int64), np.zeros((0, 3))
         return np.concatenate([b[0] for b in blocks]), np.concatenate([b[1] for b in blocks])
 
-    def _close(self, start, vec, i, j, domain: Domain) -> tuple[np.ndarray, np.ndarray]:
+    def _close(self, start, vec, i, j, domain: Domain, radii) -> tuple[np.ndarray, np.ndarray]:
         """The pairs ``(i, j)`` of axes in contact and the middles of their closest points."""
-        reach = self.contact_reach
+        reach = radii[i] + radii[j] + self.contact_gap
         shift = np.zeros((len(i), 3))
         if domain.periodic:  # the nearest image of the middle of j
             box = domain.lengths
@@ -1377,12 +1458,12 @@ class CrossLinkedFibers(Model):
     def generate(self, domain: Domain, seed: SeedLike = None) -> PrimitiveUnion:
         self._check_domain(domain)
         rng, seed_info = make_rng(seed)
-        r, ell, link = self.radius, self.length, self.link_radius
-        reach = 0.5 * self.contact_reach + link  # a cross-link reaches this far from an axis
+        ell, link = self.length, self.link_radius
+        reach = 0.5 * self._largest_reach + link  # a cross-link reaches this far from an axis
         if ell is None:
             start, end = self._lines(domain, rng, reach)
         else:
-            if domain.periodic and ell + self.contact_reach >= 0.5 * min(domain.size):
+            if domain.periodic and ell + self._largest_reach >= 0.5 * min(domain.size):
                 raise ValueError(
                     f"{self.name}: fibres (length {ell:g} plus a diameter and the gap) must "
                     f"be shorter than half the periodic box (edge {min(domain.size):g})"
@@ -1392,18 +1473,20 @@ class CrossLinkedFibers(Model):
             centres = window.lower + rng.random((n, 3)) * window.lengths
             half = 0.5 * ell * self.orientation.sample(rng, n).reshape(n, 3)
             start, end = centres - half, centres + half
-        pairs, middles = self.contacts(start, end, domain)
+        radii = sizes.draw(self.radius, rng, len(start))  # one per fibre
+        pairs, middles = self.contacts(start, end, domain, radii)
         bonded = rng.random(len(pairs)) < self.bonded_fraction
         lo, hi = domain.lower, domain.upper
         near = np.all((middles >= lo - link) & (middles <= hi + link), axis=1)
         inside = np.all((middles >= lo) & (middles < hi), axis=1)
-        segments = _crop(Segments(start, end, np.full(len(start), r), round_caps=True), domain)
+        segments = _crop(Segments(start, end, radii, round_caps=True), domain)
         inner = segments.lengths if domain.periodic else _inner_lengths(segments, domain)
         summary = {
             "fibres": int(np.sum(inner > 0.0)),  # axes crossing the domain
             "contacts": int(np.sum(inside)),
             "cross_links": int(np.sum(inside & bonded)),
         }
+        summary.update(sizes.size_summary("radius", segments.radii[inner > 0.0], self.radius))
         axes = float(np.sum(inner))
         for key, count in (
             ("contact", summary["contacts"]),
@@ -1445,18 +1528,27 @@ class CrossLinkedFibers(Model):
         return self.lv / self.length * (domain.volume + self.length * area)
 
     def theory(self, domain: Domain | None = None) -> dict[str, float]:
-        lv, r, reach = self.lv, self.radius, self.contact_reach
+        lv, reach = self.lv, self.contact_reach
         sine = mean_sine(self.orientation)
         b = self.bonded_fraction
         out = {"length_density": lv, "mean_sine": sine}
         if self.length is None:
-            per_length = 2.0 * reach * lv * sine  # contacts per unit length of axis
-            out["volume_fraction"] = -math.expm1(-lv * math.pi * r * r)
+            per_length = 2.0 * reach * lv * sine  # contacts per unit length of axis: E[D]
+            if self.radius.is_constant:
+                r = self.radius.moment(1)
+                out["volume_fraction"] = -math.expm1(-lv * math.pi * r * r)
+            else:
+                out["volume_fraction"] = -math.expm1(-lv * self.grain_volume)
             out["contacts_per_length"] = per_length
             out["contact_intensity"] = 0.5 * lv * per_length
         else:
             theta, ell = lv / self.length, self.length
-            per_fibre = theta * excluded_volume(reach, ell, ell * ell, sine)
+            if self.radius.is_constant:
+                per_fibre = theta * excluded_volume(reach, ell, ell * ell, sine)
+            else:  # the excluded volume averaged over D = r_a + r_b + contact_gap
+                d1, d2, d3 = sizes.sum_moments(self.radius, self.contact_gap)
+                mean = 4.0 / 3.0 * math.pi * d3 + 2.0 * math.pi * d2 * ell
+                per_fibre = theta * (mean + 2.0 * d1 * ell * ell * sine)
             per_length = 2.0 * reach * lv * sine  # without the ends of the fibres
             out["intensity"] = theta
             out["volume_fraction"] = -math.expm1(-theta * self.grain_volume)

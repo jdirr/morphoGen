@@ -500,6 +500,12 @@ void main() { color = vec4(uColor, 1.0); }`;
           <span data-v="deform" hidden><label title="displacement drawn: magnification times the displacement">Magnification
             <input class="num" data-v="mag"></label> <input type="range" data-v="magr" min="0" max="3" step="0.02" value="1" title="0 to 3 times the automatic magnification"></span>
         </div>
+        <div class="v3d-bar" data-v="stepbar" hidden>
+          <button class="plain" data-v="play" title="go through the steps of the loading path">▶ Play</button>
+          <label title="the step of the loading path drawn">Step <input type="range" data-v="step" min="0" max="0" step="1" value="0"></label>
+          <span class="v3d-info" data-v="steplabel"></span>
+          <label title="keep the colour scale while the step changes (else that of each step)"><input type="checkbox" data-v="hold" checked>fixed scale</label>
+        </div>
         <div class="v3d-bar">
           <span data-v="resrow"><label title="cells along the longest edge of the grid of the surface">Resolution
             <input type="number" class="num" data-v="res" min="8" max="256" value="${options.resolution || 96}"></label>
@@ -610,9 +616,13 @@ void main() { color = vec4(uColor, 1.0); }`;
       on("colour", "change", () => { this.updateMode(); this.updateRegions(); this.draw(); });
       on("cmap", "change", () => { this.setColormap(); this.resetRange(); this.draw(); });
       for (const name of ["lo", "hi"]) on(name, "change", () => this.draw());
-      on("field", "change", () => this.load({field: this.el("field").value}));
-      on("redraw", "click", () => this.load({field: this.el("field").value}));
+      on("field", "change", () => this.load({field: this.el("field").value, step: this.step()}));
+      on("redraw", "click", () => this.load({field: this.el("field").value, step: this.step()}));
       on("res", "keydown", (e) => { if (e.key === "Enter") this.load({field: this.el("field").value}); });
+      // the steps of a loading path: the slider, its label as it moves, the play button
+      on("step", "input", () => this.stepLabel(Number(this.el("step").value)));
+      on("step", "change", () => this.load({field: this.el("field").value, step: Number(this.el("step").value), keepScale: true}));
+      on("play", "click", () => this.play());
       on("mag", "change", () => {
         const auto = this.autoMag || 1, v = Number(this.el("mag").value);
         if (Number.isFinite(v)) this.el("magr").value = String(Math.min(3, Math.max(0, v / auto)));
@@ -711,24 +721,74 @@ void main() { color = vec4(uColor, 1.0); }`;
       const res = Number(this.el("res").value);
       if (res) q.set("resolution", String(res));
       if (params.field) q.set("field", params.field);
-      this.message.textContent = "Drawing the surface…";
-      this.message.classList.remove("error");
-      this.message.hidden = false;
-      let data;
-      try {
-        const reply = await fetch("/api/surface?" + q);
-        data = await reply.json();
-        if (!reply.ok || data.error) {
-          // a field of the form that this simulation has not: its first field instead
-          if (params.field && /^field/.test(data.error || "")) return this.load({});
-          throw new Error(data.error || reply.statusText);
+      if (Number.isInteger(params.step)) q.set("step", String(params.step));
+      const query = q.toString();
+      let data = this.cached(query);
+      if (!data) {
+        this.message.textContent = "Drawing the surface…";
+        this.message.classList.remove("error");
+        this.message.hidden = false;
+        try {
+          const reply = await fetch("/api/surface?" + query);
+          data = await reply.json();
+          if (!reply.ok || data.error) {
+            // a field of the form that this simulation has not: its first field instead
+            if (params.field && /^field/.test(data.error || "")) return this.load({step: params.step});
+            throw new Error(data.error || reply.statusText);
+          }
+        } catch (e) {
+          this.fail(e.message);
+          return false;
         }
-      } catch (e) {
-        this.fail(e.message);
-        return;
+        this.cached(query, data);
       }
-      if (!this.gl || this.lost) return;
+      if (!this.gl || this.lost) return false;
+      // the scale of a field kept from a step to the next, when asked
+      const same = this.data && this.data.field && data.field && this.data.field.name === data.field.name;
+      this.keepScale = !!(params.keepScale && same && this.el("hold").checked);
       this.setData(data);
+      return true;
+    }
+
+    cached(query, data) {  // the last surfaces drawn (the steps of a path played again)
+      this.cache = this.cache || new Map();
+      if (data === undefined) {
+        const hit = this.cache.get(query);
+        if (hit) { this.cache.delete(query); this.cache.set(query, hit); }
+        return hit;
+      }
+      this.cache.set(query, data);
+      while (this.cache.size > 8) this.cache.delete(this.cache.keys().next().value);
+      return data;
+    }
+
+    step() {  // the step drawn, if the item has steps
+      return this.data && Number.isInteger(this.data.step) ? this.data.step : undefined;
+    }
+
+    stepLabel(k) {
+      const steps = (this.data && this.data.steps) || [];
+      const s = steps[k];
+      this.el("steplabel").textContent = s ? `${k + 1} / ${steps.length}${s.label ? " · " + s.label : ""}` : "";
+    }
+
+    async play() {  // the steps one after another, from the next (or the first after the last)
+      if (this.playing) { this.playing = false; return; }
+      const steps = (this.data && this.data.steps) || [];
+      if (steps.length < 2) return;
+      this.playing = true;
+      this.el("play").textContent = "❚❚ Pause";
+      let k = this.step() === steps.length - 1 ? 0 : (this.step() || 0) + 1;
+      try {
+        for (; k < steps.length && this.playing; k++) {
+          const ok = await this.load({field: this.el("field").value, step: k, keepScale: k > 0});
+          if (!ok) break;
+          await new Promise((resolve) => setTimeout(resolve, 120));
+        }
+      } finally {
+        this.playing = false;
+        this.el("play").textContent = "▶ Play";
+      }
     }
 
     setData(data) {
@@ -823,7 +883,15 @@ void main() { color = vec4(uColor, 1.0); }`;
       if (field) {
         this.el("field").innerHTML = field.names.map((n) => `<option>${esc(n)}</option>`).join("");
         this.el("field").value = field.name;
-        this.resetRange();
+        if (!this.keepScale) this.resetRange();
+      }
+      // the steps of a loading path, if it has several
+      const steps = data.steps || [];
+      this.el("stepbar").hidden = steps.length < 2;
+      if (steps.length > 1) {
+        this.el("step").max = String(steps.length - 1);
+        this.el("step").value = String(data.step);
+        this.stepLabel(data.step);
       }
       this.autoMag = data.magnification;
       this.el("deform").hidden = !data.displacement;

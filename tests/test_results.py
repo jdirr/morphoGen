@@ -48,6 +48,7 @@ def lattice_run(tmp_path, name, cell, fraction, database):
         "seed": 1,
         "voxels": {"shape": 12},
         "homogenization": {
+            "method": "fft",
             "materials": {0: "void", 1: {"young": 200.0, "poisson": 0.3, "density": 7.8}},
             "properties": ["stiffness"],
             "tolerance": 1e-6,

@@ -73,6 +73,17 @@ class Distribution(ABC):
         x, w = self.quadrature(n)
         return float(np.sum(w * f(x)))
 
+    def scaled(self, factor: float) -> Distribution:
+        """The law of ``factor X`` (``factor > 0``): the same shape at another scale, its
+        moments ``factor^k E[X^k]`` (the law of the sizes of a model whose scale is solved
+        for a volume fraction)."""
+        factor = check_positive(factor, "scale factor")
+        return self._scaled(factor)
+
+    @abstractmethod
+    def _scaled(self, factor: float) -> Distribution:
+        """:meth:`scaled` for a positive factor."""
+
 
 @dataclass(frozen=True)
 class Constant(Distribution):
@@ -100,6 +111,9 @@ class Constant(Distribution):
 
     def median(self):
         return self.value
+
+    def _scaled(self, factor):
+        return Constant(factor * self.value)
 
     def to_config(self):
         return self.value
@@ -132,6 +146,9 @@ class Uniform(Distribution):
     def quadrature(self, n=128):
         x, w = np.polynomial.legendre.leggauss(n)
         return self.low + (x + 1) * 0.5 * (self.high - self.low), 0.5 * w
+
+    def _scaled(self, factor):
+        return Uniform(factor * self.low, factor * self.high)
 
     def to_config(self):
         return {"type": "uniform", "low": self.low, "high": self.high}
@@ -176,6 +193,9 @@ class LogNormal(Distribution):
     def quadrature(self, n=128):
         u = (np.arange(n) + 0.5) / n
         return self._frozen.ppf(u), np.full(n, 1.0 / n)
+
+    def _scaled(self, factor):
+        return LogNormal(factor * self.mean_value, factor * self.std_value)
 
     def to_config(self):
         return {"type": "lognormal", "mean": self.mean_value, "std": self.std_value}
@@ -223,6 +243,11 @@ class TruncatedNormal(Distribution):
         u = (np.arange(n) + 0.5) / n
         return self._frozen.ppf(u), np.full(n, 1.0 / n)
 
+    def _scaled(self, factor):
+        return TruncatedNormal(
+            factor * self.loc, factor * self.scale, factor * self.low, factor * self.high
+        )
+
     def to_config(self):
         cfg = {"type": "normal", "mean": self.loc, "std": self.scale}
         if self.low != 0.0:
@@ -259,6 +284,9 @@ class Discrete(Distribution):
 
     def quadrature(self, n=128):
         return np.array(self.values), np.array(self.weights)
+
+    def _scaled(self, factor):
+        return Discrete(tuple(factor * v for v in self.values), self.weights)
 
     def to_config(self):
         return {"type": "discrete", "values": list(self.values), "weights": list(self.weights)}

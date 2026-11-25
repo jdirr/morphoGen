@@ -4,7 +4,7 @@ A model holds the parameters of a random set or of a deterministic architecture,
 closed-form characteristics of the set when they exist (`model.theory()`: volume
 fraction, specific surface, covariance, integral range...). `model.generate(domain,
 seed)` draws one realization of it in a box, periodic or not; the same seed gives the
-same realization. morphoGen has 40 models, listed below by family: `morphogen models`
+same realization. morphoGen has 44 models, listed below by family: `morphogen models`
 lists them, `morphogen models <type>` gives the parameters of one, and the
 [gallery](gallery.md) shows each with a configuration that generates it. In a
 configuration file, a model is the mapping of its `type` and its parameters
@@ -40,15 +40,18 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | `curved_fibers` | Curved fibres: worm-like chains whose tangents decorrelate along the contour (nonwovens, entangled networks), circular arcs of distributed radii of curvature (as in PuMA) or helices (crimp); a Boolean model or fibres without overlap; hollow (lumens) |
 | `hardcore_fibers` | Non-overlapping fibres (spherocylinders) by random sequential addition, isotropic, aligned or planar, with a minimal gap |
 | `random_walk_fibers` | Bending fibres without overlap at high volume fractions (Altendorf & Jeulin 2011): random walks whose steps follow a von Mises–Fisher law between the main direction of their fibre (isotropic, aligned, planar, Schladitz's beta law, or mixtures of laws, as the orthotropic glass fibres of the 2014 paper) and the previous step, packed by repulsions against springs on the segments and the joints after an initial placement of least overlap (Altendorf, Jeulin & Willot 2014), then drawn into contact by the contact forces of Keilmann, Redenbach & Willot (2026) |
+| `long_fibers` | Long fibres along an axis, the unidirectional composites: their sections a random packing (to 0.8) or a hexagonal or square array with a disorder, the fibres parallel or misaligned by an RMS angle (waving together over correlation lengths along and across them, or each on its own), monodisperse or polydisperse |
 | `cross_linked_fibers` | Entangled cross-linked fibres (Mezeix et al. 2009; Chatti et al. 2018, 2020): straight fibres, infinite on Poisson lines or finite, isotropic or in the Gaussian girdle of moulded fibres, bonded by cross-links (phase 2) at a fraction of their contacts, with the exact mean spacing of the contacts and cross-links |
 | `delaunay_network` | Fibre networks on the edges of the periodic Delaunay triangulation of Poisson or hard-core points (Ban et al. 2016), in space or in a plane, cross-linked at every node (15.5 fibres per node in space, 6 in a plane), with the stiffness of their frame of beams |
 | `random_laminate` | Layers of random thicknesses with holes through the thin layers (nanolayered films, Bironeau et al. 2016) |
+| `woven_textile` | Woven composites: warp and weft tows of elliptic, lenticular or power-ellipse sections along crimped paths, 2D weaves (plain, twill, satin, basket) in plies and 3D weaves (orthogonal, layer-to-layer and through-thickness angle interlocks); the tows a partition of their union, each segment with the orientation of its material for anisotropic tows, meshed from their exact geometry for the finite elements, each element turned with its tow; nominal fractions, crimps and thickness in closed form |
 
 ### Tessellations and polycrystals
 
 | Model | Description |
 |---|---|
 | `voronoi`, `laguerre` | Poisson–Voronoi and Laguerre tessellations (Poisson germs, germs of sphere packings, or stealthy hyperuniform germs: disordered but regular cells): polycrystals with random orientations, multiphase mosaics, grain-boundary phases |
+| `nested_grains` | Grains with subgrains: the germs of a finer tessellation in each grain, the subgrains turned by small angles from the crystal of their grain (low-angle boundaries), laths along an axis of the crystal; or grains filled with another model turned with their crystals (lamellar colonies, precipitates) |
 | `ebsd` | Measured polycrystals: windows of an orientation map (EBSD: `.ang` and `.ctf` files), its grains found from the disorientations of its points, each with its mean orientation |
 
 ### Random functions and reconstructions
@@ -65,6 +68,7 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | Model | Description |
 |---|---|
 | `tpms` | Gyroid, Schwarz P, Schwarz D and Neovius, sheet or network |
+| `microgen` | A shape of Microgen (3MAH) that has a field: its TPMS (sheets and skeletons of the surfaces morphoGen's `tpms` does not have), spinodoids and primitives, voxelized, meshed and homogenized like the other models |
 | `strut_lattice` | Cubic, BCC, FCC, octet, Kelvin, diamond and pyrochlore lattices, with solid or hollow struts; rotated and functionally graded lattices (non-periodic samples) |
 | `random_lattice` | Strut lattices with missing struts and displaced nodes, with their rigidity (Maxwell–Calladine) |
 | `hierarchical_lattice` | Hierarchical lattices of (hollow) tubes: frames of generation G of regular octahedra (Rayneau-Kirkhope, Mao & Farr 2012) |
@@ -109,6 +113,13 @@ same field `anisotropy: {stretch: [1, 1, 2], euler: [0, 0, 0]}` (or `[1, 1, 2]`)
 realization of the isotropic model mapped by stretches along turned principal axes,
 preserving volumes (aligned ellipsoids, elongated cells and grains, anisotropic
 covariances); periodic boxes take principal axes along their axes, the Gaussian field any.
+
+## Monodisperse or polydisperse
+
+Every size of the objects of a model is a number (one size) or a distribution (a size per
+fibre, strut, sphere, cell or layer: uniform, lognormal, truncated normal, discrete), the
+closed forms of the models taking the moments of the laws; where a volume fraction sets
+the size, a law keeps its shape and its scale is solved on each realization.
 
 ## Automata and growth
 
@@ -272,13 +283,17 @@ its networks, `examples/scale_rich_networks_3d.py` those of plates and beams.
 
 `morphogen template` lists the example configurations, and the [gallery](gallery.md)
 shows each with its image. Among them, nested and bio-inspired structures:
+`nested_grains` (27 grains of about twenty subgrains turned by 1 to 3°),
 `cox_nanocomposite`, `coated_spheres`, `hierarchical_lattice`, `menger_sponge`, `nacre`,
 `bouligand`, `wood`, `osteons`, `trabecular_bone`, `vascular_tree`. Fibres and lattices:
 `hardcore_fibers`, `curved_fibers`, `random_walk_fibers` (bending fibres packed by forces
 to 0.35), `contact_fibers` (the same drawn into contact, Keilmann et al. 2026),
-`cross_linked_fibers` (entangled carbon fibres bonded by epoxy, Chatti et al.),
+`long_fibers` (a unidirectional composite at 0.6 misaligned by 3°), `woven_textile` (a 3D
+orthogonal carbon/epoxy composite, its tows turned along their paths, its stiffness by
+finite elements on the conforming mesh of its exact geometry), `cross_linked_fibers` (entangled carbon fibres bonded by epoxy, Chatti et al.),
 `delaunay_network` (a fibre network on the edges of a Delaunay triangulation, Ban et
 al.), `graded_lattice` (an octet lattice graded and turned, with its STL surface for
-additive manufacturing). Dead leaves and Torquato's models: `sequential_dead_leaves`,
+additive manufacturing), `microgen` (a sheet of Schoen's I-WP surface built by
+Microgen). Dead leaves and Torquato's models: `sequential_dead_leaves`,
 `transparent_dead_leaves`, `dense_packing`, `penetrable_spheres`, `reconstruction`,
 `hyperuniform_cells`.

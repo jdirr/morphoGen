@@ -228,6 +228,58 @@ process.stdout.write(JSON.stringify(read));
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js runs the functions of the page")
+def test_distributions_monodisperse_or_polydisperse():
+    """Every parameter that is a distribution (radii, lengths, thicknesses) opens as
+    monodisperse (one size) or as the law of its example (polydisperse), and the editor
+    writes back the value of the example: a number, or the mapping of its law."""
+    page = (resources.files("morphogen") / "gui" / "index.html").read_text(encoding="utf-8")
+    script = _page_functions("esc", "numbers", "distOf", "distJSON", "distEditor", "distFields")
+    script += "\n" + re.search(r"^const DIST_LAWS = \{.*?^\};", page, re.M | re.S).group(0)
+    script += """
+const fields = JSON.parse(require("fs").readFileSync(0, "utf8"));
+const unescape = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, "<")
+  .replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+process.stdout.write(JSON.stringify(fields.map((f) => {
+  const html = distEditor(f.name, f.value, f.default);
+  const value = unescape(/type="hidden"[^>]*value="([^"]*)"/.exec(html)[1]);
+  const law = /<option value="(\\w+)" selected>/.exec(html)[1];
+  return [value ? JSON.parse(value) : null, law];
+})));
+"""
+    fields = []
+    for m in api.models():
+        for p in m["parameters"]:
+            if p["kind"] == "distribution":
+                fields.append({"model": m["name"], "name": p["name"], "default": p["default"],
+                               "value": m["example"].get(p["name"])})  # fmt: skip
+    fields.append({"model": "-", "name": "r", "default": 1.0,
+                   "value": {"type": "normal", "mean": 2.0, "std": 0.5, "low": 1.0}})  # fmt: skip
+    sizes = {"type": "discrete", "values": [1.0, 2.0], "weights": [0.7, 0.3]}
+    fields.append({"model": "-", "name": "r", "default": 1.0, "value": sizes})
+    run = subprocess.run(
+        [shutil.which("node"), "-e", script],
+        input=json.dumps(fields),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    read = json.loads(run.stdout)
+    assert len(fields) > 20
+    for field, (value, law) in zip(fields, read, strict=True):
+        expected = field["value"]
+        assert value == expected, field
+        if isinstance(expected, dict):
+            assert law == expected["type"], field
+        else:
+            assert law == "constant", field
+    assert {f["value"]["type"] for f in fields if isinstance(f["value"], dict)} >= {
+        "normal",
+        "discrete",
+    }
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js runs the functions of the page")
 def test_long_explanations_shortened():
     """The page shows the start of the long explanations of the tools and models (their
     first sentence, or their first words), the whole of them on demand."""
@@ -398,6 +450,41 @@ def test_figures_given_as_data_urls_are_shown():
     assert f'<img src="{data}"' in html and f"{data}?inline" not in html
     assert '<img src="/files/k1/covariance.png?inline"' in html
     assert '<video src="/files/k1/growth.mp4?inline"' in html
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js runs the functions of the page")
+def test_chips_of_the_workspace_close():
+    """Each chip of the workspace has its close button (the cross, named for readers of the
+    screen), which the strip tells from a click on the chip itself; the item just closed
+    stays in the strip with the undo of its close."""
+    page = (resources.files("morphogen") / "gui" / "index.html").read_text(encoding="utf-8")
+    script = _page_functions("esc", "chip", "closedChip")
+    script += "\n" + re.search(r"^const KIND = \{.*?\};", page, re.M).group(0)
+    script += """
+const items = JSON.parse(require("fs").readFileSync(0, "utf8"));
+process.stdout.write(JSON.stringify([...items.map(chip), closedChip(items[0])]));
+"""
+    items = [
+        {"key": "a1", "kind": "morphology", "title": "#1 <voronoi>", "thumbnail": None},
+        {"key": "b2", "kind": "simulation", "title": "#2 tension", "thumbnail": "data:x"},
+    ]
+    run = subprocess.run(
+        [shutil.which("node"), "-e", script],
+        input=json.dumps(items),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    first, second, closed = json.loads(run.stdout)
+    assert 'data-key="a1"' in first and 'data-close="a1"' in first
+    assert 'aria-label="close #1 &lt;voronoi&gt;"' in first and "<voronoi>" not in first
+    assert first.count("<button") == 1 and 'type="button" class="close"' in first
+    assert 'data-close="b2"' in second and '<img src="data:x"' in second
+    assert 'id="ws-undo"' in closed and "#1 &lt;voronoi&gt; closed" in closed
+    # the clicks of the strip: on the cross, a close; elsewhere on the chip, its menu
+    assert 'e.target.closest("button.close")' in page and "closeItem(c.dataset.key)" in page
+    assert '"/api/workspace/restore"' in page
 
 
 def test_interface_actions(tmp_path):

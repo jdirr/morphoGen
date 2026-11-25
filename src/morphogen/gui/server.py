@@ -171,6 +171,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/workspace/remove":
                 self.server.session.remove(request.get("key"))
                 self._json({"removed": request.get("key")})
+            elif path == "/api/workspace/restore":  # the undo of a close
+                item = self.server.session.restore(request.get("key"))
+                self._json(self.server.session.public(item))
             elif path == "/api/workspace/rename":
                 item = self.server.session.rename(request.get("key"), request.get("title"))
                 self._json(self.server.session.public(item))

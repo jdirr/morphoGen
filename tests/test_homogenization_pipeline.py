@@ -87,12 +87,23 @@ def test_homogenization_configuration(tmp_path):
     with pytest.raises(ConfigError, match="'mesh' section"):
         load_config(data)
     data["homogenization"]["method"] = "auto"
-    with pytest.raises(ConfigError, match="FFT solver is periodic"):
-        load_config(data)  # no mesh: FFT, which cannot apply KUBC
+    if mg.mesh.conforming.has_mmg():  # no mesh: finite elements on a light conforming mesh
+        cfg = load_config(data)
+        edge = float(np.min(cfg.domain.lengths))
+        assert cfg.homogenization.method == "fe" and cfg.mesh.size == pytest.approx(edge / 10)
+        assert cfg.mesh.hausdorff == pytest.approx(edge / 80) and cfg.mesh.background is None
+    data["homogenization"]["method"] = "fft"
     data["homogenization"]["boundary_conditions"] = ["periodic"]
     with pytest.raises(ConfigError, match="voxels"):
         load_config(data)  # FFT needs voxel images
     data["voxels"] = {"voxel_size": 0.5}
+    assert load_config(data).homogenization.method == "fft"
+    data["homogenization"]["method"] = "auto"
+    if mg.mesh.conforming.has_mmg():  # the level set sampled at the voxels described
+        cfg = load_config(data)
+        assert cfg.homogenization.method == "fe" and cfg.mesh.background == 0.5
+    data["homogenization"]["properties"] = ["hydraulic_permeability"]  # only on voxels
+    data["homogenization"]["materials"] = {0: "void", 1: STEEL}
     assert load_config(data).homogenization.method == "fft"
     for change, message in (
         ({"order": 3}, "order"),
@@ -154,7 +165,7 @@ def spheres_config(tmp_path, **homogenization):
 
 
 def test_batch_run_with_fft(tmp_path):
-    cfg = spheres_config(tmp_path)
+    cfg = spheres_config(tmp_path, method="fft")
     cfg["voxels"] = {"shape": 12}
     outdir = pipeline.run(load_config(cfg))
     rows = pipeline.read_rows(outdir / "results.csv")
@@ -376,8 +387,11 @@ def test_cli_homogenize_geometry_and_mesh(tmp_path, capsys):
     materials = tmp_path / "mat.yaml"
     materials.write_text(yaml.safe_dump({"materials": {0: "void", 1: STEEL}}))
     args = ["homogenize", str(geometry), "--materials", str(materials), "--bc", "kubc", "mixed"]
-    assert cli.main(args) == 2
-    assert "--size" in capsys.readouterr().err
+    # no --size: finite elements all the same, on a light conforming mesh
+    assert cli.main([*args, "--order", "1", "--json"]) == 0
+    light = json.loads(capsys.readouterr().out)
+    assert light["order"] == 1 and light["elements"] > 0
+    assert {r["bc"] for r in light["results"]} == {"kubc", "mixed"}
     mesh_path = tmp_path / "spheres_tet.vtu"
     assert cli.main([*args, "--size", "0.8", "--save-mesh", str(mesh_path), "--json"]) == 0
     res = json.loads(capsys.readouterr().out)
@@ -436,8 +450,9 @@ def polycrystal_config(tmp_path, **sections):
 def test_polycrystal_runs(tmp_path):
     """Crystals turned by the orientations of the grains: the bulk modulus of a cubic
     polycrystal is (C11 + 2 C12) / 3 exactly, on voxels and on conforming meshes."""
-    cfg = load_config(polycrystal_config(tmp_path, voxels={"shape": 12}))
-    assert cfg.homogenization.method == "fft"
+    data = polycrystal_config(tmp_path, voxels={"shape": 12})
+    data["homogenization"]["method"] = "fft"
+    cfg = load_config(data)
     rows = pipeline.read_rows(pipeline.run(cfg) / "results.csv")
     assert rows[0]["bulk_modulus.periodic"] == pytest.approx(K_COPPER, rel=1e-9)
     assert 40.0 < rows[0]["shear_modulus.periodic"] < 54.7

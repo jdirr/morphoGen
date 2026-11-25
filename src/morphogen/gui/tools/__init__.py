@@ -358,16 +358,48 @@ class Context:
         self.figures.append(out)
         return out
 
-    def video(self, frames, name: str, title: str = "", fps: float = 18, mode: str = "bounce"):
+    def video(
+        self,
+        frames,
+        name: str,
+        title: str = "",
+        fps: float = 18,
+        mode: str = "bounce",
+        *,
+        wanted: bool = True,
+    ):
+        """The video of ``frames`` (listed in the result); when it is not ``wanted`` (the
+        option of the tool off, its default), no video: the frames are kept compressed
+        beside the files (``<name>.frames.npz``, with ``fps``, ``mode`` and ``title``), and
+        the export of the result makes the video on demand (its kind "run")."""
         from morphogen.gui.api import _video_format
         from morphogen.viz.video import write_video
 
+        if not wanted:
+            frames = [np.asarray(f, dtype=np.uint8) for f in frames]
+            if frames and len({f.shape for f in frames}) == 1:
+                np.savez_compressed(self.folder / f"{name}.frames.npz", frames=np.stack(frames),
+                                    fps=float(fps), mode=str(mode),
+                                    title=title or name.replace("_", " "))  # fmt: skip
+            return None
         fmt = _video_format()
         path = self.folder / f"{name}.{fmt}"
         write_video(frames, path, fps=fps, mode=mode)
         out = {"title": title or name.replace("_", " "), "url": self.url(path.name), "format": fmt}
         self.videos.append(out)
         return out
+
+    def steps(self, name: str, steps: list[dict]) -> Path | None:
+        """The manifest of the fields of the steps of a run (``<name>_steps.json``: their
+        ``file``, relative to the folder, ``time`` and ``label``), through which the 3D view
+        of the page goes and from which the export makes the video of a field."""
+        import json
+
+        if not steps:
+            return None
+        path = self.folder / f"{name}_steps.json"
+        path.write_text(json.dumps({"path": name, "steps": steps}, indent=1), encoding="utf-8")
+        return path
 
     def table(self, rows: list[dict], name: str, title: str = "", shown: int = 40) -> dict:
         """A table of the result, written as .csv (its first ``shown`` rows in the page)."""
@@ -542,11 +574,17 @@ class ToolJob:
                 took += [f"#{v['number']}" for v in values if isinstance(v, dict)]
         title = self.tool.title + (f" ({', '.join(took)})" if took else "")
         values = dict(list(result["values"].items())[:6])
-        # its mesh of fields, if any (cracks, damage, patterns): drawn by the 3D view
-        result.update(key=self.key, view3d=bool(meshes_of_result(self.folder)))
+        made = self.session.items.get(self.key)
+        # its mesh of fields, if any (cracks, damage, patterns), or the fields of its steps:
+        # drawn by the 3D view; the fields of a simulation it made, on its mesh or voxels, too
+        from morphogen.gui.api import _field_files, path_steps
+
+        view3d = bool(meshes_of_result(self.folder)) or bool(path_steps(self.folder))
+        if made is not None and made.get("kind") == "simulation":
+            view3d = view3d or any(_field_files(self.folder))
+        result.update(key=self.key, view3d=view3d)
         run = {"tool": self.tool.name, "tab": self.tool.tab, "params": self.raw_params,
                "result": result}  # fmt: skip
-        made = self.session.items.get(self.key)
         if made is not None:
             made.update(run)
             return

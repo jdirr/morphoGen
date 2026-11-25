@@ -206,12 +206,17 @@ class Framework:
         r = amplitude * rng.random(self.n_nodes) ** (1.0 / 3.0)
         return Framework(self.nodes + v * r[:, None], self.bars, self.shifts, self.box)
 
-    def segments(self, radius: float, origin=(0.0, 0.0, 0.0)) -> Segments:
-        """Struts as round-capped cylinders (periodic images are added when needed)."""
+    def segments(self, radius, origin=(0.0, 0.0, 0.0)) -> Segments:
+        """Struts as round-capped cylinders of ``radius`` (one value, or one per bar;
+        periodic images are added when needed)."""
         start = self.nodes[self.bars[:, 0]] + np.asarray(origin, dtype=float)
-        return Segments(
-            start, start + self.vectors(), np.full(self.n_bars, float(radius)), round_caps=True
-        )
+        if np.ndim(radius) == 0:
+            radii = np.full(self.n_bars, float(radius))
+        else:
+            radii = np.asarray(radius, dtype=float).reshape(-1)
+            if radii.shape != (self.n_bars,):
+                raise ValueError(f"segments: one radius or {self.n_bars} (one per bar)")
+        return Segments(start, start + self.vectors(), radii, round_caps=True)
 
     # -- rigidity ------------------------------------------------------------------------
 

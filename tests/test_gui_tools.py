@@ -137,6 +137,31 @@ def test_numbers_never_given_twice(tmp_path):
         session.rename(key, "removed")
 
 
+def test_closed_items_brought_back(tmp_path):
+    """The cross of a chip takes an item out of the workspace, and its undo brings it back
+    with its number, title and objects; only the last ones closed can come back."""
+    session, key = _workspace(tmp_path)
+    before = session.public(session.item(key))
+    micro = session.items[key]["micro"]
+    session.remove(key)
+    assert session.workspace() == []
+    with pytest.raises(ValueError, match="no item"):
+        session.remove(key)
+    restored = session.restore(key)
+    assert session.public(restored) == before and restored["micro"] is micro
+    with pytest.raises(ValueError, match=r"no item .* closed"):
+        session.restore(key)  # once
+    keys = []
+    for n in range(session.CLOSED + 2):
+        k, _ = session.folder()
+        session.add(k, "morphology", f"item {n}", micro=None)
+        session.remove(k)
+        keys.append(k)
+    with pytest.raises(ValueError, match="closed"):
+        session.restore(keys[0])  # the earliest closes are forgotten
+    assert session.restore(keys[-1])["title"].endswith(f"item {session.CLOSED + 1}")
+
+
 def test_a_run_joins_the_item_its_tool_made(tmp_path):
     """A tool that makes its folder an item (the simulation of a loading path) keeps it:
     the run joins that item, which stays a simulation and shows again in its tab."""
