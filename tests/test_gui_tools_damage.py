@@ -123,9 +123,16 @@ def test_ductile_damage_concentrates_ahead_of_the_notch(tmp_path):
     assert left_rt < left_p - 0.15
     assert v["peak force (rice_tracey)"] == pytest.approx(v["peak force (none)"], rel=0.05)
     assert [f["title"] for f in out["figures"]] == ["force-displacement", "fields at the end"]
-    assert out["videos"] and out["videos"][0]["title"] == "damage along the loading"
+    # no video unless asked: the fields of the steps, for the 3D view and the export
+    assert out["videos"] == [] and out["fields3d"]["field"] == "damage"
     names = {f["name"] for f in out["files"]}
-    assert {"ductile.vtu", "force_displacement.csv", "fields.png"} <= names
+    assert {"ductile.vtu", "force_displacement.csv", "fields.png", "ductile_steps.json",
+            "ductile_step001.vti"} <= names  # fmt: skip
+    shown = api.surface({"key": out["key"], "step": 0, "field": "damage"}, session)
+    assert shown["step"] == 0 and len(shown["steps"]) >= params["steps"]
+    video = api.export({"source": out["key"], "outputs": [], "video": "run", "field": "damage"},
+                       session)["videos"]  # fmt: skip
+    assert len(video) == 1
     curve = out["tables"][0]
     assert curve["columns"] == ["triaxiality", "displacement", "force", "nominal_stress"]
     assert curve["count"] == 2 * (v["steps"] + 1)

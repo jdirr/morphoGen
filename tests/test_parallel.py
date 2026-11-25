@@ -19,6 +19,7 @@ def study(tmp_path, name, **extra):
         "seed": 11,
         "voxels": {"voxel_size": 0.25},
         "homogenization": {
+            "method": "fft",
             "materials": {0: {"young": 1.0, "poisson": 0.3}, 1: {"young": 10.0, "poisson": 0.3}},
             "properties": ["bulk_modulus"],
         },

@@ -23,6 +23,8 @@ domain:
 voxels:
   voxel_size: 0.025
 homogenization:
+  # the voxels, the last resort here: cell walls of 0.05 across a ring of 4 would take a conforming mesh of
+  # some millions of elements (method: fe, or auto, with a mesh section, to use it)
   method: fft
   materials:
     0: void                              # lumens

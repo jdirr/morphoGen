@@ -185,14 +185,16 @@ MODEL_FAMILIES = {
     ),
     "Fibres and layers": (
         "boolean_cylinders", "poisson_fibers", "hardcore_fibers", "curved_fibers",
-        "random_walk_fibers", "cross_linked_fibers", "delaunay_network", "random_laminate",
+        "random_walk_fibers", "long_fibers", "cross_linked_fibers", "delaunay_network",
+        "random_laminate", "woven_textile",
     ),
     "Tessellations and foams": (
-        "voronoi", "laguerre", "ebsd", "open_foam", "level_set_foam", "honeycomb",
+        "voronoi", "laguerre", "nested_grains", "ebsd", "open_foam", "level_set_foam",
+        "honeycomb",
     ),
     "Lattices and TPMS": (
         "strut_lattice", "random_lattice", "hierarchical_lattice", "scale_rich_network", "tpms",
-        "fractal_sponge",
+        "fractal_sponge", "microgen",
     ),
     "Bio-inspired": ("nacre", "bouligand", "osteons"),
     "Growth and patterns": (
@@ -314,10 +316,15 @@ class Session:
         "view3d",
     )
 
+    #: The items taken out of the workspace that :meth:`restore` can bring back, the last
+    #: ones (the close button of the page offers to undo its last closes)
+    CLOSED = 16
+
     def __init__(self, root: Path):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.items: dict[str, dict] = {}
+        self._closed: dict[str, dict] = {}  # the items removed, the last CLOSED of them
         self._count = 0  # the numbers given, never given again (after a removal)
         self._lock = threading.Lock()
 
@@ -354,10 +361,26 @@ class Session:
         return item
 
     def remove(self, key) -> None:
-        """Take an item out of the workspace (its files stay in the session folder)."""
+        """Take an item out of the workspace (its files stay in the session folder); the
+        last :data:`CLOSED` items removed can be brought back by :meth:`restore`."""
         with self._lock:
-            if self.items.pop(str(key), None) is None:
+            item = self.items.pop(str(key), None)
+            if item is None:
                 raise ValueError(f"no item {key!r} in the workspace of this session")
+            self._closed.pop(str(key), None)
+            self._closed[str(key)] = item
+            while len(self._closed) > self.CLOSED:
+                self._closed.pop(next(iter(self._closed)))
+
+    def restore(self, key) -> dict:
+        """Bring back an item that :meth:`remove` took out of the workspace, with its
+        number, title and objects (the undo of the close button of the page)."""
+        with self._lock:
+            item = self._closed.pop(str(key), None)
+            if item is None:
+                raise ValueError(f"no item {key!r} closed in this session to bring back")
+            self.items[str(key)] = item
+        return item
 
     def rename(self, key, title) -> dict:
         """Give an item another title (after its number, which it keeps)."""
@@ -962,7 +985,7 @@ CMAPS = (
     "jet",
     "gray",
 )
-VIDEO_KINDS = ("field", "orthoslices", "turntable", "sweep", "none")
+VIDEO_KINDS = ("field", "orthoslices", "turntable", "sweep", "run", "none")
 MAX_ELEMENTS_HINT = 200_000
 
 
@@ -1146,6 +1169,9 @@ def _files(key: str, folder: Path) -> list[dict]:
         ".sh": "configuration",
         ".bat": "configuration",
         ".rad": "data",  # OpenRadioss
+        ".pvd": "data",  # a ParaView collection: the steps of a loading path
+        ".obj": "data",  # the particles of a phase (DEM)
+        ".data": "data",  # LAMMPS, LIGGGHTS
     }
     out = []
     for path in sorted(folder.iterdir()):
@@ -1333,9 +1359,78 @@ def _clim(request: dict):
 
 
 def _field_files(sim: Path) -> tuple[list[Path], list[Path]]:
-    """The files of the fields of a simulation: on its mesh (.vtu), on its voxels (.vti)."""
+    """The files of the fields of a simulation: on its mesh (.vtu), on its voxels (.vti);
+    for the run of a tool, which writes none of these, the last of its steps, else the
+    last of the meshes of its fields (:func:`~morphogen.gui.tools.meshes_of_result`)."""
+    sim = Path(sim)
     meshes = [p for p in sorted(sim.glob("sample_0000_*_*.vtu")) if not p.stem.endswith("_tet")]
-    return meshes, sorted(sim.glob("sample_0000_*_*.vti"))
+    images = sorted(sim.glob("sample_0000_*_*.vti"))
+    if meshes or images or not sim.is_dir():
+        return meshes, images
+    steps = path_steps(sim)
+    if steps:
+        last = sim / steps[-1]["file"]
+        return ([last], []) if last.suffix == ".vtu" else ([], [last])
+    from morphogen.gui.tools import meshes_of_result
+
+    return meshes_of_result(sim)[-1:], []
+
+
+_STEP = re.compile(r"_step(\d{3,})\.vt[iu]$")
+
+
+def path_steps(folder: Path) -> list[dict]:
+    """The fields of the steps of a loading path in a folder, in their order: ``{"file",
+    "time", "label"}`` from the manifest that the tool writes (``<path>_steps.json``), or
+    the files ``<path>_step<k>.vtu`` / ``.vti`` numbered in order for the runs written
+    without one; empty when only the end was written."""
+    import json
+
+    folder = Path(folder)
+    for manifest in sorted(folder.glob("*_steps.json")):
+        try:
+            steps = json.loads(manifest.read_text(encoding="utf-8"))["steps"]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        found = [s for s in steps if (folder / str(s.get("file", ""))).is_file()]
+        if found:
+            return found
+    if not folder.is_dir():
+        return []
+    numbered = sorted((int(m.group(1)), p.name) for p in folder.iterdir()
+                      if (m := _STEP.search(p.name)))  # fmt: skip
+    return [{"file": name, "time": None, "label": f"step {k}"} for k, name in numbered]
+
+
+def write_pvd(path: Path, steps: list[dict]) -> Path:
+    """A ParaView collection (``.pvd``) of the files of the steps of a loading path, at
+    their times (their numbers for the steps without one): the series opens in one go."""
+    from xml.sax.saxutils import quoteattr
+
+    rows = []
+    for k, s in enumerate(steps):
+        t = s.get("time")
+        rows.append(f'    <DataSet timestep="{k if t is None else float(t):.10g}" part="0" '
+                    f"file={quoteattr(str(s['file']))}/>")  # fmt: skip
+    path = Path(path)
+    path.write_text(
+        '<?xml version="1.0"?>\n<VTKFile type="Collection" version="0.1">\n  <Collection>\n'
+        + "\n".join(rows)
+        + "\n  </Collection>\n</VTKFile>\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _step_file(folder: Path, steps: list[dict], step) -> Path | None:
+    """The file of the step ``step`` (an index of ``steps``, negative from the end; None:
+    none chosen, the end of the path)."""
+    if step in (None, "") or not steps:
+        return None
+    k = int(step)
+    if not -len(steps) <= k < len(steps):
+        raise ValueError(f"step: from 0 to {len(steps) - 1}")
+    return Path(folder) / steps[k]["file"]
 
 
 def field_names(sim: Path) -> list[str]:
@@ -1357,18 +1452,59 @@ def field_names(sim: Path) -> list[str]:
 
 
 def simulation_fields(request: dict, session: Session) -> dict:
-    """The fields of a simulation of the workspace (``key``), the usual ones first."""
-    item = session.item(request.get("key"), ("simulation",))
-    names = field_names(session.file(item["key"], "results.csv").parent)
+    """The fields of a simulation or of the run of a tool of the workspace (``key``), the
+    usual ones first."""
+    item = session.item(request.get("key"), ("simulation", "result"))
+    names = field_names(session.root / item["key"])
     usual = [n for n in SIM_FIELDS if n in names]
     return {"fields": usual + [n for n in names if n not in usual]}
+
+
+def _step_frames(sim: Path, steps: list[dict], field: str, request: dict, **view) -> list:
+    """The frames of a field along the steps of a loading path (:func:`path_steps`), one
+    per step on one colour range: the mesh deformed by the displacement of each step, or
+    the middle section of the voxels along ``axis``."""
+    from morphogen.viz import video as vv
+
+    files = [sim / s["file"] for s in steps]
+    captions = [s.get("label") or f"step {k + 1}" for k, s in enumerate(steps)]
+    if files[0].suffix == ".vtu":
+        from morphogen.io.vtk import read_vtu
+
+        meshes, us, values = [], [], []
+        for path in files:
+            data = read_vtu(path)
+            arrays = {**data["point_data"], **data["cell_data"]}
+            u = np.asarray(arrays["displacement"], dtype=float)
+            meshes.append(io.read_tet_mesh(path))
+            us.append(u)
+            values.append(np.linalg.norm(u, axis=1) if field == "displacement" else arrays[field])
+        same = all(m.nodes.shape == meshes[0].nodes.shape
+                   and m.elements.shape == meshes[0].elements.shape for m in meshes)  # fmt: skip
+        if same:
+            return vv.history_frames(meshes[0], us, values, captions=captions, title=field, **view)
+        # meshes that change from step to step (elements deleted, cracks): each frame its
+        # own mesh, on the colour range of all
+        if view.get("clim") is None:
+            finite = [np.asarray(v, float)[np.isfinite(v)] for v in values]
+            lows = [float(v.min()) for v in finite if v.size]
+            view = {**view, "clim": (min(lows), max(float(v.max()) for v in finite if v.size))
+                    if lows else None}  # fmt: skip
+        return [vv.deformed_view(m, u, v, title=f"{field}: {c}", **view)
+                for m, u, v, c in zip(meshes, us, values, captions, strict=True)]  # fmt: skip
+    images = [io.load_image(path, field) for path in files]
+    lo, hi = view.get("clim") or (None, None)
+    axis = "xyz".index(request.get("axis") or "z")
+    return vv.time_section_frames(images, axis, size=480, cmap=view.get("cmap", "viridis"),
+                                  vmin=lo, vmax=hi, captions=captions, label=field)  # fmt: skip
 
 
 def _field_view(sim: Path, out: Path, key: str, name: str, request: dict) -> dict:
     """A view of the fields of the simulation of folder ``sim`` (field, colormap, range,
     magnification, cut) written to ``out`` as ``name``.png, and its video (``video``:
-    "field" on the deformed mesh under a growing or oscillating load, "turntable",
-    "sweep" of a cross-section; the sections of an FFT image)."""
+    "field" on the deformed mesh under a growing or oscillating load — along the steps of a
+    loading path whose steps were written, one frame per step —, "turntable", "sweep" of a
+    cross-section; the sections of an FFT image)."""
     from PIL import Image
 
     from morphogen.viz import video as vv
@@ -1399,7 +1535,11 @@ def _field_view(sim: Path, out: Path, key: str, name: str, request: dict) -> dic
         data = read_vtu(meshes[0])
         arrays = {**data["point_data"], **data["cell_data"]}
         u = arrays.get("displacement")
-        values = np.linalg.norm(u, axis=1) if field == "displacement" else arrays[field]
+        chosen = np.asarray(arrays[field]) if field in arrays else None
+        mode = u is None and chosen is not None and chosen.ndim == 2 and chosen.shape[1] == 3
+        if mode:  # a mode (the pattern of a bifurcation): it moves the mesh
+            u = chosen.astype(float)
+        values = np.linalg.norm(u, axis=1) if field == "displacement" or mode else chosen
         magnification = request.get("magnification")
         magnification = None if magnification in (None, "", "auto") else float(magnification)
         section = _section(request)
@@ -1410,7 +1550,11 @@ def _field_view(sim: Path, out: Path, key: str, name: str, request: dict) -> dic
         )  # fmt: skip
         Image.fromarray(rgb).save(out / f"{name}.png")
         frames = None
-        if kind == "field":
+        steps = path_steps(sim)
+        if kind == "field" and len(steps) > 1:  # the path itself, step after step
+            frames = _step_frames(sim, steps, field, request, magnification=magnification,
+                                  section=cut, cmap=cmap, clim=clim)  # fmt: skip
+        elif kind == "field":
             frames = vv.field_frames(
                 mesh, u, values, magnification=magnification, section=cut, cmap=cmap,
                 clim=clim, title=field, wave=request.get("wave") or "ramp", frames=frames_n,
@@ -1440,7 +1584,10 @@ def _field_view(sim: Path, out: Path, key: str, name: str, request: dict) -> dic
             )  # fmt: skip
         if kind != "none":
             lo, hi = clim or (None, None)
-            if kind in ("field", "sweep"):
+            steps = path_steps(sim)
+            if kind == "field" and len(steps) > 1:  # the path itself, step after step
+                frames = _step_frames(sim, steps, field, request, cmap=cmap, clim=clim)
+            elif kind in ("field", "sweep"):
                 frames = vv.section_frames(
                     values, axis, size=480, cmap=cmap, vmin=lo, vmax=hi, labels=False,
                     bar=True, label=field,
@@ -1493,7 +1640,9 @@ def surface(request: dict, session: Session) -> dict:
     cells along its longest edge (:data:`SURFACE_RESOLUTION` by default, at most
     :data:`MAX_SURFACE_RESOLUTION`); of a simulation, the faces of the mesh or of the
     voxels of its fields, with ``field`` (by default the von Mises stress) and the
-    displacement of the mesh, its sections on a grid of ``resolution`` cells too. At most
+    displacement of the mesh, its sections on a grid of ``resolution`` cells too; of a
+    loading path whose steps were written, those of ``step`` (an index of ``steps``, the
+    list it returns with their times and labels; by default the end of the path). At most
     ``budget`` triangles (300 000 and below): the grids are made coarser, the meshes
     simplified, to fit."""
     from morphogen.viz import surfaces
@@ -1502,6 +1651,7 @@ def surface(request: dict, session: Session) -> dict:
     resolution = _surface_resolution(request.get("resolution"))
     budget = _budget(request.get("budget"))
     started = time.perf_counter()
+    steps, step = [], None
     with warnings.catch_warnings():  # those of the libraries, e.g. while Numba compiles
         warnings.simplefilter("ignore")
         if item["kind"] == "morphology":
@@ -1517,8 +1667,17 @@ def surface(request: dict, session: Session) -> dict:
                 from morphogen.gui.tools import meshes_of_result
 
                 meshes, images = meshes_of_result(folder)[::-1], []
+                if not meshes and folder.is_dir():  # the fields of its steps (voxels)
+                    meshes, images = _field_files(folder)
             else:
                 meshes, images = _field_files(folder) if folder.is_dir() else ([], [])
+            steps = path_steps(folder) if folder.is_dir() else []
+            chosen = _step_file(folder, steps, request.get("step"))
+            if chosen is not None:  # a step of the path, in place of its end
+                step = int(request["step"]) % len(steps)
+                meshes, images = ([chosen], []) if chosen.suffix == ".vtu" else ([], [chosen])
+            elif steps:
+                step = len(steps) - 1
             field = request.get("field") or None
             if meshes:
                 shown = surfaces.vtu_surface(
@@ -1552,6 +1711,9 @@ def surface(request: dict, session: Session) -> dict:
         budget=budget,
         time_s=round(time.perf_counter() - started, 3),
     )
+    if len(steps) > 1:  # the steps of a loading path, which the view goes through
+        out["steps"] = [{"label": s.get("label"), "time": s.get("time")} for s in steps]
+        out["step"] = step
     return out
 
 
@@ -1579,7 +1741,24 @@ def _video(frames, folder: Path, key: str, name: str, request: dict, title: str)
 
 
 #: What the export writes: of a morphology, of a simulation
-MORPHOLOGY_EXPORTS = ("geometry", "sections", "level_set", "image", "surface", "mesh")
+MORPHOLOGY_EXPORTS = (
+    "geometry", "sections", "level_set", "image", "surface", "mesh", "particles", "blender",
+)  # fmt: skip
+#: The fluids of the scene for Blender (Mantaflow)
+BLENDER_FLUIDS = ("gas", "liquid", "none")
+#: The files of the particles of a phase (DEM) by the choice of the form
+PARTICLE_FILES = {
+    "stl": "particles.stl",
+    "stl_each": "particles.stl",
+    "obj": "particles.obj",
+    "vtu": "particles.vtu",
+    "msh": "particles.msh",
+    "msh_tetrahedra": "particles_tetrahedra.msh",
+    "csv": "particles.csv",
+    "data": "particles.data",
+    "yade": "particles_yade.txt",
+    "blender": "blender_scene.zip",
+}
 SIMULATION_EXPORTS = ("figure", "tables", "fields", "mesh", "configuration")
 MORPHOLOGY_VIDEOS = ("none", "sweep", "orthoslices", "turntable", "formation")
 
@@ -1590,20 +1769,22 @@ def export(request: dict, session: Session) -> dict:
     voxel images of its level set and phases, its surface (STL) and conforming mesh (for
     a morphology of several phases: the implicit function and the surface of each phase,
     ``level_set_phase<k>.vti`` and ``surface_phase<k>.stl``, and the mesh conforming to
-    all their interfaces), and a video of its sections sweeping it, orthoslices or a
-    turntable; of a simulation, a view of its fields (figure and video), its tables,
-    fields, mesh and configuration."""
-    item = session.item(request.get("source"))
+    all their interfaces), the particles of one phase without its matrix for the
+    discrete element method (:func:`_particles_export`), and a video of its sections
+    sweeping it, orthoslices or a turntable; of a simulation or of the run of a tool, a
+    view of its fields (figure and video, or the videos of the frames its tool kept), its
+    tables, fields (and those of its steps), mesh and configuration."""
+    item = session.item(request.get("source"), ("morphology", "simulation", "result"))
     key, folder = session.folder()
     if item["kind"] == "morphology":
         out = _export_morphology(item, request, key, folder)
     else:
         out = _export_simulation(item, request, key, folder, session)
-    files = [p for p in sorted(folder.iterdir()) if p.is_file()]
-    if files:
+    files = [p for p in sorted(folder.rglob("*")) if p.is_file() and p.name != "export.zip"]
+    if files:  # the steps of a run in their subfolders too (the animations of a dynamic run)
         with zipfile.ZipFile(folder / "export.zip", "w", zipfile.ZIP_DEFLATED) as archive:
             for path in files:
-                archive.write(path, path.name)
+                archive.write(path, path.relative_to(folder).as_posix())
         out["archive"] = f"/files/{key}/export.zip"
     out["files"] = _files(key, folder)
     out["source"] = session.public(item)
@@ -1657,6 +1838,10 @@ def _export_morphology(item: dict, request: dict, key: str, folder: Path) -> dic
         edge = float(np.max(micro.domain.lengths))
         size = _number(request, "element_size", edge / 12, edge / 200, edge)
         io.save_mesh(conforming_mesh(micro, size=size), folder / "mesh.vtu")
+    if "particles" in chosen:  # one phase without its matrix, for the discrete elements
+        _particles_export(micro, request, shape, folder)
+    if "blender" in chosen:  # the phases as the objects of Blender, in a fluid domain
+        _blender_export(micro, request, shape, folder)
     kind = request.get("video") or "none"
     if kind not in MORPHOLOGY_VIDEOS:
         raise ValueError(f"video: one of {', '.join(MORPHOLOGY_VIDEOS)}")
@@ -1702,13 +1887,113 @@ def _export_morphology(item: dict, request: dict, key: str, folder: Path) -> dic
     return out
 
 
+def _blender_export(micro, request: dict, shape: int, folder: Path) -> Path:
+    """The scene of a morphology for Blender (``blender_fluid``: gas, liquid or none, along
+    ``blender_axis``), archived: the surfaces of its phases from its conforming mesh (of
+    ``element_size``), the fluid of Mantaflow around them and the script that builds it."""
+    from morphogen.interop.blender import write_blender_scene
+
+    fluid = request.get("blender_fluid") or "gas"
+    if fluid not in BLENDER_FLUIDS:
+        raise ValueError(f"fluid of the scene for Blender: one of {', '.join(BLENDER_FLUIDS)}")
+    axis = str(request.get("blender_axis") or "x")
+    if axis not in ("x", "y", "z"):
+        raise ValueError("axis of the flow of the scene for Blender: x, y or z")
+    edge = float(np.max(micro.domain.lengths))
+    size = _number(request, "element_size", edge / 12, edge / 200, edge)
+    scene = write_blender_scene(folder / "blender_scene", micro, size=size, shape=shape,
+                                fluid=None if fluid == "none" else fluid,
+                                axis="xyz".index(axis))  # fmt: skip
+    archive = folder / "blender_scene.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as out:
+        for path in sorted(scene.folder.iterdir()):
+            out.write(path, f"blender_scene/{path.name}")
+    shutil.rmtree(scene.folder)
+    return archive
+
+
+def _particles_export(micro, request: dict, shape: int, folder: Path) -> Path:
+    """The particles of a phase of a morphology (``particles_phase``) in the file of the
+    format chosen (``particles_format``, :data:`PARTICLE_FILES`), their surfaces remeshed
+    at ``particles_size`` if given; one STL per particle goes in an archive of its own."""
+    from morphogen.io.dem import write_particles
+
+    phases = [int(p) for p in micro.implicit_phases()]
+    phase = int(request.get("particles_phase") or (1 if 1 in phases else phases[0]))
+    if phase not in phases:
+        raise ValueError(f"phase of the particles: one of {', '.join(map(str, phases))}")
+    fmt = request.get("particles_format") or "stl"
+    if fmt not in PARTICLE_FILES:
+        raise ValueError(f"format of the particles: one of {', '.join(PARTICLE_FILES)}")
+    _voxels(micro.domain, shape, 12.0, "particles")
+    given = str(request.get("particles_size") or "").strip()
+    try:
+        size = float(given) if given else None
+    except ValueError:
+        raise ValueError(f"triangle size of the particles: a length, got {given!r}") from None
+    if size is not None and not size > 0:
+        raise ValueError("triangle size of the particles: a positive length")
+    if fmt == "blender":  # the rigid bodies of Blender: its scene and its script, archived
+        from morphogen.interop.blender import write_blender
+
+        scene = write_blender(folder / "blender", micro, phase, shape=shape)
+        archive = folder / PARTICLE_FILES[fmt]
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as out:
+            for path in sorted(scene.folder.iterdir()):
+                out.write(path, f"blender/{path.name}")
+        shutil.rmtree(scene.folder)
+        return archive
+    if fmt != "stl_each":
+        elements = "tetrahedra" if fmt == "msh_tetrahedra" else "triangles"
+        return write_particles(folder / PARTICLE_FILES[fmt], micro, phase, shape=shape,
+                               format="yade" if fmt == "yade" else None, size=size,
+                               elements=elements)  # fmt: skip
+    each = folder / "particles"
+    files = write_particles(folder / "particles.stl", micro, phase, shape=shape, separate=True,
+                            size=size)  # fmt: skip
+    archive = folder / "particles_stl.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as out:
+        for path in files:
+            out.write(path, path.name)
+    shutil.rmtree(each)
+    return archive
+
+
+def _run_videos(sim: Path, folder: Path, key: str, request: dict) -> list[dict]:
+    """The videos of a run from the frames that its tool kept without writing them
+    (``<name>.frames.npz``, :meth:`~morphogen.gui.tools.ToolContext.video`), at their
+    speed and mode unless the request gives them; for a run whose tool kept none, the
+    video of a field along its steps (kind "field")."""
+    kept = sorted(Path(sim).glob("*.frames.npz"))
+    if not kept:
+        names = field_names(sim) if len(path_steps(sim)) > 1 else []
+        if names:
+            field = request.get("field") if request.get("field") in names else names[0]
+            view = {**request, "video": "field", "field": field}
+            return [_field_view(sim, folder, key, "run", view)["video"]]
+        raise ValueError("video: this run kept no frames (its videos were written, or none)")
+    out = []
+    for path in kept:
+        with np.load(path) as data:
+            frames = list(data["frames"])
+            fps, mode, title = float(data["fps"]), str(data["mode"]), str(data["title"])
+        name = path.name[: -len(".frames.npz")]
+        given = {"fps": request.get("fps") or fps, "mode": request.get("mode") or mode}
+        out.append(_video(frames, folder, key, name, given, title))
+    return out
+
+
 def _export_simulation(item: dict, request: dict, key: str, folder: Path, session) -> dict:
     from morphogen.io.tables import write_table
 
-    sim = session.file(item["key"], "results.csv").parent
+    sim = session.root / item["key"]  # its folder: of a simulation, or of the run of a tool
     chosen = _chosen(request, SIMULATION_EXPORTS)
     out: dict = {"figures": [], "videos": []}
-    if "figure" in chosen or (request.get("video") or "none") != "none":
+    kind = request.get("video") or "none"
+    if kind == "run":  # the videos of the run from the frames its tool kept
+        out["videos"] += _run_videos(sim, folder, key, request)
+        request = {**request, "video": "none"}
+    if "figure" in chosen or kind not in ("none", "run"):
         view = _field_view(sim, folder, key, "view", request)
         if "figure" in chosen:
             out["figures"].append(view["figure"])
@@ -1718,8 +2003,10 @@ def _export_simulation(item: dict, request: dict, key: str, folder: Path, sessio
                     p.unlink()
         if "video" in view:
             out["videos"].append(view["video"])
-    if "tables" in chosen:
-        for stem in ("results", "homogenization"):
+    if "tables" in chosen:  # those of a simulation, or every table of the run of a tool
+        stems = ["results", "homogenization"] if item["kind"] == "simulation" else sorted(
+            p.stem for p in sim.glob("*.csv"))  # fmt: skip
+        for stem in stems:
             path = sim / f"{stem}.csv"
             if path.exists():
                 shutil.copy2(path, folder / path.name)
@@ -1729,9 +2016,16 @@ def _export_simulation(item: dict, request: dict, key: str, folder: Path, sessio
                     if fmt in ("txt", "xlsx"):
                         write_table(folder / f"{stem}.{fmt}", rows)
     if "fields" in chosen:
-        for path in [*sim.glob("sample_0000_*_*.vtu"), *sim.glob("sample_0000_*_*.vti")]:
-            if not path.stem.endswith("_tet"):
-                shutil.copy2(path, folder / path.name)
+        meshes, images = _field_files(sim)
+        for path in [*meshes, *images]:
+            shutil.copy2(path, folder / path.name)
+        steps = path_steps(sim)
+        if steps:  # those of the steps of a path or of a run, a time series for ParaView
+            for s in steps:
+                target = folder / s["file"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(sim / s["file"], target)
+            write_pvd(folder / "steps.pvd", steps)
     if "mesh" in chosen:
         for path in sim.glob("sample_0000_tet.*"):
             shutil.copy2(path, folder / path.name)

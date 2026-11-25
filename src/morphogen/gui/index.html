@@ -125,6 +125,25 @@
   .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chip.selected { border-color: var(--accent); background: var(--accent-soft); }
   .chip.more { border-style: dashed; cursor: pointer; }
+  /* the close button of a chip: the item out of the workspace in one click (undo offered) */
+  .chip { padding-right: 3px; }
+  .chip .close { flex: none; width: 18px; height: 18px; padding: 0; margin-left: -2px;
+                 border: 0; border-radius: 50%; background: none; color: var(--muted);
+                 font: 600 14px/18px system-ui, sans-serif; cursor: pointer;
+                 display: inline-flex; align-items: center; justify-content: center; }
+  .chip .close:hover, .chip .close:focus-visible { background: var(--line); color: var(--ink);
+                                                   outline: none; }
+  .chip.more, .chip.closed { padding-right: 8px; }
+  .chip.closed { border-style: dashed; cursor: default; color: var(--muted); }
+  .chip.closed button { border: 0; background: none; padding: 0; font: inherit;
+                        font-weight: 600; color: var(--accent); cursor: pointer; }
+  /* a distribution of sizes: monodisperse or a law, and the fields of that law */
+  .dist { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .dist select { width: auto; flex: 0 0 auto; }
+  .dist .dist-fields { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }
+  .dist .dist-l { display: flex; flex-direction: column; flex: 1 1 60px; min-width: 0; }
+  .dist .dist-l small { font-size: 11px; color: var(--muted); margin: 0 0 1px 2px; }
+  .dist .dist-fields input { min-width: 0; margin-top: 0; }
   .source { display: flex; gap: 10px; align-items: center; margin: 8px 0 2px; padding: 8px;
             border: 1px dashed var(--line); border-radius: 8px; font-size: 12px; }
   .source img { width: 64px; height: 64px; border-radius: 4px; border: 1px solid var(--line); }
@@ -329,6 +348,41 @@
           </div>
           <div class="row"><div><label>Element size <small>(mesh; blank: edge / 12)</small></label><input id="exp-element" placeholder="auto"></div></div>
         </fieldset>
+        <fieldset><legend>Particles (DEM)</legend>
+          <div class="checks">
+            <label title="one phase without its matrix, for the discrete element method: a closed surface per particle, whole across the periodic faces; the exact spheres of the models of spheres and fibres"><input type="checkbox" data-out="particles">particles of one phase</label>
+          </div>
+          <div class="row">
+            <div><label>Phase</label><select id="exp-dem-phase"></select></div>
+            <div><label>Format</label><select id="exp-dem-format">
+              <option value="stl">surfaces, one solid each (.stl)</option>
+              <option value="stl_each">surfaces, one file each (.stl)</option>
+              <option value="obj">surfaces, one object each (.obj)</option>
+              <option value="vtu">surfaces with their numbers (.vtu)</option>
+              <option value="msh">surfaces for LMGC90, Gmsh (.msh)</option>
+              <option value="msh_tetrahedra">tetrahedra for LMGC90, Gmsh (.msh)</option>
+              <option value="csv">table of the particles or spheres (.csv)</option>
+              <option value="data">spheres for LAMMPS, LIGGGHTS (.data)</option>
+              <option value="yade">spheres for YADE (.txt)</option>
+              <option value="blender">rigid bodies for Blender to settle (.zip)</option></select></div>
+            <div><label>Triangle size <small>(remeshed by MMG; blank: the voxels')</small></label><input id="exp-dem-size" placeholder="as cut"></div>
+          </div>
+          <p class="note">The surfaces are cut from the implicit function of the phase on the voxels above; the models of spheres and segments give their exact spheres (a fibre a clump of spheres along its axis) in the tables and sphere files, the other models the spheres of the volume of each particle. The Gmsh files hold each particle as an entity and a physical group of its own, as LMGC90 reads them (<code>readMesh</code>, <code>separateMeshes</code>, then <code>surfacicMeshToRigid3D</code> or <code>volumicMeshToRigid3D</code>); a triangle size remeshes the surfaces with fewer, regular faces. The scene for Blender drops the particles in a box under gravity (its rigid bodies): <code>blender --background --python morphogen_blender.py</code>, then <code>morphogen.interop.blender.read_blender</code> gives the packing.</p>
+        </fieldset>
+        <fieldset><legend>Blender (CFD)</legend>
+          <div class="checks">
+            <label title="the closed surface of each phase from its conforming mesh, as objects of Blender with their colours, and the fluid solver of Blender (Mantaflow) set up around them: its domain, the phases as obstacles, an inflow and an outflow"><input type="checkbox" data-out="blender">scene for Blender (.zip)</label>
+          </div>
+          <div class="row">
+            <div><label>Fluid</label><select id="exp-blender-fluid">
+              <option value="gas">gas (smoke carried by the flow)</option>
+              <option value="liquid">liquid</option>
+              <option value="none">none: the phases alone</option></select></div>
+            <div><label>Flow along</label><select id="exp-blender-axis">
+              <option value="x">x</option><option value="y">y</option><option value="z">z</option></select></div>
+          </div>
+          <p class="note">The archive holds the surfaces of the phases (<code>phase_1.stl</code>…, from the mesh conforming to the interfaces, of the element size above; also for OpenFOAM's snappyHexMesh), <code>scene.json</code> and the script that builds the scene: <code>blender --background --python morphogen_blender_scene.py</code> writes <code>scene.blend</code>, to bake the flow in Blender. Mantaflow is a solver for visual effects: it shows the streams through the pores, not quantitative Darcy flows.</p>
+        </fieldset>
         <fieldset><legend>Video</legend>
           <div class="row">
             <div><label>Kind</label><select id="exp-mvideo">
@@ -372,11 +426,12 @@
         <fieldset><legend>Video</legend>
           <div class="row">
             <div><label>Kind</label><select id="exp-svideo">
-              <option value="field">field on the deformed mesh</option>
+              <option value="none" selected>none</option>
+              <option value="field">field along the steps of the path (or a growing load)</option>
               <option value="turntable">turntable</option>
               <option value="sweep">cross-section sweeping</option>
               <option value="orthoslices">orthoslices (FFT)</option>
-              <option value="none">none</option></select></div>
+              <option value="run">the frames of the run (its tool kept them)</option></select></div>
             <div><label>Load</label><select id="exp-wave">
               <option value="ramp">growing</option><option value="sine">oscillating</option></select></div>
           </div>
@@ -534,6 +589,10 @@ function buildForm(container, model) {
       const on = given ? !!example[p.name] : !!p.default;
       wrap.innerHTML = `<label title="${esc(p.doc)}"><input type="checkbox" data-name="${p.name}" data-kind="bool"
         ${on ? "checked" : ""}>${esc(p.name)}</label>`;
+    } else if (p.kind === "distribution") {  // a size: monodisperse, or a law of the sizes
+      wrap.innerHTML = `<label title="${esc(p.doc)}">${esc(p.name)}${req}<small>${unit} — ${esc(p.doc)}</small></label>` +
+        distEditor(p.name, given ? example[p.name] : null, p.default);
+      bindDist(wrap.querySelector(".dist"));
     } else {
       const def = p.default === null || p.default === undefined ? "" :
         (typeof p.default === "object" ? JSON.stringify(p.default) : p.default);
@@ -543,6 +602,72 @@ function buildForm(container, model) {
     }
     container.appendChild(wrap);
   }
+}
+// the parameters that are distributions (radii, lengths, thicknesses...): monodisperse (one
+// value) or polydisperse (a law: uniform, log-normal, normal, discrete), written as the JSON
+// of the configuration in a hidden field, which readForm reads as any other
+const DIST_LAWS = {
+  constant: ["monodisperse", [["value", "size"]]],
+  uniform: ["polydisperse: uniform", [["low", "low"], ["high", "high"]]],
+  lognormal: ["polydisperse: log-normal", [["mean", "mean"], ["std", "std. dev."]]],
+  normal: ["polydisperse: normal (truncated)", [["mean", "mean"], ["std", "std. dev."], ["low", "low (opt.)"], ["high", "high (opt.)"]]],
+  discrete: ["polydisperse: discrete sizes", [["values", "sizes"], ["weights", "weights"]]],
+};
+function distOf(v) {  // a value of a distribution (a number or a mapping) as {type, fields}
+  if (v === null || v === undefined || v === "") return {type: "constant", fields: {}};
+  if (typeof v === "number") return {type: "constant", fields: {value: v}};
+  const type = String(v.type || "constant").toLowerCase();
+  const fields = {};
+  for (const [k, x] of Object.entries(v)) if (k !== "type") fields[k] = Array.isArray(x) ? x.join(", ") : x;
+  return {type: type in DIST_LAWS ? type : "constant", fields};
+}
+function distJSON(type, fields) {  // the configuration value of the fields of a law ("" if incomplete)
+  const num = (x) => (x === "" || x === undefined || x === null ? NaN : Number(x));
+  if (type === "constant") return Number.isFinite(num(fields.value)) ? String(num(fields.value)) : "";
+  const out = {type};
+  for (const [k] of DIST_LAWS[type][1]) {
+    const x = fields[k];
+    if (x === "" || x === undefined || x === null) {
+      if ((type === "normal" && (k === "low" || k === "high"))) continue;  // optional bounds
+      return "";
+    }
+    out[k] = k === "values" || k === "weights" ? numbers(String(x)) : num(x);
+  }
+  return JSON.stringify(out);
+}
+function distEditor(name, value, fallback) {  // the HTML of the editor of a distribution
+  const given = distOf(value), def = distOf(fallback);
+  const shown = value === null || value === undefined ? {type: def.type, fields: {}} : given;
+  const options = Object.entries(DIST_LAWS).map(([k, [t]]) => `<option value="${k}"${k === shown.type ? " selected" : ""}>${esc(t)}</option>`).join("");
+  const json = value === null || value === undefined ? "" : distJSON(given.type, given.fields);
+  const hint = esc(def.fields.value !== undefined ? def.fields.value : "");
+  return `<div class="dist" data-hint="${hint}"><select class="dist-type" title="monodisperse: one size for every object; polydisperse: a size drawn for each from a law">${options}</select><span class="dist-fields">${distFields(shown.type, shown.fields, hint)}</span><input type="hidden" data-name="${esc(name)}" data-kind="distribution" value="${esc(json)}"></div>`;
+}
+function distFields(type, fields, hint) {
+  return DIST_LAWS[type][1].map(([k, label]) => {
+    const v = fields[k] === undefined ? "" : String(fields[k]);
+    const holder = type === "constant" && hint ? hint : label;
+    const named = type === "constant" ? "" : `<small>${esc(label)}</small>`;
+    return `<span class="dist-l">${named}<input class="dist-field" data-field="${k}" placeholder="${esc(holder)}" title="${esc(label)}" value="${esc(v)}"></span>`;
+  }).join("");
+}
+function bindDist(box) {  // the editor follows its law and its fields into the hidden value
+  const hidden = box.querySelector("input[type=hidden]"), type = box.querySelector(".dist-type");
+  const read = () => Object.fromEntries([...box.querySelectorAll(".dist-field")].map((el) => [el.dataset.field, el.value.trim()]));
+  const write = () => { hidden.value = distJSON(type.value, read()); };
+  type.onchange = () => {  // the new law around the mean of the former, when there is one
+    const old = read(), m = Number(old.value || old.mean || (old.low && old.high ? (Number(old.low) + Number(old.high)) / 2 : NaN));
+    const f = {};
+    if (Number.isFinite(m)) {
+      const r = (x) => +x.toPrecision(4);
+      Object.assign(f, {constant: {value: r(m)}, uniform: {low: r(0.8 * m), high: r(1.2 * m)},
+        lognormal: {mean: r(m), std: r(0.2 * m)}, normal: {mean: r(m), std: r(0.2 * m)},
+        discrete: {values: `${r(0.8 * m)}, ${r(1.2 * m)}`, weights: "0.5, 0.5"}}[type.value]);
+    }
+    box.querySelector(".dist-fields").innerHTML = distFields(type.value, f, box.dataset.hint);
+    write();
+  };
+  box.addEventListener("input", (e) => { if (e.target.classList.contains("dist-field")) write(); });
 }
 function readForm(container) {
   const out = {};
@@ -711,8 +836,29 @@ function options(select, items, extra, keep) {
 }
 const RECENT_RUNS = 4;  // the runs of tools shown in the strip, the others behind a chip
 let ALL_RUNS = false;
-function chip(i) {
-  return `<span class="chip" data-key="${i.key}" title="${esc(i.title)}">${i.thumbnail ? `<img src="${i.thumbnail}" alt="">` : ""}<span class="kind">${KIND[i.kind]}</span><span>${esc(i.title)}</span></span>`;
+let CLOSED = null;  // the last item closed by its button: {key, title, timer}, to undo
+function chip(i) {  // an item of the strip: a click opens its menu, its cross closes it
+  return `<span class="chip" data-key="${i.key}" title="${esc(i.title)}">${i.thumbnail ? `<img src="${i.thumbnail}" alt="">` : ""}<span class="kind">${KIND[i.kind]}</span><span>${esc(i.title)}</span><button type="button" class="close" data-close="${i.key}" title="close: take it out of the workspace (its files stay)" aria-label="close ${esc(i.title)}">×</button></span>`;
+}
+function closedChip(c) {  // the item just closed, with the undo of the close
+  return `<span class="chip closed" role="status"><span>${esc(c.title)} closed</span><button type="button" id="ws-undo" title="bring it back">Undo</button></span>`;
+}
+async function closeItem(key) {  // the cross of a chip (or its middle click)
+  const it = item(key);
+  if (!it) return;
+  try { await api("/api/workspace/remove", {key}); } catch (e) { alert(e.message); return; }
+  if (CLOSED) clearTimeout(CLOSED.timer);
+  CLOSED = {key, title: it.title, timer: setTimeout(() => { CLOSED = null; refreshWorkspace(); }, 12000)};
+  if ($("ws-menu").dataset.key === key) $("ws-menu").hidden = true;
+  await refreshWorkspace();
+}
+async function undoClose() {
+  if (!CLOSED) return;
+  const {key, timer} = CLOSED;
+  clearTimeout(timer);
+  CLOSED = null;
+  try { await api("/api/workspace/restore", {key}); } catch (e) { alert(e.message); }
+  await refreshWorkspace();
 }
 async function refreshWorkspace(select) {  // select: {tab, key} to show after the update
   WS = await api("/api/workspace");
@@ -723,14 +869,22 @@ async function refreshWorkspace(select) {  // select: {tab, key} to show after t
   const hidden = runs.length - (ALL_RUNS ? runs.length : Math.min(runs.length, RECENT_RUNS));
   const more = hidden ? `<span class="chip more" id="ws-more" title="show the earlier runs of tools"><span class="kind">R</span><span>+${hidden} earlier runs</span></span>` :
     (ALL_RUNS && runs.length > RECENT_RUNS ? '<span class="chip more" id="ws-more"><span>fewer runs</span></span>' : "");
-  strip.innerHTML = "<b>Workspace</b>" + (WS.length ? shown.map(chip).join("") + more :
-    '<span class="muted">empty: generate a morphology</span>');
-  for (const c of strip.querySelectorAll(".chip[data-key]")) c.onclick = () => itemMenu(c.dataset.key);
+  const undo = CLOSED ? closedChip(CLOSED) : "";
+  strip.innerHTML = "<b>Workspace</b>" + (WS.length ? shown.map(chip).join("") + more + undo :
+    undo || '<span class="muted">empty: generate a morphology</span>');
+  for (const c of strip.querySelectorAll(".chip[data-key]")) {
+    c.onclick = (e) => {
+      if (e.target.closest("button.close")) { e.stopPropagation(); closeItem(c.dataset.key); return; }
+      itemMenu(c.dataset.key);
+    };
+    c.onauxclick = (e) => { if (e.button === 1) { e.preventDefault(); closeItem(c.dataset.key); } };
+  }
+  if ($("ws-undo")) $("ws-undo").onclick = undoClose;
   if ($("ws-more")) $("ws-more").onclick = () => { ALL_RUNS = !ALL_RUNS; refreshWorkspace(); };
   const morphs = WS.filter((i) => i.kind === "morphology");
   options($("sim-source"), morphs);
   const inputs = WS.filter((i) => ["morphology", "simulation"].includes(i.kind));  // runs are shown, not sent
-  options($("exp-source"), inputs);
+  options($("exp-source"), WS.filter((i) => ["morphology", "simulation", "result"].includes(i.kind)));
   options($("opt-start"), inputs, [["centered_void", "a void ball (default)"], ["random", "random noise"]]);
   refreshToolItems();
   if (select) sendTo(select.tab, select.key);
@@ -845,7 +999,7 @@ const FIXED_TABS = {
   generate: "a realization of any model, chosen in the menu of the models by family: sections of the implicit functions of its phases (up to 2048 pixels per edge), its measures against theory, the animation of the formation of the models grown by a process",
   simulate: "the apparent shear or bulk modulus of a morphology: finite elements on the conforming mesh of its level set, or FFT on its voxels (on the GPU when there is one)",
   optimize: "topology optimization of a periodic cell, from a void ball, noise, or a morphology or simulation of the workspace; the design joins the workspace",
-  export: "the files of any item of the workspace, with an archive: of a morphology, its geometry (JSON), sections (PNG), the implicit function of each of its phases and its voxel image (VTI), the surface of each phase (STL), its conforming mesh (VTU) and videos (sweeps, turntable, formation); of a simulation, figures, videos of its fields under a growing load, tables, fields, mesh and configuration",
+  export: "the files of any item of the workspace, with an archive: of a morphology, its geometry (JSON), sections (PNG), the implicit function of each of its phases and its voxel image (VTI), the surface of each phase (STL), its conforming mesh (VTU), the particles of one phase without its matrix for the discrete element method (STL, OBJ, LAMMPS, YADE) and videos (sweeps, turntable, formation); of a simulation, figures, videos of its fields (along the steps of a loading path, or under a growing load), tables, fields (the steps with their ParaView collection), mesh and configuration",
   tiles: "combinatorial metamaterials: the exact number of compatible assemblies of a tile set in a box, and one drawn by wave function collapse",
   ashby: "normalized Ashby charts of a results database, to which the simulations of the session can be added",
 };
@@ -1240,8 +1394,13 @@ function expSource() {
   const it = item($("exp-source").value);
   $("exp-card").innerHTML = it ? card(it) : '<p class="muted">The workspace is empty: generate a morphology.</p>';
   $("exp-morphology").hidden = !it || it.kind !== "morphology";
-  $("exp-simulation").hidden = !it || it.kind !== "simulation";
-  if (it && it.kind === "simulation" && $("exp-field").dataset.key !== it.key) {
+  $("exp-simulation").hidden = !it || !["simulation", "result"].includes(it.kind);
+  if (it && it.kind === "morphology") {  // the phases of its particles, the inclusions first
+    const phases = it.phases || {"0": "0", "1": "1"}, keep = $("exp-dem-phase").value;
+    $("exp-dem-phase").innerHTML = Object.entries(phases).map(([k, n]) => `<option value="${esc(k)}">${esc(k)}: ${esc(n)}</option>`).join("");
+    $("exp-dem-phase").value = keep in phases ? keep : ("1" in phases ? "1" : Object.keys(phases)[0]);
+  }
+  if (it && ["simulation", "result"].includes(it.kind) && $("exp-field").dataset.key !== it.key) {
     $("exp-field").dataset.key = it.key;  // the fields of its files (plastic strains, porosity...)
     api(`/api/fields?key=${encodeURIComponent(it.key)}`).then((r) => {
       const keep = $("exp-field").value;
@@ -1262,7 +1421,10 @@ $("exp-go").onclick = () => busy($("exp-go"), async () => {
     request = {source: it.key, ...playback,
       outputs: [...document.querySelectorAll("#exp-morphology [data-out]")].filter((c) => c.checked).map((c) => c.dataset.out),
       resolution: $("exp-resolution").value, shape: $("exp-shape").value,
-      element_size: $("exp-element").value.trim(), video: $("exp-mvideo").value};
+      element_size: $("exp-element").value.trim(), video: $("exp-mvideo").value,
+      particles_phase: $("exp-dem-phase").value, particles_format: $("exp-dem-format").value,
+      particles_size: $("exp-dem-size").value.trim(),
+      blender_fluid: $("exp-blender-fluid").value, blender_axis: $("exp-blender-axis").value};
   } else {
     request = {source: it.key, ...playback,
       outputs: [...document.querySelectorAll("#exp-simulation [data-sout]")].filter((c) => c.checked).map((c) => c.dataset.sout),
@@ -1643,7 +1805,11 @@ function toolResult(r) {
     const it = item(made.key) || made;
     html += `<p><b>${esc(it.title)}</b> joined the workspace.</p>` + sendButtons(it);
   }
-  if (r.view3d && r.key && window.MorphoViewer) html += MorphoViewer.slot(r.key, {label: "View it in 3D"});
+  if (r.view3d && r.key && window.MorphoViewer) {  // the fields of a simulation: open at once
+    const f = r.fields3d;
+    html += f ? MorphoViewer.slot(r.key, {auto: true, title: "Fields in 3D", field: f.field, cmap: f.cmap}) :
+      MorphoViewer.slot(r.key, {label: "View it in 3D"});
+  }
   if ((r.figures || []).length) html += `<h3>Figures</h3>${media(r.figures)}`;
   if ((r.videos || []).length) html += `<h3>Videos</h3>${media(r.videos)}`;
   for (const t of r.tables || []) html += dataTable(t);

@@ -1,0 +1,24 @@
+# Grains with subgrains: a Poisson-Voronoi polycrystal of 27 grains, each divided into
+# subgrains by the germs of a finer tessellation that fall in it (about 20 per grain),
+# each subgrain the crystal of its grain turned by 1 to 3 degrees about a random axis:
+# low-angle boundaries inside the grains, the grain boundaries those of the grains.
+# Lamellar colonies instead: inner: {type: random_laminate, thickness: 0.01, spacing:
+# 0.02}, the layers on planes of the crystal of each grain (turned: true).
+model:
+  type: nested_grains
+  grains: {type: voronoi, n_cells: 27, crystal_orientations: true}
+  inner: {type: voronoi, n_cells: 540}
+  misorientation: {type: uniform, low: 1.0, high: 3.0}
+domain:
+  size: 1.0
+  periodic: true
+  unit: mm
+seed: 3
+voxels:
+  shape: 64
+outputs:
+  directory: out/nested_grains
+  name: subgrains
+  geometry: [json]
+  labels: [vti]                # the labels of the subgrains
+analysis: [cells]

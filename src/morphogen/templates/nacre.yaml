@@ -14,6 +14,8 @@ domain:
 voxels:
   voxel_size: 0.0125           # 4 voxels across the mortar
 homogenization:
+  # the voxels, the last resort here: a mortar of 0.05 between the tablets would take a conforming mesh of
+  # some millions of elements (method: fe, or auto, with a mesh section, to use it)
   method: fft
   materials:
     0: {young: 4.0, poisson: 0.4}        # biopolymer mortar (GPa)

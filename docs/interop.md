@@ -3,7 +3,9 @@
 What morphoGen generates and computes goes to the codes of the field, and comes back:
 images and meshes for ParaView, Abaqus, CalculiX, Gmsh, FEniCSx, DAMASK and Neper, runs of
 AMITEX_FFTP prepared and read back, behaviours written as MFront sources and Z-set
-material files, and Z-set files run as they are. `morphogen.export(obj, path)` picks the
+material files, and Z-set files run as they are; the particles of a phase go to the
+codes of discrete elements (LMGC90, LAMMPS, LIGGGHTS, YADE), microstructures to the arrays
+of JAX, PyTorch and CuPy, to Microgen and to Blender. `morphogen.export(obj, path)` picks the
 writer from the object and the suffix of the file.
 
 ## File formats
@@ -31,6 +33,19 @@ writer from the object and the suffix of the file.
   own MFront laws go to AMITEX and Abaqus inputs too, in small or finite strains
   (every phase an MFront law then, Hencky's elasticity for the elastic ones).
 * Watertight STL surfaces for additive manufacturing.
+* Particles for the discrete element method (`morphogen.io.dem`, `export(...,
+  particles=k)`, `morphogen export --particles k`): one phase without its matrix, a
+  closed surface per particle (STL solids or files, OBJ objects, VTU), whole across
+  the faces of periodic boxes, cut by those of windows; Gmsh files (`.msh`) of their
+  triangles or of their tetrahedra (`elements="tetrahedra"`, `--tetrahedra`: gmsh's
+  mesher fills each surface), a particle per entity and physical group, as LMGC90 reads
+  them (`readMesh`, `separateMeshes`, `surfacicMeshToRigid3D` or
+  `volumicMeshToRigid3D`); the surfaces remeshed by MMG at a triangle size (`size`,
+  `--element-size`: fewer, regular faces for the contacts of polyhedra); the exact
+  spheres of the models of spheres and fibres (a fibre a clump of spheres along its
+  axis, a capsule among the surfaces) for LAMMPS and LIGGGHTS (`.data`, the clumps as
+  molecules) and YADE (`ymport.text`, `textClumps`); tables of the particles (volume,
+  area, centroid, equivalent radius).
 * Gmsh OpenCASCADE scripts.
 * Raw data and figures: tables as `.csv`, `.txt` and `.xlsx` (no dependency),
   figures as `.png`, `.tif`, `.svg`, `.pdf` and TikZ (pgfplots code for LaTeX).
@@ -38,6 +53,51 @@ writer from the object and the suffix of the file.
 The meshes of a polycrystal keep their grains and orientations for Abaqus, FEniCSx and
 DAMASK ([Polycrystals](properties.md#polycrystals)); the [recipes](howto.md) show the
 usual exchanges in a few lines.
+
+## Libraries and programs
+
+morphoGen hands its microstructures to other libraries and programs, and takes theirs
+back ([optional](installation.md#optional-components); morphoGen never requires them):
+
+* **Arrays of other libraries** (`morphogen.interop.arrays`). Voxel images handed over by
+  the DLPack protocol without copies: JAX (on buffers aligned on 64 bytes, which XLA
+  shares), PyTorch, CuPy; the diffuse interface of a phase of a realization, the profile
+  of the plane interface at equilibrium of Allen–Cahn's and Cahn–Hilliard's equations,
+  with the grid and the state that spectral solvers take (Exponax's steppers), and
+  ensembles of realizations for `jax.vmap` rollouts: microstructures as initial
+  conditions of phase-field coarsening and of differentiable pipelines, their fields
+  back as images to measure and homogenize.
+* **Microgen** (3MAH; `morphogen.interop.microgen`, the model `microgen`). The shapes of
+  Microgen that have a field — TPMS sheets and skeletons of its many surfaces (Schoen's
+  I-WP, lidinoid, Fischer–Koch S...), spinodoids, spheres, boxes, cylinders, capsules,
+  ellipsoids — as a model of morphoGen, described in a configuration and saved; the
+  phases of any realization of morphoGen as shapes of Microgen (its field the implicit
+  function of the phase), for its surface and volume meshes, infills and smooth
+  booleans; the tetrahedral meshes of both through PyVista.
+* **Alloys** (`morphogen.interop.alloys`, `morphogen alloy`). The phases of an alloy as
+  a tool of alloy design gives them (CALPHAD equilibria and Scheil solidification, the
+  KWN kinetics of the precipitates, the grain size, the moduli it predicts: Leil-Mat,
+  Thermo-Calc, pycalphad), in a description of JSON or YAML: its matrix, its other
+  grains, its precipitates and particles, their fractions, radii and elastic constants
+  (isotropic, or the cubic constants of crystals turned at random); its scales as
+  configurations of morphoGen — the precipitates in a box of the matrix, the grains with
+  their particles on the matrix homogenized —, their effective elasticity by FFT within
+  the Hashin–Shtrikman bounds of their phases, and its departure from the modulus
+  predicted. Leil-Mat gives its programming interface on request: the description is
+  filled from its canvas meanwhile (`examples/alloy_design.py`).
+* **Blender** (`morphogen.interop.blender`). A microstructure as a scene of Blender: the
+  closed surface of each phase from its conforming mesh (STL, for OpenFOAM's
+  snappyHexMesh too), and the fluid of Mantaflow around them (its domain, the phases as
+  obstacles, an inflow and an outflow along an axis) to bake in Blender, the flow read
+  back as voxel images (`write_blender_scene`, `read_blender_flow`; the box *Blender
+  (CFD)* of the tab Export). The particles of a phase as the rigid bodies
+  of Blender's physics (Bullet): its exact spheres and spherocylinders (Bullet's own
+  shapes) or the convex hulls of its particles, dropped under gravity in an open box;
+  the scene and its script written for Blender (`blender --background`, or a Python with
+  the module `bpy`), run, and the packing read back as a microstructure (the spheres and
+  segments moved, or the particles of their surfaces, `MeshParticles`, voxelized by the
+  parity of the crossings of their columns) to measure and homogenize; the `.blend` scene
+  to look at, render or go on with in Blender.
 
 ## AMITEX_FFTP and MFront
 

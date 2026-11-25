@@ -14,6 +14,8 @@ seed: 5
 voxels:
   shape: 96
 homogenization:
+  # the voxels, the last resort here: coatings of 0.02 around the spheres would take a conforming mesh of
+  # some millions of elements (method: fe, or auto, with a mesh section, to use it)
   method: fft
   materials:
     0: {young: 3.0, poisson: 0.35}       # matrix

@@ -305,7 +305,7 @@ morphogen run reconstruction.yaml
 
 ## Fibres and layers
 
-Straight, curved and bending fibres, with or without overlap, networks of fibres, and laminates.
+Straight, curved and bending fibres, with or without overlap, networks of fibres, laminates and woven textiles.
 
 ::::{container} gallery
 
@@ -478,6 +478,30 @@ morphogen run contact_fibers.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-long-fibers
+
+```{image} _static/gallery/long_fibers.png
+:alt: long_fibers
+:loading: lazy
+```
+
+**`long_fibers`** — A unidirectional composite: long fibres of slightly scattered radii at 0.6, their sections a random packing, misaligned by 3 degrees.
+
+```bash
+morphogen template long_fibers -o long_fibers.yaml
+morphogen run long_fibers.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/long_fibers.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-cross-linked-fibers
 
 ```{image} _static/gallery/cross_linked_fibers.png
@@ -549,6 +573,32 @@ morphogen run random_laminate.yaml
 </details>
 :::
 
+:::{container} gallery-card
+:name: gallery-woven-textile
+
+```{image} _static/gallery/woven_textile.png
+:alt: woven_textile
+:loading: lazy
+```
+
+**`woven_textile`** — A 3D orthogonal woven composite: straight warp and weft tows tied through the thickness by binders, each tow turned along its path, its stiffness by finite elements on the conforming mesh of its exact geometry.
+
+*Needs the mesher MMG (extra `mesh`).*
+
+```bash
+morphogen template woven_textile -o woven_textile.yaml
+morphogen run woven_textile.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/woven_textile.yaml
+:language: yaml
+```
+
+</details>
+:::
+
 ::::
 
 ## Tessellations
@@ -599,6 +649,30 @@ morphogen run laguerre.yaml
 <details><summary>Configuration</summary>
 
 ```{literalinclude} ../src/morphogen/templates/laguerre.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
+:name: gallery-nested-grains
+
+```{image} _static/gallery/nested_grains.png
+:alt: nested_grains
+:loading: lazy
+```
+
+**`nested_grains`** — Grains with subgrains: each grain of a polycrystal divided by the germs of a finer tessellation, its subgrains turned by 1 to 3° from its crystal (low-angle boundaries).
+
+```bash
+morphogen template nested_grains -o nested_grains.yaml
+morphogen run nested_grains.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/nested_grains.yaml
 :language: yaml
 ```
 
@@ -885,6 +959,30 @@ morphogen run tpms.yaml
 <details><summary>Configuration</summary>
 
 ```{literalinclude} ../src/morphogen/templates/tpms.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
+:name: gallery-microgen
+
+```{image} _static/gallery/microgen.png
+:alt: microgen
+:loading: lazy
+```
+
+**`microgen`** — A sheet of Schoen's I-WP surface built by Microgen (3MAH): any shape of Microgen with a field (TPMS, spinodoids, primitives) is a model of morphoGen (needs the package microgen).
+
+```bash
+morphogen template microgen -o microgen.yaml
+morphogen run microgen.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/microgen.yaml
 :language: yaml
 ```
 

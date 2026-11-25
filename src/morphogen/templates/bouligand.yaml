@@ -17,6 +17,8 @@ domain:
 voxels:
   shape: 128
 homogenization:
+  # the voxels, the last resort here: 150 fibres of radius 0.03 would take a conforming mesh of
+  # some millions of elements (method: fe, or auto, with a mesh section, to use it)
   method: fft
   materials:
     0: {young: 2.0, poisson: 0.4}        # protein matrix

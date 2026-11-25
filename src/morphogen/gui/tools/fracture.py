@@ -1313,16 +1313,17 @@ def _counting_distinct(mesh_of, ctx, steps: int, start: float = 0.05, span: floa
 
 
 def _growth_outputs(ctx, lower, upper, size, cracks, solutions, captions, title: str,
-                    names=None, advances=None) -> None:  # fmt: skip
-    """The figures, video and file of a growth: the path over the last field (and over the
+                    names=None, advances=None, video: bool = False) -> None:  # fmt: skip
+    """The figures, frames and file of a growth: the path over the last field (and over the
     phases of a morphology, with the ``names`` of its phases; the deflections along
     interfaces of the ``advances`` of a toughness), the frames of every crack (the interfaces
-    of the phases outlined), the opened mesh of the last one."""
+    of the phases outlined: their video if asked, else kept for the export), the opened mesh
+    of the last one."""
     ctx.figure(_rgb(_growth_figure(solutions[-1], cracks, size, lower, upper, title, names,
                                    advances)), "path", "crack path")  # fmt: skip
-    ctx.progress(0.92, "video of the growth")
+    ctx.progress(0.92, "frames of the growth")
     frames = _growth_frames(solutions, lower, upper, captions, outlines=names is not None)
-    ctx.video(frames, "growth", "the growth, crack by crack", fps=1.5, mode="loop")
+    ctx.video(frames, "growth", "the growth, crack by crack", fps=1.5, mode="loop", wanted=video)
     field, label = _state_field(solutions[-1])
     fields = {label.replace(" ", "_"): field}
     if names is not None:
@@ -1355,7 +1356,7 @@ def _growth_outputs(ctx, lower, upper, size, cracks, solutions, captions, title:
     "morphology, its deflections marked), the loads and "
     "driving forces of each advance, the resistance curve (J_far = J_ψ on a ring around the "
     "front, Simha et al. 2008, with the configurational forces of the inclusions and pores in "
-    "it) and a video of the growth.",
+    "it) and the frames of the growth (their video on demand).",
     [
         *_morphology_fields("conforming"),
         Field(
@@ -1465,6 +1466,7 @@ def _growth_outputs(ctx, lower, upper, size, cracks, solutions, captions, title:
             "deflects below Γ / Γ_bulk = 1/4, He & Hutchinson 1989; blank: no interface "
             "criterion, the crack crosses the interfaces by the kink of the bulk)",
         ),
+        Field("video", "bool", False, doc="a video of the growth; the export makes it too"),
     ],
     order=2,
     groups=(
@@ -1622,7 +1624,8 @@ def crack_growth(p: dict, ctx) -> dict:
         values["tip_deflection"] = float(cracks[-1].tip[1] - cracks[0].tip[1])
     names = spec.names if spec.morphology else None
     _growth_outputs(ctx, spec.lower, spec.upper, spec.size, cracks, solutions, captions,
-                    f"{len(cracks)} cracks: the path", names, advances)  # fmt: skip
+                    f"{len(cracks)} cracks: the path", names, advances,
+                    video=p["video"])  # fmt: skip
     return {"values": values}
 
 
@@ -2092,6 +2095,7 @@ def _morphology_mesh(micro, size: float, grains: bool):
             "displacement (blank: 10⁻³ of the displacement; 0: none)",
         ),
         Field("kinematics", "choice", "small", choices=KINEMATICS),
+        Field("video", "bool", False, doc="a video of the opening; the export makes it too"),
     ],
     order=5,
     groups=(
@@ -2264,13 +2268,14 @@ def cohesive_zones(p: dict, ctx) -> dict:
     ctx.figure(_rgb(_cohesive_figure(opened, cohesive, u, result.damage.mean(axis=1), scale,
                                      f"broken interfaces (displacements x {scale:.3g})")),
                "interfaces", "broken interfaces")  # fmt: skip
-    ctx.progress(0.95, "video of the opening")
+    ctx.progress(0.95, "frames of the opening")
     chosen = np.unique(np.linspace(0, len(result.fields) - 1, min(24, len(result.fields)))
                        .astype(int))  # fmt: skip
     ctx.video(_opening_frames(opened, cohesive, law, [result.fields[k] for k in chosen], scale,
                               [f"displacement {opening[k]:.3g}, force {force[k]:.3g}"
                                for k in chosen]),
-              "opening", "the interfaces opening", fps=8, mode="once")  # fmt: skip
+              "opening", "the interfaces opening", fps=8, mode="once",
+              wanted=p["video"])  # fmt: skip
     problem.write(ctx.path("cohesive"), result)
     if names:
         values["phases"] = ", ".join(f"{k}: {v}" for k, v in sorted(names.items()))
@@ -2375,8 +2380,8 @@ def _grain_map(grains: Grains, lower, upper, at: float, cracks, title: str, coun
     "and the state of the points moved grain by grain; the front advances once the driving "
     "force at the tip (J_tip, the configurational forces of the slips) reaches the toughness, "
     "kinking after Erdogan & Sih (the Voigt-Reuss-Hill moduli of the crystal). The path over "
-    "the grains, the loads and driving forces of each advance, the resistance curve and a "
-    "video of the growth.",
+    "the grains, the loads and driving forces of each advance, the resistance curve and the "
+    "frames of the growth (their video on demand).",
     [
         Field(
             "source",
@@ -2478,6 +2483,7 @@ def _grain_map(grains: Grains, lower, upper, at: float, cracks, title: str, coun
             doc="of the random orientations of a tessellation without any "
             "(blank: the seed of the morphology)",
         ),
+        Field("video", "bool", False, doc="a video of the growth; the export makes it too"),
     ],
     order=4,
     groups=(
@@ -2582,5 +2588,5 @@ def polycrystal_crack(p: dict, ctx) -> dict:
     captions = [f"advance {k}: strain {lam:.3g}, J_tip {jt:.3g}, grain {g}" for k, (lam, jt, g)
                 in enumerate(zip(result.loads, result.tip, tips, strict=True))]  # fmt: skip
     _growth_outputs(ctx, lower, upper, size, cracks, solutions, captions,
-                    f"{len(cracks)} cracks through the grains")  # fmt: skip
+                    f"{len(cracks)} cracks through the grains", video=p["video"])  # fmt: skip
     return {"values": values}

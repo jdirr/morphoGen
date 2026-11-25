@@ -82,6 +82,7 @@ from morphogen.models.lattice_field import LatticeField
 from morphogen.models.levelset_foam import DistanceFieldFoam
 from morphogen.models.nacre import NacreStructure
 from morphogen.models.nested import ClusteredSpheres, CoatedStructure, FractalStructure
+from morphogen.models.nested_grains import NestedGrainStructure
 from morphogen.models.osteons import OsteonStructure
 from morphogen.models.planar import plane_axes
 from morphogen.models.scale_rich import ScaleRichStructure
@@ -318,6 +319,8 @@ def _pointwise(micro) -> bool:
         )
     if isinstance(micro, Combined):
         return all(_pointwise(p) for p in micro.parts)
+    if isinstance(micro, NestedGrainStructure):  # the k-d trees of the grains and subgrains
+        return True  # and the point queries of the inner structure
     return isinstance(micro, _POINTWISE)
 
 

@@ -11,8 +11,8 @@ them by these numbers (§75); by theme:
 
 | Theme | Sections |
 |---|---|
-| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks |
-| Architected and bio-inspired structures | [§6](#6-tpms) TPMS, [§7](#7-strut-lattices) Strut lattices, [§30](#30-bio-inspired-models) Bio-inspired models, [§71](#71-diamond-and-pyrochlore-lattices-of-struts-homogenizationframes-modelslattice) Diamond and pyrochlore lattices of struts |
+| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects |
+| Architected and bio-inspired structures | [§6](#6-tpms) TPMS, [§7](#7-strut-lattices) Strut lattices, [§30](#30-bio-inspired-models) Bio-inspired models, [§71](#71-diamond-and-pyrochlore-lattices-of-struts-homogenizationframes-modelslattice) Diamond and pyrochlore lattices of struts, [§96](#96-woven-textile-composites-woven_textile) Woven textile composites |
 | Growth and design | [§14](#14-cellular-automata-automata) Cellular automata, [§15](#15-nucleation-and-growth-johnsonmehlavramikolmogorov) Nucleation and growth (Johnson–Mehl–Avrami–Kolmogorov), [§16](#16-aggregation) Aggregation, [§17](#17-combinatorial-design-design) Combinatorial design, [§18](#18-topology-optimization-of-periodic-cells-optimization) Topology optimization of periodic cells, [§78](#78-isogeometric-analysis-iga) Isogeometric analysis, [§79](#79-isogeometric-shape-optimization-igaoptimization) Isogeometric shape optimization |
 | Geometry and meshes | [§19](#19-polycrystals-exact-cells-and-conforming-meshes-meshpolyhedra-meshpolycrystal) Polycrystals: exact cells and conforming meshes, [§24](#24-whole-periodic-grains-meshpolycrystal-cells-whole) Whole periodic grains, [§52](#52-views-and-measures-of-the-level-sets-vizsections) Views and measures of the level sets, [§75](#75-the-implicit-geometry-of-every-model-modelsimplicit-meshconforming) The implicit geometry of every model, [§76](#76-quadratic-tetrahedra-isoparametric-elements-and-curved-interfaces-meshcurved-homogenizationfe) Quadratic tetrahedra: isoparametric elements and curved interfaces, [§80](#80-sharp-edges-of-the-phases-meshes-that-follow-them-modelspieces-meshconforming-meshcurved) Sharp edges of the phases: meshes that follow them, [§94](#94-exact-meshes-without-a-background-grid-meshexact-meshoctree) Exact meshes without a background grid |
 | Measures | [§8](#8-specific-surface-by-cauchycrofton) Specific surface by Cauchy–Crofton, [§21](#21-morphological-measures-analysismorphology) Morphological measures, [§39](#39-random-sets-probed-by-structuring-elements-analysisrandom_sets-analysistopology) Random sets probed by structuring elements, [§55](#55-percolation-thresholds-analysispercolation) Percolation thresholds, [§70](#70-particles-of-a-phase-in-a-volume-analysisparticles) Particles of a phase in a volume, [§92](#92-crystallographic-textures-and-orientation-maps-texture-ioebsd-modelsebsd) Crystallographic textures and orientation maps |
@@ -22,6 +22,7 @@ them by these numbers (§75); by theme:
 | Behaviours along loading paths | [§31](#31-nonlinear-behaviours-along-loading-paths-the-periodic-element) Nonlinear behaviours along loading paths: the periodic element, [§32](#32-crystal-plasticity-homogenizationcrystal) Crystal plasticity, [§33](#33-finite-strains-homogenizationfinite) Finite strains, [§34](#34-loading-paths-on-voxel-images-the-nonlinear-fft-solver-homogenizationfft_nonlinear) Loading paths on voxel images: the nonlinear FFT solver, [§36](#36-mfront-behaviours-homogenizationmfront) MFront behaviours, [§37](#37-mfront-sources-of-morphogens-behaviours-iomfront) MFront sources of morphoGen's behaviours, [§43](#43-the-nonuniform-transformation-field-analysis-homogenizationntfa) The nonuniform transformation field analysis, [§49](#49-porous-plasticity-gurson-tvergaard-needleman-rousselier-compaction-homogenizationporous) Porous plasticity: Gurson-Tvergaard-Needleman, Rousselier, compaction, [§50](#50-micromorphic-continua-the-microfoam-model-and-micromorphic-damage-micromorphic) Micromorphic continua: the microfoam model and micromorphic damage, [§53](#53-identification-of-a-behaviour-homogenizationidentification) Identification of a behaviour, [§54](#54-hills-anisotropic-plasticity-homogenizationbehaviours) Hill's anisotropic plasticity, [§57](#57-behaviours-learned-from-data-learning) Behaviours learned from data, [§61](#61-viscoelasticity-hyperelasticity-and-damage-homogenizationlaws) Viscoelasticity, hyperelasticity and damage, [§83](#83-damage-coupled-to-plasticity-of-concrete-and-the-unilateral-effect-homogenizationlaws) Damage: coupled to plasticity, of concrete, and the unilateral effect, [§86](#86-twinning-of-crystals-and-hexagonal-lattices-homogenizationcrystal) Twinning of crystals, and hexagonal lattices, [§89](#89-cracks-that-close-twins-that-shear-back-and-turn-the-lattice-homogenizationcrystal) Cracks that close, twins that shear back and turn the lattice |
 | Fracture, contact and fatigue | [§46](#46-cohesive-zone-elements-fracturecohesive) Cohesive zone elements, [§47](#47-cracks-conforming-meshes-and-xfem-fracturelefm) Cracks: conforming meshes and XFEM, [§48](#48-mixed-mode-cracks-in-3d-in-small-and-finite-strains-fracturemixed) Mixed-mode cracks in 3D, in small and finite strains, [§51](#51-cracks-in-inelastic-solids-in-small-and-finite-strains-fracturebulk) Cracks in inelastic solids, in small and finite strains, [§64](#64-phase-field-of-brittle-fracture-fracturephasefield) Phase field of brittle fracture, [§73](#73-cracks-of-any-surface-and-front-fracturesurface) Cracks of any surface and front, [§81](#81-friction-of-interfaces-and-of-the-lips-of-cracks-fracturecohesive-fracturemixed) Friction of interfaces and of the lips of cracks, [§82](#82-contact-of-surfaces-self-contact-and-friction-contact) Contact of surfaces, self-contact and friction, [§84](#84-interfaces-that-debond-in-periodic-cells-fractureperiodic) Interfaces that debond in periodic cells, [§85](#85-multiaxial-high-cycle-fatigue-of-the-points-of-a-cell-homogenizationfatigue) Multiaxial high-cycle fatigue of the points of a cell, [§87](#87-cleavage-of-crystals-cracks-through-the-grains-and-between-them-homogenizationcrystal-fractureperiodic) Cleavage of crystals; cracks through the grains and between them, [§88](#88-cleavage-by-the-local-approach-the-weibull-stress-of-beremin-homogenizationberemin) Cleavage by the local approach: the Weibull stress of Beremin, [§90](#90-cleavage-that-the-slip-nucleates-homogenizationcrystal) Cleavage that the slip nucleates, [§91](#91-cleavage-planes-regularized-by-their-microdamage-homogenizationcrystal) Cleavage planes regularized by their microdamage |
 | Stability of periodic architectures | [§45](#45-post-bifurcated-patterns-by-group-theory-symmetry-homogenizationframes) Post-bifurcated patterns by group theory |
+| Other codes and libraries | [§99](#99-arrays-of-other-libraries-and-phase-fields-for-spectral-solvers-interoparrays) Arrays of other libraries and phase fields for spectral solvers, [§100](#100-the-particles-of-a-phase-for-the-discrete-element-method-iodem-modelsmesh_particles) The particles of a phase for the discrete element method, [§101](#101-microgen-modelsmicrogen-interopmicrogen) Microgen, [§102](#102-rigid-bodies-of-blender-interopblender) Rigid bodies of Blender, [§103](#103-alloys-from-their-phases-to-their-microstructures-interopalloys) Alloys: from their phases to their microstructures |
 | Laser-architectured sheets | [§58](#58-architectured-sheets-by-localized-laser-treatment-laser) Architectured sheets by localized laser treatment, [§74](#74-a-treated-sheet-in-its-volume-lasersolid) A treated sheet in its volume |
 
 ## 1. Boolean models
@@ -79,6 +80,16 @@ The directions may follow any law (`orientation`, as in `cross_linked_fibers`): 
 projection of the ball is the same disk for every direction, so that step 2 holds, and
 $p = 1 - e^{-L_V\pi R^2}$, $S_V$ unchanged; the axes crossing the box number on average
 $L_V\sum_k A_kE|u_k|$ ($A_k$ the area of the faces normal to the axis $k$, $S/4$ isotropic).
+
+**Polydisperse fibres.** With radii $R$ of a law, drawn independently of the lines, a
+line of radius $R$ meets a convex body $K$ when its projection meets the projection of
+$K \oplus B_R$; averaging over $R$, $p = 1 - e^{-L_V \pi \mathbb E[R^2]}$,
+$S_V = 2\pi\,\mathbb E[R]\,L_V\,q$, $T(B_r) = 1 - e^{-L_V\pi\,\mathbb E[(R + r)^2]}$
+($\mathbb E[(R+r)^2] = \mathbb E[R^2] + 2r\,\mathbb E[R] + r^2$: the variance of the radii
+raises the capacity above that of their mean), the segments $T = 1 -
+e^{-L_V(\pi\mathbb E[R^2] + 2\,\mathbb E[R]\,l\,\mathbb E|\sin g|)}$, and the covariance
+$Q(h) = q^2\exp\left(L_V\,\mathbb E_{\beta,R}\left[\mathrm{lens}_R(|h|\sin\beta)\right]\right)$
+with $q = e^{-L_V\pi\mathbb E[R^2]}$. The ball of the generation takes the largest radius.
 
 **Covariances of oriented fibres** (`PoissonFibers.covariance`,
 `BooleanCylinders.covariance`; Peyrega et al. 2009, 2011; Peyrega & Jeulin 2013). In addition,
@@ -8723,7 +8734,7 @@ previous one), and the vertices that face each other on opposite faces keep equa
 Cells of several phases are meshed by their grains (§19), each element with the phase of
 its cell.
 
-Checked (`tests/test_implicit.py`): for the 38 models of the registry and 19 other
+Checked (`tests/test_implicit.py`): for the 44 models of the registry and 19 other
 configurations of several phases (cells of two and three phases with and without grain
 boundaries, leaves of three phases, spheroids, finite coverage, leaves and cells mapped by an
 anisotropy, opaque transparent leaves, osteons along x, coatings of hard spheres, of a lattice and of a gyroid,
@@ -11448,7 +11459,12 @@ phases kept by a list, the sharp edges of §80 (asked, or where two smooth piece
 phase meet), the grains of tessellations; the 10-node elements of a level set are those
 of its 4-node mesh, curved as in §76 (`curved_mesh`, the one curvature of both routes).
 The grid serves the microstructures without an exact route (see *Limits*), and those
-whose exact mesh fails (MMG) or whose periodic faces do not match, with a warning.
+whose exact mesh fails (MMG) or whose periodic faces do not match, with a warning. The
+finite elements on the conforming mesh are the default solver of the homogenizations
+(`homogenization.method: auto`, with a light mesh when none is described: 10 elements
+along the shortest edge of the domain, the interfaces within an eighth of an element,
+none below a third of one), the FFT solver on voxels the last resort, for what only
+it does (`config.voxels_only`).
 Three routes, chosen by `exact_route`:
 
 * **cells**: Voronoi and Laguerre tessellations, their exact cells (§19, §24), meshed by
@@ -11681,6 +11697,800 @@ resolved: a sheet gyroid of one cell, 10 % of the volume (a sheet 0.03 thick), p
 at `size` 0.2 and `h` = 0.01 takes 196,000 elements (quality above 0.06) and 81 s, most
 of them in MMG (400,000 elements and 132 s at `h` = 0.004); the grid route at its default
 background (half the size) does not resolve that sheet.
+
+## 95. Long fibres: unidirectional composites, parallel or misaligned (`long_fibers`)
+
+**The fibres.** A fibre crosses the box along the axis $e_a$ (`axis`) and closes on itself
+across the periodic faces normal to it: a closed chain of $m$ nodes $x_{i,k}$ in the planes
+$z_k = kh$, $h = P/m$ ($P$ the period along the axis), the node $m$ being the node 0 a
+period further, joined by spherocylinders of the radius $r_i$ of the fibre, drawn from
+`radius` (a number: monodisperse fibres; a distribution: polydisperse ones). Straight
+fibres are two segments of half the period; wavy ones `segments` per period (by default 8
+per wavelength of the shortest mode of the waviness, below).
+
+**The sections** (`arrangement: random`). The discs of the sections, as many as bring the
+total area $\sum \pi r_i^2$ closest to $p\,A/c$ ($A$ the area of the section of the box,
+$c$ the mean contour length per unit length, below), are placed in the periodic rectangle
+of the section: uniform centres, the radii scaled by $s$ so that the discs fill 0.3 of it
+(`START_FRACTION`), then grown by $s \leftarrow s\sqrt{1.02}$ (`GROWTH`) until $s = 1$;
+at each scale the overlaps are removed by steps that push every pair closer than
+$s(r_i + r_j) + g$ by $\delta$ apart by $\delta/2$ each along the line of its centres
+(nearest periodic images, linked cells; each move capped to a quarter of the smallest
+radius), until the largest $\delta$ is below $10^{-3}r_{min}$, and below $10^{-7}r_{min}$
+at the end, where $g$ = `min_gap` plus a margin of $10^{-6}\bar r$, so that the gaps end
+at least `min_gap`. This is a quasi-static Lubachevsky–Stillinger growth (the discs grow
+while their overlaps relax, Lubachevsky & Stillinger 1990): the random fibre
+distributions of unidirectional composites (Melro, Camanho & Pinho 2008; Vaughan &
+McCarthy 2010; Yang et al. 2013), to the fractions of real composites (0.5 to 0.7) and up
+to 0.8 (`RANDOM_LIMIT`, near the jamming of discs, about 0.82), where random sequential
+addition jams near 0.55 (equal discs). 0.6 in 1600 steps, 0.8 in about 8700 (0.3 s for
+150 fibres).
+
+**The arrays** (`hexagonal`, `square`). The spacing of the volume fraction,
+$a^2 = 2\pi\,E[r^2]\,c/(\sqrt3\,p)$ (hexagonal) or $a^2 = \pi E[r^2]\,c/p$ (square), is
+stretched so that the box holds a whole number of cells, $n_u = \mathrm{round}(L_u/a)$ sites
+per row and $n_v = 2\,\mathrm{round}(L_v/\sqrt3a)$ rows (an even number, the odd rows
+shifted by half a spacing; square: $\mathrm{round}(L_v/a)$); its fraction is then
+$n_un_v\pi E[r^2]c/A$ (the theory gives it for a periodic box), the target exactly when
+the box holds whole cells. The largest fraction, of touching fibres of the largest radius
+with the gap, is $\pi E[r^2]c/(\frac{\sqrt3}2(2r_{max} + g)^2)$, $\pi/(2\sqrt3) = 0.9069$
+for equal radii without a gap (square: $\pi/4$). `disorder` displaces each site uniformly
+in a disc of radius `disorder` times the nearest distance of two sites; the overlaps, if
+any, are then removed as above.
+
+**The waviness** (`misalignment` $\theta > 0$). Each fibre waves about the centre $x_i$ of
+its section along the value there of a random field of the box,
+$$x_{i,k} = x_i + W(x_i, z_k), \qquad W(x, z) = \sum_{q} a_q\cos(k_q\cdot x + \kappa_q z)
++ b_q\sin(k_q\cdot x + \kappa_q z),$$
+over the wave vectors $k_q = 2\pi(j_u/L_u, j_v/L_v)$ of the section and $\kappa_q =
+2\pi j/P$, $j \ge 1$ (no static distortion of the sections), with Gaussian coefficients
+$a_q, b_q$ (each transverse component independent) of variance
+$\exp(-(|k_q|^2\ell_t^2 + \kappa_q^2\ell^2)/2)$: the spectral representation of the
+stationary Gaussian field of Gaussian covariance $\exp(-|d|^2/2\ell_t^2 - \Delta z^2/2\ell^2)$
+(Shinozuka & Deodatis 1991), periodized in the box, the modes of variance below $10^{-6}$
+left out ($|k|^2\ell_t^2 + \kappa^2\ell^2 \le 2\ln 10^6$). $\ell$ = `waviness_length` (by
+default a quarter of the length of the domain along the axis) and $\ell_t$ =
+`transverse_correlation` (by default $\ell$): neighbouring fibres wave together, as the
+misalignments measured in composites do (Yurgartis 1987, regions of similar angles over
+many fibres), which leaves their gaps almost unchanged; $\ell_t = 0$, each fibre has a
+field of the axis of its own, $W_i(z) = \sum_{j\ge1} a_{ij}\cos\kappa_jz + b_{ij}\sin
+\kappa_jz$ of variances $\exp(-\kappa_j^2\ell^2/2)$, and must be moved around its
+neighbours. The field is scaled by the factor that makes the RMS angle of the segments of
+the realization to the axis, $\arctan(|x_{i,k+1} - x_{i,k}|/h)$, equal to $\theta$ (a root
+of a monotone function); the slopes of the field being Gaussian in the plane, the tangents
+of the angles follow a Rayleigh law.
+
+**The corrections.** The overlaps of the wavy fibres are removed in space, the nodes moved
+in their planes. Two segments of different fibres whose axes are closer than $r_i + r_j +
+g$ by $\delta$ (Ericson's closest points of segments, nearest periodic images across and
+along the axis), the segment of the fibre $j$ at most $s = \lfloor(2r_{max} + g)/h\rfloor
++ 1$ planes from that of $i$ (farther ones are farther apart along the axis), are pushed
+apart along the transverse part $w_t$ of the line $w$ of their closest points, by
+$\frac\delta2 w_t/|w|$ each, shared by the two nodes of a segment with the barycentric
+weights of its closest point; the pushes are smoothed along each fibre by two passes of
+the filter $(\frac14, \frac12, \frac14)$ (their sum kept: a push bends the fibre over a few
+segments rather than kinking it), each move capped to $r_{min}/4$, until the largest
+overlap is below $10^{-7}r_{min}$ (with the margin above). Pairs come from linked cells of
+the nodes of each plane, of width $2r_{max} + g$ plus twice the largest transverse distance
+of two nodes of a fibre $s + 1$ planes apart. 31 steps for 110 fibres at 0.6 and 3°
+(0.3 s); 225 at 0.78 and 5°; 51 for fibres waving on their own at 0.7 and 3°.
+
+**The volume fraction.** A fibre tilted by $\alpha$ cuts a plane normal to the axis in an
+ellipse of area $\pi r^2\sec\alpha$, so that the fraction of the fibres is that of their
+sections times the mean contour length per unit length of the axis,
+$$c = E[\sec\alpha] = E\big[\sqrt{1 + R^2}\big], \qquad R = \tan\alpha \sim
+\mathrm{Rayleigh}(\sigma), \quad E[\alpha^2] = \theta^2,$$
+computed by Gauss–Laguerre quadrature (`secant_mean`): $c = 1 + \theta^2/2 +
+5\theta^4/12 + O(\theta^6)$ (with $E[R^2] = s^2$, $E[R^4] = 2s^4$: $E[\alpha^2] = s^2 -
+\frac43s^4$ and $c = 1 + s^2/2 - s^4/4$), 1.0014 at 3°, 1.0156 at 10°. The realized fraction
+of the summary is the exact volume of the closed chains over that of the box,
+$\sum_i \pi r_i^2\sum_k|t_{i,k}| - \frac23r_i^3\sum_k(2\tan\frac{d_{i,k}}2 - d_{i,k})$,
+$d_{i,k}$ the turn of the joint $k$ (§23, `random_walk_fibers`; no caps: the chains are
+closed). The theory gives $p$, the fibres per unit area of a section $p/(\pi E[r^2]c)$,
+their length per unit volume $L_V = p/(\pi E[r^2])$ and their specific surface
+$2pE[r]/E[r^2]$ (lateral, the joints left out; the same for wavy fibres, whose surface and
+volume both scale with the contour length).
+
+**Windows.** A non-periodic domain is a window of a periodic generation box enlarged by
+$2r_{max} + g + 3\ell\tan\theta$ across the axis (the reach of a fibre and three
+amplitudes of its waviness) and by $2\ell$ along it (so that the window does not see the
+period of the waviness); the segments that reach the window are kept.
+
+*Measured* (12 × 12 × 20, $r$ = 0.5): 110 fibres at 0.6, RMS angle 3.14° for 3° after the
+corrections (largest 7.9°), 2.59° when the fibres wave on their own (they straighten, the
+largest angle 15.6°), 9.83° for 10°; 1221 wavy fibres in a box of 80 diameters in 2.9 s.
+*Tested* (`tests/test_long_fibres.py`): no overlap (every pair of segments within reach,
+nearest periodic images, Ericson's closest points, independently of the kernels), chains
+closed across the period, straight fibres along the axis, the realized fraction against
+the exact volume of the chains and against the voxels (within 2·10⁻³), the RMS angle exact
+before the corrections and within 3 % and 12 % after (0.3 and 0.6), the covariance of the
+waviness along a fibre against $\sum_j e^{-\kappa_j^2\ell^2/2}\cos\kappa_jh$ (normalized)
+and across the fibres against $e^{-d^2/2\ell_t^2}$ (within 0.04), independent fibres
+uncorrelated, `secant_mean` against quadratures of its definition (10⁻⁹) and its series,
+lognormal radii (Kolmogorov–Smirnov), the arrays (spacing, the 6 and 4 nearest neighbours,
+the exact fraction, the largest fractions with a gap), windows, the axes x and y, the
+theory, the configuration, JSON and seeds.
+
+## 96. Woven textile composites (`woven_textile`)
+
+Yarns (tows) of fibres woven into a fabric and impregnated by a matrix: the geometric
+idealization of the preprocessors of textile composites (WiseTex, Lomov, Huysmans &
+Verpoest 2001; TexGen, Sherburn 2007), after the plain weave of Kuhn & Charalambides
+(1999) and, for the 3D weaves, the review of Ansar, Xinwei & Chouwei (2011).
+
+**Paths.** The warp yarns run along the first axis of the plane of the fabric (`x` in its
+own axes), the weft yarns along the second (`y`), the stacking axis is the third (`z`);
+`axis` maps them onto those of the sample. The centreline of a yarn lies in a vertical
+plane; its stations are its crossings with the yarns of the other direction, `s` apart
+(the spacing of those yarns), each at a level `z_k`. From a station to the next the path
+is level over the share `1 − τ` of the spacing about the stations (`τ`, `transition`) and
+passes from `z_k` to `z_(k+1)` over the share `τ` in the middle by a half cosine
+
+    z(s) = z_k + (z_(k+1) − z_k) (1 − cos(π (s − s_0) / L)) / 2,   L = τ s,
+
+whose arc length is, with `A = π Δz / (2L)` and `E` the complete elliptic integral of
+the second kind,
+
+    ∫_0^L √(1 + A² sin²(π u / L)) du = (2L / π) E(−A²).
+
+The crimp of a yarn is its arc length over its straight length, minus 1 (Peirce 1937).
+The binders of the orthogonal weaves go through the thickness in the gap `g = s − w_f`
+between the weft columns (`w_f`: the mean width of the wefts): from a level to the other
+by an arc of radius `ρ`, a line and an arc back, horizontal at both ends; the angle `θ`
+of the line solves `2ρ + (|Δz| − 2ρ) cos θ = g sin θ`, the line is `(|Δz| − 2ρ(1 − cos θ))
+/ sin θ` long and the rise `2ρθ` plus that; with `ρ = g/2` the line is vertical, `|Δz| −
+g` long.
+
+**Sections and frames.** At each node of the polyline of a centreline (a segment per
+level piece, `samples` per change of level) the tangent `t`, the width axis `n` (the
+horizontal normal to the plane of the path, `e_z × e_travel`) and the thickness axis `b =
+t × n` (up in the plane of the path). The section, in the plane normal to `t`, of half
+width `a` along `n` and half thickness `c` along `b`: an ellipse `(u/a)² + (v/c)² ≤ 1`
+(area `π a c`), a power ellipse `|u/a|^q + |v/c|^q ≤ 1` (`q ≥ 1`; area `4 a c Γ(1 +
+1/q)² / Γ(1 + 2/q)`) or a lens, the intersection of two discs of radius `R = (a² + c²) /
+(2c)` whose centres are `R − c` from the middle along `b` (area `2(R² acos(1 − c/R) − (R −
+c) a)`, two circular segments; `c ≤ a`). A section swept along a curve whose radius of
+curvature exceeds the extent of the section in its plane, its centroid on the curve,
+fills the area of the section times the length of the curve (the second theorem of
+Pappus–Guldin): the volume of a yarn is `π a c` (or the area of its section) times its
+arc length. On the polyline, the closest point `Q` of the centreline to a point `x` (on
+the segment of the yarn closest to it) and the frame there, interpolated between the ends
+of the segment, give the coordinates `u = (x − Q)·n`, `v = (x − Q)·b` of `x` in the
+section; the gap left on the convex side of a joint and the overlap on its concave side
+cancel to first order in the turning angle of the joint for a section symmetric about its
+axes, so that the volume of the polyline sweep is the area times the length of the
+polyline (checked by Monte Carlo against the exact volume within its standard error).
+
+**The partition of the yarns.** The function of a yarn at `x` is about the signed
+distance to its surface: `(γ − 1)/|∇γ|` for the ellipse and the power ellipse (`γ`, the
+gauge of the section, homogeneous of degree 1, so that `(γ − 1)/|∇γ|` is exact on the
+boundary and along the axes, and has a slope at most 1 along the rays from the axis), the
+larger of the signed distances to the two discs for the lens (exact inside). The
+idealized paths and sections may interpenetrate near the crossings (a sinusoidal warp
+passes under a weft of elliptic section without overlap near the crossing as long as
+`h π² / s² ≤ c_f / a_f²`, `h` its amplitude: wide flat yarns do overlap): a point inside
+several yarns belongs to the one it is deeper in, the smallest function. With `D_p` the
+smallest function of the yarns of the phase `p` and the matrix the region where no yarn
+is (the constant 0 in the comparison), the implicit functions of the phases are
+
+    φ_0 = −min_p D_p,    φ_p = D_p − min(0, min_(q ≠ p) D_q),
+
+negative in their phase, zero on their interfaces (between two yarns of different phases
+where they are as deep in both), of slope at most 2 there. The summary of a realization
+gives the share of the volume of the yarns where two of them overlap,
+`Σ_k V_k f_k / (2 Σ_k V_k)`, `f_k` the share of the points drawn uniformly in the yarn
+`k` (along its segments by their lengths, then in its section) that another yarn holds:
+the fraction of the yarns is their nominal fraction times one minus it.
+
+**2D weaves.** The interlacing matrix `W` of one repeat gives the warp `i` above the weft
+`j` where `W[i mod R_y, j mod R_x]`: plain `W = (i + j) mod 2 = 0`; twill of `n` over and
+`m` under, `(j − i) mod (n + m) < n`; satin of `H` harnesses at the move `s` (coprime with
+`H`, `1 < s < H − 1`), the warp under the weft `s i mod H` only; basket of `k`, the plain
+weave of groups of `k`. At a crossing the centrelines of the warp and of the weft are
+`c_w + c_f` apart about the mid-plane of the ply (their sections touch), at `±(c_w + c_f)
+/ 2`: a ply is `t_w + t_f` thick. The plies are stacked with `ply_gap` of resin between
+them, each shifted by `ply_shift` spacings from the one below (or at random over the
+repeat).
+
+**3D weaves.** `N` layers of straight warps (`layers`) between `N + 1` layers of straight
+wefts, the pitch of the layers `t_w + t_f`, and binders along the warps, in columns
+midway between those of the warps, adjacent binders out of phase: `orthogonal`, over the
+top layer of wefts and under the bottom one, through the thickness in the gaps between
+the weft columns; `layer_to_layer` angle interlock, a binder per warp layer `l`, over a
+weft of the layer `l + 1` and under one of the layer `l`, all the binders of a column in
+phase; `through_thickness` angle interlock, down one layer at each weft column from the
+top to the bottom and back (a repeat of `2(N + 1)` weft columns). The fabric is `N (t_w +
+t_f) + t_f + 2 t_b` thick. The binders of the angle interlocks pass from one slot to the
+next by half cosines over the spacing.
+
+**Orientations.** Each segment of a yarn is a label; its material axes are the rows of
+`g = (n, b, t)` (the axis 3 along its chord, the axis 1 across the width of its yarn), its
+Bunge angles those of `g` (`crystal = g sample`): a transversely isotropic tow given in its
+own axes (`hexagonal: [c11, c12, c13, c33, c44]`, the fibres along 3) is turned along the
+path of its yarn by the solvers that take grains and orientations. The matrix has the last
+label and zero angles.
+
+**Conforming meshes.** A textile gives the functions of its phases at any point
+(`phase_level_sets_at`, about the signed distances to the surfaces of the sections, of
+slope at most 2: `lipschitz`), and its segments at any point (`label_of`). Its
+conforming meshes are those of the adaptive route of §94 (`exact_route`: `level_set`):
+an octree refined where the linear interpolation of the functions of the phases departs
+from them by more than the Hausdorff distance $h_d$ (down to `min_size`), cut by MMG
+phase by phase (the warps, the wefts, then the binders out of what the others leave, the
+lines where three phases meet kept), remeshed once, the nodes of the interfaces
+projected onto the zero level sets; the faces of a periodic box match. Every point of
+the meshed interfaces is within $h_d$ of the exact surfaces, so that the volume of a
+phase departs from its exact volume by at most $h_d$ times the area of its interfaces
+(checked against Monte Carlo); the chords of the curved sections cut inside them, the
+volumes of the yarns short by a fraction of order $h_d$ over their half thicknesses.
+Each element takes the label of the segment at its centroid (`mesh.cell`) and the
+orientations of the labels (`mesh.orientations`); an element whose centroid falls on the
+other side of an interface (within $h_d$ of it) takes the label of the nearest element
+of its phase. The finite elements turn the material of each element by the orientation
+of its label (the grains of polycrystal meshes alike): on one mesh, transversely
+isotropic tows turned by the orientations of their segments give the stiffness of the
+same tows given in the axes of the sample to 10⁻⁸ (straight warps and wefts, the
+binders of resin), and the FFT stiffness on 40 × 40 × 28 voxels within 6 % (an
+orthogonal weave of round tows on 34,000 elements). The level set sampled on a
+background grid, the route that the textiles took before, loses the tows thinner than
+a few spacings of its grid (−41 % of their volume for tows 0.3 thick at the spacing of
+0.3 of a mesh of size 0.6).
+
+**Theory.** The nominal fraction of each family over a periodic box is the mean area of
+its sections times the arc lengths of its yarns over the volume (overlaps counted twice;
+for the lens, the mean of the area over the laws of the widths and thicknesses); the
+crimps, those of the paths of one repeat; the thickness of the fabric; with the fraction
+`v_y` of the fibres in the yarns, the fibre volume fraction `v_y` times the fraction of
+the yarns.
+
+## 97. Grains with subgrains, or filled with another structure (`models.nested_grains`)
+
+The model `nested_grains` nests the structure of a model (`inner`) in the grains of a
+tessellation (`grains`: Voronoi or Laguerre, §4, isotropic or not, with its phases,
+the orientations of its crystals and its grain-boundary phase).
+
+**The frame of each grain.** The grain `i`, of germ `c_i` and crystal `g_i` (`crystal = g
+sample`, §92), sees a point `x` of its cell at the point
+
+```
+q = g_i (x − c_i) + s_i
+```
+
+of the inner realization, `s_i` a shift uniform in the box (`turned`, the default), or at
+`q = x` (one realization in the axes of the sample, cut by the grains). Of the periodic
+images of a point, the one in the whole cell of its grain is the image nearest to the
+germ, in the power distance of the cells (`|x + kL − c_i|² − w_i`, the weight the same for
+every image): `x − c_i` is the shortest periodic image, whatever the shape of the cell, and
+the pattern is continuous inside the grains that wrap around the faces of the box. All the
+grains see one realization of the inner model in a periodic box (the domain), at shifts
+drawn independently: the patterns of two grains are independent as long as the grains are
+small compared with the box. With the crystal, the pattern turns: the layers of a
+laminate normal to the axis z of the inner model lie normal to `g_iᵀ e_z`, the axis c of
+the crystal (the third row of `g_i`); grains without orientations are turned at random.
+
+**Subgrains.** An inner tessellation of germs `y_j` (weights `w_j`) divides the grains.
+The germs of grain `i` are the `y_j` that it sees in its cell, `c_i + g_iᵀ (y_j − s_i)` in
+the cell of `i` about `c_i` (all the periodic images of the box within the reach of the
+cell, the farthest of its vertices from its germ); each point `x` of the grain belongs to
+the subgrain of its germ `j` that minimizes
+
+```
+|M (q − y_j)|² − w_j,
+```
+
+`M` the inverse of the map of an anisotropic inner tessellation (identity otherwise): the
+power cells of its germs restricted to the grain. Each subgrain of a Voronoi (or packed
+Laguerre) tessellation holds its germ, and the sub-boundaries stop at the grain
+boundaries, as the walls of dislocations that recovery builds within each grain
+(Humphreys & Hatherly 2004); a grain that sees no germ is a single subgrain. On average
+a grain of volume `V` sees `λ_inner V` germs (each point of the cell sees a point of the
+box uniform in it), so that the grains hold `λ_inner / λ_grains` germs each; without the
+turns, each germ of the inner tessellation belongs to the grain it falls in, once.
+
+**Orientations of the subgrains.** The crystal of a subgrain is that of its grain turned
+by an angle `t` drawn from `misorientation` about a uniformly random axis `u`,
+
+```
+g_s = g_i ΔR(u, t),
+```
+
+so that its disorientation from its grain is `t` (below 45° for cubic crystals and 30°
+for hexagonal ones, where no symmetry brings the crystals closer). Two subgrains of one
+grain, turned by `t_a` and `t_b` about independent axes, are turned from each other by
+`ΔR_b ΔR_aᵀ`, whose angle `ψ` follows from the product of the unit quaternions
+`(cos(t/2), sin(t/2) u)`:
+
+```
+cos(ψ/2) = cos(t_a/2) cos(t_b/2) + sin(t_a/2) sin(t_b/2) u_a·u_b,
+```
+
+and `u_a·u_b`, the cosine of the angle of two independent uniform directions, is uniform on
+`[−1, 1]`: `cos(ψ/2)` is uniform between `cos((t_a + t_b)/2)` and `cos((t_a − t_b)/2)`.
+Its law and moments, averaged over the two misorientations by quadrature
+(`subgrain_disorientation_cdf`, `subgrain_disorientation_moments`), follow from the
+primitives of `acos u` and `acos² u`, `u acos u − √(1 − u²)` and `u acos² u − 2√(1 − u²)
+acos u − 2u`:
+
+```
+E[ψ | t_a, t_b]  = 2 [F₁(cos((t_a − t_b)/2)) − F₁(cos((t_a + t_b)/2))] / (cos((t_a − t_b)/2) − cos((t_a + t_b)/2)),
+E[ψ² | t_a, t_b] = 4 [F₂(...) − F₂(...)] / (...).
+```
+
+For a constant angle `t` (small), `ψ/2t` has the density `2x` on `[0, 1]`: `ψ` is `4t/3` on
+average, at most `2t`. The disorientations across the grain boundaries keep those of the
+grains (Mackenzie's law for random orientations, §92), so that the histogram of the
+disorientations of the boundaries of a polycrystal with subgrains has a peak of low angles
+beside Mackenzie's.
+
+**Filled grains.** Any other inner model fills the grains of the phases `filled_phases`
+(all those of the cells by default; the grain-boundary phase is not filled): its phase 1
+becomes the phase `inner_phase` of the grains, its phase 0 leaves them as they are. Each
+point of a grain sees a point of the inner realization uniform in its box (the shift), or
+any fixed point (without turns): the fraction of the inner phase is
+
+```
+p_inner = f p,     p_k = f_k (1 − p) (filled cells of phase k),     p_k = f_k (the others),
+```
+
+`f_k` the fractions of the phases of the cells (their probabilities, §4), `f` that of the
+filled ones and `p` the volume fraction of the inner model (when its theory gives it; not
+with a grain-boundary phase, whose fraction has no closed form). The labels are those of the grains, with their orientations. The function of the inner
+phase at any point is the union over the filled grains `B` of the inner structure that `B`
+sees, cut by its cell:
+
+```
+F(x) = min_B max(c_B(x), φ(q_B(x))),     c_B(x) = max_f (n_f · y − o_f + τ/2),
+```
+
+`φ` the function of the phase 1 of the inner structure (`q_B = g_B (x − c_B) + s_B`, a
+rigid motion of `x`: distances are kept), `c_B` the largest signed distance from the point
+`y` (`x`, or its preimage by an anisotropic tessellation, at its periodic image nearest to
+the germ of `B`) to the planes `n_f · y = o_f` of the faces that `B` shares with other
+cells, shifted by half the thickness `τ` of a grain-boundary phase: exact inside the
+convex cell, a lower bound of the distance outside, of slope one. `F` is continuous across
+the faces of the grains, where the patterns of two grains meet (the function of the point
+seen by its own grain alone would jump there, and the adaptive mesh refine along every
+face). Two grains `A`, `B` that share a face would leave `F` zero on it wherever both see
+the inner phase (each `c` vanishes on the boundary of its cell: a seam that the adaptive
+mesh takes for a thin feature); without a grain-boundary phase, a bridge over each such
+face,
+
+```
+max(|n · y − o| − e, a(y), b(y), φ(q_A), φ(q_B)),
+```
+
+`n · y = o` the plane of the face, `e` the reach of the functions, `a` and `b` the largest
+signed distances to the planes of the other faces of the two cells (the bridge lies in
+their union), negative only where the inner structures seen by both grains are, enters
+the minimum: the signs stay those of the phases, and the seams are gone but along the
+edges of the faces. A filled phase `k` of the grains, of function `G_k`, is
+`max(G_k, −F)`, the other phases `G_k`. The grids take these values at the centres of their voxels (the signed
+distances of the voxels of each phase remain for the inner structures whose functions are
+those of grids only); the functions of the subgrains are those of the grains (the
+subgrains keep their phases).
+
+**Exact meshes.** The subgrains are convex: the cell of a subgrain is the set of the points
+of its grain nearer to its germ `y_j` than to the other germs `y_k` of the grain, in the
+power distance `|M (q − y)|² − w` of the inner tessellation (`M` the inverse of the map of
+an anisotropic one), and
+
+```
+|M (q − y_j)|² − w_j ≤ |M (q − y_k)|² − w_k   ⇔   2 Mᵀ M (y_k − y_j) · q ≤ P_k − P_j,
+```
+
+`P = |M y|² − w`, is a half-space in `q`, hence in `x` (`q = g (x − c − t) + s` is affine,
+`t` the periodic image of the grain that holds the point): normal `gᵀ a`, `a = 2 Mᵀ M
+(y_k − y_j)`. Each piece of the cell of a grain in the box (`Tessellation.cell_complex`,
+mapped by an anisotropic tessellation; `t` from the centre of the piece) is cut by these
+planes, one subgrain at a time (Sutherland–Hodgman on its faces, the section as a new
+face): the subgrains of the grain partition it exactly. A grain-boundary phase of
+thickness `τ` is where the distance to the faces that a cell shares with others is below
+`τ/2`, the distance to the nearest of their planes inside a convex cell: the cell shrunk
+by `τ/2` (its planes shifted inwards) and the slabs between, the slab of the face `f`
+beyond its shifted plane and within those of the faces before it — convex pieces, disjoint,
+cut in turn by the planes of the subgrains. The pieces partition the box; the faces of two
+grains are cut differently by their subgrains, and the route of the convex pieces
+(`mesh.exact.polyhedral_mesh`) overlays them on their plane, inserts the vertices that end
+on the edges of a facet (T-junctions) and meshes the complex with MMG, keeping the facets:
+every element lies in one subgrain, with its crystal. Filled grains take the route of the
+level sets with the functions above; each element takes the grain of the centre of its
+tetrahedron (`point_cells`): the interfaces of the phases are exact, the faces between two
+grains of one phase are not followed.
+
+*Limits.* Filled grains on the route of the level sets are exact but slow where the
+inner phase meets the faces of the grains at sharp edges, which the adaptive mesh
+follows within the Hausdorff distance by refining along them: 8 lamellar colonies of
+the unit cube (lamellae 0.06 thick, 0.12 apart) at size 0.2 make 646,000 elements, the
+laminate alone 100,000; the edges could be followed as those of the unions of spheres
+(`implicit_pieces`). The grid route is faster but loses the lamellae thinner than its
+spacing (`mesh: {method: grid}`).
+
+**Verification** (`tests/test_nested_grains.py`).
+
+| Check | Reference | Result |
+|---|---|---|
+| subgrains of 12 grains (240 inner germs), turned and not | each label inside the grain of its parent; each germ in its subgrain; 400 points against the nearest germ of their grain found by brute force in the axes of the sample; 240 germs exactly without turns, within 4√240 with them | exact |
+| laths (an inner tessellation stretched 3 times) and anisotropic grains of a window | the labels refine the grains | exact |
+| misorientations of a uniform law (1° to 4°), constant (2.5°), none | the disorientation of each subgrain from its grain the drawn angle; Kolmogorov–Smirnov | 10⁻⁶ degrees; p > 10⁻³ |
+| the angle between two subgrains: 4,000 products of random rotations; the neighbouring subgrains of the grains of a 40³ image | the law of `ψ` (Kolmogorov–Smirnov), its mean within 4 standard errors (pairs that share subgrains: a tenth of them independent); `4t/3` for a constant `t`; none above `2 t_max`; the boundaries of the grains above 20° (median) | p > 10⁻³; as stated |
+| a laminate turned in 10 grains (72³ voxels) | the principal axis of the gradients of the image in each grain (six of them at least, wrapped ones included) along the axis c of its crystal | absolute cosines above 0.97 |
+| Boolean spheres (p = 0.2) in the grains of phase 1 of a two-phase mosaic | no sphere in the grains of phase 0; the fraction within the filled grains `p`, three realizations | 4 standard deviations (the integral range of the spheres) |
+| a gyroid cut by the grains without turns | the image that of the grains and of the gyroid combined; the signs of the functions of the phases those of the image | exact |
+| labels on a grid shifted by whole voxels; configuration and JSON round trips; partial volumes | the image rolled; the same labels, orientations and phases | exact |
+| copper polycrystals with subgrains by FFT (24³) | the bulk modulus `(C₁₁ + 2C₁₂)/3`; not turned, the shear modulus of the grains alone; turned by 0.01°, within 10⁻⁴ of it | 10⁻⁶, 10⁻⁹, 10⁻⁴ |
+| the exact cells of the subgrains (turned and not; a grain-boundary phase; laths in a window; turned anisotropic grains of a window, Laguerre subgrains) | the pieces partition the box; 6,000 points each in a piece of its subgrain (`cell_of`) and of its phase (`phases_at`); the volume of each subgrain against the fraction of the points in it (Poisson) | 1e-9; exact; within 4.5 standard deviations |
+| the exact mesh of 12 grains of copper with subgrains (size 0.2) | every element in the subgrain and phase of its centre; the volume of each subgrain that of its pieces; the crystals of the elements; matching periodic faces; the bulk modulus by finite elements `(C₁₁ + 2C₁₂)/3` | exact; 1e-12; exact; 1e-6 |
+| filled grains (spheres in the grains of one phase of a mosaic) | the signs of the functions of the phases at 20,000 points; no jump at a step of 1e-6 (across the faces of the grains); the grids the values at the centres of their voxels | exact; slope at most one (two for the mosaic's own functions); 1e-6 |
+| lamellar colonies (4 grains, slow) | the exact mesh: the phases of the elements those of their centres, the volumes of the phases those of a voxel image (64³), the grains and crystals of the elements | 99 % of the volume; 0.01; exact |
+
+## 98. Monodisperse and polydisperse objects
+
+A size of the objects of a model (the radius of fibres or struts, the radius of the
+fibres of a plywood) is a number, the same for every object, or a distribution (§1:
+constant, uniform, lognormal, truncated normal, discrete), one size per object drawn
+independently of its position and shape. A constant law draws no random number: a number
+gives the realizations of a fixed size.
+
+**Laws scaled.** The law of $sX$ ($s > 0$) has the moments
+$\mathbb E[(sX)^k] = s^k\,\mathbb E[X^k]$ and the same shape: uniform on $[sa, sb]$,
+lognormal of mean $s\mu$ and standard deviation $s\sigma$, normal truncated to $[sa, sb]$
+of mean $sm$ and deviation $s\sigma$, discrete on the values $s x_i$.
+
+**A volume fraction and a law of sizes.** Where a volume fraction sets the size on each
+realization (open foams, Delaunay networks, strut lattices), a law of the size keeps its
+shape: the radii $r_i = s X_i$, $X_i$ drawn from the law, $s$ the root of
+$p(s) = p_{\text{target}}$ (the fraction of the union on voxels a quarter of the mean
+radius wide, increasing in $s$; Brent's method from $[s_0/4, 2 s_0]$, $s_0 =
+\sqrt{p\,V / (\pi \sum_i X_i^2 l_i)}$ for struts of lengths $l_i$, or the radius of
+uniform struts of the fraction over $\mathbb E[X]$ for lattices). A number with a
+volume fraction stays refused: the fraction solves one radius.
+
+**Fibres of several radii in contact.** Two fibres of radii $R_a$, $R_b$ touch where
+their axes come closer than $D = R_a + R_b + g$; with $S = R_a + R_b$,
+$\mathbb E[S] = 2m_1$, $\mathbb E[S^2] = 2m_2 + 2m_1^2$, $\mathbb E[S^3] = 2m_3 + 6m_2m_1$
+($m_k = \mathbb E[R^k]$), and $\mathbb E[D^k]$ follow from the binomial expansion. Lines:
+the contacts along an axis are a Poisson process of intensity $2\,\mathbb E[D]\,L_V\,
+\mathbb E|\sin g|$ (linear in $D$). Finite fibres of length $l$: the excluded volume
+$\frac43\pi\,\mathbb E[D^3] + 2\pi\,\mathbb E[D^2]\,l + 2\,\mathbb E[D]\,l^2\,
+\mathbb E|\sin g|$ (Onsager's, averaged; the estimate of Toll of `random_walk_fibers` with
+$\mathbb E[l]$ and $\mathbb E[l]^2$). The volume of a spherocylinder:
+$\pi\,\mathbb E[R^2]\,l + \frac43\pi\,\mathbb E[R^3]$; of a curved fibre of contour length
+$L$ (the chain of its segments, which overlap at the joints): the same, a little above.
+
+**Plywoods.** A layer of fibres of radii $R_i$ at the spacing $s$, of thickness $h$, holds
+the fraction $\pi\,\overline{R_i^2}/(s h)$, in expectation $\pi\,\mathbb E[R^2]/(s h)$,
+with the specific surface $2\pi\,\mathbb E[R]/(s h)$; no two fibres overlap when the
+largest diameter is at most $s$ and $h$. In a periodic box, the translations of the box
+shift the index of a fibre of a family normal to $(a/L_u, b/L_v)$ by $a$ and $b$: the
+family is $\gcd(a, b)$ fibres on the torus, each winding $|(a,b)|/\gcd(a,b)$ times
+around the box, and each takes one radius.
+
+**Lattices of struts of several radii.** In a periodic box each strut is drawn once (the
+struts of opposite faces, a period apart, are one: `models.lattice.periodic_struts`).
+Thin struts take the fraction $\pi\,\mathbb E[R^2]\,L_V$ to first order, $L_V$ the length
+of the struts per unit volume ($3/a^2$, $4\sqrt3/a^2$ and $12\sqrt2/a^2$ for the cubic,
+bcc and octet cells); the nodes, where several struts overlap, take it below by a few
+percent. The spheres of the nodes of foams and networks take `node_ratio` times the
+largest radius of the struts that meet there, and the frame of beams takes the radius of
+each strut (§23, the frames of the networks).
+
+## 99. Arrays of other libraries and phase fields for spectral solvers (`interop.arrays`)
+
+**Arrays without copies.** A voxel image hands its array over by the DLPack protocol
+(`__dlpack__`, `__dlpack_device__`): JAX, PyTorch, CuPy and NumPy read the voxels where they
+are. XLA, the compiler of JAX, takes a buffer of the CPU in place only when its address is a
+multiple of 64 bytes, and copies it otherwise; NumPy's allocator aligns its buffers on 16
+bytes. `aligned_empty(shape, dtype)` allocates $n + 64$ bytes and starts the array at the
+first multiple of 64 in them; `aligned(a)` is `a` itself when it is such a buffer, else an
+aligned copy; `to_jax(image)` gives the image an aligned buffer once (the same values), which
+the image and the JAX array then share (the address of JAX's buffer that of the image).
+JAX works in single precision unless `jax_enable_x64` is set: an array of doubles is
+converted, hence copied; the phase fields are single.
+
+**The signed distance.** The point-wise implicit function of the phase (§94, `implicit_at`),
+exact within a reach $\rho$ (12 voxels, or $8\varepsilon$ below) for the structures that know
+their distances, is evaluated at the centres of the voxels by slabs of $2^{20}$ points; where
+$|\phi| = \rho$, the points are far from the interface ($d = \pm\infty$). A function that is
+not a distance (the trigonometric sums of TPMS, Gaussian fields) is divided by the norm of
+its gradient, $d \approx \phi/|\nabla\phi|$: exact for linear functions, and near the
+interface within $\frac12 d^2|\partial_n\ln|\nabla\phi||$ (the variation of its slope across
+it); the gradient by central differences of the fourth order on periodic axes,
+$[8(\phi_{i+1} - \phi_{i-1}) - (\phi_{i+2} - \phi_{i-2})]/12h$ (error $h^4\phi^{(5)}/30$; of
+the second order elsewhere). A function whose gradient has a
+median norm within 1 % of 1 over the voxels within 1.5 voxels of its zero is a distance
+already and is left as it is: the differences of a distance are wrong at its ridges (the
+medial surfaces between objects), where the profile below is saturated anyway. The
+structures without point-wise functions give their function on the grid, its clipped values
+(the edges of its band) taken as far; a phase image its indicator smoothed by a Gaussian of
+one voxel, then the same.
+
+**The profile.** $u = m + a\tanh\left(-d/(\sqrt2\,\varepsilon)\right)$, $m = (u_{in} +
+u_{out})/2$, $a = (u_{in} - u_{out})/2$ (1 in the phase, −1 outside by default). A plane
+interface at rest of Allen–Cahn's equation $u_t = \nu\Delta u + u - u^3$ (Exponax's
+`AllenCahn`: the diffusivity $\nu$, the coefficients 1 and −1 of $u$ and $u^3$) solves
+$\nu u'' + u - u^3 = 0$ with $u(\pm\infty) = \pm1$: $u = \tanh(x/\sqrt{2\nu})$, the profile
+for $\varepsilon = \sqrt\nu$. Cahn–Hilliard's $u_t = \nu\Delta(u^3 - u - \gamma\Delta u)$
+(`CahnHilliard`: the coefficients −1 and 1 of $u$ and $u^3$ in its potential) conserves the
+mass, and its chemical potential vanishes on
+$\gamma u'' + u - u^3 = 0$: $\varepsilon = \sqrt\gamma$ (Allen & Cahn 1979; Cahn & Hilliard
+1958). By default $\varepsilon$ is 1.5 voxels: the interface, $|u| < \tanh 1$, spans
+$2\sqrt2\,\varepsilon \approx 4.2$ voxels, which spectral solvers resolve; beyond
+$8\varepsilon$ the phases are pure, $1 - \tanh(8/\sqrt2) = 2.4\cdot10^{-5}$ left out.
+
+**The grids.** The values are those of the centres of the voxels, $x_i = o + (i + \frac12)h$;
+Exponax's grid is $x_i = iL/N$, the right face left out (Koehler et al. 2024). The state is
+the image on that grid shifted by half a voxel, its origin at the centre of the first voxel:
+the equations are invariant by translation, nothing is interpolated, and
+`from_dlpack(state, like=image, channel=0)` gives a field of the solver back on the voxels of
+the image, to measure or to homogenize. `spectral_grid` gives the arguments of the steppers
+(`num_spatial_dims`, `domain_extent`, `num_points`) of a periodic cube of cubic voxels (one
+length and one number of points per axis), in two dimensions for a planar image; `state` is
+the view $(1, N, N, N)$, and `realizations(model, domain, seeds, shape)` the aligned array
+$(B, 1, N, N, N)$ of the phase fields of the realizations of the seeds, the initial
+conditions of ensemble rollouts (`jax.vmap` of a stepper; the ensembles of the stochastic
+Allen–Cahn equation of exponax-spde, a noise per member).
+
+**Verification** (`tests/test_arrays.py`). The profile of a sphere against the tanh of its
+exact distance: within $10^{-6}$ in the six voxels about the interface, within
+$2.4\cdot10^{-5}$ everywhere (the pure phases beyond $8\varepsilon$); the distance estimated
+for a gyroid of unit slope at its interface (median within 0.05); the buffers shared (NumPy
+by DLPack, the address of JAX's buffer). Motion by curvature: in the sharp-interface limit
+an interface of Allen–Cahn moves with the velocity $\nu\kappa$ (Allen & Cahn 1979), so that a
+disc of radius $R_0$ shrinks as $dR/dt = -\nu/R$, $R^2 = R_0^2 - 2\nu t$. A disc of morphoGen
+($R_0 = 0.3$, $64^2$ voxels, $\varepsilon = 1.5$ voxels) in Exponax's `AllenCahn` (ETDRK of
+the second order, Cox & Matthews 2002; $dt = 0.05$), its area $\int(1 + u)/2$, follows it
+within 1 % (0.7 % measured; 0.2 % and 0.4 % on $128^2$ voxels at $dt = 0.1$ and 0.05, where
+$\varepsilon/R_0$ is halved; at $dt = 0.5$ it lags by 9 %, the error of the time step);
+Cahn–Hilliard keeps the mean of $u$ to $10^{-7}$ (the rounding of single precision); the phase
+fields of the realizations of a model roll out together.
+
+## 100. The particles of a phase for the discrete element method (`io.dem`, `models.mesh_particles`)
+
+**The particles.** The voxels of a phase, where its function is negative on a grid (§94), are
+labelled by connectivity (6, 18 or 26 neighbours) inside the box. In a periodic box the
+labels that meet across a face are joined with the translation of the copy met (union–find
+with frames, as the wrapping of the percolation, `analysis.connectivity`): the frame $f_a$ of
+a label is the translation, in boxes, of its copy in the frame of its root; a pair of
+neighbours across a face, the copy of $v$ in the box $s$ beside that of $u$, joins two roots
+(the root of $v$ takes the frame $f_u + s - f_v$ in that of the root of $u$), and in one root
+closes a winding when $f_u + s \ne f_v$:
+the component winds around the box, an unbounded cluster, not a particle. The voxels of a
+particle are put back together, each label moved by its frame: a whole particle reaches
+beyond the faces.
+
+**Their surfaces.** On the bounding box of a particle (its voxels and one more), the function
+of the phase, the voxels of the other particles (and of the other copies of itself) made
+positive ($|\phi| + 10^{-6}$: two particles that touch part in the middle of their voxels),
+padded by positive values; marching cubes at level 0 (Lewiner et al. 2003), the normals
+outward: a closed surface per particle. A particle cut by the faces of a window, and a cluster
+that winds around a periodic box, are closed by those faces (the vertices beyond the centres
+of the outer voxels moved onto them, as the watertight surfaces of the phases). The volume,
+area and centroid of a particle are those of its surface (the divergence theorem; the
+centroid of the signed tetrahedra on the origin), its equivalent radius $(3V/4\pi)^{1/3}$.
+
+**Exact spheres.** A union of spheres and segments gives its primitives: each sphere once, its
+centre in the periodic box; a segment, a clump of spheres of its radius along its axis at most
+`clump_spacing` radii apart, its ends at its ends (its caps exact; between two beads a groove
+$r - \sqrt{r^2 - s^2/4}$ deep, 3 % of the radius for $s = r/2$). Their surfaces, for the
+surface files: icospheres of two subdivisions (320 triangles) scaled by
+$(4\pi/3V_{ico})^{1/3}$ to the volume of their sphere (the mass of the particle kept); a
+segment, the closed surface of its spherocylinder (a capsule): two hemispherical caps of
+$q = 2^l + 1$ rings of latitude and $4q$ meridians ($l$ the subdivisions, 5 and 20 for 2),
+the cylinder between them in bands about as high as the rings. Its prism holds $c_2 s^2$
+and its caps $c_3 s^3$ for a radius $s$ ($c_2 = 2q\sin(\pi/2q)\,l_s$, the area of the
+polygon of the meridians times the length $l_s$ of the segment): the radius that holds
+$\pi r^2 l_s + \frac43\pi r^3$ is the root of a cubic (Newton's iterations), a little above
+$r$.
+
+**Files.** STL, an ASCII solid per particle (`solid particle_k`) or a binary STL each; OBJ, an
+object each; VTU, the triangles with the number of their particle and whether it is whole;
+tables of the particles (volume, area, centroid, equivalent radius, voxels, whole) or of the
+spheres; the data files of LAMMPS and LIGGGHTS (`read_data`; Thompson et al. 2022, Kloss et
+al. 2012), atom style `sphere` (`id type diameter density x y z`), or `hybrid sphere
+molecular` (`id type x y z diameter density molecule`) with the clumps as molecules, rigid by
+`fix rigid/small molecule`, in the box of a periodic domain or one that holds the spheres;
+YADE's columns `x y z r` (`ymport.text`) or `x y z r clumpId` (`ymport.textClumps`).
+Gmsh 2.2 (ASCII; Geuzaine & Remacle 2009), the triangles of each particle (type 2) or its
+tetrahedra (type 4), its elements in the elementary entity $k$ and the physical group $k$,
+named `particle_k` (`particle_k_cut` when it is not whole), without a blank line: LMGC90
+(Dubois et al. 2011) reads it (`pre.readMesh`, whose reader splits every line), gives a
+mesh per entity (`separateMeshes(dim, entity_type="geometricalEntity")`) and makes rigid
+bodies of polyhedra (`POLYR`) of them, from their triangles (`surfacicMeshToRigid3D`, their
+volume and inertia from the closed surface) or their tetrahedra (`volumicMeshToRigid3D`,
+the skin of the mesh and the volume and inertia of its tetrahedra), or deformable bodies
+of the tetrahedra (`buildMeshedAvatar`); the contacts of non-convex polyhedra need its
+detection `PRPRx_UseNcDetection`.
+
+**Tetrahedra.** gmsh fills each closed surface: its triangles a discrete surface, the
+volume of the kernel geo bounded by it meshed by Delaunay's 3D mesher, the surface its
+boundary (the skin of the tetrahedra is the surface, their volume its volume, checked to
+$10^{-9}$). Without the module gmsh, the fan of the triangles to the centre $c$ of the
+particle, the tetrahedra $(c, v_0, v_1, v_2)$ of its faces: when they are all positive,
+each ray from $c$ crosses the surface once (the solid angles of the faces seen from $c$,
+all positive, add up to $4\pi$, the winding number of a closed surface about an inner
+point), so that the particle is star-shaped about $c$ and the fan fills it, without
+overlap; a particle that is not (a curved cluster) asks for gmsh. The fan gives the exact
+volume and inertia of the polyhedron, enough for rigid bodies; its elements are thin, and
+deformable bodies want gmsh's.
+
+**Remeshed surfaces** (`size`). The triangles that the cubes of the voxels leave are thin
+where the surface passes near the nodes of the grid (a quality $4\sqrt3A/\sum l^2$ of
+$4\cdot10^{-3}$ at the least, 0.03 for the worst percent, on a sphere of 6 voxels), and
+many (a thousand or more per particle). MMG's surface remesher (`mmgs`, Dapogny, Dobrzynski
+& Frey 2014) remeshes each surface at the edge $h$ (`-hmax`), down to $h/4$ (`-hmin`), the
+Hausdorff distance to the surface $h/10$ (`-hausd`: an edge of length $h$ on a radius of
+curvature $\rho$ deviates by $h^2/8\rho$, so that edges of $h$ follow the radii above $1.25h$),
+the sizes of neighbouring edges in a ratio below 1.3, its ridges kept (the faces of the box
+that close a cut particle): triangles of qualities above 0.7, fewer faces for a coarser
+$h$, which the detections of contacts of polyhedra visit the faster; the volumes move by a
+fraction of a percent. The surfaces are remeshed at once, a process of MMG each.
+
+**Particles given by their surfaces** (`MeshParticles`). Closed triangle surfaces, whatever the
+orientation of their faces: a voxel is inside when the column of its centre along z crosses
+the surface an odd number of times below it. Each face crossed by the column of a centre (the
+barycentric coordinates of the centre in the projection of the face non-negative) toggles the
+first voxel above the crossing, the toggles summed modulo 2 up the column; the columns pass
+$10^{-6}$ and $1.3\cdot10^{-6}$ of a voxel off the centres, so that none meets an edge or a
+vertex. Particle by particle on its bounding box, then wrapped into a periodic box or cut by a
+window (`kernels.meshes`). Their function: the signed distance of their voxels, $d_{out} -
+h/2$ outside and $-(d_{in} - h/2)$ inside (exact Euclidean distance transforms, the image
+wrapped by 16 voxels in a periodic box), within half a voxel of the distance to the surfaces.
+
+**Verification** (`tests/test_dem.py`). Two spheres, one across a face of the periodic box:
+two whole particles, their volumes within 1 % (0.2 % at 80 voxels), their areas within 2 %,
+their centroids within 0.01 of the centres (beyond the face), the equivalent radii within
+0.5 %; a window that cuts a sphere: the volume of the cap $\pi h^2(3R - h)/3$ within 1 %; a
+fibre through the periodic faces, a winding cluster of volume $\pi R^2L$; the matrix around
+spheres, one cluster; a phase image, the same particles; the clumps of a segment; the files
+read back (solids, objects, numbers, atoms and box, columns); the Gmsh files read as LMGC90's
+pre-processor reads them (its `readGmshv2` and `separateMeshes`: one entity and one
+physical group per particle, closed triangles of outward normals of the volume of the
+particle to $10^{-9}$, positive tetrahedra that fill it, their skin its triangles, the cut
+particles named so), and by gmsh and meshio; the capsules of the exact volumes of their
+segments to $10^{-12}$, the fans of a capsule and a sphere without gmsh, and the error for
+two balls apart in one surface; the surfaces remeshed at $h = 0.2$ (their median edges
+between $0.4h$ and $1.2h$, their qualities above 0.3, fewer faces, their volumes within
+2 %); the icospheres of the volumes of their spheres to $10^{-12}$; the voxels of icospheres of four subdivisions those of their
+spheres on 99.99 % of the voxels, across the periodic faces too (`tests/test_blender.py`).
+
+## 101. Microgen (`models.microgen`, `interop.microgen`)
+
+Microgen (3MAH; version 2) describes its shapes by implicit fields $f(x, y, z)$ negative inside,
+as morphoGen its phases. The model `microgen` calls a class of Microgen (`shape`) with its
+keyword `arguments` (a `surface_function` by its name in `microgen.surface_functions`; `center`
+and `orientation`, Bunge angles ZXZ in degrees, put into the field by its `translate` and
+`rotate`: its constructors leave them to its meshes), takes the `part` of a TPMS (`as_sheet`,
+`as_lower_skeletal`...), gives a spinodoid without a seed one from that of the realization,
+and its realization is phase 1 where $f < 0$, the field of a periodic domain evaluated at the
+points brought back into its box (slabs of $2^{20}$ points). Its implicit function is the
+field itself: a distance for spheres, boxes and cylinders, a function with the right zero set
+for TPMS and spinodoids; the bound of its slope (for the adaptive meshes, §94) 1.5 times the
+largest difference quotient of the field on a grid of 24 cells, 1 at least. The description
+(class, arguments, part) and the seed of the shape are saved, from which the realization is
+read back; a shape given as it is (`from_microgen`) cannot be saved.
+
+The other way, a phase of a realization is a shape of Microgen (`to_microgen`,
+`microgen.from_field`): its field the point-wise implicit function of the phase, exact within
+a reach (a tenth of the edge of the domain), periodic; the structures without point-wise
+functions give that of a grid of voxels, interpolated trilinearly (wrapped across periodic
+faces). Microgen meshes it (`generate_surface_mesh`, `generate_volume_mesh`), and its volume
+meshes come back through PyVista (`from_pyvista`): their hexahedra, wedges and pyramids split
+into tetrahedra, the phase of each element from a cell array; `to_pyvista` gives the
+tetrahedral meshes of morphoGen (4 or 10 nodes, VTK's order) to Microgen's tools.
+
+**Verification** (`tests/test_microgen.py`). The field of the model that of the same shape built
+by Microgen, its voxels its sign, periodic; spinodoids reproducible by their seeds and read
+back; a sphere moved to the centre of the box, its field the distance and its fraction within
+1 % of $\frac43\pi r^3$; a box turned a quarter turn; the field of the shape of a phase its
+implicit function (and the opposite for the other phase), the function of a grid at the
+centres of its voxels; Microgen's surface and volume meshes of a sphere of morphoGen of its
+volume within 2 %; meshes of 4 and 10 nodes through PyVista and back.
+
+## 102. Rigid bodies of Blender (`interop.blender`)
+
+Blender's rigid bodies (the Bullet library) drop the particles of a phase into a box. The
+scene: the exact spheres as spheres of Bullet; the spherocylinders as its capsules, the axis
+of the body (its local z) turned onto that of the segment by the quaternion $(\cos\frac\alpha2,
+\sin\frac\alpha2\,(e_z \times \hat a)/|e_z \times \hat a|)$, $\alpha$ the angle of $\hat a$ to
+$e_z$, the capsule of the bounding box of a cylinder of radius $r$ and height $l + 2r$; the
+other particles, their surfaces (vertices about their centroids), as convex hulls (or
+meshes). Each is moved inside the walls across x and y (by its reach) and above the floor; its
+mass is the density times its volume. The box: five passive slabs (the floor and four walls)
+outside the domain, 5 % of its width thick, `height` times its height. Bullet's world steps
+`substeps` times per frame with `iterations` of its solver, the friction and restitution of
+every body; the margins of spheres and capsules are theirs, those of hulls 0.1 % of the box.
+The scene is scaled by $s$ so that the box is `scene_size` units wide (rigid bodies behave
+best between 0.1 and 10 units), the gravity $gs$. The script steps the frames (24 per second)
+and writes the final transform of each body, its location $t$ and its quaternion $(w, x, y,
+z)$; read back, a sphere's centre is $t/s$, a capsule's axis $R(q)(0, 0, \pm l/2)$ about it, a
+surface $R(q)v + t/s$. The packing is a window of the box up to the top of the highest
+particle (or a height given): a union of spheres and segments, or particles given by their
+surfaces (§100).
+
+**Scenes of microstructures and their flows** (`write_blender_scene`). Each phase of a
+realization becomes the closed surface of its tetrahedra in the mesh conforming to the
+interfaces (§11, §94; linear elements of the size asked, the exact route when the
+structure has one, else the implicit functions on a grid): the faces of the tetrahedra of
+the phase that no other tetrahedron of the phase shares, each turned away from the
+opposite corner of its tetrahedron (outward normals); the faces on the box close the
+surface, and their volume is that of the tetrahedra of the phase. Without MMG, the
+marching cubes of the implicit function of the phase, closed on the box (§11). Blender
+merges the vertices of each binary STL (their float32 coordinates), makes a mesh object
+of each phase and scales the scene so that its longest edge is two units. With a fluid,
+the domain of Mantaflow (Thuerey & Pfaff's solver in Blender) is the box of the sample
+extended by a quarter of its length upstream and downstream along the axis of the flow;
+the four faces along the axis are walls (`use_collision_border_*`: left and right for x,
+front and back for y, bottom and top for z, the borders that Mantaflow opens otherwise),
+its two ends open; the phases are its obstacles (effectors of collision), an inflow slab
+in the upstream extension sets the velocity (`use_initial_velocity`) and an outflow slab
+in the downstream one takes the fluid away; gravity is nil (the flow driven by the
+inflow), and the smoke of a gas has no buoyancy (`alpha`, `beta` nil) and no vorticity
+confinement; a liquid takes its kinematic viscosity as Blender writes it, `base
+10^-exponent` m2/s. Mantaflow caches its grids (`.uni`: gzip, the header `MNT3` of the
+sizes, the type and size of the elements, 252 bytes of information, a fourth dimension
+and a time stamp, then float32 values x fastest), which `read_blender_flow` reads on the
+cells of the domain (its lower corner and the extent of a cell along each axis, in the
+units of the microstructure); the velocities are those of Mantaflow's grid, not
+converted. Mantaflow solves the inviscid equations of a gas (and those of liquids with
+FLIP particles) for visual effects: the streams it shows run through the pores around the
+obstacles, but no viscous (Stokes, Darcy) flow is computed; the surfaces are the geometry
+of the sample for Blender and for the add-ons that drive OpenFOAM from it.
+
+**Verification** (`tests/test_blender.py`). The scene (spheres inside the walls, the box),
+the transforms read back (translations, the quarter turns of a capsule), the surfaces moved;
+with the module `bpy` (Blender 5.3): 36 hard spheres (radius 0.1, fraction 0.15) dropped for
+150 frames onto the floor, inside the walls, overlapping by less than 1 % of their radius ($10^{-4}$ measured),
+their mean height from 0.52 to 0.16; 45 hard-core fibres (radius 0.04, length 0.3), their lengths
+and radii kept, lower than they started. The closed surfaces of the
+phases (each edge of two triangles running along it in opposite directions) and their
+volumes, the two balls of the exact route within 3 % of $\frac43\pi(r_1^3 + r_2^3)$, the
+phases of a mosaic of three phases by marching cubes within 0.02 of their voxel fractions,
+the marching cubes without MMG; the boxes of the fluid along x and z (the domain, the
+inflow and the outflow inside the walls), the scale; grids written as Mantaflow writes
+them and read back (vectors and scalars, the last frame and a given one, the location of
+the cells, the images); the archive of the tab Export; with Blender 5.3, the scene built
+(the volume of the object of the phase that of its file, the domain of volume 1.5, the
+obstacle, the inflow of velocity (1, 0, 0), the outflow, the walls and the ends open) and
+a gas baked on 24 x 16 x 16 cells for six frames: the speed in the obstacles below 5 % of
+that in the pores, the velocity along the axis positive there.
+
+## 103. Alloys: from their phases to their microstructures (`interop.alloys`)
+
+Tools of alloy design compute, from a composition and a treatment, the phases at equilibrium
+or after solidification (CALPHAD equilibria, Scheil's solidification), the precipitates of an
+ageing (the kinetics of Kampmann & Wagner: their fraction and the law of their radii), a grain
+size, and properties estimated from the phases (Voigt–Reuss–Hill moduli, Hill 1952). An alloy
+is described by its composition (normalized to 100), its grain size $d$ (the equivalent
+diameter) and its phases: a role (matrix, other grains, precipitates far smaller than the
+grains, particles of their scale), a volume fraction (the matrix the rest), elastic constants
+(isotropic, or the cubic constants of crystals turned at random) and, for precipitates and
+particles, the law of their radii, a number or a mean $m$ and a deviation $\sigma$: a normal
+law truncated to $[\max(0, m - 3\sigma), m + 3\sigma]$ (bounded: the volume element holds the
+largest one, and its voxels resolve the mean one).
+
+**The scales.** The precipitates: hard spheres at their fraction in the matrix, $f =
+f_p/(f_m + \sum f_p)$, in a periodic box of about $N = 60$ of them, $L^3 = N\,\frac43\pi
+E[r^3]/f$, at least $4.5\,r_{max}$ (hard spheres need $2r_{max} < L/2$), packed densely
+(Lubachevsky–Stillinger) above 0.3. The grains: a Poisson–Voronoi tessellation of mean cell
+volume $\frac\pi6 d^3$ (the intensity $6/\pi d^3$) in a box of about 64 cells, the phases of
+its cells drawn with the fractions of the matrix (with its precipitates) and of the other
+grains among them, the particles as inclusions at their fractions. Each scale is homogenized
+by FFT (one realization), the matrix of the grains being the isotropic projection of the
+effective stiffness of the precipitates, $E = 9KG/(3K + G)$, $\nu = (3K - 2G)/(2(3K + G))$, $K$
+and $G$ the isotropic projections of its tensor: the scales, some orders of magnitude apart
+(nanometres, micrometres), one after the other as their separation allows. The departure of
+the effective modulus from the one predicted, $(E - E_{pred})/E_{pred}$, measures what the
+microstructure adds to the mixture of the phases.
+
+**Verification** (`tests/test_alloys.py`). The description (the composition normalized once,
+the matrix the rest, round trips through JSON and YAML, its errors); the scales (60
+precipitates by the third moment of the truncated law, 64 grains); the moduli of each scale
+within the Hashin–Shtrikman bounds of its phases at their realized fractions (within
+$2\cdot10^{-3}$), $E$ from $K$ and $G$; a dual-phase steel of cubic ferrite crystals ($C_{11},
+C_{12}, C_{44}$ = 231.4, 134.7, 116.4 GPa) turned at random with isotropic martensite, between
+190 and 230 GPa; the command `morphogen alloy`. Leil-Mat (mat.leil.app) gives these
+quantities on its canvas and its programming interface on request only: the description is
+filled from its canvas until a client reads it.
 
 ## References
 
@@ -12533,3 +13343,61 @@ See [specification.md](specification.md#14-references). In addition:
   Metalle*. Springer, Berlin.
 * Taylor, G. I. (1938). Plastic strain in metals. *J. Inst. Metals* 62, 307–324.
 * Watson, G. S. (1965). Equatorial distributions on a sphere. *Biometrika* 52, 193–201.
+* 3MAH. *Microgen*, version 2: <https://github.com/3MAH/microgen>.
+* Allen, S. M., Cahn, J. W. (1979). A microscopic theory for antiphase boundary motion and
+  its application to antiphase domain coarsening. *Acta Metall.* 27, 1085–1095.
+* Ansar, M., Xinwei, W., Chouwei, Z. (2011). Modeling strategies of 3D woven composites:
+  a review. *Compos. Struct.* 93, 1947–1963.
+* Cahn, J. W., Hilliard, J. E. (1958). Free energy of a nonuniform system. I. Interfacial
+  free energy. *J. Chem. Phys.* 28, 258–267.
+* Coumans, E., et al. *Bullet Physics SDK* (the rigid bodies of Blender):
+  <https://github.com/bulletphysics/bullet3>.
+* Cox, S. M., Matthews, P. C. (2002). Exponential time differencing for stiff systems.
+  *J. Comput. Phys.* 176, 430–455.
+* Hill, R. (1952). The elastic behaviour of a crystalline aggregate. *Proc. Phys. Soc. A*
+  65, 349–354.
+* Humphreys, F. J., Hatherly, M. (2004). *Recrystallization and Related Annealing
+  Phenomena*, 2nd ed. Elsevier, Oxford.
+* Kampmann, R., Wagner, R. (1984). Kinetics of precipitation in metastable binary alloys —
+  theory and application to Cu-1.9 at% Ti and Ni-14 at% Al. In *Decomposition of Alloys:
+  the Early Stages*, Pergamon, Oxford, 91–103.
+* Kloss, C., Goniva, C., Hager, A., Amberger, S., Pirker, S. (2012). Models, algorithms and
+  validation for opensource DEM and CFD–DEM. *Prog. Comput. Fluid Dyn.* 12, 140–152.
+* Koehler, F., Niedermayr, S., Westermann, R., Thuerey, N. (2024). APEBench: a benchmark
+  for autoregressive neural emulators of PDEs. *Advances in Neural Information Processing
+  Systems* 37 (Datasets and Benchmarks); its solvers, Exponax:
+  <https://github.com/Ceyron/exponax>.
+* Kuhn, J. L., Charalambides, P. G. (1999). Modeling of plain weave fabric composite
+  geometry. *J. Compos. Mater.* 33, 188–220.
+* Lewiner, T., Lopes, H., Vieira, A. W., Tavares, G. (2003). Efficient implementation of
+  marching cubes' cases with topological guarantees. *J. Graph. Tools* 8, 1–15.
+* Lomov, S. V., Huysmans, G., Verpoest, I. (2001). Hierarchy of textile structures and
+  architecture of fabric geometric models. *Text. Res. J.* 71, 534–543.
+* Melro, A. R., Camanho, P. P., Pinho, S. T. (2008). Generation of random distribution of
+  fibres in long-fibre reinforced composites. *Compos. Sci. Technol.* 68, 2092–2102.
+* Peirce, F. T. (1937). The geometry of cloth structure. *J. Text. Inst.* 28, T45–T96.
+* Scheil, E. (1942). Bemerkungen zur Schichtkristallbildung. *Z. Metallkd.* 34, 70–72.
+* Sherburn, M. (2007). *Geometric and mechanical modelling of textiles*. PhD thesis,
+  University of Nottingham.
+* Shinozuka, M., Deodatis, G. (1991). Simulation of stochastic processes by spectral
+  representation. *Appl. Mech. Rev.* 44, 191–204.
+* Šmilauer, V., et al. (2021). *Yade documentation*, 3rd ed. The Yade project,
+  doi:10.5281/zenodo.5705394.
+* Thuerey, N., Pfaff, T. (2018). *MantaFlow* (the fluid solver of Blender since 2.82):
+  <http://mantaflow.com>.
+* Thompson, A. P., et al. (2022). LAMMPS — a flexible simulation tool for particle-based
+  materials modeling at the atomic, meso, and continuum scales. *Comput. Phys. Commun.*
+  271, 108171.
+* Vaughan, T. J., McCarthy, C. T. (2010). A combined experimental–numerical approach for
+  generating statistically equivalent fibre distributions for high strength laminated
+  composite materials. *Compos. Sci. Technol.* 70, 291–297.
+* Yang, L., Yan, Y., Ran, Z., Liu, Y. (2013). A new method for generating random fibre
+  distributions for fibre reinforced composites. *Compos. Sci. Technol.* 76, 14–20.
+* Yurgartis, S. W. (1987). Measurement of small angle fiber misalignments in continuous
+  fiber composites. *Compos. Sci. Technol.* 30, 279–293.
+* Dubois, F., Jean, M., Renouf, M., Mozul, R., Martin, A., Bagnéris, M. (2011). LMGC90.
+  *10e colloque national en calcul des structures*, Giens; the software:
+  <https://git-xen.lmgc.univ-montp2.fr/lmgc90/lmgc90_user>.
+* Geuzaine, C., Remacle, J.-F. (2009). Gmsh: a 3-D finite element mesh generator with
+  built-in pre- and post-processing facilities. *Int. J. Numer. Methods Eng.* 79,
+  1309–1331.

@@ -493,6 +493,25 @@ def _curves_figure(curves: dict, xlabel: str, ylabel: str, title: str = ""):
     return fig
 
 
+def _field_steps(ctx, specimen: Specimen, fields: dict, captions, name: str) -> None:
+    """The fields on the voxels of the specimen at each step of the loading
+    (``<name>_step<k>.vti``, one array per field, NaN without material) and their manifest:
+    the 3D view of the page goes through them, the export makes their video."""
+    from morphogen.image import VoxelImage
+    from morphogen.io.vtk import write_vti
+
+    count = len(next(iter(fields.values())))
+    steps = []
+    for k in range(count):
+        file = f"{name}_step{k + 1:03d}.vti"
+        images = [VoxelImage(np.asarray(v[k], dtype=np.float32), spacing=specimen.spacing,
+                             name=field) for field, v in fields.items()]  # fmt: skip
+        write_vti(ctx.path(file), images)
+        label = captions[k] if k < len(captions) else f"step {k + 1}"
+        steps.append({"file": file, "time": float(k + 1), "label": label})
+    ctx.steps(name, steps)
+
+
 def _field_video(ctx, volumes, specimen: Specimen, name: str, label: str, captions) -> None:
     """A video of a field on the middle section of a specimen along the steps."""
     from morphogen.viz.video import time_section_frames
@@ -713,13 +732,15 @@ FOAMS = (
         Field(
             "video",
             "choice",
-            "p",
+            "none",
             choices=(
                 ("p", "cumulated plastic strain"),
                 ("strain", "strain along the load"),
                 ("chi", "microdeformation along the load"),
                 ("none", "no video"),
             ),
+            doc="of a field along the loading (the fields of the steps are in the 3D view, and "
+            "the export makes their video)",
         ),
     ],
     order=1,
@@ -898,16 +919,22 @@ def microfoam(p: dict, ctx) -> dict:
             "chi_yy": fields["chi"][:, 1, 1],
         },
     )
+    ctx.progress(0.94, "fields of the steps")
+    along: dict = {"p": [], "strain_yy": [], "chi_yy": []}
+    for u, state in zip(result.fields, result.states, strict=True):
+        f = problem.fields(u, state)
+        for name, v in (("p", f["p"]), ("strain_yy", f["strain"][:, 1, 1]),
+                        ("chi_yy", f["chi"][:, 1, 1])):  # fmt: skip
+            along[name].append(_on_voxels(index, v, specimen.shape))
+    _field_steps(ctx, specimen, along, _captions(curves[first]), "microfoam")
     if p["video"] != "none":
         ctx.progress(0.96, "video")
-        frames = []
-        for u, state in zip(result.fields, result.states, strict=True):
-            f = problem.fields(u, state)
-            v = {"p": f["p"], "strain": f["strain"][:, 1, 1], "chi": f["chi"][:, 1, 1]}[p["video"]]
-            frames.append(_on_voxels(index, v, specimen.shape))
+        chosen = {"p": "p", "strain": "strain_yy", "chi": "chi_yy"}[p["video"]]
         label = {"p": "p", "strain": "strain yy", "chi": "chi yy"}[p["video"]]
-        _field_video(ctx, frames, specimen, f"video_{p['video']}", label, _captions(curves[first]))
-    return {"values": values, "title": f"Microfoam: {specimen.title}"}
+        _field_video(ctx, along[chosen], specimen, f"video_{p['video']}", label,
+                     _captions(curves[first]))  # fmt: skip
+    return {"values": values, "title": f"Microfoam: {specimen.title}",
+            "fields3d": {"field": "p", "cmap": "viridis"}}  # fmt: skip
 
 
 # -- ductile damage --------------------------------------------------------------------------
@@ -979,7 +1006,9 @@ TRIAXIALITY_LAWS = (
         Field(
             "video",
             "choice",
-            "damage",
+            "none",
+            doc="of a field along the loading (the fields of the steps are in the 3D view, and "
+            "the export makes their video)",
             choices=(
                 ("damage", "damage"),
                 ("triaxiality", "triaxiality"),
@@ -1144,18 +1173,18 @@ def ductile(p: dict, ctx) -> dict:
             "e": problem.driving(result.state),
         },
     )
+    ctx.progress(0.94, "fields of the steps")
+    picks = {"damage": problem.damage, "triaxiality": problem.triaxiality,
+             "p": problem.plastic_strain}  # fmt: skip
+    along = {name: [_on_voxels(index, pick(s), specimen.shape) for s in result.states]
+             for name, pick in picks.items()}  # fmt: skip
+    _field_steps(ctx, specimen, along, _captions(curves[law]), "ductile")
     if p["video"] != "none":
         ctx.progress(0.96, "video")
-        pick = {
-            "damage": problem.damage,
-            "triaxiality": problem.triaxiality,
-            "p": problem.plastic_strain,
-        }[p["video"]]
-        frames = [_on_voxels(index, pick(s), specimen.shape) for s in result.states]
-        _field_video(
-            ctx, frames, specimen, f"video_{p['video']}", p["video"], _captions(curves[law])
-        )
-    return {"values": values, "title": f"Ductile damage: {specimen.title}"}
+        _field_video(ctx, along[p["video"]], specimen, f"video_{p['video']}", p["video"],
+                     _captions(curves[law]))  # fmt: skip
+    return {"values": values, "title": f"Ductile damage: {specimen.title}",
+            "fields3d": {"field": "damage", "cmap": "inferno"}}  # fmt: skip
 
 
 # -- micromorphic damage (quasi-brittle) -----------------------------------------------------
@@ -1200,8 +1229,10 @@ def ductile(p: dict, ctx) -> dict:
         Field(
             "video",
             "choice",
-            "damage",
+            "none",
             choices=(("damage", "damage"), ("kappa", "κ (largest χ)"), ("none", "no video")),
+            doc="of a field along the loading (the fields of the steps are in the 3D view, and "
+            "the export makes their video)",
         ),
     ],
     order=3,
@@ -1304,18 +1335,14 @@ def brittle(p: dict, ctx) -> dict:
             ctx, problem, result.values, damage, "view_damage", "damage", "inferno", (0.0, 1.0)
         )
     _vtu(ctx, problem, result.values, "damage", {"damage": damage, "kappa": kappa})
+    ctx.progress(0.94, "fields of the steps")
+    along = {name: [_on_voxels(index, s[:, :, column].mean(axis=1), specimen.shape)
+                    for s in result.states]
+             for name, column in (("damage", 1), ("kappa", 0))}  # fmt: skip
+    _field_steps(ctx, specimen, along, _captions(curve), "brittle")
     if p["video"] != "none":
         ctx.progress(0.96, "video")
-        column = 1 if p["video"] == "damage" else 0
-        frames = [
-            _on_voxels(index, s[:, :, column].mean(axis=1), specimen.shape) for s in result.states
-        ]
-        _field_video(
-            ctx,
-            frames,
-            specimen,
-            f"video_{p['video']}",
-            "damage" if column else "kappa",
-            _captions(curve),
-        )
-    return {"values": values, "title": f"Micromorphic damage: {specimen.title}"}
+        _field_video(ctx, along[p["video"]], specimen, f"video_{p['video']}", p["video"],
+                     _captions(curve))  # fmt: skip
+    return {"values": values, "title": f"Micromorphic damage: {specimen.title}",
+            "fields3d": {"field": "damage", "cmap": "inferno"}}  # fmt: skip

@@ -85,11 +85,11 @@ SNAP_SHARP = 0.05
 
 
 def mmg_executable(path: str | None = None, program: str = "mmg3d") -> str:
-    """Path of an MMG executable (``mmg3d`` or ``mmg2d``): explicit,
-    ``$MORPHOGEN_MMG3D`` (``$MORPHOGEN_MMG2D``), the ``pymmg`` package, or
-    ``mmg3d_O3`` / ``mmg3d`` on the ``PATH``."""
-    if program not in ("mmg3d", "mmg2d"):
-        raise ValueError("program: 'mmg3d' or 'mmg2d'")
+    """Path of an MMG executable (``mmg3d``, ``mmg2d`` or ``mmgs``, the surfaces): explicit,
+    ``$MORPHOGEN_MMG3D`` (``$MORPHOGEN_MMG2D``, ``$MORPHOGEN_MMGS``), the ``pymmg``
+    package, or ``mmg3d_O3`` / ``mmg3d`` on the ``PATH``."""
+    if program not in ("mmg3d", "mmg2d", "mmgs"):
+        raise ValueError("program: 'mmg3d', 'mmg2d' or 'mmgs'")
     explicit = path or os.environ.get(f"MORPHOGEN_{program.upper()}")
     if explicit:
         if Path(explicit).is_file() and os.access(explicit, os.X_OK):
@@ -697,6 +697,9 @@ def conforming_mesh(
             int((q < 1e-6).sum()),
             float(h.max()),
         )
+    from morphogen.mesh.exact import labelled
+
+    mesh = labelled(micro, mesh)  # the labels and orientations of the elements, if any
     if order == 2:
         mesh = _second_order(mesh, micro, curved)
     log.info(

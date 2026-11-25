@@ -78,7 +78,8 @@ src/morphogen/
   domain.py          Domain (box, periodicity, unit), Grid (voxel grid conventions)
   image.py           VoxelImage (array + spacing + origin + periodicity + metadata)
   seeding.py         reproducible seeds (SeedSequence derivation)
-  distributions.py   distributions of radii, lengths... (moments, quadrature, configs)
+  distributions.py   distributions of radii, lengths... (moments, quadrature, configs;
+                     scaled: the law of s X)
   orientations.py    fibre-axis distributions (isotropic, aligned, planar, Schladitz's
                      beta law, Gaussian girdle, von Mises-Fisher, mixtures), their
                      quadratures and the law of the angle to a direction, uniform crystal
@@ -118,10 +119,18 @@ src/morphogen/
                        Jeulin): repulsions, springs, open angular springs; contact
                        forces (Keilmann et al.); the initial placement of least overlap
                        (Altendorf, Jeulin & Willot)
+    long_fibres.py     the sections of long fibres packed in a periodic rectangle (the
+                       overlaps of discs pushed apart as they grow), the overlaps of wavy
+                       fibres removed in space (closed chains moved in their planes)
     annealing.py       Yeong-Torquato reconstruction: swaps annealed to S2 and L
     watershed.py       marker-controlled watershed (Meyer's flooding) and the maxima
                        of a given prominence (union-find), of planes and of volumes
                        (26-connected voxels, periodic faces)
+    textile.py         the yarns at points and voxel centres: the closest segment of each
+                       yarn (runs of a yarn in the cells), the function of its section,
+                       the deepest yarn; sub-samples of partial volumes
+    meshes.py          the voxels inside closed triangle surfaces (the parity of the
+                       crossings of the columns of their centres)
   models/            morphological models and microstructure kinds
     base.py            Model, Microstructure, registries, parameter metadata
     affine.py          Anisotropy, AffineStructure: the affine anisotropy of the models
@@ -138,6 +147,10 @@ src/morphogen/
     fibers.py          PoissonFibers, HardcoreFibers (RSA of spherocylinders),
                        CurvedFibers (worm-like chains, arcs, helices; Boolean or
                        RSA of chains)
+    long_fibers.py     LongFibers -> PrimitiveUnion (long fibres along an axis, closed
+                       across the period: unidirectional composites, their sections a
+                       random packing or an array, straight or wavy, the waviness a
+                       random field correlated across the fibres)
     hardcore.py        HardcoreSpheres (RSA or Lubachevsky-Stillinger),
                        PenetrableSpheres (the cherry-pit model)
     tessellation.py    Voronoi, Laguerre (Poisson or packed germs, grain-boundary
@@ -168,6 +181,11 @@ src/morphogen/
     nested.py          CoxSpheres -> ClusteredSpheres; Coating -> CoatedStructure
                        (coatings, shells, hollow members); FractalSponge ->
                        FractalStructure
+    nested_grains.py   NestedGrains -> NestedGrainStructure (grains of a tessellation with
+                       subgrains of an inner tessellation, turned by small angles; or filled
+                       with the phase 1 of another model, turned with their crystals); the
+                       subgrains as exact convex pieces, the functions of filled grains at
+                       any point
     hierarchical.py    HierarchicalLattice: frames of generation G of (hollow) tubes
     planar.py          PlanarCells: Voronoi cells of the plane and distances to their
                        sides; hard-core germs of the plane
@@ -196,6 +214,19 @@ src/morphogen/
                        beams grown until they touch (segment distances); the first
                        plate area in closed form, the beams' mean field; fields of
                        the plates and beams in buckets (voxels, level sets)
+    textile.py         WovenTextile -> TextileStructure (yarns swept along the crimped
+                       paths of 2D weaves, plies, and 3D weaves with binders: elliptic,
+                       lenticular or power-ellipse sections, a partition of their union,
+                       the share where they interpenetrate; a label and an orientation
+                       per segment)
+    microgen.py        Microgen -> MicrogenStructure (a shape of Microgen 2, 3MAH: its
+                       field at any point, the inside voxelized, meshed, saved and read
+                       back with the description of the shape)
+    mesh_particles.py  MeshParticles (particles given by closed triangle surfaces: their
+                       voxels by parity, their function the signed distance of the voxels)
+    _sizes.py          the sizes of the objects: a number (monodisperse) or a law, a size
+                       per object (polydisperse); the scale of a law solved for a volume
+                       fraction; the moments of the sum of two sizes
   automata/          cellular automata and lattice growth
     lattice.py         neighbourhoods, neighbour counts (Numba), FFT kernel sums,
                        sublattices
@@ -413,7 +444,10 @@ src/morphogen/
                      that lists them, forms of typed fields in boxes, one or
                      several items of the traits they need, jobs with their progress
                      and their stops, results and behaviours kept in the workspace,
-                     archives); one module per tab: statistics (RVE
+                     archives; the fields of the steps of a run with their manifest,
+                     which the 3D view goes through, and the videos on demand: the
+                     frames kept, <name>.frames.npz, for the export); one module per
+                     tab: statistics (RVE
                      sizes, measures, correlation functions, stereology, percolation
                      thresholds and critical exponents, the grains and the texture
                      of an orientation map), mechanics
@@ -776,7 +810,9 @@ src/morphogen/
                        of convex pieces (overlaid coplanar faces, T-junctions) meshed by
                        MMG, adaptive meshes of point-wise level sets (octree, MMG -ls,
                        projection of the interface onto the exact level set; matching
-                       faces cut exactly), the route of each microstructure (exact_mesh)
+                       faces cut exactly), the route of each microstructure (exact_mesh); `labelled`: the label and
+                       orientation of each element of the structures that give their labels
+                       at any point (woven textiles)
     octree.py          balanced octrees refined by a test of their cells, periodic
                        across chosen axes, split into tetrahedra (Kuhn cells, cones over
                        fanned faces; conforming, matching opposite faces)
@@ -795,6 +831,13 @@ src/morphogen/
                      finite strains all MFront laws, the axes of the orthotropic ones
                      in their state variables) and the orientations of the grains
     export.py          one entry point: the writer chosen from the object and suffix
+    dem.py             the particles of one phase without its matrix, for the discrete
+                       element method: closed surfaces whole across periodic faces, the
+                       exact spheres and clumps of unions (capsules for segments), their
+                       tetrahedra (gmsh, or fans of star-shaped particles), surfaces
+                       remeshed by MMG (mmgs); STL, OBJ, VTU, Gmsh 2.2 for LMGC90 (an
+                       entity and a physical group per particle), tables, LAMMPS and
+                       LIGGGHTS data files, YADE columns
     ebsd.py            orientation maps (EBSDMap): .ang (EDAX/TSL) and .ctf (Oxford
                        Instruments/HKL) files read and written, with the axes of each
                        system and of its hexagonal crystals; the grains of a map
@@ -824,6 +867,20 @@ src/morphogen/
                        internal variables, the functions of the umat interface; the
                        user's MFront laws as the exports need them (UserBehaviour:
                        strain measure, axes for Abaqus), their parameters
+  interop/           morphoGen with other programs and libraries
+    arrays.py          voxel images as the arrays of JAX, PyTorch and CuPy without copies
+                       (DLPack, buffers aligned on 64 bytes); signed distances and
+                       diffuse-interface phase fields of the phases, the grids and states
+                       of spectral solvers (Exponax), ensembles of realizations
+    microgen.py        the phases of morphoGen as shapes of Microgen and its shapes as
+                       structures; the tetrahedral meshes of both through PyVista
+    blender.py         a microstructure as a scene of Blender: the closed surfaces of its
+                       phases (the boundaries of their tetrahedra in the conforming mesh),
+                       the fluid of Mantaflow around them (domain, obstacles, inflow,
+                       outflow), the grids it bakes read back (.uni); the particles of a
+                       phase as its rigid bodies (Bullet), the packing read back
+    alloys.py          an alloy from a tool of alloy design (its phases, fractions, radii,
+                       moduli), its scales as configurations, their effective elasticity
   config.py          configuration schema and validation
   pipeline.py        batches, RVE studies, reports
   results.py         database of the configurations tested and their results (SQLite),
@@ -871,11 +928,14 @@ numbers or mappings become distributions, strings become orientation distributio
 | `hardcore_spheres` | `PrimitiveUnion` (spheres) | 0 matrix, 1 spheres | yes / no |
 | `hardcore_fibers` | `PrimitiveUnion` (spherocylinders) | 0 matrix, 1 fibres | yes / no |
 | `random_walk_fibers` | `PrimitiveUnion` (chains of spherocylinders, packed, drawn into contact) | 0 matrix, 1 fibres | yes / no |
+| `long_fibers` | `PrimitiveUnion` (closed chains of spherocylinders along an axis; the summary: realized fraction, RMS and largest angles, smallest gap) | 0 matrix, 1 fibres | yes / no (a window of a periodic box) |
 | `cross_linked_fibers` | `Combined` inclusions (fibres; balls of the cross-links minus the fibres), or a `PrimitiveUnion` if merged | 0 pores, 1 fibres, 2 cross-links | no (infinite fibres) / yes |
 | `delaunay_network` | `PrimitiveUnion` (spherocylinders on the edges of a periodic Delaunay triangulation, spheres at the nodes; the framework in the metadata) | 0 pores, 1 fibres | yes / no (the periodic network cut by the box) |
 | `voronoi`, `laguerre` | `Tessellation` (germs, weights, phases, orientations, grain-boundary thickness; Poisson, packed or stealthy hyperuniform germs) | per cell (and the boundary phase) | yes / no |
+| `nested_grains` | `NestedGrainStructure` (the grains and the inner realization, the frame of each grain: its germ, rotation and shift; the subgrains: their grains, germs, weights, orientations and misorientations) | those of the grains (subgrains), and the inner phase (filled grains) | yes / no |
 | `gaussian_excursion` | `GaussianField` (Fourier modes from a seed) | 0, 1 excursion | yes / no |
 | `tpms` | `TPMSStructure` (surface, level, cell size) | 0 void, 1 solid | yes / no |
+| `microgen` | `MicrogenStructure` (the description of a shape of Microgen: its class, arguments and part; the seed of a spinodoid) | 0 outside, 1 inside the field | yes / no |
 | `strut_lattice` | `PrimitiveUnion` (spherocylinders) | 0 void, 1 struts | yes / no (rotated or graded: no) |
 | `cellular_automaton` | `LatticeField` (`TilingField` on other lattices) | 0, 1 | yes (quasi-periodic tilings: their approximants) / no (windows) |
 | `activator_inhibitor` | `LatticeField` (`TilingField` on other lattices) | 0, 1 | yes (quasi-periodic tilings: their approximants) / no (windows) |
@@ -892,6 +952,7 @@ numbers or mappings become distributions, strings become orientation distributio
 | `ebsd` | `LatticeField` (one cell through the thickness; the labels and the orientations of the grains; the window, the step and the spread of the grains in the attributes) | the phases of the map, from 1 | no |
 | `combination` | `Combined` (the realizations of the components, the operation) | 0, 1 (set operations); the matrix's and one per inclusion model | if every component is |
 | `scale_rich_network` | `ScaleRichStructure` (ligaments and voids as convex polygons of the plane, extruded along an axis; ends, neighbours, nucleation points; a frame); in 3D `ScaleRichPlates` (plates and voids as convex polyhedra, the rims of the plates and their neighbours) or `ScaleRichBeams` (the axes of the beams, the beams that stop their ends and those they touch) | 0 voids, 1 ligaments | no |
+| `woven_textile` | `TextileStructure` (yarns: polylines of their centrelines with the width and thickness axes at their nodes, half sizes, the translation that closes a periodic yarn; the section; a label and an orientation per segment, the matrix last; conforming meshes of its exact geometry, a label and an orientation per element) | 0 matrix, 1 warp, 2 weft, 3 binder (or 0, 1 merged) | yes (whole repeats in the plane) / no (windows) |
 
 Parameters of kind `models` hold nested models (mappings with a `type` key). The
 parameters that are files (`path_parameters` of the class: the `file` of `ebsd`, the
@@ -1168,7 +1229,7 @@ style.
 | `test_conforming.py` | MMG meshes: tiling, mirrored meshes of symmetric cells (exact symmetries, matching faces, the group of a 2 x 2 array of holes), volume fractions, exact faces, matching periodic faces and exact PBC, porous lattices, exports (VTU, INP, MSH, Medit) and readers |
 | `test_iga.py` | B-spline functions against the recurrence of Cox and de Boor, their derivatives and the embeddings of their refinements; exact arcs, refined patches and assemblies; the patch test (plane strain, plane stress, a solid); Lamé's thick-walled cylinder (orders 3 and 2, 4 and 3) and Kirsch's plate with a hole; the effective tensors of a homogeneous cell, of a laminate (elasticity, conduction) and of a cell with a hole, against the curved finite elements of the solid (slow); cells of any lattice (other cuts of the same cell, strips with gaps, a cell and its neighbour), the square and hexagonal arrays of holes against the series of Perrins et al. and the isotropy of the hexagonal one, the sheet with alternating holes (exact fraction, symmetries of the square, the square array with circles, Poisson's ratio against the ligaments; against the FFT solver, slow) |
 | `test_iga_optimization.py` | the design and its geometries (linear maps, symmetric radial variables); the analytical shape derivatives of the tensor and of the fraction of a cell (elasticity, conduction) and of the compliance and the area of a structure against central differences; the hole of largest bulk modulus against the bound of Hashin and Shtrikman (Vigdergauz; SLSQP and MMA); the hole of a plate under biaxial tension against the ellipse (slow); folded designs and the history of the kept iterates; variables linked by the symmetries of a pattern (images and directions, periods, derivatives, errors); the holes of an auxetic sheet found again from their effective constants; its lowest Poisson's ratio at a given stiffness, with linear constraints |
-| `test_implicit.py` | the implicit geometry of every model: for the 39 models and 19 other configurations of several phases, an implicit function of each phase whose sign is that of the voxel image on two grids and which partition the points; the Menger sponge on the grid of its cubes, two cells and their boundary layer against their planes, leaves and a transparent leaf against their spheres; the interpolation on the background mesh; the conforming mesh of a coated sphere (three phases cut one after the other: volumes, matching faces, the phases kept, finite elements against the FFT solver), cells of three phases meshed by their grains, coated hard spheres (slow) |
+| `test_implicit.py` | the implicit geometry of every model: for the 44 models and 19 other configurations of several phases, an implicit function of each phase whose sign is that of the voxel image on two grids and which partition the points; the Menger sponge on the grid of its cubes, two cells and their boundary layer against their planes, leaves and a transparent leaf against their spheres; the interpolation on the background mesh; the conforming mesh of a coated sphere (three phases cut one after the other: volumes, matching faces, the phases kept, finite elements against the FFT solver), cells of three phases meshed by their grains, coated hard spheres (slow) |
 | `test_radioss.py` | the inputs of OpenRadioss read back card by card against the columns of the Radioss Reference Guide (units, nodes, bricks and tetrahedra oriented for Radioss, their mid-side nodes on their edges, parts, the solid property, LAW1, LAW36 with its yield curves at the rates of Norton's viscosity, LAW2, node groups, held and driven faces, the anchor of free faces, a shear, an impact on a rigid wall, the self contact, the time histories and their sampling, the Engine input, the length scale); the model (units, materials, loadings, time steps); the listings, time histories and legacy VTK grids (ASCII and binary, classic and VTK 5.1) |
 | `test_dynamics.py` | the installation of OpenRadioss found (the paths, the environment, the permissions restored), runs with a stand-in of OpenRadioss (`fake_openradioss.py`): the curves of a bar against its modulus, the forces from the time history or the animations, the frames for the 3D view, a shear, an impact, the failures of the Starter, the stops, the conversions; a release installed from a GitHub API served locally (the archive of each system, no member leaving its folder); the command line |
 | `test_gui_tools_dynamics.py` | the tab Explicit dynamics: the inputs written without OpenRadioss (engineering units, the materials of the fields and of the JSON), the errors, a dynamic test with the stand-in (its summary in MPa and MJ/m³, the curves in morphoGen's components compared with another run, the 3D view of its last frame), the results read back, the installation found, an impact |
@@ -1280,6 +1341,15 @@ style.
 | `test_delaunay_network.py` | the periodic Delaunay triangulation against that of all the images (2-D, 3-D), Euler's E = 3V on the torus; the coordination 2 + 48π²/35 and the mean fibre length of Poisson-Delaunay graphs (in space and in the plane, 32/(9π) λ^(-1/2)), hard-core points (lower coordination, more even fibres, least distance); the fibres as struts (a solved fraction, the framework, JSON round trips, planar networks, windows, errors); the template and the form of the interface |
 | `test_lattices.py` | rotated lattices (struts along the turned axes, fraction), graded lattices (interpolated radii, mean and local fractions), their errors |
 | `test_public_api.py` | the public interface (`morphogen._public`) against the list kept in `public_api.txt`: names of the `__all__` of the packages, functions with their parameters (names, kinds, defaults, without annotations), classes with their public methods and properties, data; the writing of the parameters |
+| `test_long_fibres.py` | long fibres along an axis: straight fibres along the axis, closed across the period, as many as the fraction; wavy fibres without overlap (every pair of segments within reach, nearest periodic images, Ericson's closest points), with or without a gap, waving together or each on its own; the realized fraction against the exact volume of the chains and the voxels; the RMS angle exact before the corrections and near it after; the covariances of the waviness along and across the fibres; `secant_mean` against quadratures and its series; lognormal radii; the arrays (spacing, nearest neighbours, exact fraction, largest fractions with a gap); windows, the axes x and y, the theory, round trips, errors |
+| `test_textile.py` | woven textiles: the interlacing matrices of the 2D weaves; the half cosines and their arc lengths against quadratures, the rounded rises of binders; the areas of the sections by Monte Carlo; the crossings, crimp and fractions of a plain weave; the partition of interpenetrating yarns; the orthogonal weave (exact fractions, the crimp of its binders) and the angle interlocks; periodicity, windows, stacking axes, shifted plies; the functions of the phases at points and on grids; polydisperse yarns; round trips; the FFT stiffness of tows turned along their paths against the same tows in the axes of the sample; the conforming mesh of the exact geometry (the route, matching periodic faces, the volume of each phase within the Hausdorff distance times the area of its interfaces, a label of its phase and the orientation of its segment per element), the finite elements of oriented tows against the same tows in the axes of the sample (10⁻⁸) and against the FFT solver (6 %) |
+| `test_nested_grains.py` | grains with subgrains, or filled with another structure: the subgrains refine the grains and hold their germs, the nearest germ of the grain by brute force, the number of germs (exact without turns); laths and anisotropic grains of a window; the misorientations of their laws, the angle between two subgrains of one grain against products of random rotations and the boundaries of an image; lamellae turned with the crystals of their grains; spheres in the grains of one phase at their fraction; one realization cut by the grains; periodicity, round trips, partial volumes, errors; copper polycrystals with subgrains by FFT (the exact bulk modulus, subgrains turned by nothing and by 0.01°); the subgrains as exact convex pieces (the box partitioned, points in the pieces of their subgrains and phases, Monte Carlo volumes; a grain-boundary phase, laths and anisotropic grains of windows), their exact mesh with the crystals of the elements and its bulk modulus by finite elements; the functions of filled grains at any point (signs, continuity across the faces of the grains, grids) and their exact mesh |
+| `test_polydispersity.py` | monodisperse or polydisperse sizes: laws scaled (moments, largest values, draws, configurations); the moments of the sum of two radii against Monte Carlo; polydisperse Poisson lines (the Choquet capacity of balls against the exact distances of realizations); curved fibres without overlap by every pair of segments; the contacts of cross-linked fibres against an independent computation; plywoods of fibres of their own radii on their voxels; each strut of a periodic lattice once (3, 8 and 24 per cell) and the length per unit volume; lattices, foams and networks of struts of radii of a law, the scales solved for the fractions, the spheres of the nodes, the frames of beams |
+| `test_dem.py` | the particles of a phase for the discrete element method: spheres whole across the periodic faces (volumes, areas, centroids beyond the face, equivalent radii), a cap cut by a window, a fibre that winds around the box and the matrix of spheres as clusters, a voxel image; the exact spheres and the clumps of segments; the files (STL solids and files, OBJ, VTU, tables, LAMMPS data files, YADE columns) read back; the Gmsh files read as LMGC90's pre-processor reads them (`readGmshv2`, `separateMeshes`: an entity and a physical group per particle, closed outward triangles of the volume of each particle, positive tetrahedra that fill it, their skin its triangles, the cut particles named), and by gmsh and meshio; capsules of the exact volumes of segments, the fans of star-shaped surfaces without gmsh and the error for the others; the surfaces remeshed by MMG (sizes, qualities, volumes within 2 %); the command line and the tab Export |
+| `test_arrays.py` | voxel images as arrays of other libraries: aligned buffers, DLPack without copies (NumPy, JAX: the same buffer); the phase field of a sphere against the tanh of its exact distance (10⁻⁶ near the interface, 2.4·10⁻⁵ beyond 8ε), the distance of a gyroid of unit slope; the grids and states of spectral solvers, ensembles of realizations; with JAX and Exponax, a disc shrinking by motion by curvature in Allen–Cahn's equation (R² = R0² − 2νt within 1 %), the mass of Cahn–Hilliard, ensembles stepped by `jax.vmap` |
+| `test_microgen.py` | Microgen: a TPMS sheet of the model against the shape built by Microgen, voxels its sign, saved and read back, spinodoids seeded; a sphere placed and a box turned; the errors; the phases of morphoGen as shapes of Microgen (the implicit function of a phase, the grid's interpolated), meshed by Microgen and back; tetrahedral meshes of 4 and 10 nodes through PyVista both ways |
+| `test_blender.py` | Blender: the scene (spheres inside the walls, the box, the script); the transforms read back (translations, a capsule turned, surfaces moved; the window up to the top); particles given by closed surfaces (their voxels those of the spheres they approximate, across the periodic faces; their function; round trips); with `bpy`, hard spheres settled on the floor inside the walls overlapping by less than 1 % of their radius, fibres kept and lower; the scene of a microstructure (closed surfaces of the phases and their volumes, the fluid along x and z, the marching cubes without MMG), the grids of Mantaflow read back, the archive of the tab Export; with Blender, the scene built and a flow baked (nil in the obstacles) |
+| `test_alloys.py` | alloys: the description (the composition normalized, the matrix the rest, JSON and YAML round trips, its errors); the scales (60 precipitates by the third moment of the truncated law, 64 grains, the particles as inclusions); the moduli of each scale within the Hashin–Shtrikman bounds of its phases, a dual-phase steel of cubic ferrite crystals; `morphogen alloy` |
 
 Principles:
 

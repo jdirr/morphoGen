@@ -346,7 +346,8 @@ def _layers(session):
     return key, {"source": key, "materials": {"0": {"young": 1000.0, "poisson": 0.3},
                                               "1": {"young": 1000.0, "poisson": 0.3}},
                  "phase": 0, "behaviour": "mises", "yield_stress": 1.0, "hardening": 10.0,
-                 "isotropic": "0, 1", "behaviours": json.dumps({"1": hard}), "voxels": 4,
+                 "isotropic": "0, 1", "behaviours": json.dumps({"1": hard}), "method": "fft",
+                 "voxels": 4,
                  "loadings": ["11", "33", "12", "31"], "strain": 0.006,
                  "increments": 8}  # fmt: skip
 
@@ -405,7 +406,8 @@ def test_the_gurson_law_of_a_porous_morphology(tmp_path):
                 phases={"0": "matrix", "1": "pores"})  # fmt: skip
     params = {"source": key, "materials": {"0": {"young": 1000.0, "poisson": 0.3}, "1": "void"},
               "phase": 0, "behaviour": "mises", "yield_stress": 1.0, "hardening": 10.0,
-              "isotropic": "0, 1", "voxels": 6, "loadings": ["11", "confined11"],
+              "isotropic": "0, 1", "method": "fft", "voxels": 6,
+              "loadings": ["11", "confined11"],
               "strain": 0.01, "increments": 6, "law": "gurson"}  # fmt: skip
     out = _run(session, "macroscopic_law", params)
     v = out["values"]

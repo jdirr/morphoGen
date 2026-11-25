@@ -18,6 +18,12 @@ that are periodic in its plane: the fibres normal to ``(a / L_u, b / L_v)`` (int
 pitch are those closest to the asked thickness and pitch, and each layer takes the
 periodic family closest to its direction and spacing (a larger box gets closer); the
 directions and spacings taken are those of the realization.
+
+A distribution of the fibre radius gives each fibre its own (polydisperse fibres, at
+most half the spacing and the thickness: they never overlap): the volume fraction is then
+``pi E[R^2] / (s h)``. In a periodic box a family is ``gcd(a, b)`` fibres, each winding
+``|(a, b)| / gcd(a, b)`` times around the box (the translations of the box shift the
+index of a fibre by ``a`` and ``b``): each of them takes one radius.
 """
 
 from __future__ import annotations
@@ -29,9 +35,10 @@ from typing import ClassVar
 
 import numpy as np
 
-from morphogen._utils import check_positive
+from morphogen.distributions import Constant, Distribution
 from morphogen.domain import Domain, Grid
 from morphogen.image import VoxelImage
+from morphogen.models import _sizes as sizes
 from morphogen.models.base import Microstructure, Model, param, register, register_kind
 from morphogen.models.planar import axis_centres, pixel_centres, plane_axes
 from morphogen.seeding import SeedLike, make_rng
@@ -64,11 +71,16 @@ class BouligandStructure(Microstructure):
     """Layers of parallel fibres along ``axis``: layer ``k`` spans ``[z0 + k h, z0 + (k +
     1) h)``, its fibres the cylinders of radius ``r`` around the lines of its mid-plane
     in the direction ``angles[k]`` (degrees from the first axis of the plane), at the
-    spacing ``spacings[k]``, one of them through ``offsets[k]`` along their normal."""
+    spacing ``spacings[k]``, one of them through ``offsets[k]`` along their normal (the
+    fibre 0; the fibre ``i`` at ``offsets[k] + i spacings[k]``). Polydisperse fibres:
+    ``radii[k]`` the radii of the fibres ``first[k]``, ``first[k] + 1``... of layer ``k``,
+    the others taking those of their index modulo their number (the fibres of a periodic
+    family that are one on the torus); ``radius`` their mean."""
 
     kind = "bouligand"
 
-    def __init__(self, domain, axis, radius, thickness, origin, angles, spacings, offsets, **kw):
+    def __init__(self, domain, axis, radius, thickness, origin, angles, spacings, offsets,
+                 radii=None, first=None, **kw):  # fmt: skip
         super().__init__(domain, **kw)
         self.axis = int(axis)
         self.radius = float(radius)
@@ -79,6 +91,45 @@ class BouligandStructure(Microstructure):
         self.offsets = np.asarray(offsets, dtype=float).reshape(-1)
         t = np.radians(self.angles)
         self.normals = np.column_stack([-np.sin(t), np.cos(t)])
+        self.radii = None
+        if radii is not None:
+            self.radii = [np.asarray(r, dtype=float).reshape(-1) for r in radii]
+            self.first = np.asarray(first, dtype=np.int64).reshape(-1)
+            counts = np.array([len(r) for r in self.radii], dtype=np.int64)
+            if len(self.radii) != self.n_layers or np.any(counts < 1):
+                raise ValueError("bouligand: the radii of the fibres of each layer")
+            self._count = counts
+            self._start = np.concatenate([[0], np.cumsum(counts)[:-1]]).astype(np.int64)
+            self._flat = np.concatenate(self.radii)
+
+    def fibre_radii(self, layers, index) -> np.ndarray:
+        """The radii of the fibres ``index`` of the ``layers`` (arrays)."""
+        layers = np.asarray(layers, dtype=np.int64)
+        if self.radii is None:
+            return np.full(np.shape(layers), self.radius)
+        k = self._start[layers] + np.mod(
+            np.asarray(index) - self.first[layers], self._count[layers]
+        )
+        return self._flat[k]
+
+    def _signed(self, plane: np.ndarray, z: np.ndarray, j: np.ndarray) -> np.ndarray:
+        """The signed distance to the fibres of radii of their own of the layers ``j``
+        (``inf``: none): the least over the five nearest fibres of each point (exact near
+        the fibres)."""
+        k = self._layer(j)
+        out = np.full(len(z), np.inf)
+        ok = k >= 0
+        kk = k[ok]
+        s = self.spacings[kk]
+        u = np.einsum("ij,ij->i", plane[ok], self.normals[kk]) - self.offsets[kk]
+        dz = z[ok] - (self.origin + (j[ok] + 0.5) * self.thickness)
+        nearest = np.round(u / s).astype(np.int64)
+        best = np.full(len(kk), np.inf)
+        for c in (-2, -1, 0, 1, 2):
+            i = nearest + c
+            best = np.minimum(best, np.hypot(u - i * s, dz) - self.fibre_radii(kk, i))
+        out[ok] = best
+        return out
 
     @property
     def n_layers(self) -> int:
@@ -115,6 +166,8 @@ class BouligandStructure(Microstructure):
         z = pts[:, self.axis]
         j = np.floor((z - self.origin) / self.thickness).astype(np.int64)
         plane = pts[:, [b, c]]
+        if self.radii is not None:
+            return np.minimum.reduce([self._signed(plane, z, j + s) for s in (-1, 0, 1)])
         d = np.minimum.reduce([self._distance(plane, z, j + s) for s in (-1, 0, 1)])
         return d - self.radius
 
@@ -129,6 +182,11 @@ class BouligandStructure(Microstructure):
         for i, zi in enumerate(z):
             j0 = math.floor((zi - self.origin) / self.thickness)
             zz = np.full(len(plane), zi)
+            if self.radii is not None:
+                out[i] = np.minimum.reduce(
+                    [self._signed(plane, zz, np.full(len(plane), j0 + s)) for s in (-1, 0, 1)]
+                ).reshape(shape)
+                continue
             d = np.minimum.reduce(
                 [self._distance(plane, zz, np.full(len(plane), j0 + s)) for s in (-1, 0, 1)]
             )
@@ -158,12 +216,20 @@ class BouligandStructure(Microstructure):
         return VoxelImage.from_grid(data, grid, name="level_set", metadata=self.image_metadata())
 
     def summary(self) -> dict:
-        fraction = np.mean(math.pi * self.radius**2 / (self.spacings * self.thickness))
-        return {
+        if self.radii is None:
+            fraction = np.mean(math.pi * self.radius**2 / (self.spacings * self.thickness))
+        else:  # the mean square radius of the fibres of each layer
+            square = np.array([np.mean(r * r) for r in self.radii])
+            fraction = np.mean(math.pi * square / (self.spacings * self.thickness))
+        out = {
             "n_layers": self.n_layers,
             "pitch_angle": float(self.pitch_angle),
             "fiber_fraction": float(fraction),
         }
+        if self.radii is not None:
+            out.update(fiber_radius_mean=float(self._flat.mean()),
+                       fiber_radius_std=float(self._flat.std()))  # fmt: skip
+        return out
 
     @property
     def pitch_angle(self) -> float:
@@ -174,7 +240,7 @@ class BouligandStructure(Microstructure):
         return float(np.mean(turns))
 
     def _geometry(self) -> dict:
-        return {
+        out = {
             "axis": self.axis,
             "radius": self.radius,
             "thickness": self.thickness,
@@ -183,6 +249,10 @@ class BouligandStructure(Microstructure):
             "spacings": self.spacings.tolist(),
             "offsets": self.offsets.tolist(),
         }
+        if self.radii is not None:
+            out["radii"] = [r.tolist() for r in self.radii]
+            out["first"] = self.first.tolist()
+        return out
 
     @classmethod
     def _from_geometry(cls, domain, geometry, **kwargs):
@@ -195,6 +265,8 @@ class BouligandStructure(Microstructure):
             geometry["angles"],
             geometry["spacings"],
             geometry["offsets"],
+            geometry.get("radii"),
+            geometry.get("first"),
             **kwargs,
         )
 
@@ -209,12 +281,21 @@ class Bouligand(Model):
     phases: ClassVar[dict[int, str]] = {0: "matrix", 1: "fibres"}
     count_label = "layers"
 
-    fiber_radius: float = param(0.05, doc="Radius of the fibres", unit="length")
+    fiber_radius: Distribution = param(
+        Constant(0.05),
+        doc="Radius of the fibres: a number (monodisperse) or a distribution (polydisperse, "
+        "one radius per fibre, at most half the spacing and the thickness)",
+        kind="distribution",
+        unit="length",
+    )
     fiber_spacing: float | None = param(
-        None, doc="Distance between the fibres of a layer (default: 2.5 radii)", unit="length"
+        None,
+        doc="Distance between the fibres of a layer (default: 2.5 mean radii, at least the "
+        "largest diameter)",
+        unit="length",
     )
     layer_thickness: float | None = param(
-        None, doc="Thickness of the layers (default: one fibre diameter)", unit="length"
+        None, doc="Thickness of the layers (default: the largest fibre diameter)", unit="length"
     )
     pitch_angle: float = param(
         15.0, doc="Rotation of the fibres from a layer to the next (degrees)"
@@ -226,7 +307,7 @@ class Bouligand(Model):
     axis: int = param(2, doc="Stacking direction (0: x, 1: y, 2: z)", kind="int")
 
     def _validate(self) -> None:
-        r = check_positive(self.fiber_radius, "fiber_radius")
+        r = self.fiber_radius.upper()
         if self.axis not in (0, 1, 2):
             raise ValueError("axis: 0, 1 or 2")
         if not -90.0 < self.pitch_angle <= 90.0:
@@ -238,11 +319,16 @@ class Bouligand(Model):
 
     @property
     def spacing(self) -> float:
-        return 2.5 * self.fiber_radius if self.fiber_spacing is None else self.fiber_spacing
+        if self.fiber_spacing is not None:
+            return self.fiber_spacing
+        law = self.fiber_radius
+        return max(2.5 * law.moment(1), 2.0 * law.upper())
 
     @property
     def thickness(self) -> float:
-        return 2.0 * self.fiber_radius if self.layer_thickness is None else self.layer_thickness
+        if self.layer_thickness is not None:
+            return self.layer_thickness
+        return 2.0 * self.fiber_radius.upper()
 
     def _stack(self, height: float) -> tuple[int, float]:
         """Layers and pitch of a periodic box: whole half-turns, the closest to the
@@ -251,7 +337,7 @@ class Bouligand(Model):
         n0 = max(1, round(height / h))
         best = None
         for n in range(1, 2 * n0 + 4):
-            if height / n < 2.0 * self.fiber_radius * (1 - 1e-12):
+            if height / n < 2.0 * self.fiber_radius.upper() * (1 - 1e-12):
                 break
             m = round(n * delta / 180.0)
             pitch = 180.0 * m / n
@@ -287,7 +373,7 @@ class Bouligand(Model):
             origin = float(domain.lower[ax] + rng.random() * thickness)
             wanted = start + pitch * np.arange(n)
             dirs, gaps = periodic_families(
-                domain.lengths[[b, c]], self.spacing, 2.0 * self.fiber_radius
+                domain.lengths[[b, c]], self.spacing, 2.0 * self.fiber_radius.upper()
             )
             angles, spacings = [], []
             for w in wanted:
@@ -303,15 +389,22 @@ class Bouligand(Model):
             angles = np.mod(start + self.pitch_angle * np.arange(n), 180.0)
             spacings = np.full(n, self.spacing)
         offsets = rng.random(n) * spacings
+        law, radii, first = self.fiber_radius, None, None
+        if sizes.polydisperse(law):  # a radius per fibre
+            first, counts = _fibres_of_layers(domain, (b, c), angles, spacings, offsets)
+            radii = [sizes.draw(law, rng, m) for m in counts]
+        mean = law.moment(1) if radii is None else float(np.concatenate(radii).mean())
         return BouligandStructure(
             domain,
             ax,
-            self.fiber_radius,
+            mean,
             thickness,
             origin,
             angles,
             spacings,
             offsets,
+            radii,
+            first,
             model=self,
             seed=seed_info,
         )
@@ -321,11 +414,40 @@ class Bouligand(Model):
         return float(domain.lengths[self.axis] / self.thickness)
 
     def theory(self, domain: Domain | None = None) -> dict[str, float]:
-        r, s, h = self.fiber_radius, self.spacing, self.thickness
+        law, s, h = self.fiber_radius, self.spacing, self.thickness
         turn = 180.0 / abs(self.pitch_angle) if self.pitch_angle else math.inf
+        if law.is_constant:
+            r = law.moment(1)
+            fraction, surface = math.pi * r * r / (s * h), 2.0 * math.pi * r / (s * h)
+        else:  # the moments of the law of the radii
+            fraction = math.pi * law.moment(2) / (s * h)
+            surface = 2.0 * math.pi * law.moment(1) / (s * h)
         return {
-            "volume_fraction": math.pi * r * r / (s * h),
-            "specific_surface": 2.0 * math.pi * r / (s * h),
+            "volume_fraction": fraction,
+            "specific_surface": surface,
             "layers_per_half_turn": turn,
             "half_turn_height": turn * h,
         }
+
+
+def _fibres_of_layers(domain: Domain, plane, angles, spacings, offsets):
+    """The fibres of each layer that take a radius of their own: in a periodic box, the
+    ``gcd(a, b)`` fibres of a family normal to ``(a / L_u, b / L_v)`` (the others the same
+    fibres on the torus), from the fibre 0; in a window, those that cross it, and two more
+    on each side. The index of the first fibre of each layer and their numbers."""
+    lu, lv = (float(domain.lengths[k]) for k in plane)
+    t = np.radians(np.asarray(angles, dtype=float))
+    normals = np.column_stack([-np.sin(t), np.cos(t)])
+    spacings = np.asarray(spacings, dtype=float)
+    if domain.periodic:
+        a = np.rint(normals[:, 0] * lu / spacings).astype(np.int64)
+        b = np.rint(normals[:, 1] * lv / spacings).astype(np.int64)
+        counts = np.maximum(np.gcd(np.abs(a), np.abs(b)), 1)
+        return np.zeros(len(t), dtype=np.int64), counts
+    lower = np.array([domain.lower[k] for k in plane])
+    upper = np.array([domain.upper[k] for k in plane])
+    corners = np.array([[x, y] for x in (lower[0], upper[0]) for y in (lower[1], upper[1])])
+    u = corners @ normals.T - np.asarray(offsets, dtype=float)  # 4 x layers
+    first = np.floor(u.min(axis=0) / spacings).astype(np.int64) - 2
+    last = np.ceil(u.max(axis=0) / spacings).astype(np.int64) + 2
+    return first, last - first + 1

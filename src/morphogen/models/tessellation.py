@@ -332,6 +332,16 @@ class Tessellation(Microstructure):
         reach = float(min(reach, float(self.domain.diagonal))) + half
         return half - self.boundary_distance(np.asarray(points, dtype=float).reshape(-1, 3), reach)
 
+    @property
+    def lipschitz(self) -> float:
+        """A bound of the slopes of :meth:`phase_level_sets_at`: the function of the cells
+        of a phase, the difference of the squares of the distances to the nearest germs of
+        two phases over twice the mean spacing ``l``, has the slope ``|c_o - c_k| / l``,
+        the distance of those germs over ``l``, about two for neighbouring cells (1.97
+        measured on a mosaic): 2 for a mosaic of several phases, 1 for the layer of a
+        grain-boundary phase alone."""
+        return 2.0 if len(self._phase_trees()) > 1 else 1.0
+
     def phase_level_sets_at(self, points, reach: float = np.inf) -> dict[int, np.ndarray]:
         """The functions of :meth:`phase_level_set` at the points: for the cells of a
         phase, the smallest power distance to their germs minus the smallest to the germs

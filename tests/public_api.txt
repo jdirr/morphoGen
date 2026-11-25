@@ -324,6 +324,9 @@ morphogen.automata.tilings.window_stars(samples=1048576, rng=None)
 morphogen.config.AMITEX_OPTIONS
 morphogen.config.BITMAP_FORMATS
 morphogen.config.ConfigError(...)
+morphogen.config.DEFAULT_ELEMENTS_PER_EDGE
+morphogen.config.DEFAULT_HAUSDORFF
+morphogen.config.DEFAULT_MIN_SIZE
 morphogen.config.DiffusionSpec(diffusivity, solubility, consumption, exposed=('x-', 'x+'), activity=1.0, initial=0.0, times=(), steps=40, fields=False)
 morphogen.config.DiffusionSpec.boundary(self)
 morphogen.config.FATIGUE_QUANTITIES
@@ -356,10 +359,12 @@ morphogen.config.VoxelSpec(shape=None, voxel_size=None, supersampling=1, section
 morphogen.config.VoxelSpec.image(self, micro, supersampling=1)
 morphogen.config.VoxelSpec.kwargs(self)
 morphogen.config.VoxelSpec.layer(self, image)
+morphogen.config.default_mesh(domain, voxels=None)
 morphogen.config.load_config(source, *, base_dir=None)
 morphogen.config.path_quantities(names, homog)
 morphogen.config.property_entries(names, homog)
 morphogen.config.read_config_file(path)
+morphogen.config.voxels_only(homog, rve=None, voxels=None)
 morphogen.contact: CompressionResult
 morphogen.contact: ContactCell
 morphogen.contact: ContactProblem
@@ -622,6 +627,7 @@ morphogen.distributions.Distribution.median(self)
 morphogen.distributions.Distribution.moment(self, k)
 morphogen.distributions.Distribution.quadrature(self, n=128)
 morphogen.distributions.Distribution.sample(self, rng, n)
+morphogen.distributions.Distribution.scaled(self, factor)
 morphogen.distributions.Distribution.std(self)
 morphogen.distributions.Distribution.to_config(self)
 morphogen.distributions.Distribution.upper(self)
@@ -1966,6 +1972,60 @@ morphogen.image.VoxelImage.size
 morphogen.image.VoxelImage.volume
 morphogen.image.VoxelImage.voxel_volume
 morphogen.image.VoxelImage.with_data(self, data, *, name=None)
+morphogen.interop.alloys.Alloy(alloy, phases, grain_size, composition=<factory>, basis='wt%', temperature=None, unit='um', stress_unit='GPa', properties=<factory>, source='')
+morphogen.interop.alloys.Alloy.matrix
+morphogen.interop.alloys.Alloy.phase(self, role)
+morphogen.interop.alloys.Alloy.to_dict(self)
+morphogen.interop.alloys.AlloyPhase(name, role, fraction=None, young=None, poisson=None, cubic=None, radius=None)
+morphogen.interop.alloys.AlloyPhase.material(self)
+morphogen.interop.alloys.GRAINS
+morphogen.interop.alloys.PRECIPITATES
+morphogen.interop.alloys.ROLES
+morphogen.interop.alloys.alloy_configuration(alloy, scale='grains', *, shape=32, matrix=None)
+morphogen.interop.alloys.alloy_scales(alloy, *, matrix=None)
+morphogen.interop.alloys.homogenize_alloy(alloy, *, shape=32, seed=1)
+morphogen.interop.alloys.read_alloy(source)
+morphogen.interop.alloys.write_alloy(path, alloy)
+morphogen.interop.arrays.ALIGNMENT
+morphogen.interop.arrays.aligned(array, dtype=None, alignment=64)
+morphogen.interop.arrays.aligned_empty(shape, dtype=<class 'numpy.float32'>, alignment=64)
+morphogen.interop.arrays.from_dlpack(x, like=None, *, channel=None, spacing=None, origin=None, periodic=None, name='field')
+morphogen.interop.arrays.is_aligned(array, alignment=64)
+morphogen.interop.arrays.phase_field(obj, phase=1, *, shape=None, voxel_size=None, epsilon=None, inside=1.0, outside=-1.0, dtype=<class 'numpy.float32'>)
+morphogen.interop.arrays.realizations(model, domain, seeds, *, shape, phase=1, epsilon=None, dtype=<class 'numpy.float32'>)
+morphogen.interop.arrays.signed_distance(obj, phase=1, *, shape=None, voxel_size=None, reach=None)
+morphogen.interop.arrays.spectral_grid(image)
+morphogen.interop.arrays.state(image)
+morphogen.interop.arrays.to_jax(obj, *, dtype=None, device=None)
+morphogen.interop.arrays.to_torch(obj, *, dtype=None)
+morphogen.interop.blender.BLENDER_SCENE_SCRIPT
+morphogen.interop.blender.BLENDER_SCRIPT
+morphogen.interop.blender.BlenderFlow(velocity, density, origin, spacing, frame)
+morphogen.interop.blender.BlenderFlow.images(self)
+morphogen.interop.blender.BlenderScene(folder, particles, kinds)
+morphogen.interop.blender.BlenderScene.script
+morphogen.interop.blender.FLUIDS
+morphogen.interop.blender.MicrostructureScene(folder, objects, route, fluid)
+morphogen.interop.blender.MicrostructureScene.script
+morphogen.interop.blender.PHASE_COLOURS
+morphogen.interop.blender.REPORT
+morphogen.interop.blender.SCENE
+morphogen.interop.blender.SCENE_SCRIPT
+morphogen.interop.blender.SCRIPT
+morphogen.interop.blender.TRANSFORMS
+morphogen.interop.blender.blender_executable()
+morphogen.interop.blender.phase_surfaces(micro, phases=None, *, size=None, shape=64, surfaces='mesh')
+morphogen.interop.blender.read_blender(scene, *, height=None)
+morphogen.interop.blender.read_blender_flow(scene, frame=None)
+morphogen.interop.blender.read_uni(path)
+morphogen.interop.blender.run_blender(scene, *, blender=None, python=None, timeout=None)
+morphogen.interop.blender.settle(micro, phase=1, *, folder, blender=None, python=None, height=None, **options)
+morphogen.interop.blender.write_blender(folder, micro, phase=1, *, shape=64, exact=None, frames=250, height=2.0, gravity=9.81, friction=0.5, restitution=0.1, density=1.0, substeps=20, iterations=40, collision='CONVEX_HULL', scene_size=10.0, save_blend=True)
+morphogen.interop.blender.write_blender_scene(folder, micro, phases=None, *, size=None, shape=64, surfaces='mesh', fluid=None, axis=0, resolution=64, velocity=1.0, buffer=0.25, frames=100, viscosity=None, bake=False, scene_size=2.0, save_blend=True)
+morphogen.interop.microgen.from_microgen(shape, domain, *, description=None)
+morphogen.interop.microgen.from_pyvista(grid, *, phase='phase', periodic=False)
+morphogen.interop.microgen.to_microgen(micro, phase=1, *, reach=None, shape=64)
+morphogen.interop.microgen.to_pyvista(mesh)
 morphogen.io: GEOMETRY_FORMATS
 morphogen.io: IMAGE_FORMATS
 morphogen.io: MESH_FORMATS
@@ -1975,6 +2035,7 @@ morphogen.io: export
 morphogen.io: load_image
 morphogen.io: load_microstructure
 morphogen.io: mfront_source
+morphogen.io: particles
 morphogen.io: read_amitex
 morphogen.io: read_amitex_materials
 morphogen.io: read_amitex_run
@@ -2019,6 +2080,7 @@ morphogen.io: write_msh_tet
 morphogen.io: write_neper
 morphogen.io: write_npy
 morphogen.io: write_npz
+morphogen.io: write_particles
 morphogen.io: write_periodic_equations
 morphogen.io: write_periodic_pairs
 morphogen.io: write_radioss
@@ -2054,6 +2116,21 @@ morphogen.io.amitex.read_amitex_zones(prefix, material, *, kinematics=None)
 morphogen.io.amitex.write_amitex(directory, image, materials, *, grains=None, orientations=None, loadings=None, paths=None, stiffness=None, name='amitex', fields=False, tolerance=None, library='', processes=4, elastic_only=False, kinematics='small')
 morphogen.io.amitex.write_amitex_field(path, values, spacing, origin=(0.0, 0.0, 0.0), name='MaterialId')
 morphogen.io.amitex.write_amitex_loading(path, segments, *, kinematics='small', fields=False)
+morphogen.io.dem.Particle(surface, voxels, whole)
+morphogen.io.dem.Particle.area
+morphogen.io.dem.Particle.centroid
+morphogen.io.dem.Particle.equivalent_radius
+morphogen.io.dem.Particle.volume
+morphogen.io.dem.SPHERE_FORMATS
+morphogen.io.dem.SURFACE_FORMATS
+morphogen.io.dem.TABLE_FORMATS
+morphogen.io.dem.particle_spheres(micro, phase=1, *, clump_spacing=0.5)
+morphogen.io.dem.particle_table(found)
+morphogen.io.dem.particle_tetrahedra(surfaces, *, size=None)
+morphogen.io.dem.particles(obj, phase=1, *, shape=None, voxel_size=None, connectivity=6, min_voxels=1)
+morphogen.io.dem.remesh_surfaces(surfaces, size)
+morphogen.io.dem.sphere_surfaces(spheres, level=2)
+morphogen.io.dem.write_particles(path, obj, phase=1, *, shape=None, voxel_size=None, connectivity=6, min_voxels=1, exact=None, separate=False, clump_spacing=0.5, density=1.0, format=None, elements='triangles', size=None)
 morphogen.io.ebsd.ANG_SETTINGS
 morphogen.io.ebsd.ANG_SYMMETRY
 morphogen.io.ebsd.AXES
@@ -2744,8 +2821,9 @@ morphogen.mesh.exact.exact_mesh(micro, *, size, min_size=None, hausdorff=None, g
 morphogen.mesh.exact.exact_route(micro, grains=None)
 morphogen.mesh.exact.face_to_face(pieces, cells, lower, upper, *, tol=None)
 morphogen.mesh.exact.grid_boxes(labels, edges)
-morphogen.mesh.exact.pieces_mesh(pieces, phase, lower, upper, *, size, min_size=None, hausdorff=None, gradation=2.0, phases='all', cells=None, thin=None, order=1, periodic=False, executable=None, workdir=None, timeout=None)
-morphogen.mesh.exact.polyhedral_mesh(micro, *, size, by_piece=False, **options)
+morphogen.mesh.exact.labelled(micro, mesh)
+morphogen.mesh.exact.pieces_mesh(pieces, phase, lower, upper, *, size, min_size=None, hausdorff=None, gradation=2.0, phases='all', cells=None, orientations=None, thin=None, order=1, periodic=False, executable=None, workdir=None, timeout=None)
+morphogen.mesh.exact.polyhedral_mesh(micro, *, size, by_piece=None, **options)
 morphogen.mesh.octree.LINES
 morphogen.mesh.octree.Octree(lower, upper, n, axes, maxlevel)
 morphogen.mesh.octree.Octree.balance(self)
@@ -2918,10 +2996,16 @@ morphogen.models: Laguerre
 morphogen.models: Laminate
 morphogen.models: LatticeField
 morphogen.models: LevelSetFoam
+morphogen.models: LongFibers
+morphogen.models: MeshParticles
+morphogen.models: Microgen
+morphogen.models: MicrogenStructure
 morphogen.models: Microstructure
 morphogen.models: Model
 morphogen.models: Nacre
 morphogen.models: NacreStructure
+morphogen.models: NestedGrainStructure
+morphogen.models: NestedGrains
 morphogen.models: NucleationGrowthModel
 morphogen.models: OpenFoam
 morphogen.models: OsteonStructure
@@ -2943,11 +3027,13 @@ morphogen.models: SeedCalibration
 morphogen.models: StrutLattice
 morphogen.models: TPMSStructure
 morphogen.models: Tessellation
+morphogen.models: TextileStructure
 morphogen.models: TileAssembly
 morphogen.models: TilingField
 morphogen.models: TransparentDeadLeaves
 morphogen.models: TransparentDeadLeavesModel
 morphogen.models: Voronoi
+morphogen.models: WovenTextile
 morphogen.models: calibrate_seeds
 morphogen.models: get_model
 morphogen.models: list_models
@@ -3041,14 +3127,15 @@ morphogen.models.boolean.BooleanSpheres.integral_range(self)
 morphogen.models.boolean.BooleanSpheres.mean_grain_volume
 morphogen.models.boolean.BooleanSpheres.theory(self, domain=None)
 morphogen.models.boolean.BooleanSpheres.theta
-morphogen.models.bouligand.Bouligand(fiber_radius=0.05, fiber_spacing=None, layer_thickness=None, pitch_angle=15.0, start_angle=None, axis=2)
+morphogen.models.bouligand.Bouligand(fiber_radius=Constant(value=0.05), fiber_spacing=None, layer_thickness=None, pitch_angle=15.0, start_angle=None, axis=2)
 morphogen.models.bouligand.Bouligand.expected_count(self, domain)
 morphogen.models.bouligand.Bouligand.generate(self, domain, seed=None)
 morphogen.models.bouligand.Bouligand.spacing
 morphogen.models.bouligand.Bouligand.theory(self, domain=None)
 morphogen.models.bouligand.Bouligand.thickness
-morphogen.models.bouligand.BouligandStructure(domain, axis, radius, thickness, origin, angles, spacings, offsets, **kw)
+morphogen.models.bouligand.BouligandStructure(domain, axis, radius, thickness, origin, angles, spacings, offsets, radii=None, first=None, **kw)
 morphogen.models.bouligand.BouligandStructure.contains(self, points)
+morphogen.models.bouligand.BouligandStructure.fibre_radii(self, layers, index)
 morphogen.models.bouligand.BouligandStructure.level_set(self, shape=None, *, voxel_size=None, grid=None)
 morphogen.models.bouligand.BouligandStructure.level_set_at(self, points, reach=inf)
 morphogen.models.bouligand.BouligandStructure.n_layers
@@ -3118,7 +3205,7 @@ morphogen.models.deadleaves.SHAPES
 morphogen.models.design.ASSEMBLY_METHODS
 morphogen.models.design.MAX_RIGIDITY_NODES
 morphogen.models.design.PARENT_COORDINATION
-morphogen.models.design.RandomLattice(cell='octet', cell_size=1.0, strut_radius=0.08, coordination=None, removal_fraction=None, min_degree=3, perturbation=0.0, rigidity=True, *, anisotropy=None, frame_stiffness=False)
+morphogen.models.design.RandomLattice(cell='octet', cell_size=1.0, strut_radius=Constant(value=0.08), coordination=None, removal_fraction=None, min_degree=3, perturbation=0.0, rigidity=True, *, anisotropy=None, frame_stiffness=False)
 morphogen.models.design.RandomLattice.expected_count(self, domain)
 morphogen.models.design.RandomLattice.framework(self, n_cells, rng)
 morphogen.models.design.RandomLattice.generate(self, domain, seed=None)
@@ -3135,17 +3222,17 @@ morphogen.models.ebsd.EBSD.generate(self, domain, seed=None)
 morphogen.models.ebsd.EBSD.grains(self)
 morphogen.models.ebsd.EBSD.path(self)
 morphogen.models.ebsd.WINDOWS
-morphogen.models.fibers.CrossLinkedFibers(radius=0.5, length=None, orientation=Isotropic(), volume_fraction=None, length_density=None, contact_gap=0.0, bonded_fraction=1.0, link_radius=0.75, link_phase=2)
+morphogen.models.fibers.CrossLinkedFibers(radius=Constant(value=0.5), length=None, orientation=Isotropic(), volume_fraction=None, length_density=None, contact_gap=0.0, bonded_fraction=1.0, link_radius=0.75, link_phase=2)
 morphogen.models.fibers.CrossLinkedFibers.active_phases(self)
 morphogen.models.fibers.CrossLinkedFibers.contact_reach
-morphogen.models.fibers.CrossLinkedFibers.contacts(self, start, end, domain)
+morphogen.models.fibers.CrossLinkedFibers.contacts(self, start, end, domain, radii=None)
 morphogen.models.fibers.CrossLinkedFibers.expected_count(self, domain)
 morphogen.models.fibers.CrossLinkedFibers.generate(self, domain, seed=None)
 morphogen.models.fibers.CrossLinkedFibers.grain_volume
 morphogen.models.fibers.CrossLinkedFibers.lv
 morphogen.models.fibers.CrossLinkedFibers.supports_periodic
 morphogen.models.fibers.CrossLinkedFibers.theory(self, domain=None)
-morphogen.models.fibers.CurvedFibers(radius=0.5, length=20.0, persistence=10.0, segments=10, orientation=Isotropic(), volume_fraction=None, intensity=None, shape='worm_like', curvature_radius=Constant(value=20.0), helix_radius=1.0, helix_pitch=10.0, overlap=True, min_gap=0.0, max_attempts=None, lumen=0.0)
+morphogen.models.fibers.CurvedFibers(radius=Constant(value=0.5), length=20.0, persistence=10.0, segments=10, orientation=Isotropic(), volume_fraction=None, intensity=None, shape='worm_like', curvature_radius=Constant(value=20.0), helix_radius=1.0, helix_pitch=10.0, overlap=True, min_gap=0.0, max_attempts=None, lumen=0.0)
 morphogen.models.fibers.CurvedFibers.axes(self, rng, n)
 morphogen.models.fibers.CurvedFibers.correlation
 morphogen.models.fibers.CurvedFibers.expected_count(self, domain)
@@ -3162,7 +3249,7 @@ morphogen.models.fibers.HardcoreFibers.generate(self, domain, seed=None)
 morphogen.models.fibers.HardcoreFibers.mean_surface
 morphogen.models.fibers.HardcoreFibers.mean_volume
 morphogen.models.fibers.HardcoreFibers.theory(self, domain=None)
-morphogen.models.fibers.PoissonFibers(radius=1.0, volume_fraction=None, length_density=None, orientation=Isotropic())
+morphogen.models.fibers.PoissonFibers(radius=Constant(value=1.0), volume_fraction=None, length_density=None, orientation=Isotropic())
 morphogen.models.fibers.PoissonFibers.choquet_capacity(self, element, size, direction=None)
 morphogen.models.fibers.PoissonFibers.covariance(self, h, direction=None)
 morphogen.models.fibers.PoissonFibers.expected_count(self, domain)
@@ -3311,10 +3398,12 @@ morphogen.models.lattice.CELLS
 morphogen.models.lattice.StrutLattice(cell='octet', cell_size=1.0, strut_radius=None, volume_fraction=None, wall_thickness=None, rotation=None, radius_gradient=None, gradient_axis=0, *, anisotropy=None)
 morphogen.models.lattice.StrutLattice.expected_count(self, domain)
 morphogen.models.lattice.StrutLattice.generate(self, domain, seed=None)
+morphogen.models.lattice.StrutLattice.length_density
 morphogen.models.lattice.StrutLattice.radius
 morphogen.models.lattice.StrutLattice.theory(self, domain=None)
 morphogen.models.lattice.lattice_fraction(cell, radius, n=None)
 morphogen.models.lattice.lattice_struts(cell, cell_size, lower, upper)
+morphogen.models.lattice.periodic_struts(start, end, domain)
 morphogen.models.lattice.unit_cell_struts(cell)
 morphogen.models.lattice_field.LatticeField(domain, phases, *, labels=None, orientations=None, smoothing=0.0, field=None, threshold=0.0, attributes=None, **kwargs)
 morphogen.models.lattice_field.LatticeField.binary
@@ -3353,6 +3442,45 @@ morphogen.models.levelset_foam.SeedCalibration.residual
 morphogen.models.levelset_foam.calibrate_seeds(model, domain, target, *, shape=None, voxel_size=None, phase=0, fit_shape=False, separate=True, prominence=None, min_radius=0.0, iterations=8, tol=0.01, seed=None)
 morphogen.models.levelset_foam.nearest_distances(points, centres, radii, box, periodic, k=16)
 morphogen.models.levelset_foam.strut_keys(nn, n)
+morphogen.models.long_fibers.ARRANGEMENTS
+morphogen.models.long_fibers.GROWTH
+morphogen.models.long_fibers.LongFibers(radius=Constant(value=0.5), volume_fraction=None, number=None, axis=2, arrangement='random', disorder=0.0, misalignment=0.0, waviness_length=None, transverse_correlation=None, segments=None, min_gap=0.0, max_steps=20000)
+morphogen.models.long_fibers.LongFibers.array_shape(self, section)
+morphogen.models.long_fibers.LongFibers.contour_factor
+morphogen.models.long_fibers.LongFibers.correlation_length(self, length)
+morphogen.models.long_fibers.LongFibers.expected_count(self, domain)
+morphogen.models.long_fibers.LongFibers.generate(self, domain, seed=None)
+morphogen.models.long_fibers.LongFibers.largest_fraction(self)
+morphogen.models.long_fibers.LongFibers.spacing(self)
+morphogen.models.long_fibers.LongFibers.theory(self, domain=None)
+morphogen.models.long_fibers.LongFibers.transverse_length(self, ell)
+morphogen.models.long_fibers.LongFibers.waviness(self, rng, x0, section, period, m, ell)
+morphogen.models.long_fibers.MAX_MISALIGNMENT
+morphogen.models.long_fibers.RANDOM_LIMIT
+morphogen.models.long_fibers.SEGMENTS_PER_WAVE
+morphogen.models.long_fibers.SMOOTHING
+morphogen.models.long_fibers.SPECTRUM_CUT
+morphogen.models.long_fibers.START_FRACTION
+morphogen.models.long_fibers.chain_volumes(nodes, h, radii)
+morphogen.models.long_fibers.secant_mean(theta)
+morphogen.models.long_fibers.segment_angles(nodes, h)
+morphogen.models.mesh_particles.MeshParticles(domain, surfaces=(), **kwargs)
+morphogen.models.mesh_particles.MeshParticles.level_set(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.mesh_particles.MeshParticles.summary(self)
+morphogen.models.mesh_particles.MeshParticles.voxelize(self, shape=None, *, voxel_size=None, grid=None, supersampling=1)
+morphogen.models.microgen.Microgen(shape='Tpms', arguments=None, part='')
+morphogen.models.microgen.Microgen.description(self)
+morphogen.models.microgen.Microgen.generate(self, domain, seed=None)
+morphogen.models.microgen.MicrogenStructure(domain, shape=None, description=None, **kwargs)
+morphogen.models.microgen.MicrogenStructure.contains(self, points)
+morphogen.models.microgen.MicrogenStructure.field(self, points)
+morphogen.models.microgen.MicrogenStructure.level_set(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.microgen.MicrogenStructure.level_set_at(self, points, reach=inf)
+morphogen.models.microgen.MicrogenStructure.shape
+morphogen.models.microgen.MicrogenStructure.summary(self)
+morphogen.models.microgen.MicrogenStructure.voxelize(self, shape=None, *, voxel_size=None, grid=None, supersampling=1)
+morphogen.models.microgen.PARTS
+morphogen.models.microgen.build_shape(description, seed=None)
 morphogen.models.nacre.ARRANGEMENTS
 morphogen.models.nacre.Nacre(tablet_size=1.0, tablet_thickness=0.2, mortar_thickness=0.02, gap=None, arrangement='voronoi', regularity=0.7, aspect=1.0, overlap=0.5, stagger='uv', axis=2)
 morphogen.models.nacre.Nacre.brick_sides
@@ -3420,6 +3548,42 @@ morphogen.models.nested.FractalStructure.summary(self)
 morphogen.models.nested.FractalStructure.voxelize(self, shape=None, *, voxel_size=None, grid=None, supersampling=1)
 morphogen.models.nested.PATTERNS
 morphogen.models.nested.bores_of(union, thickness)
+morphogen.models.nested_grains.NestedGrainStructure(domain, grains, inner, *, turned, centres, filled_phases, rotations=None, shifts=None, inner_phase=None, parents=None, subgrain_germs=None, subgrain_weights=None, orientations=None, misorientations=None, **kwargs)
+morphogen.models.nested_grains.NestedGrainStructure.cell_of(self, points)
+morphogen.models.nested_grains.NestedGrainStructure.cell_phases
+morphogen.models.nested_grains.NestedGrainStructure.contains(self, points)
+morphogen.models.nested_grains.NestedGrainStructure.convex_pieces
+morphogen.models.nested_grains.NestedGrainStructure.germs
+morphogen.models.nested_grains.NestedGrainStructure.grain_labels(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.nested_grains.NestedGrainStructure.implicit_phases(self)
+morphogen.models.nested_grains.NestedGrainStructure.labels(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.nested_grains.NestedGrainStructure.level_set(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.nested_grains.NestedGrainStructure.level_set_at(self, points, reach=inf)
+morphogen.models.nested_grains.NestedGrainStructure.lipschitz
+morphogen.models.nested_grains.NestedGrainStructure.n_cells
+morphogen.models.nested_grains.NestedGrainStructure.n_grains
+morphogen.models.nested_grains.NestedGrainStructure.orientations
+morphogen.models.nested_grains.NestedGrainStructure.phase_level_set(self, phase, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.nested_grains.NestedGrainStructure.phase_level_sets_at(self, points, reach=inf)
+morphogen.models.nested_grains.NestedGrainStructure.phases_at(self, points, spacing=None)
+morphogen.models.nested_grains.NestedGrainStructure.point_cells
+morphogen.models.nested_grains.NestedGrainStructure.subgrain_pieces(self)
+morphogen.models.nested_grains.NestedGrainStructure.summary(self)
+morphogen.models.nested_grains.NestedGrainStructure.voxelize(self, shape=None, *, voxel_size=None, grid=None, supersampling=1)
+morphogen.models.nested_grains.NestedGrains(grains, inner, misorientation=Constant(value=2.0), turned=True, inner_phase=None, filled_phases=None)
+morphogen.models.nested_grains.NestedGrains.active_phases(self)
+morphogen.models.nested_grains.NestedGrains.divided_phases
+morphogen.models.nested_grains.NestedGrains.expected_count(self, domain)
+morphogen.models.nested_grains.NestedGrains.generate(self, domain, seed=None)
+morphogen.models.nested_grains.NestedGrains.grain_phases
+morphogen.models.nested_grains.NestedGrains.has_level_set
+morphogen.models.nested_grains.NestedGrains.inner_domain(self, domain)
+morphogen.models.nested_grains.NestedGrains.phase_of_inner
+morphogen.models.nested_grains.NestedGrains.subgrain_disorientation_cdf(self, angles, n=128)
+morphogen.models.nested_grains.NestedGrains.subgrain_disorientation_moments(self, n=128)
+morphogen.models.nested_grains.NestedGrains.subgrains
+morphogen.models.nested_grains.NestedGrains.supports_periodic
+morphogen.models.nested_grains.NestedGrains.theory(self, domain=None)
 morphogen.models.osteons.CANAL
 morphogen.models.osteons.CEMENT
 morphogen.models.osteons.INTERSTITIAL
@@ -3569,6 +3733,7 @@ morphogen.models.tessellation.Tessellation.implicit_phases(self)
 morphogen.models.tessellation.Tessellation.labels(self, shape=None, *, voxel_size=None, grid=None)
 morphogen.models.tessellation.Tessellation.level_set(self, shape=None, *, voxel_size=None, grid=None)
 morphogen.models.tessellation.Tessellation.level_set_at(self, points, reach=inf)
+morphogen.models.tessellation.Tessellation.lipschitz
 morphogen.models.tessellation.Tessellation.n_cells
 morphogen.models.tessellation.Tessellation.phase_level_set(self, phase, shape=None, *, voxel_size=None, grid=None)
 morphogen.models.tessellation.Tessellation.phase_level_sets_at(self, points, reach=inf)
@@ -3577,6 +3742,61 @@ morphogen.models.tessellation.Tessellation.voxelize(self, shape=None, *, voxel_s
 morphogen.models.tessellation.Voronoi(n_cells=None, intensity=None, phase_fractions=None, crystal_orientations=False, boundary_thickness=0.0, boundary_phase=None, germs='poisson', stealthiness=0.3, *, texture=None, anisotropy=None)
 morphogen.models.tessellation.Voronoi.generate(self, domain, seed=None)
 morphogen.models.tessellation.Voronoi.theory(self, domain=None)
+morphogen.models.textile.FAMILIES
+morphogen.models.textile.PATTERNS
+morphogen.models.textile.Piece(kind, s0, z0, s1, z1, sc=0.0, zc=0.0, r=0.0, a0=0.0, a1=0.0)
+morphogen.models.textile.Piece.length
+morphogen.models.textile.Piece.sample(self, n)
+morphogen.models.textile.SECTIONS
+morphogen.models.textile.TextileStructure(domain, yarns, section='ellipse', power=2.0, **kwargs)
+morphogen.models.textile.TextileStructure.cell_phases
+morphogen.models.textile.TextileStructure.contains(self, points)
+morphogen.models.textile.TextileStructure.implicit_phases(self)
+morphogen.models.textile.TextileStructure.interpenetration(self, points=200000, seed=0)
+morphogen.models.textile.TextileStructure.label_of(self, points)
+morphogen.models.textile.TextileStructure.labels(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.textile.TextileStructure.level_set(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.textile.TextileStructure.level_set_at(self, points, reach=inf)
+morphogen.models.textile.TextileStructure.matrix_label
+morphogen.models.textile.TextileStructure.n_labels
+morphogen.models.textile.TextileStructure.n_segments
+morphogen.models.textile.TextileStructure.n_yarns
+morphogen.models.textile.TextileStructure.orientations
+morphogen.models.textile.TextileStructure.phase_level_set(self, phase, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.textile.TextileStructure.phase_level_sets_at(self, points, reach=inf)
+morphogen.models.textile.TextileStructure.phase_names
+morphogen.models.textile.TextileStructure.phase_of(self, points)
+morphogen.models.textile.TextileStructure.sampled(self, points=200000, seed=0)
+morphogen.models.textile.TextileStructure.summary(self)
+morphogen.models.textile.TextileStructure.volumes(self)
+morphogen.models.textile.TextileStructure.voxelize(self, shape=None, *, voxel_size=None, grid=None, supersampling=1)
+morphogen.models.textile.TextileStructure.yarn_count(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.textile.TextileStructure.yarns_at(self, points)
+morphogen.models.textile.WEAVES
+morphogen.models.textile.WEAVES_2D
+morphogen.models.textile.WEAVES_3D
+morphogen.models.textile.WovenTextile(weave='plain', pattern=None, layers=1, warp_spacing=2.0, weft_spacing=None, yarn_width=Constant(value=1.6), yarn_thickness=Constant(value=0.3), weft_width=None, weft_thickness=None, binder_width=None, binder_thickness=None, section='ellipse', section_power=3.0, transition=1.0, ply_shift=None, random_shift=False, ply_gap=0.0, merge_yarns=False, samples=16, fibre_fraction_in_yarns=None, axis=2)
+morphogen.models.textile.WovenTextile.active_phases(self)
+morphogen.models.textile.WovenTextile.expected_count(self, domain)
+morphogen.models.textile.WovenTextile.generate(self, domain, seed=None)
+morphogen.models.textile.WovenTextile.has_level_set
+morphogen.models.textile.WovenTextile.is_3d
+morphogen.models.textile.WovenTextile.repeat(self)
+morphogen.models.textile.WovenTextile.sizes(self)
+morphogen.models.textile.WovenTextile.spacings
+morphogen.models.textile.WovenTextile.theory(self, domain=None)
+morphogen.models.textile.WovenTextile.thickness(self)
+morphogen.models.textile.Yarn(family, phase, nodes, normals, binormals, period, half_width, half_thickness, crimp=0.0)
+morphogen.models.textile.Yarn.closed
+morphogen.models.textile.Yarn.ends(self)
+morphogen.models.textile.Yarn.from_dict(cls, data)
+morphogen.models.textile.Yarn.length
+morphogen.models.textile.Yarn.n_segments
+morphogen.models.textile.Yarn.to_dict(self)
+morphogen.models.textile.interlacing(weave, pattern=None)
+morphogen.models.textile.path_length(pieces)
+morphogen.models.textile.profile(levels, first, spacing, transition=1.0, radius=None)
+morphogen.models.textile.section_area(a, c, section='ellipse', power=2.0)
 morphogen.models.tiling_field.TilingField(domain, tiling, phases, *, cells=None, attributes=None, **kwargs)
 morphogen.models.tiling_field.TilingField.binary
 morphogen.models.tiling_field.TilingField.cell_image(self, shape=None, *, voxel_size=None, grid=None)

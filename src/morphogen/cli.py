@@ -445,20 +445,24 @@ def _homogenization_sample(args, materials):
                 labels = micro.labels(grid=image.grid())
                 return image, {"grains": labels, "orientations": orientations}
             return image, {}
-        if args.size is None:
-            raise ValueError(
-                "--size: element size of the conforming mesh of a geometry (or --voxels N "
-                "for the FFT solver)"
-            )
+        size, hausdorff, light = args.size, args.hausdorff, {}
+        if size is None:  # finite elements by default: the voxels are the last resort
+            from morphogen.config import default_mesh
+
+            spec = default_mesh(micro.domain)
+            size, light = spec.size, {"min_size": spec.min_size}
+            hausdorff = spec.hausdorff if hausdorff is None else hausdorff
         phases = args.mesh_phases
         if phases == "auto":
             phases = "solid" if any(m.void for m in materials.values()) else "all"
         periodic = True if args.periodic else None
-        extra = {} if args.min_feature is None else {"min_feature": args.min_feature}
+        extra = dict(light)
+        if args.min_feature is not None:
+            extra["min_feature"] = args.min_feature
         mesh = conforming_mesh(
             micro,
-            size=args.size,
-            hausdorff=args.hausdorff,
+            size=size,
+            hausdorff=hausdorff,
             order=args.order,
             phases=phases,
             periodic=periodic,
@@ -1046,6 +1050,35 @@ def _fields_texture(args) -> int:
     print(f"  inverse pole figure of the direction {tuple(args.direction)}: {inverse.maximum:.1f}")
     for path in summary["files"]:
         print(f"written: {path}")
+    return 0
+
+
+def cmd_alloy(args) -> int:
+    """The scales of an alloy (morphogen.interop.alloys): their configurations, written
+    for ``morphogen run``, and their effective elasticity."""
+    from morphogen.interop import alloys
+
+    alloy = alloys.read_alloy(args.alloy)
+    scales = alloys.alloy_scales(alloy)
+    print(f"{alloy.alloy}: {', '.join(s['name'] for s in scales)}")
+    if args.config:
+        folder = Path(args.config)
+        folder.mkdir(parents=True, exist_ok=True)
+        for s in scales:
+            cfg = alloys.alloy_configuration(alloy, s["name"], shape=args.shape)
+            path = folder / f"alloy_{s['name']}.yaml"
+            path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+            print(f"written {path}")
+    if args.homogenize:
+        out = alloys.homogenize_alloy(alloy, shape=args.shape, seed=args.seed)
+        for name, entry in out["scales"].items():
+            shares = ", ".join(f"{k}: {v:.3f}" for k, v in entry["fractions"].items())
+            print(f"{name}: E = {entry['young']:.6g}, nu = {entry['poisson']:.4f} ({shares})")
+        if "predicted_young" in out:
+            gap = 100 * out["departure"]
+            print(f"predicted E = {out['predicted_young']:.6g}: departure {gap:+.2f} %")
+        if args.json:
+            Path(args.json).write_text(json.dumps(out, indent=1), encoding="utf-8")
     return 0
 
 
@@ -2062,6 +2095,23 @@ def _export_options(obj, arrays: dict, args, video: bool) -> dict:
             raise ValueError(f"no array {name!r} in the mesh (arrays: {', '.join(arrays)})")
         return arrays[name]
 
+    if args.particles is not None:  # one phase without its matrix, for the DEM
+        if not isinstance(obj, (VoxelImage, Microstructure)):
+            raise ValueError("--particles: the particles of a geometry (.json) or an image")
+        options = {"particles": args.particles}
+        if args.format == "yade":
+            options["format"] = "yade"
+        if args.tetrahedra:
+            options["elements"] = "tetrahedra"
+        if args.element_size is not None:
+            options["size"] = args.element_size
+        if isinstance(obj, Microstructure):
+            options.update(given(shape=args.shape, voxel_size=args.voxel_size))
+        return options
+    if args.format == "yade":
+        raise ValueError("--format yade: the spheres of the particles of a phase (--particles)")
+    if args.tetrahedra or args.element_size is not None:
+        raise ValueError("--tetrahedra, --element-size: the particles of a phase (--particles)")
     options = given(fps=args.fps, mode=args.mode, repeat=args.repeat) if video else {}
     if isinstance(obj, Microstructure):
         options.update(given(shape=args.shape, voxel_size=args.voxel_size))
@@ -2614,7 +2664,12 @@ def build_parser() -> argparse.ArgumentParser:
         "image (.vti, .vtk, .mhd, .npz, .npy, .tif: FFT solver, periodic conditions)",
     )
     p.add_argument("--array", help="array name in multi-array image files")
-    p.add_argument("--size", type=float, help="element size of the conforming mesh (.json)")
+    p.add_argument(
+        "--size",
+        type=float,
+        help="element size of the conforming mesh of a geometry (.json; default: the shortest "
+        "edge of its domain over 10, a light mesh): finite elements, unless --voxels",
+    )
     p.add_argument(
         "--voxels",
         type=int,
@@ -2916,6 +2971,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--figure", help="figure of the bands with their gaps (.png, .svg, .pdf)")
     p.add_argument("--json", action="store_true", help="JSON output")
     p.set_defaults(func=cmd_bands)
+
+    p = sub.add_parser(
+        "alloy",
+        help="the scales of an alloy (its phases from a tool of alloy design) as microstructures",
+        description="An alloy (JSON or YAML: composition, grain size, phases with their roles, "
+        "fractions, radii and elastic constants, the properties predicted; see "
+        "morphogen.interop.alloys): its scales (the precipitates in the matrix, the grains), "
+        "their configurations for morphogen run, and their effective elasticity by FFT.",
+    )
+    p.add_argument("alloy", help="the alloy (.json, .yaml)")
+    p.add_argument("--config", metavar="DIR", help="write the configuration of each scale here")
+    p.add_argument("--homogenize", action="store_true", help="the effective elasticity by FFT")
+    p.add_argument("--shape", type=int, default=32, help="voxels per edge (default 32)")
+    p.add_argument("--seed", type=int, default=1, help="seed of the realizations (default 1)")
+    p.add_argument("--json", help="write the results of --homogenize to this JSON file")
+    p.set_defaults(func=cmd_alloy)
 
     p = sub.add_parser("analyze", help="morphological measurements on a voxel image")
     p.add_argument("image", help="image file (.vti, .vtk, .mhd, .npz, .npy, .tif)")
@@ -3337,7 +3408,12 @@ def build_parser() -> argparse.ArgumentParser:
         "a video (mp4, gif)",
         description="The output format follows the suffix: data (.vti, .vtu, .msh, .inp, .xdmf, "
         ".stl...), tables (.csv, .txt, .xlsx), figures (.png, .tif, .svg, .pdf, .tex: TikZ), "
-        "videos (.mp4, .gif; or --format frames and a folder).",
+        "videos (.mp4, .gif; or --format frames and a folder). With --particles PHASE, the "
+        "particles of that phase without its matrix, for the discrete element method: a "
+        "closed surface per particle (.stl, .obj, .vtu; .msh, Gmsh 2.2 as LMGC90 reads it, "
+        "its tetrahedra with --tetrahedra), whole across periodic faces; a table (.csv, "
+        ".txt, .xlsx); the spheres of a union of spheres and segments as a LAMMPS / "
+        "LIGGGHTS data file (.data) or YADE's columns (--format yade).",
     )
     p.add_argument(
         "input",
@@ -3345,7 +3421,28 @@ def build_parser() -> argparse.ArgumentParser:
         "or table (.csv, .txt, .xlsx)",
     )
     p.add_argument("output", help="output file (its suffix chooses the format) or folder")
-    p.add_argument("--format", choices=("frames",), help="PNG frames in the output folder")
+    p.add_argument(
+        "--format",
+        choices=("frames", "yade"),
+        help="PNG frames in the output folder; yade: the spheres of --particles as YADE reads them",
+    )
+    p.add_argument(
+        "--particles",
+        type=int,
+        metavar="PHASE",
+        help="the particles of this phase without its matrix (DEM): surfaces, tables, spheres",
+    )
+    p.add_argument(
+        "--tetrahedra",
+        action="store_true",
+        help="--particles in a .msh file: their tetrahedra (gmsh), not their triangles",
+    )
+    p.add_argument(
+        "--element-size",
+        type=float,
+        metavar="H",
+        help="--particles: their surfaces remeshed by MMG (mmgs) at triangles of this size",
+    )
     p.add_argument("--array", help="array of a multi-array image")
     p.add_argument(
         "--kind",

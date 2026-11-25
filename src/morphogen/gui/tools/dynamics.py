@@ -178,6 +178,12 @@ FIELDS = [
         "from the time history, of 1000 samples)",
     ),
     Field(
+        "video",
+        "bool",
+        False,
+        doc="a video of the run (VTK); the frames go in the 3D view, and the export makes it",
+    ),
+    Field(
         "time_step",
         "float",
         unit="µs",
@@ -402,9 +408,10 @@ _NORMAL = ("11", "22", "33")
 _SHEAR = {frozenset((0, 1)): "12", frozenset((1, 2)): "23", frozenset((0, 2)): "31"}
 
 
-def _report(ctx, result, *, title: str, extra: dict) -> dict:
+def _report(ctx, result, *, title: str, extra: dict, video: bool = False) -> dict:
     """The page of the results of a run: the summary (MPa, J, ms, MJ/m³, J/g), the curves
-    and energies, their figures, the frames for the 3D view, a video."""
+    and energies, their figures, the frames for the 3D view (its steps), a video if
+    asked."""
     from morphogen.dynamics import UnitSystem, summary, write_frames
 
     m = result.manifest
@@ -442,6 +449,13 @@ def _report(ctx, result, *, title: str, extra: dict) -> dict:
     frames = write_frames(result, ctx.path("frames"))
     if frames:
         shutil.copyfile(frames[-1], ctx.path("final_state.vtu"))
+        steps = []  # the frames written (those with elements left), at their times
+        for path in frames:
+            t = result.frames[int(path.stem.rsplit("_", 1)[1]) - 1].time * to_ms
+            steps.append(
+                {"file": f"frames/{path.name}", "time": float(t), "label": f"t = {t:.3g} ms"}
+            )
+        ctx.steps("frames", steps)
     c = result.curves
     tables = []
     if c:
@@ -483,7 +497,8 @@ def _report(ctx, result, *, title: str, extra: dict) -> dict:
         if len(columns) > 1:
             tables.append(_table(ctx, columns, "energies", "energies of the parts over time"))
     _figures(ctx, result, to_mpa, to_ms, to_j)
-    _video(ctx, result, to_mpa, to_ms)
+    if video:
+        _video(ctx, result, to_mpa, to_ms)
     values["frames"] = len(frames)
     return {"title": title, "values": values, "tables": tables}
 
@@ -618,7 +633,7 @@ def _video(ctx, result, to_mpa: float, to_ms: float) -> None:
     "smooth start (or the morphology thrown against a rigid wall), the self contact of its "
     "outer surface; its nominal stress–strain curves (both faces: their gap tells whether "
     "the test is quasi-static), energies, peak and plateau stresses, densification strain, "
-    "absorbed energy per volume and mass, its fields over time in 3D and a video. Without "
+    "absorbed energy per volume and mass, its fields over time in 3D (a video on demand). Without "
     "OpenRadioss here, the inputs and the scripts to run them elsewhere.",
     FIELDS,
     order=1,
@@ -695,7 +710,8 @@ def radioss_test(p: dict, ctx) -> dict:
             "archive": archive,
         }
     extra["run time (s)"] = round(test.run.elapsed, 1)
-    out = _report(ctx, test.result, title=f"Dynamic {loading.kind} of {model}", extra=extra)
+    out = _report(ctx, test.result, title=f"Dynamic {loading.kind} of {model}", extra=extra,
+                  video=bool(p["video"]))  # fmt: skip
     out.update(text=readme, archive=archive)
     return out
 
@@ -718,6 +734,7 @@ def radioss_test(p: dict, ctx) -> dict:
             browse="folder",
         ),
         Field("convert", "bool", True, label="convert the outputs", doc="with OpenRadioss's tools"),
+        Field("video", "bool", False, doc="a video of the run (VTK); the export makes it too"),
         Field(
             "installation",
             "str",
@@ -755,6 +772,7 @@ def radioss_results(p: dict, ctx) -> dict:
         result,
         title=f"OpenRadioss results of {manifest['title']}",
         extra={"folder": str(folder)},
+        video=bool(p["video"]),
     )
 
 

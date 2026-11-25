@@ -69,7 +69,7 @@ def test_capacity_minus_sampling_and_elements(spheres):
 def test_capacity_of_poisson_fibers():
     model = mg.models.PoissonFibers(radius=0.03, volume_fraction=0.2)
     img = model.generate(mg.Domain.cube(1.0, periodic=False), seed=5).voxelize((96, 96, 96))
-    h, r = img.spacing[0], model.radius
+    h, r = img.spacing[0], model.radius.mean()  # a constant law of radii
     # minus sampling; -log Q(B_r) is proportional to (R + r)^2, -log Q(l) to 1 + l / 2R
     t = an.choquet_capacity(img, "ball", np.array([0.0, 2, 5]) * h)
     lq = np.log(t.complement)

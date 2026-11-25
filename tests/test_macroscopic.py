@@ -485,6 +485,7 @@ def test_loadings_in_runs_and_on_the_command_line(tmp_path, capsys):
         "seed": 1,
         "voxels": {"shape": 10},
         "homogenization": {
+            "method": "fft",
             "materials": {0: MATRIX.to_config(), 1: FIBRE.to_config()},
             "properties": ["bulk_modulus", "stiffness", "thermal_expansion"],
             "loadings": {"tension": {"strain": {11: 0.01}}, "heating": {"temperature": 100}},

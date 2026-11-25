@@ -52,7 +52,8 @@ which any tab takes its input, before or after another as needed: an item is sen
 the buttons of its usual next steps or the menu of the other tools (by section), which
 set the forms to take it (e.g. a morphology as the specimen of a crack), and the item
 stays when another tool of the tab is chosen; a click on an item shows it, sends it on,
-renames or removes it. Each run of a tool joins the workspace too (R), so that a run with other
+renames or removes it, and its cross (or a middle click) closes it at once, with an
+**Undo** for a few seconds. Each run of a tool joins the workspace too (R), so that a run with other
 parameters keeps the first: shown again, its form filled with its parameters, to change
 them and run again. The long forms stand in boxes (specimen, material, loading, solver,
 output; the details seldom changed folded until opened). A long computation is stopped
@@ -75,7 +76,9 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
 
 * **Generate**: any model, chosen in a menu by family (random sets and particles, fibres
    and layers, tessellations and foams, lattices and TPMS, bio-inspired, growth and
-   patterns, assemblies), with a form built from its parameters; sections of its
+   patterns, assemblies), with a form built from its parameters (each size monodisperse,
+   or polydisperse by the law chosen beside it: uniform, log-normal, normal, discrete);
+   sections of its
    level set (anti-aliased boundaries; of the implicit functions of its phases when it
    has several: coatings, inclusions, dead leaves, osteons, cells with phases), computed
    at up to 2048 pixels per edge without
@@ -104,8 +107,10 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
   MÃ©ricâ€“Cailletaud crystal plasticity, GTN, Rousselier and elliptic porous plasticity,
   viscoelasticity by Prony series, hyperelastic energies, isotropic damage with a
   fracture energy, Z-set files, MFront laws; small or finite strains; FFT, on the CPU or an NVIDIA GPU,
-  or finite elements; strains, stresses or both over time) with their curves, fields
-  and videos; the NTFA reduced
+  or finite elements; strains, stresses or both over time) with their curves and their
+  fields drawn in the page in 3D (any field on the deformed mesh or the voxels, any step
+  of the path by a slider, played on one colour scale), the videos on demand (here or in
+  Export, from the steps); the NTFA reduced
   model trained on paths and compared with the full field; a material point under a
   path, with the points of a test, its behaviour kept in the workspace for the other
   tools; the identification of a von Mises, Hill or porous behaviour (yield stress,
@@ -146,7 +151,8 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
   or finite strains; its growth in a plate or through a morphology of the workspace (E
   and Î½ or void for each phase, conforming interfaces; kinking, toughness, ductile by
   J_tip or the porosity of GTN points, the R-curve, the phase at each tip, the path over
-  the phases, a video; the toughness of each phase and of their interfaces, the
+  the phases, its frames (a video on demand); the toughness of each phase and of their
+  interfaces, the
   deflections along weak interfaces marked); cohesive zones (a ligament, the interfaces of a
   double cantilever beam); the growth of a crack through a polycrystal; the phase-field
   fracture of a morphology, in small or finite strains, whose cracks start and merge in its phases along a loading
@@ -166,7 +172,8 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
   micromorphic ductile damage with the stress triaxiality (Rice & Tracey, Johnson &
   Cook, Lemaitre) and micromorphic damage of quasi-brittle solids, on notched plates,
   bars or morphologies of the workspace: forceâ€“displacement curves, the bands and their
-  width set by the internal length, videos of the damage;
+  width set by the internal length, the fields of the steps in 3D (their videos on
+  demand);
 * **Physics**: the other physics of a morphology of the workspace, on its voxels: its
   transport properties (thermal and electrical conductivities, permittivity, permeability,
   diffusivity) and their tensor between the bounds of Wiener and of Hashin and Shtrikman;
@@ -174,8 +181,8 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
   frame and the absorption curve of a layer of it on a rigid wall; the storage and loss
   moduli and the loss factor of a composite with a viscoelastic phase over a range of
   frequencies;
-* **Couplings**: transient diffusion into a morphology (uptake curve, fields, the
-  effective diffusivity), the thermal oxidation of an epoxy plate (Ernault et al.) and
+* **Couplings**: transient diffusion into a morphology (uptake curve, the fields of the
+  times in 3D, the effective diffusivity), the thermal oxidation of an epoxy plate (Ernault et al.) and
   of a morphology in its volume (the oxidized layer around impermeable phases), and
   hygromorph multilayers bending and twisting as moisture enters them, their layers
   homogenized from morphologies of the workspace;
@@ -184,7 +191,8 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
   elastoplastic or Johnsonâ€“Cook, with failure; the self contact of its outer surface;
   engineering units: MPa, kg/mÂ³, m/s, 1/s, ms), its nominal stressâ€“strain curves at both
   faces, energies, peak and plateau stresses, densification strain and absorbed energy,
-  its fields over time in 3D and a video; without OpenRadioss here, its inputs and the
+  its fields over time in 3D step by step (a video on demand); without OpenRadioss here,
+  its inputs and the
   scripts to run them elsewhere; the results of a run made elsewhere read back; the
   installation found, or a release installed from GitHub. Its curves go to Comparisons
   with the loading paths (E33 and S33 for a compression along z);
@@ -193,12 +201,18 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
    2048 voxels per edge, memory permitting), its surface (STL) and conforming mesh (for
    a morphology of several phases: the implicit function and the surface of each phase,
    `level_set_phase1.vti`, `surface_phase1.stl`..., and the mesh conforming to all their
-   interfaces) and a
+   interfaces), the particles of one phase without its matrix for the discrete element
+   method (surfaces, Gmsh meshes of triangles or tetrahedra for LMGC90, tables, spheres
+   for LAMMPS, LIGGGHTS and YADE) and a
    video (sections of its level set sweeping it, orthoslices, a turntable); of a
-   simulation, a view of its fields (field, colormap, magnification, cut, range) and a
-   video (the field on the deformed mesh under a growing or oscillating load, the
-   colours following the load; a turntable, a sweep), its tables, fields, mesh and
-   configuration (to rerun it with `morphogen run`), drawn without solving again;
+   simulation or of the run of a tool, a view of its fields (field, colormap,
+   magnification, cut, range) and a video (the field on the deformed mesh along the
+   steps of a loading path or of a run, one frame per step on one colour range, or under
+   a growing or oscillating load, the colours following the load â€” a pattern of a
+   bifurcation oscillating; a turntable, a sweep; the frames that a tool kept instead of
+   writing its video), its tables, fields (those of the steps with their ParaView
+   collection, `steps.pvd`), mesh and configuration (to rerun it with `morphogen run`),
+   drawn without solving again. No tool writes a video unless asked;
 * **Design**: the rule of a cellular automaton whose structures match a morphology of
   the workspace (a genetic search over its birth and survival sets), and the rigidity of
   strut lattices as their struts are removed (the mechanisms, states of self-stress and

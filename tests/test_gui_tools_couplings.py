@@ -147,8 +147,18 @@ def test_transient_diffusion(tmp_path):
         "uptake curve",
         "concentration in the middle section (x-y) at the times",
     ]
-    assert out["videos"][0]["title"] == "concentration along the uptake"
-    assert {"uptake.csv", "uptake.png", "fields.png"} <= {f["name"] for f in out["files"]}
+    # no video unless asked: the fields of the times, in 3D step by step and in the export
+    assert out["videos"] == [] and out["fields3d"]["field"] == "concentration"
+    names = {f["name"] for f in out["files"]}
+    assert {"uptake.csv", "uptake.png", "fields.png", "diffusion_steps.json",
+            "diffusion_step001.vti", "sample_0000.vti"} <= names  # fmt: skip
+    shown = api.surface({"key": out["key"], "step": 2, "field": "activity"}, session)
+    assert shown["step"] == 2 and len(shown["steps"]) == len(_column(uptake, "time"))
+    export = api.export({"source": out["key"], "outputs": [], "video": "run", "fps": 4}, session)
+    assert len(export["videos"]) == 1
+    asked = _run(session, "diffusion", {"source": key, "resolution": 8, "video": True,
+                                        "homogenize": False})  # fmt: skip
+    assert asked["videos"][0]["title"] == "concentration along the uptake"
 
 
 def test_thermal_oxidation(tmp_path):

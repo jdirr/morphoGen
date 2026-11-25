@@ -206,7 +206,8 @@ def test_factors_of_a_penny_crack(tmp_path):
 def test_growth_stays_straight_in_mode_one(tmp_path):
     """Fatigue growth of the edge crack in tension: the path stays straight (the kinks below
     a degree, the tip on the plane of the crack), G grows with the length, Paris' law counts
-    the cycles, Griffith's critical load falls; the path, the video and the last mesh."""
+    the cycles, Griffith's critical load falls; the path, the last mesh, and the frames of
+    the growth kept for the export (no video unless asked)."""
     session = api.Session(tmp_path)
     result = _run(session, "crack_growth", {"steps": 1, "paris_C": 1e-3, "toughness": 0.05,
                                             "element_size": 1.2})  # fmt: skip
@@ -217,8 +218,13 @@ def test_growth_stays_straight_in_mode_one(tmp_path):
     assert rows[1]["G"] > rows[0]["G"] and rows[1]["N"] > 0
     assert rows[1]["load_critical"] < rows[0]["load_critical"]
     assert rows[0]["load_critical"] == pytest.approx(math.sqrt(0.05 / rows[0]["G"]), rel=1e-5)
-    assert [v["title"] for v in result["videos"]] == ["the growth, crack by crack"]
-    assert {"path.png", "last_crack.vtu", "advances.csv"} <= {f["name"] for f in result["files"]}
+    assert result["videos"] == []
+    names = {f["name"] for f in result["files"]}
+    assert {"path.png", "last_crack.vtu", "advances.csv", "growth.frames.npz"} <= names
+    exported = api.export({"source": result["key"], "outputs": ["tables"], "video": "run"},
+                          session)  # fmt: skip
+    assert [v["title"] for v in exported["videos"]] == ["the growth, crack by crack"]
+    assert "advances.csv" in {f["name"] for f in exported["files"]}
 
 
 @pytest.mark.slow
@@ -295,7 +301,7 @@ def test_growth_through_a_morphology(tmp_path):
     assert all(r["G"] > 0 for r in rows) and rows[2]["length"] > rows[0]["length"]
     assert v["interfaces"] == "conforming" and v["phases_at_tips"].count("/") == 2
     assert {"G along the growth", "crack path"} <= {f["title"] for f in result["figures"]}
-    assert [x["title"] for x in result["videos"]] == ["the growth, crack by crack"]
+    assert result["videos"] == [] and "growth.frames.npz" in {f["name"] for f in result["files"]}
     assert "last_crack.vtu" in {f["name"] for f in result["files"]}
     pores = {"0": {"young": 1000, "poisson": 0.3}, "1": "void"}
     factors = {"bulk": "morphology", "source": key, "interfaces": "conforming",

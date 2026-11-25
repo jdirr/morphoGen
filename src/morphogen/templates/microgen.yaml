@@ -1,0 +1,23 @@
+# A sheet of Schoen's I-WP surface built by Microgen (3MAH), a triply periodic minimal
+# surface that morphoGen's model tpms does not have, at about 27 % of solid: any shape of
+# Microgen that has a field is a model the same way: the other surfaces of
+# microgen.surface_functions (lidinoid, fischer_koch_s, pmy, split_p, schoen_frd...) as
+# sheets or skeletons (part: lower_skeletal, upper_skeletal), spinodoids (shape:
+# Spinodoid, arguments: {k0: 30, bandwidth: 5, offset: 0, resolution: 32}; their field is
+# slower to evaluate), spheres, boxes, cylinders, capsules, ellipsoids. Needs Microgen 2:
+# pip install --pre microgen.
+model:
+  type: microgen
+  shape: Tpms
+  arguments: {surface_function: schoen_iwp, offset: 0.08, cell_size: 1.0}
+  part: sheet
+domain:
+  size: 1.0                    # a whole number of cells when periodic
+  periodic: true
+voxels:
+  shape: 64
+outputs:
+  directory: out/microgen
+  name: iwp_sheet
+  image: [vti]
+analysis: [volume_fraction, specific_surface]

@@ -61,8 +61,15 @@ def test_recipes_run(tmp_path, monkeypatch):
     assert broken.stress[-1, 0] < 0.05 * broken.strength() and broken.crack_surface[-1] > 0.05
     assert ns["law"].K == pytest.approx(4.0, rel=0.2) and ns["law"].gamma == 1.0
     for name in ("spheres.json", "spheres.stl", "composite.inp", "composite_equations.inp",
-                 "voxels.inp", "amitex/spheres_run.sh", "laws/Alloy.mfront"):  # fmt: skip
+                 "voxels.inp", "amitex/spheres_run.sh", "laws/Alloy.mfront", "grains.stl",
+                 "grains.data", "grains.txt", "grains.msh", "bodies.msh"):  # fmt: skip
         assert (tmp_path / name).is_file(), name
+    assert (tmp_path / "settle" / "morphogen_blender.py").is_file()
+    assert ns["stream"].objects == ["phase_1"] and (tmp_path / "tunnel" / "scene.json").is_file()
+    assert ns["scene"].kinds == {"sphere": len(ns["micro"].spheres)}
+    # the clusters of the spheres, whole but the one that winds around the periodic box
+    assert len(ns["bodies"]) == 4 and [p.whole for p in ns["bodies"]].count(False) == 1
+    assert np.shares_memory(ns["shared"], ns["u"].data) and ns["u"].data.dtype == np.float32
 
 
 def test_first_study_of_the_landing_page(tmp_path, monkeypatch):

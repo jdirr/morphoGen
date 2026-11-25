@@ -64,6 +64,7 @@ tests:
         - morphogen.fracture
         - morphogen.homogenization
         - morphogen.iga
+        - morphogen.interop
         - morphogen.io
         - morphogen.laser
         - morphogen.learning

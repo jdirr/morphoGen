@@ -303,8 +303,15 @@ homogenization:
   properties: [bulk_modulus, shear_modulus, conductivity]
 ```
 
-`method: fft` (with a `voxels` section and `boundary_conditions: [periodic]`) uses the
-FFT solver instead, on an NVIDIA GPU with `device: gpu`. Crystals are given as
+`method: auto`, the default, takes these finite elements on conforming meshes, meshed
+from the exact geometry wherever the model knows it (when the configuration has no `mesh`
+section, a light one: 10 elements along the shortest edge of the domain, the interfaces
+within an eighth of an element, its level set sampled at the voxels of a `voxels` section
+if any); the voxels are the last resort, for what only the FFT solver does (the GPU, the
+coupled, harmonic and flow properties, the phase-field fracture, the reduced models of the
+NTFA, the window method of RVE studies, planar sections of voxels) or without the mesher
+MMG. `method: fft` (with a `voxels` section and `boundary_conditions: [periodic]`) asks
+for the FFT solver, on an NVIDIA GPU with `device: gpu`. Crystals are given as
 `{cubic: [C11, C12, C44]}`, `{hexagonal: [C11, C12, C13, C33, C44]}` or
 `{stiffness: <6 x 6>}`; tessellations with `crystal_orientations: true` are meshed grain
 by grain (`mesh: {size: 0.08, min_feature: 0.02}`) and their crystals turned by the
