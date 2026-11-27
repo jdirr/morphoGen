@@ -153,7 +153,7 @@ def test_named_exact_measures(tmp_path, capsys):
 
     model = mg.models.BooleanSpheres(radius=1.0, volume_fraction=0.3)
     micro = model.generate(mg.Domain.cube(8.0, periodic=True), seed=1)
-    out = measure_exact(micro, sorted(EXACT_MEASURES))
+    out = measure_exact(micro, sorted(set(EXACT_MEASURES) - {"exact_grains"}))  # of cells
     assert out["exact_V_V"] == pytest.approx(
         out["exact_fraction"], abs=4 * out["exact_fraction_std"]
     )
@@ -165,6 +165,9 @@ def test_named_exact_measures(tmp_path, capsys):
     voronoi = mg.models.Voronoi(n_cells=6).generate(mg.Domain.cube(2.0), seed=1)
     with pytest.raises(ValueError, match="union of spheres"):
         measure_exact(voronoi, ["exact_minkowski"])
+    with pytest.raises(ValueError, match="tessellation"):
+        measure_exact(micro, ["exact_grains"])
+    assert measure_exact(voronoi, ["exact_grains"])["grain_fraction_1"] == pytest.approx(1.0)
     cfg = {
         "model": {"type": "boolean_spheres", "radius": 1.0, "volume_fraction": 0.3},
         "domain": {"size": 8.0, "periodic": True},
