@@ -1,9 +1,9 @@
 # Tutorials
 
-Nine studies to follow from start to end. The first eight are written in Python snippets
+Ten studies to follow from start to end. The first nine are written in Python snippets
 that follow each other in one session and run in seconds to a minute each, at sizes
 chosen for that; the tests of morphoGen run them at each change, so that they stay
-correct. The ninth is a tour of the graphical interface, which runs the same functions
+correct. The tenth is a tour of the graphical interface, which runs the same functions
 from forms. Each page shows the figures of its own snippets.
 
 ::::{container} gallery tutorials
@@ -119,6 +119,20 @@ the map.
 :::
 
 :::{container} gallery-card
+```{image} _static/tutorial/morphology_capacities.png
+:alt: the capacities of balls and segments of a Boolean model, measured and in closed form
+```
+
+**[Mathematical morphology, from random sets to the model of an image](tutorial_morphology.md)**
+— the Choquet capacity probed on the exact geometry and Matheron's tests of a Boolean
+model, dilation, erosion, opening, closing and granulometry, the four Minkowski
+functionals exactly against Miles' formulae, the stereology of sections, and the model of
+a tomography found among the candidates.
+
+*About fifteen seconds.*
+:::
+
+:::{container} gallery-card
 ```{image} _static/tutorial/interface_fracture.png
 :alt: the tab Fracture of the graphical interface
 ```
@@ -149,5 +163,6 @@ tutorial_iga
 tutorial_contact
 tutorial_fracture
 tutorial_texture
+tutorial_morphology
 tutorial_interface
 ```

@@ -22,10 +22,10 @@ How the structures are sampled (:attr:`Section.sampling`):
   fields (automata, growth, reconstructions, tile assemblies; the cells themselves when
   the grid is their lattice), laminates, honeycombs, nacre, Bouligand plywoods, level-set
   foams, osteons, fractal sponges, scale-rich networks, woven textiles, grains with
-  subgrains or filled with another structure, and the shapes of Microgen: they only
-  evaluate the points of the grid they are given. So are the combinations of such
-  structures, Cox spheres in such aggregates, and the coatings and shells of unions of
-  spheres and segments (exact distances);
+  subgrains or filled with another structure, the shapes of Microgen and the images
+  segmented into their phases: they only evaluate the points of the grid they are given.
+  So are the combinations of such structures, Cox spheres in such aggregates, and the
+  coatings and shells of unions of spheres and segments (exact distances);
 * ``plane`` too for dead leaves and transparent dead leaves, on a cell as thick as the box
   along the axis (centred on the plane): their kernels wrap the leaves over the grid, a
   periodic grid being the whole box;
@@ -78,6 +78,7 @@ from morphogen.models.combination import Combined
 from morphogen.models.deadleaves import DeadLeaves
 from morphogen.models.gaussian import GaussianField
 from morphogen.models.honeycomb import PrismaticCells
+from morphogen.models.image import ImageStructure
 from morphogen.models.laminate import Laminate
 from morphogen.models.lattice_field import LatticeField
 from morphogen.models.levelset_foam import DistanceFieldFoam
@@ -144,6 +145,7 @@ _POINTWISE = (
     ScaleRichBeams,
     MicrogenStructure,
     TextileStructure,
+    ImageStructure,
 )
 #: Structures whose kernels wrap over the grid (sampled on a cell as thick as the box).
 _LEAVES = (DeadLeaves, TransparentDeadLeaves)

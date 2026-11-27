@@ -108,17 +108,20 @@ def _ball(mask, spacing, periodic, radii) -> np.ndarray:
         return np.ones(len(radii))
     rmax = float(np.max(radii))
     if periodic:
+        # wrapped across the faces, a section (one voxel thick) in its plane only
         pad = min(int(np.ceil(rmax / spacing.min())) + 1, max(mask.shape))
-        big = np.pad(comp, pad, mode="wrap")
-        dist = ndimage.distance_transform_edt(big, sampling=spacing)[pad:-pad, pad:-pad, pad:-pad]
+        width = [(pad, pad) if n > 1 else (0, 0) for n in mask.shape]
+        big = np.pad(comp, width, mode="wrap")
+        dist = ndimage.distance_transform_edt(big, sampling=spacing)
+        dist = dist[tuple(slice(a, a + n) for (a, _), n in zip(width, mask.shape, strict=True))]
         d = np.sort(dist[comp])
         p = float(mask.mean())
         hits = np.searchsorted(d, np.asarray(radii) * (1.0 + 1e-12), side="right")
         return p + hits / mask.size
     # minus sampling: the balls that lie in the box (their centre at r from the faces)
     dist = ndimage.distance_transform_edt(comp, sampling=spacing)
-    margins = [
-        np.minimum(np.arange(n), np.arange(n)[::-1]) * h
+    margins = [  # a section (one voxel thick): no frame across its plane
+        np.minimum(np.arange(n), np.arange(n)[::-1]) * h if n > 1 else np.full(1, np.inf)
         for n, h in zip(mask.shape, spacing, strict=True)
     ]
     margin = np.minimum(
@@ -245,8 +248,10 @@ def opening(
 ):
     """``(A (-) K') (+) K``: the union of the translates of ``K`` inside the phase."""
     per = _periodic(image, periodic)
+    spacing = _spacing(image)  # the erosion is an array: the second step takes its voxels
     eroded = erosion(image, element, size, phase=phase, direction=direction, periodic=per)
-    return _transform(eroded, element, size, 1, direction, per, dilate=True, transpose=True)
+    return _transform(eroded, element, size, 1, direction, per, dilate=True, transpose=True,
+                      spacing=spacing)  # fmt: skip
 
 
 def closing(
@@ -254,8 +259,10 @@ def closing(
 ):
     """``(A (+) K') (-) K``: the complement of the opening of the complement."""
     per = _periodic(image, periodic)
+    spacing = _spacing(image)
     dilated = dilation(image, element, size, phase=phase, direction=direction, periodic=per)
-    return ~_transform(~dilated, element, size, 1, direction, per, dilate=True, transpose=True)
+    return ~_transform(~dilated, element, size, 1, direction, per, dilate=True, transpose=True,
+                       spacing=spacing)  # fmt: skip
 
 
 def _footprint(element: str, size: float, spacing, direction) -> np.ndarray:
@@ -276,7 +283,9 @@ def _footprint(element: str, size: float, spacing, direction) -> np.ndarray:
     return np.arange(k + 1)[:, None] * d[None, :]
 
 
-def _transform(image, element, size, phase, direction, periodic, *, dilate, transpose=False):
+def _transform(
+    image, element, size, phase, direction, periodic, *, dilate, transpose=False, spacing=None
+):
     if element not in ELEMENTS:
         raise ValueError(f"element: one of {', '.join(ELEMENTS)}")
     x = (
@@ -285,7 +294,8 @@ def _transform(image, element, size, phase, direction, periodic, *, dilate, tran
         else image
     )
     per = _periodic(image, periodic)
-    offsets = _footprint(element, float(size), _spacing(image), direction)
+    spacing = _spacing(image) if spacing is None else np.asarray(spacing, dtype=float)
+    offsets = _footprint(element, float(size), spacing, direction)
     if transpose:
         offsets = -offsets
     out = np.zeros_like(x) if dilate else np.ones_like(x)

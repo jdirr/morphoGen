@@ -162,6 +162,8 @@ CONFIGS = {
     "branching": ({"n_attractors": 300, "step": 0.4, "tip_radius": 0.1}, False),
     # (the demonstration map that comes with morphoGen)
     "ebsd": ({"file": "ebsd_map.ctf", "window": "random"}, False),
+    # (the volume that comes with morphoGen)
+    "image": ({"file": "example_image.npz", "window": "random"}, False),
     "scale_rich_network": ({"n_ligaments": 80, "decay": 0.5, "volume_fraction": 0.3}, False),
     "woven_textile": (
         {

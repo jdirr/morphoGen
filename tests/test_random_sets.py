@@ -172,3 +172,24 @@ def test_morphological_measures_by_name(spheres):
     out = an.measure(img, ["minkowski", "betti"])
     assert {"V_V", "S_V", "M_V", "chi_V", "betti_0", "betti_1", "betti_2"} <= set(out)
     assert out["V_V"] == pytest.approx(an.volume_fraction(img))
+
+
+def test_openings_and_closings_keep_the_size_of_the_voxels():
+    """The second step of an opening or a closing takes the voxels of the image: the same
+    image with voxels of 0.25 and a ball of 0.5 is the image with voxels of 1 and a ball of
+    2, and the opening lies between the erosion and the phase, the closing between the
+    phase and the dilation."""
+    from morphogen.analysis import closing, dilation, erosion, opening
+
+    micro = mg.models.BooleanSpheres(radius=1.0, volume_fraction=0.3).generate(
+        mg.Domain.cube(8.0), seed=2
+    )
+    fine = micro.voxelize(shape=32)  # voxels of 0.25
+    unit = VoxelImage(fine.data, spacing=(1.0, 1.0, 1.0), periodic=True)
+    for op in (opening, closing):
+        assert np.array_equal(op(fine, "ball", 0.5), op(unit, "ball", 2.0))
+    phase = fine.data.astype(bool)
+    opened, closed = opening(fine, "ball", 0.5), closing(fine, "ball", 0.5)
+    assert np.all(erosion(fine, "ball", 0.5) <= opened) and np.all(opened <= phase)
+    assert np.all(phase <= closed) and np.all(closed <= dilation(fine, "ball", 0.5))
+    assert opened.sum() > erosion(fine, "ball", 0.5).sum()

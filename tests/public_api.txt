@@ -14,6 +14,7 @@ morphogen: list_models
 morphogen: mesh
 morphogen: model_from_config
 morphogen: models
+morphogen: morphology
 morphogen: orientations
 morphogen: rve
 morphogen: set_num_threads
@@ -2992,6 +2993,8 @@ morphogen.models: HardcoreFibers
 morphogen.models: HardcoreSpheres
 morphogen.models: HierarchicalLattice
 morphogen.models: Honeycomb
+morphogen.models: ImageModel
+morphogen.models: ImageStructure
 morphogen.models: Laguerre
 morphogen.models: Laminate
 morphogen.models: LatticeField
@@ -3371,6 +3374,29 @@ morphogen.models.honeycomb.WoodRays(boundary, z, u, cells, width, height, cell_l
 morphogen.models.honeycomb.WoodRays.cell_distance(self, ray, u, rel, across)
 morphogen.models.honeycomb.WoodRays.locate(self, boundary, z)
 morphogen.models.honeycomb.WoodRays.to_dict(self)
+morphogen.models.image.EXAMPLE
+morphogen.models.image.ImageModel(file='example_image.npz', array=None, classes=2, thresholds=None, sigma=0.0, spacing=None, window='origin')
+morphogen.models.image.ImageModel.active_phases(self)
+morphogen.models.image.ImageModel.generate(self, domain, seed=None)
+morphogen.models.image.ImageModel.has_level_set
+morphogen.models.image.ImageModel.image(self)
+morphogen.models.image.ImageModel.path(self)
+morphogen.models.image.ImageModel.theory(self, domain=None)
+morphogen.models.image.ImageStructure(domain, image, fields, corner, *, sigma=0.0, **kwargs)
+morphogen.models.image.ImageStructure.contains(self, points)
+morphogen.models.image.ImageStructure.implicit_phases(self)
+morphogen.models.image.ImageStructure.level_set(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.image.ImageStructure.level_set_at(self, points, reach=inf)
+morphogen.models.image.ImageStructure.phase_level_set(self, phase, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.image.ImageStructure.phase_level_sets_at(self, points, reach=inf)
+morphogen.models.image.ImageStructure.phase_names
+morphogen.models.image.ImageStructure.phases_at(self, points)
+morphogen.models.image.ImageStructure.summary(self)
+morphogen.models.image.ImageStructure.voxelize(self, shape=None, *, voxel_size=None, grid=None, supersampling=1)
+morphogen.models.image.WINDOWS
+morphogen.models.image.example_image(name='example_image.npz')
+morphogen.models.image.synthetic_tomography(seed=7)
+morphogen.models.image.write_example_image(path)
 morphogen.models.implicit.BAND
 morphogen.models.implicit.band_of(grid)
 morphogen.models.implicit.functions_at(micro, points, reach)
@@ -3850,6 +3876,101 @@ morphogen.models.union.PrimitiveUnion.level_set_at(self, points, reach=inf)
 morphogen.models.union.PrimitiveUnion.signed_distance(self, points, band)
 morphogen.models.union.PrimitiveUnion.summary(self)
 morphogen.models.union.PrimitiveUnion.voxelize(self, shape=None, *, voxel_size=None, grid=None, supersampling=1)
+morphogen.morphology: BallUnion
+morphogen.morphology: Chords
+morphogen.morphology: Comparison
+morphogen.morphology: Curve
+morphogen.morphology: DiscUnion
+morphogen.morphology: Estimate
+morphogen.morphology: capacity
+morphogen.morphology: chords
+morphogen.morphology: compare_with_theory
+morphogen.morphology: contact_distribution
+morphogen.morphology: covariance
+morphogen.morphology: crossings
+morphogen.morphology: dilation
+morphogen.morphology: first_hits
+morphogen.morphology: isotropic_directions
+morphogen.morphology: minkowski_functionals
+morphogen.morphology: phase_function
+morphogen.morphology: phases_at
+morphogen.morphology: sample_points
+morphogen.morphology: section_discs
+morphogen.morphology: section_functionals
+morphogen.morphology: specific_surface
+morphogen.morphology: union_of_balls
+morphogen.morphology: union_of_discs
+morphogen.morphology: volume_fraction
+morphogen.morphology.balls.BallUnion(volume, surface, mean_curvature, euler, n_balls, box_volume=None)
+morphogen.morphology.balls.BallUnion.densities(self)
+morphogen.morphology.balls.BallUnion.euler_density
+morphogen.morphology.balls.BallUnion.mean_curvature_density
+morphogen.morphology.balls.BallUnion.specific_surface
+morphogen.morphology.balls.BallUnion.volume_fraction
+morphogen.morphology.balls.DiscUnion(area, perimeter, euler, n_discs, box_area=None)
+morphogen.morphology.balls.DiscUnion.area_fraction
+morphogen.morphology.balls.DiscUnion.boundary_density
+morphogen.morphology.balls.DiscUnion.densities(self)
+morphogen.morphology.balls.DiscUnion.euler_density
+morphogen.morphology.balls.dual_complex(c, w, tops, tol=0.0)
+morphogen.morphology.balls.minkowski_functionals(micro)
+morphogen.morphology.balls.section_discs(micro, axis=2, position=None)
+morphogen.morphology.balls.section_functionals(micro, axis=2, position=None)
+morphogen.morphology.balls.union_of_balls(centres, radii, box=None, *, periodic=False, margin=None)
+morphogen.morphology.balls.union_of_discs(centres, radii, box=None, *, periodic=False, margin=None)
+morphogen.morphology.identification.CANDIDATES
+morphogen.morphology.identification.Candidate(name, model, predicted, score, note='')
+morphogen.morphology.identification.Candidate.total
+morphogen.morphology.identification.Descriptors(planar, periodic, shape, spacing, volume_fraction, specific_surface, euler_density, lags, covariance, radii, ball, lengths, segment)
+morphogen.morphology.identification.Descriptors.as_dict(self)
+morphogen.morphology.identification.Descriptors.mean_chord
+morphogen.morphology.identification.Identification(descriptors, candidates=<factory>)
+morphogen.morphology.identification.Identification.as_dict(self)
+morphogen.morphology.identification.Identification.best
+morphogen.morphology.identification.Identification.table(self)
+morphogen.morphology.identification.WEIGHTS
+morphogen.morphology.identification.boundary_length_density(image, phase=1, *, periodic=None)
+morphogen.morphology.identification.describe(image, phase=1, *, lags=None, sizes=12)
+morphogen.morphology.identification.euler_density_2d(image, phase=1, *, periodic=None)
+morphogen.morphology.identification.fit(name, desc)
+morphogen.morphology.identification.identify(image, phase=1, *, candidates=('boolean_spheres', 'boolean_spheres_lognormal', 'hardcore_spheres', 'gaussian_excursion', 'poisson_fibers', 'voronoi'), realizations=2, calibration=2, seed=0)
+morphogen.morphology.identification.score(measured, predicted)
+morphogen.morphology.measures.Chords(lengths, weights)
+morphogen.morphology.measures.Chords.distribution(self, sizes)
+morphogen.morphology.measures.Chords.mean
+morphogen.morphology.measures.Comparison(rows, curves=<factory>, exact=False)
+morphogen.morphology.measures.Comparison.as_dict(self)
+morphogen.morphology.measures.Comparison.table(self)
+morphogen.morphology.measures.Curve(name, sizes, values, errors, probes, info=<factory>)
+morphogen.morphology.measures.Estimate(value, error, probes)
+morphogen.morphology.measures.capacity(micro, element, sizes, *, phase=1, direction=None, points=32768, seed=0)
+morphogen.morphology.measures.chords(micro, *, phase=1, direction=None, lines=512, length=None, seed=0)
+morphogen.morphology.measures.compare_with_theory(micro, model=None, *, lags=None, sizes=None, points=32768, lines=256, seed=0)
+morphogen.morphology.measures.contact_distribution(micro, sizes, kind='spherical', *, direction=None, points=32768, seed=0)
+morphogen.morphology.measures.covariance(micro, lags, *, phase=1, direction=None, pairs=32768, seed=0)
+morphogen.morphology.measures.crossings(micro, starts, directions, lengths, *, phase=1, tol=None)
+morphogen.morphology.measures.dilation(micro, radius)
+morphogen.morphology.measures.first_hits(micro, starts, directions, length, *, phase=1, tol=None)
+morphogen.morphology.measures.isotropic_directions(n, *, seed=None)
+morphogen.morphology.measures.phase_function(micro, phase, points, reach=None)
+morphogen.morphology.measures.phases_at(micro, points)
+morphogen.morphology.measures.sample_points(domain, n, *, seed=None, method='sobol', margin=None)
+morphogen.morphology.measures.specific_surface(micro, *, phase=1, lines=512, length=None, seed=0)
+morphogen.morphology.measures.volume_fraction(micro, phase=1, *, points=65536, seed=0)
+morphogen.morphology.segmentation.ParticleShapes(semi_axes, axes, radii, weights, centroids, density, planar)
+morphogen.morphology.segmentation.ParticleShapes.aspect_ratios
+morphogen.morphology.segmentation.ParticleShapes.count
+morphogen.morphology.segmentation.ParticleShapes.moments(self, k)
+morphogen.morphology.segmentation.ParticleShapes.radius_law(self, kind='lognormal')
+morphogen.morphology.segmentation.as_image(data, spacing=(1.0, 1.0, 1.0), *, periodic=False, name='grey')
+morphogen.morphology.segmentation.equalize(image, bins=256)
+morphogen.morphology.segmentation.multi_otsu(values, classes=3, bins=256)
+morphogen.morphology.segmentation.otsu(values, bins=256)
+morphogen.morphology.segmentation.particle_shapes(image, phase=1, *, separate=True, prominence=None, min_radius=0.0)
+morphogen.morphology.segmentation.scores(predicted, reference, phase=1)
+morphogen.morphology.segmentation.segment(image, classes=2, *, thresholds=None, sigma=0.0, bins=256)
+morphogen.morphology.segmentation.smooth(image, sigma=1.0)
+morphogen.morphology.segmentation.stack(sections, spacing=(1.0, 1.0, 1.0), *, name='grey')
 morphogen.optimization: METHODS
 morphogen.optimization: MMA
 morphogen.optimization: OBJECTIVES

@@ -50,6 +50,9 @@
 ``branching``                Vascular trees grown by space colonization (Murray's law)
 ``ebsd``                     Polycrystal of a measured orientation map (EBSD): its grains
                              and their orientations, in windows of the map
+``image``                    The microstructure of an image (a tomography, a stack of
+                             sections), segmented into phases with implicit functions at
+                             any point, in windows of the image
 ``nested_grains``            Grains with subgrains turned by small angles, or filled with
                              another structure turned grain by grain (lamellar colonies)
 ``scale_rich_network``       Ligaments of power-law thicknesses grown until they meet: scale-
@@ -102,6 +105,7 @@ from morphogen.models.growth import AggregationModel, NucleationGrowthModel
 from morphogen.models.hardcore import HardcoreSpheres, PenetrableSpheres
 from morphogen.models.hierarchical import HierarchicalLattice
 from morphogen.models.honeycomb import Honeycomb, PrismaticCells
+from morphogen.models.image import ImageModel, ImageStructure
 from morphogen.models.laminate import Laminate, RandomLaminate
 from morphogen.models.lattice import StrutLattice
 from morphogen.models.lattice_field import LatticeField
@@ -168,6 +172,8 @@ __all__ = [
     "HardcoreSpheres",
     "HierarchicalLattice",
     "Honeycomb",
+    "ImageModel",
+    "ImageStructure",
     "Laguerre",
     "Laminate",
     "LatticeField",

@@ -1,7 +1,7 @@
 """The tutorials of the documentation (docs/tutorial.md, docs/tutorial_rve.md,
 docs/tutorial_rubber.md, docs/tutorial_geometry.md, docs/tutorial_iga.md,
-docs/tutorial_contact.md, docs/tutorial_fracture.md, docs/tutorial_texture.md) stay
-correct:
+docs/tutorial_contact.md, docs/tutorial_fracture.md, docs/tutorial_texture.md,
+docs/tutorial_morphology.md) stay correct:
 the Python snippets of each run one after another in one session, at smaller sizes; the
 configuration of the
 first runs with ``morphogen run``; each of their ``morphogen`` commands is one that the
@@ -29,6 +29,7 @@ IGA = DOCS / "tutorial_iga.md"
 CONTACT = DOCS / "tutorial_contact.md"
 FRACTURE = DOCS / "tutorial_fracture.md"
 TEXTURE = DOCS / "tutorial_texture.md"
+MORPHOLOGY = DOCS / "tutorial_morphology.md"
 if not DOCS.is_dir():  # an installed package without its sources
     pytest.skip("the documentation is not here", allow_module_level=True)
 
@@ -107,6 +108,17 @@ SMALLER_TEXTURE = {
         "found = homogenize(polycrystal.voxelize(shape=12),"
     ),
 }
+#: Those of the tutorial of mathematical morphology: fewer probes, a coarser image
+SMALLER_MORPHOLOGY = {
+    'balls = mm.capacity(micro, "ball", radii, points=2**16)': (
+        'balls = mm.capacity(micro, "ball", radii, points=2**14)'
+    ),
+    'segments = mm.capacity(micro, "segment", lengths, points=2**14)': (
+        'segments = mm.capacity(micro, "segment", lengths, points=2**12)'
+    ),
+    "image = micro.voxelize(shape=64)": "image = micro.voxelize(shape=40)",
+    "for s in range(8)\n": "for s in range(3)\n",
+}
 PAGES = {
     CONTACT: SMALLER_CONTACT,
     FRACTURE: {},
@@ -116,6 +128,7 @@ PAGES = {
     RUBBER: SMALLER_RUBBER,
     GEOMETRY: SMALLER_GEOMETRY,
     IGA: SMALLER_IGA,
+    MORPHOLOGY: SMALLER_MORPHOLOGY,
 }
 
 
@@ -475,3 +488,26 @@ def test_tutorial_commands_parse(page):
     for words in commands:
         args = parser.parse_args(words[1:])
         assert callable(args.func), words
+
+
+@pytest.mark.slow
+def test_morphology_tutorial_snippets(tmp_path, monkeypatch):
+    """Mathematical morphology: the probes of the exact geometry follow the closed forms of
+    the Boolean model, the straight lines of Matheron's tests give back its radius, the
+    digital operations keep their order, the exact functionals and the sections agree with
+    the stereological identities, and the image is identified as hard spheres."""
+    ns = _run(MORPHOLOGY, tmp_path, monkeypatch)
+    model, balls = ns["model"], ns["balls"]
+    assert np.all(np.abs(balls.values - model.choquet_capacity("ball", ns["radii"])) < 0.03)
+    assert ns["radius"] == pytest.approx(1.0, rel=0.1)
+    assert ns["eroded"].mean() < ns["opened"].mean() < ns["image"].data.mean()
+    assert ns["image"].data.mean() < ns["closed"].mean() < ns["dilated"].mean()
+    exact, theory = ns["exact"], ns["theory"]
+    assert exact.specific_surface == pytest.approx(theory["specific_surface"], rel=0.03)
+    sections = ns["sections"]
+    la = np.mean([s["boundary_density"] for s in sections])
+    assert la == pytest.approx(np.pi / 4 * exact.specific_surface, rel=0.05)
+    assert ns["found"].best.name == "hardcore_spheres"
+    for name in ("morphology_capacities.png", "morphology_operations.png",
+                 "morphology_identification.png"):  # fmt: skip
+        assert (tmp_path / name).is_file(), name

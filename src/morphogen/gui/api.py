@@ -182,6 +182,7 @@ MODEL_FAMILIES = {
     "Random sets and particles": (
         "boolean_spheres", "penetrable_spheres", "hardcore_spheres", "cox_spheres",
         "dead_leaves", "transparent_dead_leaves", "gaussian_excursion", "reconstruction",
+        "image",
     ),
     "Fibres and layers": (
         "boolean_cylinders", "poisson_fibers", "hardcore_fibers", "curved_fibers",
