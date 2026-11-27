@@ -13271,7 +13271,19 @@ OpenCFD's `polyDualMesh -overwrite`, the Foundation's without, which overwrites 
 and knows `-noOverwrite`), and the diffusion runs on the tetrahedra themselves. The dual of
 a mesh with slivers (dihedral angles near 0 or 180°, as conforming meshes of curved
 interfaces can hold) can be invalid (`checkMesh`: faces of incorrectly oriented pyramids);
-the voxels of the sample are then the case to run.
+the voxels of the sample are then the case to run. Conforming meshes of overlapping spheres
+(the matrix, 49 % of the box) hold such slivers at their interfaces: a periodic mesh, whose
+faces keep the triangles of their cuts, has 452 elements of a dihedral angle below 5° out of
+197 628 (381 of them on the faces of the box) and a dual of 72 faulty faces; a mesh that is
+not periodic (symmetry planes on the sides), 73 such elements and duals of 33, 53 and 97
+faulty faces for the element sizes 0.1, 0.07 and 0.05 of the box — on the last a cell of
+negative volume. `simpleFoam` converges on the first ($7.72\cdot10^{-4}$), not within 6000
+iterations on the second ($7.16\cdot10^{-4}$), and fails on the third, where the voxels of
+the same sample give $6.14\cdot10^{-4}$, $6.28\cdot10^{-4}$ and $6.34\cdot10^{-4}$ for 24, 48
+and 96 voxels across (the walls as stairs, of the first order). `polyDualMesh`'s
+`-concaveMultiCells` and smaller feature angles leave the faulty faces. The voxels are the
+case of the flow through curved interfaces, and `write_openfoam` warns of a flow through a
+conforming mesh.
 
 Checked (`tests/test_code_aster.py`, `tests/test_openfoam.py`; `tests/fake_code_aster.py`
 and `tests/fake_openfoam.py` stand in for the programs, with their own readers of the

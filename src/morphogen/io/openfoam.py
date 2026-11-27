@@ -55,7 +55,10 @@ cell, while on the polyhedral dual of the same meshes it converges to the exact 
 the second order. ``Allrun`` therefore replaces a tetrahedral mesh by its dual
 (``polyDualMesh``, the feature angle :data:`DUAL_FEATURE_ANGLE`) before the flow (``dual``);
 a mesh with slivers can have an invalid dual (``checkMesh``), for which the voxels of the
-sample are the case to run.
+sample are the case to run. The conforming meshes of curved interfaces hold such slivers,
+the more so as they are refined (and the more on the faces of a periodic mesh, which stay
+as they were cut): for the flow through them, the voxels are the robust case (a warning
+says so).
 
 :func:`read_openfoam` reads the last values written by the function objects
 (``postProcessing/``): Darcy's permeability ``k = nu Q L / (A dp)`` (``Q`` the flow rate,
@@ -69,6 +72,7 @@ ratio to ``DT``, the inverse of the formation factor of the phase.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shlex
@@ -93,6 +97,7 @@ _BANNER = (
     "\\*---------------------------------------------------------------------------*/\n"
 )
 _RULE = "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n"
+log = logging.getLogger("morphogen")
 #: The feature angle of the polyhedral dual of a tetrahedral mesh: the edges of the box
 #: (90 degrees) are kept, the facets of the curved walls are smoothed
 DUAL_FEATURE_ANGLE = 75
@@ -752,6 +757,12 @@ def write_openfoam(
         dual = tetrahedra and kind == "flow"
     if dual and not tetrahedra:
         raise ValueError("dual: the polyhedral dual of a tetrahedral mesh (a conforming mesh)")
+    if tetrahedra and kind == "flow":
+        log.warning(
+            "openfoam: the flow through a conforming mesh: the slivers of curved interfaces can "
+            "make its polyhedral dual invalid (checkMesh) and OpenFOAM fail; the voxels of the "
+            "sample are the robust case"
+        )
     if lateral is None:
         lateral = "cyclic" if periodic else "symmetryPlane"
     if lateral not in LATERAL:

@@ -200,7 +200,10 @@ The flow through a tetrahedral mesh is solved on its polyhedral dual, which `All
 makes first (`polyDualMesh`; `dual`, `--dual`): on tetrahedra themselves, the finite
 volumes of OpenFOAM give a permeability that converges to a value about a fifth too low,
 on their dual to the exact one. The dual of a mesh with slivers can be invalid
-(`checkMesh`, which `Allrun` runs before the solver): the voxels are then the case to run.
+(`checkMesh`, which `Allrun` runs before the solver), and the conforming meshes of curved
+interfaces hold slivers, the more so as they are refined: for the flow through such
+interfaces the voxels are the robust case, and `write_openfoam` warns of a flow through a
+conforming mesh (§111).
 `morphogen.io.run_openfoam` (`morphogen openfoam run`) runs `Allrun` in the environment of
 OpenFOAM (its solvers on the PATH, or the file that `MORPHOGEN_OPENFOAM` names, its
 `etc/bashrc`, sourced first) and reads the results with the verdict of `checkMesh`. Run by

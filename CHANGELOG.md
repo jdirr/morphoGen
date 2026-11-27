@@ -190,7 +190,9 @@
   faces, the walls, a cell zone per phase) and its cases: the flow through the pores under
   a pressure drop (`simpleFoam`, or `foamRun` with `incompressibleFluid`), Darcy's
   permeability from the flow rate through the outlet, through a tetrahedral mesh on its
-  polyhedral dual (`polyDualMesh` in `Allrun`; `dual`); the diffusion through a phase
+  polyhedral dual (`polyDualMesh` in `Allrun`; `dual`; the voxels the robust case of the
+  flow through curved interfaces, whose conforming meshes hold slivers that make the dual
+  invalid, a warning says so); the diffusion through a phase
   (`laplacianFoam`), its effective diffusivity; the closed pores left out; `checkMesh`
   before the solver. The runs: `morphogen.io.run_code_aster` (`run_aster`, or the program
   that `MORPHOGEN_RUN_ASTER` names) and `morphogen.io.run_openfoam` (in OpenFOAM's
