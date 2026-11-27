@@ -1,6 +1,6 @@
 """Couplings of transport, chemistry and mechanics: transient diffusion in voxel images,
-the thermal oxidation of polymers, properties that evolve with ageing, and hygromorph
-plates."""
+the thermal oxidation of polymers, properties that evolve with ageing, hygromorph
+plates, and the thermo-chemo-elastic fields of a microstructure in time."""
 
 from morphogen.coupling.ageing import Hydrolysis, PropertyLaw, graded_materials
 from morphogen.coupling.diffusion import (
@@ -19,6 +19,14 @@ from morphogen.coupling.fenicsx import (
 )
 from morphogen.coupling.oxidation import ClosedLoopOxidation, OxidationField, oxidation_field
 from morphogen.coupling.plates import Layer, Multilayer, timoshenko_curvature
+from morphogen.coupling.thermochemoelastic import (
+    ThermoChemoElastic,
+    ThermoChemoElasticResult,
+    ThermoChemoMaterial,
+    arrhenius,
+    beam_curvature,
+    thermochemoelastic,
+)
 
 __all__ = [
     "ClosedLoopOxidation",
@@ -30,7 +38,12 @@ __all__ = [
     "OxidationResult",
     "PropertyLaw",
     "SwellingResult",
+    "ThermoChemoElastic",
+    "ThermoChemoElasticResult",
+    "ThermoChemoMaterial",
     "arc_curvature",
+    "arrhenius",
+    "beam_curvature",
     "graded_materials",
     "oxidation_field",
     "oxidation_stresses",
@@ -38,6 +51,7 @@ __all__ = [
     "slab_uptake",
     "strip_curvature",
     "swelling",
+    "thermochemoelastic",
     "timoshenko_curvature",
     "transient_diffusion",
 ]
