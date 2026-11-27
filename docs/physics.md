@@ -191,6 +191,44 @@ A composite of a piezoelectric and a piezomagnetic phase is magnetoelectric alth
 neither phase is (`magnetoelectroelastic`: a product property); `thermoelectric` gives
 the effective Seebeck coefficient, conductivities and figure of merit.
 
+### Couplings in time: heat, a species and the strains they cause
+
+Where the stimulus takes time to reach the phases, the fields are followed in the volume
+of the sample, three-dimensional fields at each output time:
+`morphogen.coupling.thermochemoelastic` solves together the temperature (Fourier's law, a
+volumetric heat capacity, the heat that a reaction releases), the activity of a species
+(its diffusion, its solubility in each phase, a first-order consumption, its drift by
+the gradient of the hydrostatic stress when it has a partial molar volume) and the
+displacement, in quasi-static equilibrium under the thermal and chemical expansions.
+The diffusivity and the rate of the reaction follow Arrhenius' law; fields coupled both
+ways (a reaction that heats, a species that the stress draws and that swells) are solved
+to a fixed point at each step. It runs on voxel images (finite volumes and trilinear
+hexahedra; the periodic axes free to expand, or held) and on meshes of linear
+tetrahedra, by implicit Euler or TR-BDF2 steps.
+
+```python
+from morphogen.coupling import ThermoChemoMaterial, thermochemoelastic
+
+# moisture enters the cell by its faces x- and x+ (lengths in mm, times in s, stresses in Pa)
+humid = {
+    0: ThermoChemoMaterial(young=3e9, poisson=0.35, diffusivity=1e-6, swelling=3e-3),
+    1: ThermoChemoMaterial(young=70e9, poisson=0.22),  # the glass stays dry
+}
+wet = thermochemoelastic(image, humid, [1e5, 1e6, 1e7], activity={"x-": 1.0, "x+": 1.0})
+print(wet.history["uptake"], wet.mean_strain[:, 1])  # the uptake; the cell swells along y
+print(wet.von_mises[-1].max())  # the stresses where the resin swells around the glass
+wet.write_xdmf("wet.xdmf")  # the fields at each time, for ParaView
+```
+
+The faces are held at a temperature or an activity (`temperature=`, `activity=`: a value
+or a function of time) or left insulated; `supports` clamp faces or make them planes of
+symmetry (`{"x-": "clamped"}`), the rigid motions that remain being removed without
+reaction; `points` follows displacements in the history, and `curvature` gives that of a
+strip. The coefficients of a phase are those of its `ThermoChemoMaterial` (or of a
+`Material`, with `ThermoChemoMaterial.from_material`). Where the expansion of the phases
+should give a structure a shape, at equilibrium or along time, their layout is designed
+by the inverse problem of [](design.md) (`morphogen.optimization.MorphingOptimization`).
+
 ## 5. Dynamics, flow and sound
 
 ### Harmonic regimes

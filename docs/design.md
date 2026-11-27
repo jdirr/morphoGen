@@ -67,6 +67,53 @@ The same from a configuration file: `morphogen template optimize_auxetic -o
 auxetic.yaml`, then `morphogen optimize auxetic.yaml`; in three dimensions, the template
 `optimize_auxetic_3d` (a cell auxetic along its three axes, on 24³ voxels).
 
+## Inverse design of active structures
+
+`morphogen.optimization.MorphingOptimization` places two materials that expand
+differently with a stimulus — heat, or a species that they absorb — in a box of voxels
+held by supports, or one of them and voids, so that the structure takes target shapes
+when it is stimulated: at equilibrium (the stimulus raised everywhere), or at chosen times
+while the stimulus diffuses into it from faces held at a value, which is how 4D-printed
+active composites fold one way and then another (Mao et al. 2015; Maute et al. 2015;
+Hamel et al. 2019). The targets are displacements of points at output times; the
+layout is a SIMP interpolation of the two materials (their elasticity, eigenstrain,
+capacity and conductivity), filtered, projected and updated by the method of moving
+asymptotes, with sensitivities by exact adjoints, through the steps of the diffusion when
+it is followed in time. The states are those of the coupled solver of
+`morphogen.coupling.thermochemoelastic` (the same voxels), which `verify` runs on the
+black-and-white layout.
+
+```python
+from morphogen.coupling import ThermoChemoMaterial
+from morphogen.optimization import MorphingOptimization, MorphingTarget
+
+# a strip clamped at x = 0; one material takes up a species fast and swells little,
+# the other slowly and more: its tip should go down at first, then up
+fast = ThermoChemoMaterial(young=1.0, poisson=0.3, diffusivity=1.0, swelling=0.5e-3)
+slow = ThermoChemoMaterial(young=1.0, poisson=0.3, diffusivity=0.02, swelling=1.5e-3)
+tip = [[24.0, 0.0, 4.0]]
+targets = [
+    MorphingTarget(tip, 2, -0.011, time=0),  # displacement along z of the tip at t = 2
+    MorphingTarget(tip, 2, 0.030, time=1),  # and at t = 100
+]
+problem = MorphingOptimization(
+    (24, 1, 8), 1.0, (slow, fast), targets, stimulus="activity",
+    times=[2.0, 100.0], faces={"z-": 1.0, "z+": 1.0},  # the species enters both faces
+    extrude=1, volume_fraction=0.5, filter_radius=3.0, move=0.1,
+)  # fmt: skip
+design = problem.run()  # about 15 s
+print(design.reached, design.phases()[:, 0, :].T[::-1])  # the fast material on top
+result, reached = problem.verify(design)  # the black-and-white layout, by the solver
+```
+
+With `void=True` (and a `solid_fraction`) the voids are a third phase, at equilibrium;
+`bending_target(curvature)` gives the deflections of a strip bent to a curvature;
+`extrude` keeps the design uniform along an axis (strips, plates), and the stimulus is
+the `temperature` (thermal expansion, heat capacity, conductivity) or the `activity` of
+a species (swelling, solubility, permeability). The tests check the sensitivities against
+finite differences, the states against the coupled solver and the designs of the strip
+of [the theory notes](theory.md) (§109).
+
 ## Isogeometric analysis and shape optimization
 
 `morphogen.iga` analyses NURBS patches and their assemblies (exact circles and

@@ -8,12 +8,21 @@
   ratio, conductivity, target tensor) and methods (OC, MMA, BESO, hybrid cellular
   automaton);
 * :mod:`morphogen.optimization.run`: configuration files and outputs
-  (``morphogen optimize``).
+  (``morphogen optimize``);
+* :mod:`morphogen.optimization.morphing`: the inverse design of active structures, the
+  layout of materials that expand with a stimulus for target shapes at equilibrium or in
+  time.
 """
 
 from morphogen.optimization.cell import PeriodicCell
 from morphogen.optimization.filters import DensityFilter, Symmetry, heaviside
 from morphogen.optimization.mma import MMA
+from morphogen.optimization.morphing import (
+    MorphingDesign,
+    MorphingOptimization,
+    MorphingTarget,
+    hat_filter,
+)
 from morphogen.optimization.run import load_optimization_config, run_optimization
 from morphogen.optimization.topology import (
     METHODS,
@@ -32,9 +41,13 @@ __all__ = [
     "CellDesign",
     "CellOptimization",
     "DensityFilter",
+    "MorphingDesign",
+    "MorphingOptimization",
+    "MorphingTarget",
     "PeriodicCell",
     "Symmetry",
     "count_hinges",
+    "hat_filter",
     "heaviside",
     "initial_density",
     "load_optimization_config",

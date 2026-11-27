@@ -481,7 +481,12 @@ morphogen.coupling: OxidationField
 morphogen.coupling: OxidationResult
 morphogen.coupling: PropertyLaw
 morphogen.coupling: SwellingResult
+morphogen.coupling: ThermoChemoElastic
+morphogen.coupling: ThermoChemoElasticResult
+morphogen.coupling: ThermoChemoMaterial
 morphogen.coupling: arc_curvature
+morphogen.coupling: arrhenius
+morphogen.coupling: beam_curvature
 morphogen.coupling: graded_materials
 morphogen.coupling: oxidation_field
 morphogen.coupling: oxidation_stresses
@@ -489,6 +494,7 @@ morphogen.coupling: slab_profile
 morphogen.coupling: slab_uptake
 morphogen.coupling: strip_curvature
 morphogen.coupling: swelling
+morphogen.coupling: thermochemoelastic
 morphogen.coupling: timoshenko_curvature
 morphogen.coupling: transient_diffusion
 morphogen.coupling.ageing.GAS_CONSTANT
@@ -537,6 +543,52 @@ morphogen.coupling.plates.Multilayer.deformation(self, concentration, *, full=Fa
 morphogen.coupling.plates.Multilayer.moisture(self, times, *, exposed='bottom', activity=1.0, initial=0.0, steps=200)
 morphogen.coupling.plates.Multilayer.stiffness(self)
 morphogen.coupling.plates.timoshenko_curvature(strain, h1, h2, e1, e2)
+morphogen.coupling.thermochemoelastic.FACES
+morphogen.coupling.thermochemoelastic.GAMMA
+morphogen.coupling.thermochemoelastic.R_GAS
+morphogen.coupling.thermochemoelastic.SCHEMES
+morphogen.coupling.thermochemoelastic.SUPPORTS
+morphogen.coupling.thermochemoelastic.ThermoChemoElastic(sample, materials, *, reference_temperature=293.15, initial_temperature=None, initial_activity=0.0, reference_activity=None, temperature=None, activity=None, supports=None, periodic=None, mean_strain=None, mean_stress=None)
+morphogen.coupling.thermochemoelastic.ThermoChemoElastic.eigenstrain(self, temperature, activity)
+morphogen.coupling.thermochemoelastic.ThermoChemoElastic.heat_operator(self)
+morphogen.coupling.thermochemoelastic.ThermoChemoElastic.hydrostatic_at_unknowns(self, sigma)
+morphogen.coupling.thermochemoelastic.ThermoChemoElastic.run(self, times, *, steps=20, scheme='euler', points=None, tol=1e-10, max_iterations=100)
+morphogen.coupling.thermochemoelastic.ThermoChemoElastic.source(self, temperature, activity)
+morphogen.coupling.thermochemoelastic.ThermoChemoElastic.species_operator(self, temperature, hydrostatic=None)
+morphogen.coupling.thermochemoelastic.ThermoChemoElasticResult(times, temperature, activity, concentration, displacement, stress, mean_strain, history, nodes, kind, sample=None, info=<factory>)
+morphogen.coupling.thermochemoelastic.ThermoChemoElasticResult.curvature(self, step=-1, *, axis=0, normal=2, span=None)
+morphogen.coupling.thermochemoelastic.ThermoChemoElasticResult.hydrostatic
+morphogen.coupling.thermochemoelastic.ThermoChemoElasticResult.von_mises
+morphogen.coupling.thermochemoelastic.ThermoChemoElasticResult.write_xdmf(self, path)
+morphogen.coupling.thermochemoelastic.ThermoChemoMaterial(young=None, poisson=None, stiffness=None, conductivity=0.0, heat_capacity=1.0, diffusivity=0.0, solubility=1.0, reaction_rate=0.0, reaction_heat=0.0, expansion=0.0, swelling=0.0, molar_volume=0.0, diffusion_activation=0.0, reaction_activation=0.0, void=False)
+morphogen.coupling.thermochemoelastic.ThermoChemoMaterial.chemical_strain(self)
+morphogen.coupling.thermochemoelastic.ThermoChemoMaterial.elastic_matrix(self)
+morphogen.coupling.thermochemoelastic.ThermoChemoMaterial.from_material(cls, material, **coefficients)
+morphogen.coupling.thermochemoelastic.ThermoChemoMaterial.thermal_strain(self)
+morphogen.coupling.thermochemoelastic.VOIGT_OF
+morphogen.coupling.thermochemoelastic.VoxelSpace(shape, spacing, origin=(0.0, 0.0, 0.0), periodic_axes=())
+morphogen.coupling.thermochemoelastic.VoxelSpace.at_cells(self, values)
+morphogen.coupling.thermochemoelastic.VoxelSpace.conductances(self, kappa_axes)
+morphogen.coupling.thermochemoelastic.VoxelSpace.drift(self, perm, omega, temperature, hydrostatic, faces)
+morphogen.coupling.thermochemoelastic.VoxelSpace.expand(self, x, structure, values)
+morphogen.coupling.thermochemoelastic.VoxelSpace.face_loads(self, kappa_axes, faces)
+morphogen.coupling.thermochemoelastic.VoxelSpace.laplacian(self, g)
+morphogen.coupling.thermochemoelastic.VoxelSpace.lump(self, cell_values)
+morphogen.coupling.thermochemoelastic.VoxelSpace.operator(self, kappa, faces)
+morphogen.coupling.thermochemoelastic.VoxelSpace.reduce(self, matrix, faces)
+morphogen.coupling.thermochemoelastic.VoxelSpace.reduced_rhs(self, rhs, structure, values, loads)
+morphogen.coupling.thermochemoelastic.arrhenius(activation, temperature, reference)
+morphogen.coupling.thermochemoelastic.assembled(dofs, local, n)
+morphogen.coupling.thermochemoelastic.beam_curvature(z, modulus, eigenstrain)
+morphogen.coupling.thermochemoelastic.bernoulli(x)
+morphogen.coupling.thermochemoelastic.constrained_dofs(supports, face_nodes, used)
+morphogen.coupling.thermochemoelastic.p1_gradients(nodes, elements)
+morphogen.coupling.thermochemoelastic.rigid_modes(coordinates, periodic_axes=())
+morphogen.coupling.thermochemoelastic.strain_voigt(value, name='strain')
+morphogen.coupling.thermochemoelastic.support_candidates(coordinates, allowed)
+morphogen.coupling.thermochemoelastic.supports_of(modes, constrained, candidates)
+morphogen.coupling.thermochemoelastic.thermochemoelastic(sample, materials, times, **options)
+morphogen.coupling.thermochemoelastic.time_steps(times, steps)
 morphogen.design: TILE_SETS
 morphogen.design: Framework
 morphogen.design: RuleFit
@@ -4031,9 +4083,13 @@ morphogen.optimization: OBJECTIVES
 morphogen.optimization: CellDesign
 morphogen.optimization: CellOptimization
 morphogen.optimization: DensityFilter
+morphogen.optimization: MorphingDesign
+morphogen.optimization: MorphingOptimization
+morphogen.optimization: MorphingTarget
 morphogen.optimization: PeriodicCell
 morphogen.optimization: Symmetry
 morphogen.optimization: count_hinges
+morphogen.optimization: hat_filter
 morphogen.optimization: heaviside
 morphogen.optimization: initial_density
 morphogen.optimization: load_optimization_config
@@ -4056,6 +4112,20 @@ morphogen.optimization.filters.heaviside_derivative(x, beta, eta=0.5)
 morphogen.optimization.mma.MMA(n, m, xmin, xmax, *, move=0.5, asyinit=0.5, asyincr=1.2, asydecr=0.7, c=1000.0)
 morphogen.optimization.mma.MMA.reset(self)
 morphogen.optimization.mma.MMA.update(self, x, f0, df0, fval, dfdx)
+morphogen.optimization.morphing.MorphingDesign(density, solid, design, objective, displacement, reached, wanted, iterations, converged, history=<factory>, settings=<factory>, time_s=0.0)
+morphogen.optimization.morphing.MorphingDesign.grey
+morphogen.optimization.morphing.MorphingDesign.phases(self, threshold=0.5)
+morphogen.optimization.morphing.MorphingOptimization(shape, spacing, materials, targets, *, stimulus='temperature', change=1.0, times=None, faces=None, initial=0.0, steps=10, supports=None, void=False, volume_fraction=0.5, solid_fraction=None, penalty=3.0, eigen_penalty=1.0, void_stiffness=1e-06, filter_radius=2.0, extrude=None, projection=32.0, continuation=30, move=0.2, iterations=200, tolerance=0.002)
+morphogen.optimization.morphing.MorphingOptimization.bending_target(self, curvature, *, axis=0, normal=2, time=-1, weight=1.0)
+morphogen.optimization.morphing.MorphingOptimization.densities(self, x, beta)
+morphogen.optimization.morphing.MorphingOptimization.evaluate(self, x, beta=0.0, *, gradient=True)
+morphogen.optimization.morphing.MorphingOptimization.objective(self, rho, solid=None, *, gradient=True)
+morphogen.optimization.morphing.MorphingOptimization.run(self, x0=None, callback=None)
+morphogen.optimization.morphing.MorphingOptimization.settings(self)
+morphogen.optimization.morphing.MorphingOptimization.verify(self, design, threshold=0.5)
+morphogen.optimization.morphing.MorphingTarget(points, component, values, time=-1, weight=1.0)
+morphogen.optimization.morphing.STIMULI
+morphogen.optimization.morphing.hat_filter(shape, radius)
 morphogen.optimization.run.IMAGE_FORMATS
 morphogen.optimization.run.OptimizationConfig(optimization, seed, directory, name, image, density, geometry, source, check_refinement=2)
 morphogen.optimization.run.SETTINGS

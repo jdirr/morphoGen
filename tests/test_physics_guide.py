@@ -45,6 +45,11 @@ def test_guide_snippets(tmp_path, monkeypatch):
     assert 5e-6 < ns["alpha"][0, 0] < 60e-6 and 0.0 < ns["beta"] < 0.4
     porous = ns["porous"]
     assert f < porous["biot_coefficient"] < 1.0 and 0.0 < porous["skempton_coefficient"] < 1.0
+    # in time: the moisture taken up and the swelling of the cell grow, free of mean stress
+    wet = ns["wet"]
+    assert np.all(np.diff(wet.history["uptake"]) > 0) and wet.history["uptake"][-1] < 1.0
+    assert np.all(np.diff(wet.mean_strain[:, 1]) > 0) and wet.mean_strain[0, 1] > 0
+    assert np.abs(wet.history["mean_stress"][:, 1:3]).max() < 1e-3
     # the piezoelectric composite: a weaker coupling than the ceramic, of the same sign
     assert ns["law"]["piezoelectric"].shape == (3, 6) and 0.0 < ns["law"]["d33"] < 1.9e-10
     # dynamics: a loss peak between the two relaxation times, an absorbing index

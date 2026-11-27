@@ -22,7 +22,7 @@ the steps of a study:
 | Generate | [`morphogen.models`](api/morphogen.models.rst) | the 43 models of microstructures and the shapes of Microgen (3MAH), their realizations and their theory |
 | | [`morphogen.automata`](api/morphogen.automata.rst) | cellular automata and lattice growth processes, on grids and tilings |
 | | [`morphogen.design`](api/morphogen.design.rst) | tile assemblies, strut frameworks and their rigidity, searches of design spaces |
-| | [`morphogen.optimization`](api/morphogen.optimization.rst) | topology optimization of periodic cells by inverse homogenization |
+| | [`morphogen.optimization`](api/morphogen.optimization.rst) | topology optimization of periodic cells by inverse homogenization, and the inverse design of active structures |
 | | [`morphogen.iga`](api/morphogen.iga.rst) | isogeometric analysis of NURBS geometries and their shape optimization |
 | Describe | [`morphogen.mesh`](api/morphogen.mesh.rst) | conforming, exact and voxel meshes |
 | | [`morphogen.io`](api/morphogen.io.rst) | images, meshes, geometries and the inputs of other codes, read and written |
@@ -35,7 +35,7 @@ the steps of a study:
 | | [`morphogen.fracture`](api/morphogen.fracture.rst) | cohesive zones, cracks and their growth, the phase field |
 | | [`morphogen.contact`](api/morphogen.contact.rst) | contact, self-contact and friction of the surfaces of a mesh |
 | | [`morphogen.micromorphic`](api/morphogen.micromorphic.rst) | micromorphic continua: the microfoam model, micromorphic damage |
-| | [`morphogen.coupling`](api/morphogen.coupling.rst) | transient diffusion, oxidation, ageing and hygromorphs |
+| | [`morphogen.coupling`](api/morphogen.coupling.rst) | transient diffusion, oxidation, ageing, hygromorphs, and the thermo-chemo-elastic fields in time |
 | | [`morphogen.learning`](api/morphogen.learning.rst) | behaviours learned from data |
 | | [`morphogen.symmetry`](api/morphogen.symmetry.rst) | symmetry groups of periodic cells, for the patterns after buckling |
 | | [`morphogen.gpu`](api/morphogen.gpu.rst) | the choice of the device of the FFT solvers |

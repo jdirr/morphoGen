@@ -47,8 +47,9 @@ def test_species_as_transient_diffusion():
 
 
 def test_slab_conduction_and_the_order_of_trbdf2():
-    """A slab heated on both faces: its mean temperature against Crank's series (eq. 4.18),
-    and TR-BDF2 an order more accurate in time than implicit Euler."""
+    """A slab heated on both faces: its mean temperature against Crank's series (eq. 4.18);
+    in time, implicit Euler of the first order and TR-BDF2 of the second (their errors
+    against 400 steps of TR-BDF2 halved and quartered from 10 to 20 steps per interval)."""
     n = 24
     image = VoxelImage(np.zeros((1, 1, n), np.uint8), spacing=(1.0 / n,) * 3)
     m = ThermoChemoMaterial(young=1.0, poisson=0.25, conductivity=2.0, heat_capacity=4.0)
@@ -63,9 +64,10 @@ def test_slab_conduction_and_the_order_of_trbdf2():
     assert np.abs(rise("euler", 40) - exact).max() < 8e-3
     assert np.abs(rise("trbdf2", 40) - exact).max() < 6e-3
     fine = rise("trbdf2", 400)
-    err_euler = np.abs(rise("euler", 10) - fine).max()
-    err_tr = np.abs(rise("trbdf2", 10) - fine).max()
-    assert err_tr < 0.1 * err_euler
+    e10, e20 = (np.abs(rise("euler", k) - fine).max() for k in (10, 20))
+    t10, t20 = (np.abs(rise("trbdf2", k) - fine).max() for k in (10, 20))
+    assert 1.8 < e10 / e20 < 2.2 and 3.5 < t10 / t20 < 4.5
+    assert t10 < 0.02 * e10
     # the profile at the end, against eq. 4.17
     out = thermochemoelastic(image, {0: m}, times, scheme="trbdf2", steps=40, **common)
     z = (np.arange(n) + 0.5) / n - 0.5
