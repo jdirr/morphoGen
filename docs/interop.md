@@ -134,3 +134,47 @@ covered: [](zmat.md)).
 `solver: fenicsx` assembles and solves the finite element problems of
 tetrahedral meshes with FEniCSx (dolfinx, dolfinx_mpc, PETSc; Linux or WSL), with the
 same results as morphoGen's own solver.
+
+## VIMSEO: the credibility of the simulations
+
+VIMSEO (IRT Saint Exupéry, LGPL-3.0) demonstrates the credibility of simulations with the
+tools of GEMSEO: the verification of a code against reference values, the verification of
+a solution against its discretization (Richardson's extrapolation, the observed order,
+the grid convergence index), the validation against measurements with uncertain inputs
+(the area metric), plans of experiments, sensitivities and calibration.
+`morphogen.interop.vimseo` gives it the computations of morphoGen as its models
+([theory notes](theory.md) §112): a configuration of `morphogen run` whose entries are the
+inputs and whose results of a realization are the outputs, and the exact Minkowski
+densities of the realizations of a model of spheres with the closed forms of the model as
+their references. VIMSEO runs on Python 3.10 to 3.12: morphoGen and VIMSEO together on
+Python 3.12 (`pip install "morphogen[all,vimseo]"`).
+
+```python
+import numpy as np
+from morphogen.interop import vimseo as mv
+
+config = {
+    "model": {"type": "boolean_spheres", "radius": 1.0, "volume_fraction": 0.3},
+    "domain": {"size": 6.0, "periodic": True},
+    "seed": 1,
+    "voxels": {"voxel_size": 0.25},
+    "homogenization": {
+        "method": "fft",
+        "materials": {0: {"young": 1.0, "poisson": 0.3, "conductivity": 1.0},
+                      1: {"young": 10.0, "poisson": 0.3, "conductivity": 10.0}},
+        "properties": ["conductivity"],
+    },
+}
+simulation = mv.configuration(config, {"h": "voxels.voxel_size"}, ["conductivity.periodic"])
+model = mv.model(simulation)                          # a model of VIMSEO, its runs archived
+tool = mv.solution_verification(model, "h", [0.4, 0.2, 0.1, 0.05], "conductivity.periodic")
+print(tool.result.extrapolation["q_extrap"], tool.result.extrapolation["beta"])  # 2.278, 0.90
+
+spheres = {"type": "boolean_spheres", "radius": 1.0, "volume_fraction": 0.3}
+exact = mv.model(mv.exact_morphology(spheres, 12.0))  # the exact densities of realizations
+points = {"model_volume_fraction": np.array([0.2, 0.3, 0.4]),
+          "model_radius": np.ones(3), "seed": np.arange(3.0)}
+references = mv.dataset(points, mv.theory_of(spheres, points))  # Miles' formulae
+tool = mv.code_verification(exact, references, output_names=["volume_fraction"])
+```
+

@@ -11,18 +11,18 @@ them by these numbers (§75); by theme:
 
 | Theme | Sections |
 |---|---|
-| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects |
-| Architected and bio-inspired structures | [§6](#6-tpms) TPMS, [§7](#7-strut-lattices) Strut lattices, [§30](#30-bio-inspired-models) Bio-inspired models, [§71](#71-diamond-and-pyrochlore-lattices-of-struts-homogenizationframes-modelslattice) Diamond and pyrochlore lattices of struts, [§96](#96-woven-textile-composites-woven_textile) Woven textile composites |
-| Growth and design | [§14](#14-cellular-automata-automata) Cellular automata, [§15](#15-nucleation-and-growth-johnsonmehlavramikolmogorov) Nucleation and growth (Johnson–Mehl–Avrami–Kolmogorov), [§16](#16-aggregation) Aggregation, [§17](#17-combinatorial-design-design) Combinatorial design, [§18](#18-topology-optimization-of-periodic-cells-optimization) Topology optimization of periodic cells, [§78](#78-isogeometric-analysis-iga) Isogeometric analysis, [§79](#79-isogeometric-shape-optimization-igaoptimization) Isogeometric shape optimization |
+| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image` |
+| Architected and bio-inspired structures | [§6](#6-tpms) TPMS, [§7](#7-strut-lattices) Strut lattices, [§30](#30-bio-inspired-models) Bio-inspired models, [§71](#71-diamond-and-pyrochlore-lattices-of-struts-homogenizationframes-modelslattice) Diamond and pyrochlore lattices of struts, [§96](#96-woven-textile-composites-woven_textile) Woven textile composites, [§110](#110-woven-textiles-the-variability-of-the-tows-3d-architectures-the-tows-as-unidirectional-composites-woven_textile-homogenizationunidirectional) Woven textiles: the variability of the tows, 3D architectures, the tows as unidirectional composites |
+| Growth and design | [§14](#14-cellular-automata-automata) Cellular automata, [§15](#15-nucleation-and-growth-johnsonmehlavramikolmogorov) Nucleation and growth (Johnson–Mehl–Avrami–Kolmogorov), [§16](#16-aggregation) Aggregation, [§17](#17-combinatorial-design-design) Combinatorial design, [§18](#18-topology-optimization-of-periodic-cells-optimization) Topology optimization of periodic cells, [§78](#78-isogeometric-analysis-iga) Isogeometric analysis, [§79](#79-isogeometric-shape-optimization-igaoptimization) Isogeometric shape optimization, [§109](#109-inverse-design-of-active-structures-optimizationmorphing) Inverse design of active structures, [§113](#113-spinodal-decomposition-spinodal) Spinodal decomposition |
 | Geometry and meshes | [§19](#19-polycrystals-exact-cells-and-conforming-meshes-meshpolyhedra-meshpolycrystal) Polycrystals: exact cells and conforming meshes, [§24](#24-whole-periodic-grains-meshpolycrystal-cells-whole) Whole periodic grains, [§52](#52-views-and-measures-of-the-level-sets-vizsections) Views and measures of the level sets, [§75](#75-the-implicit-geometry-of-every-model-modelsimplicit-meshconforming) The implicit geometry of every model, [§76](#76-quadratic-tetrahedra-isoparametric-elements-and-curved-interfaces-meshcurved-homogenizationfe) Quadratic tetrahedra: isoparametric elements and curved interfaces, [§80](#80-sharp-edges-of-the-phases-meshes-that-follow-them-modelspieces-meshconforming-meshcurved) Sharp edges of the phases: meshes that follow them, [§94](#94-exact-meshes-without-a-background-grid-meshexact-meshoctree) Exact meshes without a background grid |
-| Measures | [§8](#8-specific-surface-by-cauchycrofton) Specific surface by Cauchy–Crofton, [§21](#21-morphological-measures-analysismorphology) Morphological measures, [§39](#39-random-sets-probed-by-structuring-elements-analysisrandom_sets-analysistopology) Random sets probed by structuring elements, [§55](#55-percolation-thresholds-analysispercolation) Percolation thresholds, [§70](#70-particles-of-a-phase-in-a-volume-analysisparticles) Particles of a phase in a volume, [§92](#92-crystallographic-textures-and-orientation-maps-texture-ioebsd-modelsebsd) Crystallographic textures and orientation maps |
+| Measures | [§8](#8-specific-surface-by-cauchycrofton) Specific surface by Cauchy–Crofton, [§21](#21-morphological-measures-analysismorphology) Morphological measures, [§39](#39-random-sets-probed-by-structuring-elements-analysisrandom_sets-analysistopology) Random sets probed by structuring elements, [§55](#55-percolation-thresholds-analysispercolation) Percolation thresholds, [§70](#70-particles-of-a-phase-in-a-volume-analysisparticles) Particles of a phase in a volume, [§92](#92-crystallographic-textures-and-orientation-maps-texture-ioebsd-modelsebsd) Crystallographic textures and orientation maps, [§104](#104-measures-of-the-implicit-geometry-morphologymeasures) Measures of the implicit geometry, [§105](#105-unions-of-balls-and-of-discs-measured-exactly-morphologyballs) Unions of balls and of discs, measured exactly, [§106](#106-the-model-of-an-image-morphologyidentification) The model of an image |
 | Representative volume element | [§9](#9-representative-volume-element) Representative volume element, [§13](#13-statistical-analysis-of-apparent-properties-dirrenberger-et-al-2014) Statistical analysis of apparent properties (Dirrenberger et al. 2014) |
 | Apparent properties and solvers | [§10](#10-apparent-properties-of-a-volume-element) Apparent properties of a volume element, [§11](#11-finite-elements-on-conforming-meshes) Finite elements on conforming meshes, [§12](#12-fft-solver-on-voxel-images) FFT solver on voxel images, [§20](#20-anisotropic-crystals-homogenizationmaterials) Anisotropic crystals, [§25](#25-the-periodic-element-macroscopic-strains-and-stresses-as-unknowns) The periodic element: macroscopic strains and stresses as unknowns, [§26](#26-thermo-elasticity) Thermo-elasticity, [§27](#27-post-processing-compliance-engineering-constants-anisotropy-normalized-values) Post-processing: compliance, engineering constants, anisotropy, normalized values, [§28](#28-results-database-and-ashby-charts-results) Results database and Ashby charts, [§35](#35-the-fft-solvers-on-the-gpu-morphogengpu-homogenizationgpu) The FFT solvers on the GPU, [§41](#41-the-fenicsx-solver-homogenizationfenicsx) The FEniCSx solver, [§63](#63-extended-finite-elements-of-level-sets-homogenizationxfem) Extended finite elements of level sets, [§77](#77-nearly-incompressible-phases-the-mean-dilatation-of-the-10-node-tetrahedra-homogenizationdilatation) Nearly incompressible phases: the mean dilatation of the 10-node tetrahedra |
-| Other physics and waves | [§40](#40-couplings-diffusion-thermal-oxidation-ageing-hygromorphs-coupling) Couplings: diffusion, thermal oxidation, ageing, hygromorphs, [§44](#44-bloch-waves-in-periodic-cells-homogenizationbloch) Bloch waves in periodic cells, [§59](#59-transport-phenomena-of-a-scalar-potential-homogenizationmaterials-apparent) Transport phenomena of a scalar potential, [§60](#60-strong-couplings-homogenizationcoupled) Strong couplings, [§62](#62-harmonic-regimes-homogenizationharmonic) Harmonic regimes, [§65](#65-weak-couplings-swelling-and-poroelasticity-homogenizationporoelastic) Weak couplings: swelling and poroelasticity, [§66](#66-scalar-bloch-waves-homogenizationbloch) Scalar Bloch waves, [§67](#67-flow-through-the-pores-darcys-permeability-homogenizationflow) Flow through the pores: Darcy's permeability, [§68](#68-acoustics-of-porous-media-homogenizationacoustics) Acoustics of porous media, [§69](#69-electromagnetic-bloch-waves-of-three-dimensional-crystals-homogenizationphotonic) Electromagnetic Bloch waves of three-dimensional crystals, [§72](#72-thermal-oxidation-in-a-microstructure-couplingoxidation_field) Thermal oxidation in a microstructure |
+| Other physics and waves | [§40](#40-couplings-diffusion-thermal-oxidation-ageing-hygromorphs-coupling) Couplings: diffusion, thermal oxidation, ageing, hygromorphs, [§44](#44-bloch-waves-in-periodic-cells-homogenizationbloch) Bloch waves in periodic cells, [§59](#59-transport-phenomena-of-a-scalar-potential-homogenizationmaterials-apparent) Transport phenomena of a scalar potential, [§60](#60-strong-couplings-homogenizationcoupled) Strong couplings, [§62](#62-harmonic-regimes-homogenizationharmonic) Harmonic regimes, [§65](#65-weak-couplings-swelling-and-poroelasticity-homogenizationporoelastic) Weak couplings: swelling and poroelasticity, [§66](#66-scalar-bloch-waves-homogenizationbloch) Scalar Bloch waves, [§67](#67-flow-through-the-pores-darcys-permeability-homogenizationflow) Flow through the pores: Darcy's permeability, [§68](#68-acoustics-of-porous-media-homogenizationacoustics) Acoustics of porous media, [§69](#69-electromagnetic-bloch-waves-of-three-dimensional-crystals-homogenizationphotonic) Electromagnetic Bloch waves of three-dimensional crystals, [§72](#72-thermal-oxidation-in-a-microstructure-couplingoxidation_field) Thermal oxidation in a microstructure, [§108](#108-thermo-chemo-elastic-couplings-in-time-couplingthermochemoelastic) Thermo-chemo-elastic couplings in time |
 | Behaviours along loading paths | [§31](#31-nonlinear-behaviours-along-loading-paths-the-periodic-element) Nonlinear behaviours along loading paths: the periodic element, [§32](#32-crystal-plasticity-homogenizationcrystal) Crystal plasticity, [§33](#33-finite-strains-homogenizationfinite) Finite strains, [§34](#34-loading-paths-on-voxel-images-the-nonlinear-fft-solver-homogenizationfft_nonlinear) Loading paths on voxel images: the nonlinear FFT solver, [§36](#36-mfront-behaviours-homogenizationmfront) MFront behaviours, [§37](#37-mfront-sources-of-morphogens-behaviours-iomfront) MFront sources of morphoGen's behaviours, [§43](#43-the-nonuniform-transformation-field-analysis-homogenizationntfa) The nonuniform transformation field analysis, [§49](#49-porous-plasticity-gurson-tvergaard-needleman-rousselier-compaction-homogenizationporous) Porous plasticity: Gurson-Tvergaard-Needleman, Rousselier, compaction, [§50](#50-micromorphic-continua-the-microfoam-model-and-micromorphic-damage-micromorphic) Micromorphic continua: the microfoam model and micromorphic damage, [§53](#53-identification-of-a-behaviour-homogenizationidentification) Identification of a behaviour, [§54](#54-hills-anisotropic-plasticity-homogenizationbehaviours) Hill's anisotropic plasticity, [§57](#57-behaviours-learned-from-data-learning) Behaviours learned from data, [§61](#61-viscoelasticity-hyperelasticity-and-damage-homogenizationlaws) Viscoelasticity, hyperelasticity and damage, [§83](#83-damage-coupled-to-plasticity-of-concrete-and-the-unilateral-effect-homogenizationlaws) Damage: coupled to plasticity, of concrete, and the unilateral effect, [§86](#86-twinning-of-crystals-and-hexagonal-lattices-homogenizationcrystal) Twinning of crystals, and hexagonal lattices, [§89](#89-cracks-that-close-twins-that-shear-back-and-turn-the-lattice-homogenizationcrystal) Cracks that close, twins that shear back and turn the lattice |
 | Fracture, contact and fatigue | [§46](#46-cohesive-zone-elements-fracturecohesive) Cohesive zone elements, [§47](#47-cracks-conforming-meshes-and-xfem-fracturelefm) Cracks: conforming meshes and XFEM, [§48](#48-mixed-mode-cracks-in-3d-in-small-and-finite-strains-fracturemixed) Mixed-mode cracks in 3D, in small and finite strains, [§51](#51-cracks-in-inelastic-solids-in-small-and-finite-strains-fracturebulk) Cracks in inelastic solids, in small and finite strains, [§64](#64-phase-field-of-brittle-fracture-fracturephasefield) Phase field of brittle fracture, [§73](#73-cracks-of-any-surface-and-front-fracturesurface) Cracks of any surface and front, [§81](#81-friction-of-interfaces-and-of-the-lips-of-cracks-fracturecohesive-fracturemixed) Friction of interfaces and of the lips of cracks, [§82](#82-contact-of-surfaces-self-contact-and-friction-contact) Contact of surfaces, self-contact and friction, [§84](#84-interfaces-that-debond-in-periodic-cells-fractureperiodic) Interfaces that debond in periodic cells, [§85](#85-multiaxial-high-cycle-fatigue-of-the-points-of-a-cell-homogenizationfatigue) Multiaxial high-cycle fatigue of the points of a cell, [§87](#87-cleavage-of-crystals-cracks-through-the-grains-and-between-them-homogenizationcrystal-fractureperiodic) Cleavage of crystals; cracks through the grains and between them, [§88](#88-cleavage-by-the-local-approach-the-weibull-stress-of-beremin-homogenizationberemin) Cleavage by the local approach: the Weibull stress of Beremin, [§90](#90-cleavage-that-the-slip-nucleates-homogenizationcrystal) Cleavage that the slip nucleates, [§91](#91-cleavage-planes-regularized-by-their-microdamage-homogenizationcrystal) Cleavage planes regularized by their microdamage |
 | Stability of periodic architectures | [§45](#45-post-bifurcated-patterns-by-group-theory-symmetry-homogenizationframes) Post-bifurcated patterns by group theory |
-| Other codes and libraries | [§99](#99-arrays-of-other-libraries-and-phase-fields-for-spectral-solvers-interoparrays) Arrays of other libraries and phase fields for spectral solvers, [§100](#100-the-particles-of-a-phase-for-the-discrete-element-method-iodem-modelsmesh_particles) The particles of a phase for the discrete element method, [§101](#101-microgen-modelsmicrogen-interopmicrogen) Microgen, [§102](#102-rigid-bodies-of-blender-interopblender) Rigid bodies of Blender, [§103](#103-alloys-from-their-phases-to-their-microstructures-interopalloys) Alloys: from their phases to their microstructures |
+| Other codes and libraries | [§99](#99-arrays-of-other-libraries-and-phase-fields-for-spectral-solvers-interoparrays) Arrays of other libraries and phase fields for spectral solvers, [§100](#100-the-particles-of-a-phase-for-the-discrete-element-method-iodem-modelsmesh_particles) The particles of a phase for the discrete element method, [§101](#101-microgen-modelsmicrogen-interopmicrogen) Microgen, [§102](#102-rigid-bodies-of-blender-interopblender) Rigid bodies of Blender, [§103](#103-alloys-from-their-phases-to-their-microstructures-interopalloys) Alloys: from their phases to their microstructures, [§112](#112-the-credibility-of-the-simulations-with-vimseo-interopvimseo) The credibility of the simulations with VIMSEO |
 | Laser-architectured sheets | [§58](#58-architectured-sheets-by-localized-laser-treatment-laser) Architectured sheets by localized laser treatment, [§74](#74-a-treated-sheet-in-its-volume-lasersolid) A treated sheet in its volume |
 
 ## 1. Boolean models
@@ -12492,6 +12492,729 @@ C_{12}, C_{44}$ = 231.4, 134.7, 116.4 GPa) turned at random with isotropic marte
 quantities on its canvas and its programming interface on request only: the description is
 filled from its canvas until a client reads it.
 
+## 104. Measures of the implicit geometry (`morphology.measures`)
+
+A realization is a random closed set described exactly: every phase has an implicit
+function at any point of space (§75), whose sign says in which phase a point lies and
+whose slope is bounded by `L` (`lipschitz`; 1 for the signed distances): the interface is
+at least `|φ(x)| / L` from `x`. The measures of mathematical morphology are estimated from
+probes answered by these functions, so that their only errors are those of the sampling,
+which the estimators give and which more probes reduce, and the fluctuation of the
+realization itself — not the bias of a voxel image (§39: the effective radius of digital
+balls a third of a voxel short, the spheres closer than a voxel touching):
+
+* *points*, uniform in the box (scrambled Sobol points, the first `n` of a power of two):
+  the fraction `p` of a phase, of standard deviation `√(p(1 − p)/n)` over independent
+  points;
+* *pairs of points* `x`, `x + h u` along a direction `u` or along a random direction for
+  each pair (the covariance averaged over the directions): `C(h) = P(x ∈ A, x + h u ∈ A)`;
+* *segments* `[x, x + l u]`: the march from `x` along `u` by steps `max(φ(x_t)/L, τ)`
+  (sphere tracing, Hart 1996: a step never crosses the interface) gives the distance of the
+  first point of the phase, and every length at once: the Choquet capacity of segments
+  `T(l) = P(t_hit <= l)` and the linear contact distribution `H_l(l) = P(t_hit <= l | x ∉
+  A)`;
+* *balls* `B(x, r)`: `T(B_r) = P(d(x, A) <= r)` from the distance to the phase, exact
+  outside it for the unions of spheres and segments (their function is the signed
+  distance, the minimum of the distances to the objects): the capacity of balls and the
+  spherical contact distribution `H_s(r) = 1 − Q(B_r)/q`, every radius at once;
+* *lines*: the crossings of the interface along lines, located by the march and then by
+  bisection to `10⁻⁹` of the box: the chords of a phase (the intervals between an entry
+  and an exit; on a line of length `ℓ` a chord of length `c` escapes the ends with the
+  probability `(ℓ − c)/ℓ`, and is weighted by its inverse, as the frame corrections of Miles 1974 and Lantuéjoul
+  1980) and the specific
+  surface `S_V = 2 P_L` (Crofton), `P_L` the crossings per unit length of isotropic lines,
+  a ratio estimator of standard deviation `2 sd(n_i − P_L ℓ_i) / (ℓ̄ √m)` over `m` lines.
+
+In a periodic box the probes run around the torus; in another, the pairs and segments lie
+in the box (minus sampling: their first points drawn in the box shrunk by their extent)
+and the lines end on its faces. The dilation of a union of spheres and segments by a
+ball is the union of the same objects, thicker by its radius (`dilation`): `A ⊕ B_r`
+exactly, whose fraction is the capacity `T(B_r)` of the realization. `compare_with_theory`
+puts the measures of a realization beside the closed forms of its model: the four
+Minkowski densities exactly for a union of spheres in a periodic box (§105), else the
+fraction and the specific surface by probes, and the covariance and the capacities of
+balls and segments where the model has them.
+
+Checked (`tests/test_morphology_probes.py`): along a ray through a ball of radius 1 the
+first hit at `1` and the crossings at `1` and `3` (`10⁻⁸`), a grazing chord `2√(1 −
+0.99²)` (`10⁻⁸`); the Crofton estimate of the specific surface of a ball in a periodic box
+within four standard deviations of `4π/64`, the mean chord `4V/S = 4/3` within 3 %; on a
+Boolean model of spheres (radius 1, fraction 0.3, cube of 12), the fraction within four
+standard deviations of the exact fraction of the realization, the covariance and the
+capacities of balls and segments within four standard deviations (plus 0.012, the
+fluctuation of the realization) of the closed forms of the model, the chords of the
+pores of mean `1/(θπR²)` within 8 % (their law exponential), the spherical contact
+distribution; on a Gaussian excursion (fraction 0.4, correlation length 1, cube of 16)
+the covariance (`P(Y(x) > u, Y(x + h) > u)`, its bivariate normal) within four standard
+deviations plus 0.01 — `0.3994, 0.3244, 0.2588, 0.1804` against `0.4, 0.3246, 0.2587,
+0.1803` at `h = 0, 0.5, 1, 2` — and the specific surface `(2/π) e^{−u²/2}/l` likewise; the
+dilation of a union against the distance (exactly the same points), its exact fraction
+against `T(B_r)`; the phases of the points of a mosaic of Voronoi cells.
+
+## 105. Unions of balls and of discs, measured exactly (`morphology.balls`)
+
+The four Minkowski functionals of the union `U` of the balls `B_i = B(c_i, R_i)` — the
+volume `V`, the surface `S`, the integral of mean curvature `M = ∫ H dS` (`H` the mean of
+the principal curvatures: `4πR` for a ball, §39) and the Euler characteristic `χ` — are
+computed without a grid and without sampling, from the power diagram of the centres
+weighted by `w_i = R_i²`: the cell `P_i` holds the points of smallest power `|x − c_i|² −
+w_i`. A point of the sphere `i` in its cell is inside no other ball (its power to them is
+not smaller, zero), so that the part of the union in `P_i` is `B_i ∩ P_i` and that of its
+boundary `∂B_i ∩ P_i` (Edelsbrunner 1995):
+
+* `V = Σ_i |B_i ∩ P_i|`. The cell is cut into the pyramids of apex `c_i` over its faces
+  (signed: a face seen from the outside of the cell counts negatively, which holds when
+  `c_i` lies outside its cell). The plane of a face `F` at the signed height `h` from `c_i`
+  cuts the ball in the disc `D` of radius `a = √(R² − h²)` about the foot of `c_i`; the
+  ball cuts the pyramid over `F` in the cone over `F ∩ D` and the sector of the ball over
+  `F ∖ D`: `|h| |F ∩ D|/3 + R³ Ω(F ∖ D)/3`, with `Ω` the solid angles of the plane figures
+  seen from `c_i`. The polygon of the face (the orthocentres of the tetrahedra around the
+  edge `(i, j)` of the triangulation, in order about their centroid) is cut into the
+  triangles of a fan from the foot, each cut by the circle into triangles (solid angle of
+  Van Oosterom & Strackee 1983, `tan(Ω/2) = |a·(b × c)| / (abc + (a·b)c + (a·c)b + (b·c)a)`)
+  and circular sectors (`Δθ (1 − |h|/R)`).
+* `S = Σ_i R_i² Ω_i`, `Ω_i = Σ_F ± Ω(F ∖ D)` the solid angle of the sphere in its cell.
+* `M = Σ_i S_i/R_i − ½ Σ_{ij} γ_ij ℓ_ij`: the spherical parts, and the circles where two
+  spheres meet on the boundary, of the exposed lengths `ℓ_ij` and the angles `γ_ij` between
+  the normals of the two spheres there, `cos γ = (R_i² + R_j² − d²)/(2R_iR_j)`: an edge
+  counts half its length times its exterior angle, negative at a reentrant edge
+  (§39 for the cube: `3πa`). Such a circle lies in the common face `F_ij` of the cells, and
+  its part on the boundary is its part in that face: the circle less the arcs that the
+  half-planes of the edges of the polygon leave out.
+* `χ = #vertices − #edges + #triangles − #tetrahedra` of the dual complex `K` of the
+  union, the simplices of the regular triangulation whose balls have a common point in the
+  intersection of their cells: by the nerve theorem the union has the homotopy type of
+  `K`. A simplex is in `K` if its orthocentre `z` (the point of its affine hull at the same
+  power `ρ²` from its vertices, `2 e_k·(z − c_a) = |e_k|² + w_a − w_k`) has `ρ² <= 0` and
+  is *unattached* (no vertex of a coface closer in power to it), or if it is a face of a
+  simplex in `K` (the alpha complex at `α = 0`, Edelsbrunner & Mücke 1994).
+
+The regular triangulation is the lower convex hull of the centres lifted to `(c_i,
+|c_i|² − w_i)` (Qhull through SciPy; flat simplices of its rim left out). A union in
+space is bounded by eight points far away, of a negative weight, which bound the cells
+without touching the balls. On the torus of a periodic box the balls are repeated across
+the faces within a margin (images of several periods if the cells are large), the balls
+of the box measured in their cells, each circle half from each of its two balls, and the
+simplices of `K` whose barycentre lies in the box counted once. The margin is checked: no
+ball beyond it can be closer in power to the orthocentre of a tetrahedron of a ball of the
+box (or of barycentre in the box) than its vertices, `reach² − w_max >= ρ²` with `reach`
+the distance of the orthocentre to the outside of the margin; it is doubled until none
+can. The section of a union of spheres by a plane is a union of discs (`section_discs`:
+the spheres the plane cuts, of radii `√(R² − d²)`, the nearest image along the normal in
+a periodic box), measured in the same way in two dimensions (the regular triangulation
+the lower hull of the lifted centres in three dimensions): the area `Σ |D_i ∩ P_i|` (the
+fan from `c_i` cut by its circle), the perimeter `Σ R_i θ_i` (the angle of the circle in
+the cell), `χ = #vertices − #edges + #triangles`; a disc covered by the others has no
+cell and no part.
+
+Densities against the theory. For a Boolean model of spheres, Miles' formulae (§39) give
+the four densities; for a stationary isotropic medium the sections give the volume, `A_A
+= V_V`, `L_A = (π/4) S_V` and `χ_A = M_V/2π` (Crofton). The density of the Euler
+characteristic, a difference of nearly equal terms that the voxels bias (§39: "not a
+check of the estimator"), is checked here against the formula itself.
+
+Checked (`tests/test_morphology_exact.py`): one ball (`10⁻¹²`); two balls of radii 1 and
+0.7, centres 1.2 apart, against the volume of their lens, the areas of their caps and `M`
+of the caps and the circle (`10⁻¹⁰`); a ring of three balls `χ = 0` (a tunnel), the same
+filled by their triple overlap `χ = 1`, a shell of 200 balls about a cavity `χ = 2`;
+forty random balls, `dV/dt = S` along the radii `R_i + t` (`10⁻⁶`; for a union the
+second derivative is not `2M`, which holds for sets of positive reach), the volume
+against 400,000 points; a ball across a corner of a periodic box counted once, a row of
+balls across the box `χ = 0`; one disc, two discs (their lens), a ring of 24 discs `χ =
+0`, sixty random discs, `dA/dt = L` (`10⁻⁶`) and the area against 10⁶ points; the discs of
+a section against the membership of the points of its plane. Eight realizations of
+Boolean spheres (radius 1, fraction 0.5, cube of 16, 687 spheres each, in 0.6 s): the
+fraction, `S_V`, `M_V` and `χ_V` within four standard errors of their mean from Miles'
+formulae (`χ_V = −0.0536 ± 0.0021` for `−0.0525`; at 0.2, `0.0147 ± 0.0008` for
+`0.0161`), and 48 sections give `L_A = (π/4) S_V` within 3 % and `χ_A = M_V/2π` within four
+standard errors. Against the voxel estimates of §39 on 64³ voxels of a realization of the
+cube of 12 (fraction 0.3): `S_V` 0.7422 exact, 0.7104 from the voxels (Miles: 0.7490 in
+law), `M_V` 0.4772 and 0.4193 (0.5018), `χ` −5 and −25.
+
+## 106. The model of an image (`morphology.identification`)
+
+The measures of a phase of an image — a volume of voxels, a stack of sections, or one
+section (an image one voxel thick along z) — are its fraction `p`, its specific surface
+`S_V` (in a section the length of its boundary per unit area `L_A = (π/2) P_L`, the
+crossings per unit length over the axes and the diagonals of the pixels, and `S_V = 4 L_A
+/ π`, Saltykov, for an isotropic medium), its covariance `C(h)` (the mean over the axes of
+the image, §21), the capacities of balls (discs in a section: the Euclidean distance map
+of its complement, §39) and of segments along the axes, and the density of its Euler
+characteristic (`χ_V`, or `χ_A` from its pixels).
+
+Each candidate is fitted to `p` and `S_V` by the closed forms of its model (a method of
+moments, Serra 1982 ch. XIII; Jeulin 2021): Boolean spheres of radius `R`, `S_V = θ q 4π
+R²` and `−log q = θ 4π R³/3`, so `R = 3q(−log q)/S_V`; with random radii, `−log Q(B_r) +
+log q = θ (4π/3) E[(R + r)³ − R³]`, a cubic in `r` fitted to the capacity of balls,
+whose coefficients give `θ` and `E[R]`, `E[R²]` (a lognormal law of them; in a section the
+discs of the plane, `θ (π² r E[R²] + 2π r² E[R])`, a quadratic); hard spheres, `S_V =
+3p/R`; the excursion of a Gaussian field of covariance `exp(−h²/2l²)` above `u =
+Φ⁻¹(1 − p)`, `S_V = (2/π) e^{−u²/2}/l` (§5); Poisson fibres, `S_V = 2q(−log q)/R` (§2); a
+mosaic of Poisson–Voronoi cells, each of the phase with the probability `p`, `S_V = 2pq c
+θ^{1/3}` (its faces between cells of the two phases, `c` of Meijering, §4).
+
+The fitted models are simulated in the box of the image — a slab as thick as the section
+is wide for a section, of which the plane at mid-thickness is sampled on its pixels —
+and their realizations measured as the image is, on voxels of its size: the bias of the
+discretization is that of the image itself. Their length parameter (the radius, the
+correlation length, the cube root of the volume of the cells) is first scaled twice by
+`S_V(simulation)/S_V(image)`, so that their images have the specific surface of the
+image. The score of a model sums the root mean squares of the differences of the
+correlation functions `ρ(h) = (C(h) − p²)/pq` and of the contact distributions `1 − (1 −
+T)/q` of balls and segments (each of the fraction of its own image: the fluctuation of
+the fraction of a realization does not count), the relative difference of the specific
+surfaces and half the difference of the Euler densities times the cube (the square in a
+section) of the mean chord `4p/S_V`, at most 1. The model of the smallest score
+reproduces best what it was not fitted to — the shape of the covariance, the contact
+distributions — and is proposed with its parameters, ready to generate realizations of
+any size; the same seeds serve every model (common random numbers).
+
+Checked (`tests/test_model_identification.py`), on images of 64³ voxels of realizations
+of a cube of 12, two realizations per candidate: Boolean spheres (radius 1, fraction
+0.3), hard spheres (radius 1, 0.25), a Gaussian excursion (correlation length 0.8, 0.35)
+and a Voronoi mosaic (150 cells, 0.4) are each found first, of the scores 0.028, 0.018,
+0.029 and 0.059 against 0.116, 0.160, 0.138 and 0.112 for the next (less than half for
+the first three), with the radii 0.984 and 0.996 and the correlation length 0.818; from one
+section of 256² pixels of Boolean spheres (radius 1, 0.3), Boolean spheres again, of
+radius 1.077 (its section has a fraction of 0.36), in 2.5 s; the fitted candidates hold
+the fraction (and the specific surface of the closed forms) of the image. The volume of
+§107, segmented: hard spheres of radius 1.31 and fraction 0.22 (made of spheres of 1.2 at
+0.2, blurred), Boolean spheres second.
+
+## 107. Images as microstructures: segmentation and the model `image` (`morphology.segmentation`, `models.image`)
+
+**Thresholds.** Otsu's threshold of the grey levels is the level that maximizes the
+variance between the two classes of the histogram, `ω_0 ω_1 (μ_0 − μ_1)²`; for `k` classes
+the `k − 1` levels that maximize `Σ_c ω_c μ_c²` (the same criterion, Liao, Chen & Chung
+2001), by dynamic programming over the bins (`best[c, j] = max_i best[c − 1, i] +
+score(i, j)`, `score` the class of the bins `i` to `j − 1`; each threshold the lower edge
+of the first bin of its class). A Gaussian smoothing first removes the noise (its width
+in voxels; wrapped across the faces of a periodic image, the plane of a section kept);
+the histogram may be equalized for display. The scores of a segmentation against a
+reference, voxel by voxel for a phase: accuracy, precision, recall, intersection over
+union (Jaccard) and the Dice coefficient.
+
+**Particles.** The particles of a phase are its 26-connected parts, those that touch
+split by the watershed of their distance map (§70), with the weights of Miles and
+Lantuéjoul for those that the frame does not cut; the moments of the voxels of each
+(their own moments `h²/12` added: a voxel is a cell, not a point) give the ellipsoid of
+the particle, `a²/5, b²/5, c²/5` along its axes for a solid ellipsoid (an ellipse in a
+section: `a²/4, b²/4`). The laws of the sizes that models take: a lognormal law of the
+first two number moments of the equivalent radii, their mean, or their empirical law.
+
+**The model `image`.** A volume or a section of a file, segmented into its phases (an image
+of integers from 0 to `classes − 1` holds them; the other images are grey levels split by
+the thresholds given or by Otsu's), is a structure of implicit functions at any point:
+the image is interpolated trilinearly between the centres of its voxels and
+
+* for grey levels `g` and thresholds `t_1 < … < t_{n−1}` the phase `k` is `t_k <= g <
+  t_{k+1}`, of the function `max(t_k − g, g − t_{k+1})/s`, `s` the median of the gradient of
+  the levels at the voxels next to a threshold (a distance near the interfaces): the
+  interfaces are the iso-surfaces of the interpolated levels at the thresholds, those that
+  marching cubes draws;
+* for phases, the indicator `χ_k` of each (smoothed by `sigma` voxels if asked) and the
+  function `(max_{l≠k} χ_l − χ_k) h/2` (`h` the smallest spacing): negative where the phase
+  has the largest share, zero half-way between the centres of two voxels of different
+  phases.
+
+The functions partition space, and their slopes are bounded by `√(Σ_a d_a²)`, `d_a` the
+largest difference between neighbouring voxels along the axis `a` over the spacing (times
+`2/s`): the probes of §104, the exact meshes (§94) and the sections take the image as they
+take a model. A realization is a window of the image of the size of the domain, at its
+first voxels or drawn at random for each seed (the windows of a large image as
+realizations of the medium it shows, for the size of its representative volume, Kanit et
+al. 2003); a periodic domain takes the whole image, its faces wrapped. The image that
+comes with morphoGen (`example_image.npz`, 48³ voxels of 0.25): the grey levels that a
+tomography of hard spheres (radius 1.2, fraction 0.2; levels 170) in a matrix (levels 60)
+would give, blurred by a Gaussian of 0.8 voxel and noisy (a Gaussian of 12 levels),
+written by `models.image.write_example_image` from its seed.
+
+Checked (`tests/test_model_identification.py`): Otsu's threshold of two classes against
+the criterion over every bin (`10⁻¹²`), three classes; the volume segmented after a
+smoothing of a voxel against the spheres it was made of, intersection over union above
+0.8, Dice above 0.9 (0.887 and 0.94); hard spheres of radius 3 voxels, the mean
+equivalent radius within 3 %, the semi-axes 3 within 8 %, the number per unit volume within
+5 %; an ellipse of semi-axes 60 and 25 pixels within 1 %; the phases of the structure at the
+centres of the voxels of the image exactly those of its thresholded levels, the functions
+a partition at random points; random windows, round trips; an image of phases read back
+as its own phases, of slope `√3`; the windows wider than the image or periodic but not
+the whole image refused. The opening and the closing of §39 now take the size of the
+voxels for their second step as for their first (a ball of 0.5 on voxels of 0.25 is a
+ball of 2 on voxels of 1: the same images), and the capacity of balls pads a section in
+its plane only.
+
+## 108. Thermo-chemo-elastic couplings in time (`coupling.thermochemoelastic`)
+
+The temperature, a diffusing species and the strains they cause evolve together in the
+volume of a microstructure: three-dimensional fields at each output time.
+
+**The problem.** In each phase (`ThermoChemoMaterial`), with the temperature `T`, the
+activity `u` of the species (its concentration `c = S u`, `S` the solubility of the
+phase; `u` continuous across the interfaces, as in §40) and the displacement `x`:
+
+    C ∂T/∂t = ∇·(k ∇T) + H k_r S u
+    S ∂u/∂t = ∇·(P ∇u − P u (Ω / R T) ∇σ_h) − k_r S u,    P = D S
+    ∇·σ = 0,    σ = C_el : (ε − ε*),    ε* = α (T − T_ref) + β S (u − u_ref)
+
+with the volumetric heat capacity `C`, the conductivity `k` and the diffusivity `D` (one
+value, principal values along the axes or tensors), the rate `k_r` of a first-order
+consumption of the species and the heat `H` released per unit of concentration
+consumed, the thermal and chemical expansions `α` and `β`, the partial molar volume `Ω`
+of the species and the hydrostatic stress `σ_h = tr σ / 3`. The flux of the species is
+`−(D c / R T) ∇μ` for the chemical potential `μ = μ_0 + R T ln u − Ω σ_h` (stress-assisted
+diffusion: Larché & Cahn 1985; Sofronis & McMeeking 1989): at equilibrium in a closed
+body, `u ∝ exp(Ω σ_h / R T)`. The diffusivity and the rate follow Arrhenius' law about
+the reference temperature, `D(T) = D exp(−(Q_D / R)(1/T − 1/T_ref))` (`arrhenius`),
+likewise `k_r` with `Q_r`. `T_ref` is the temperature without thermal strain and `u_ref`
+the activity without chemical strain (by default the initial one).
+
+**Discretizations.** *Voxels*: `T` and `u` at the centres of the voxels (finite volumes);
+the conductance of a face between two voxels is the harmonic mean of their coefficients
+along its normal times its area over the spacing (exact for layers in series), a face of
+the box held at a value holds it half a voxel from the centres of its voxels, the other
+faces are insulated or periodic; these are the operators of §40 (`transient_diffusion`
+gives the same concentrations to round-off). The drift is the exponential fitting of
+Scharfetter & Gummel (1969): through a face of conductance `g`, `F_ij = g (B(−w) u_i −
+B(w) u_j)` with `B(x) = x / (e^x − 1)` and `w = Ω (σ_h,j − σ_h,i) / R T` (the means of `Ω`
+and `T` of the two voxels); `B(−w) = e^w B(w)`, so that the flux vanishes exactly when
+`u_j / u_i = exp(w)`: the discrete equilibrium is Boltzmann's distribution of the discrete
+stress, and the matrix an M-matrix whatever the drift (no oscillation). The displacement
+lives at the corners of the voxels, trilinear hexahedra (§12) integrated at 2 × 2 × 2
+points, each loaded by the eigenstrain of its voxel, `f_e = V B̄ᵀ C_el ε*_e` (`B̄` the mean
+of the strain matrix); the stress of a voxel is `C_el (B̄ x_e − ε*_e)`. *Meshes of linear
+tetrahedra*: `T`, `u` and `x` at the nodes, linear in each element; the capacities
+lumped (`V_e / 4` to each node), the concentration and the eigenstrain of an element from
+the mean of its nodes, the drift `−∫ P u (Ω / R T) ∇σ_h · ∇v` (Galerkin) with the
+hydrostatic stress averaged at the nodes by the volumes of their elements; the faces held
+hold their values at their nodes (the face listed first where two meet).
+
+**Boundary conditions of the displacement.** Faces clamped (`x = 0`), planes of symmetry
+(the normal component zero) or free. Along the periodic axes of a voxel image the nodes
+of the last plane are those of the first and `x = E · X + w`, `w` periodic, with the
+components of the mean strain `E` between periodic axes as unknowns of their own: the
+coupling of `w` with `E` is `Σ_e V B̄ᵀ C_el` and the equation of `E` that the mean stress
+is `Σ̄` (zero by default: the cell expands freely), `Σ_e V C_el (B̄ w_e + E − ε*_e) = V_box
+Σ̄`, solved by the Schur complement of the factorized `K_ww` (one solve per free
+component, once); or components of `E` imposed (`mean_strain`). The rigid motions that
+remain (the translations, and the rotations about an axis whose two companions are not
+periodic) are the combinations of these modes that vanish on the fixed degrees of
+freedom (a singular value decomposition), removed by fixing as many components of the
+displacement of nodes near the corners, the middles and the centre of the box, chosen by
+a QR factorization with column pivoting of the modes there: statically determinate
+supports, which bear no reaction to the self-equilibrated loads of the eigenstrains.
+
+**Time.** Each interval between output times is split into `steps` steps, those of the
+first interval growing geometrically (ratio 1.25) from about a ten-thousandth of it (the
+`√t` start of a diffusion from a face), as in §40. Implicit Euler, or TR-BDF2 (Bank et
+al. 1985; Hosea & Shampine 1996): a trapezoidal stage to `t + γ dt` and a second-order
+backward difference to `t + dt`, `γ = 2 − √2`, L-stable, whose two stages solve with the
+same matrix `C / τ + K`, `τ = γ dt / 2 = (1 − γ) dt / (2 − γ)`. Each stage solves the
+temperature (the heat of the reaction at the last iterate), then the species (at that
+temperature, in the stress of the last iterate), then, where the species feels the
+stress, the displacement: a map `G` whose fixed point is the stage. Coupled one way, one
+pass is exact (the displacement solved at the output times only); coupled both ways (a
+reaction that heats, a drift by the stress), `z ← z + w_k (G(z) − z)` with Aitken's
+dynamic relaxation `w_k = −w_(k−1) r_(k−1)·(r_k − r_(k−1)) / |r_k − r_(k−1)|²` of the
+residuals `r = G(z) − z` scaled by the largest values of the fields (Irons & Tuck 1969;
+Küttler & Wall 2008), to a relative change `tol`. The systems are solved for the change
+of the field from the last iterate: with insulated faces and steps far longer than the
+time of diffusion, `C / τ` alone fixes the uniform field, and the round-off of a solution
+for the field itself would move it at every step. Fields that nothing can move (no face
+held, no source, no sink, no drift) are not solved.
+
+**Results.** The fields at the output times (the temperature, the activity, the
+concentration, the displacements of all the corners of the voxels or of the nodes, the
+stresses), the mean strain of the periodic axes, and the history of the mean temperature,
+the uptake (the mean concentration over the box), the mean stress and the displacements
+of chosen points; `curvature` fits `w = −κ s²/2 + a s + b + c y` to the deflection of the
+nodes of the plane nearest to the mid-plane of a strip (positive towards its lower face,
+as `strip_curvature`); `write_xdmf` writes an XDMF time series (raw binary arrays, a grid
+per time) for ParaView; `beam_curvature(z, E, ε*)` is the curvature `κ = (A M* − B N*) /
+(A D − B²)` of a free beam of fibres of moduli `E(z)` and eigenstrains `ε*(z)` (`A, B, D =
+∫ E (1, z, z²) dz`, `N*, M* = ∫ E ε* (1, z) dz`).
+
+Checked (`tests/test_thermochemoelastic.py`): the concentrations of `transient_diffusion`
+to 1e-12 (two phases of solubilities 1 and 3, two faces held); a slab heated on both
+faces against Crank's series (eq. 4.18; 24 voxels: within 8e-3 by Euler and 6e-3 by
+TR-BDF2 with 40 steps per interval) and its profile (eq. 4.17, within 2e-3); in time,
+against 400 steps of TR-BDF2, Euler of the first order (errors 9.5e-3, 4.8e-3 and 2.4e-3
+with 10, 20 and 40 steps per interval) and TR-BDF2 of the second (7.4e-5, 1.8e-5,
+4.5e-6); a body heated by 50 K, free: no
+stress (1e-12 of `3 K α ΔT`) and the strain `α ΔT` to 1e-14, on voxels and meshes;
+clamped on every face, `σ = −3 K α ΔT` to 1e-10; a periodic laminate of two phases free of
+mean stress, its in-plane strain the mean of the expansions weighted by the biaxial
+moduli `E / (1 − ν)` and its strain across that of free layers, to 1e-10, and held in its
+plane the stresses `−E α ΔT / (1 − ν)` of each layer with `σ_33 = 0`; a free bilayer (`E2
+/ E1 = 3`, `ν = 0`, four voxels per layer) bends within 1.5 % of Timoshenko's curvature
+(the stiffness in bending of fully integrated hexahedra); a strip that a species enters
+by its upper face only (twelve voxels through it) bends and unbends as the profile of
+Crank's half slab, within 3 % of the curvature of the beam of that profile at six times
+(2.6 % at the first, when the profile is steepest, 0.5 % at the last); an adiabatic
+reaction that heats with Arrhenius' rate keeps `C (T − T_0) = H (c_0 − c)` to 1e-8 (both
+schemes), and without activation `c = c_0 e^(−k t)` within 2e-5 (TR-BDF2, 100 steps); a
+diffusion at 330 K with an activation of 50 kJ/mol is that at 300 K with the times
+scaled by the Arrhenius factor 6.19, to 1e-13; a closed bilayer bent by its thermal
+expansion draws a species of `Ω = 2·10⁻⁶ m³/mol` to its tensile parts, `u ∝ exp(Ω σ_h /
+R T)` to 1e-12 of the spread of `ln u` (and to 1e-7 when the species swells by 0.02 per
+unit concentration, a coupling `Ω σ / R T ≈ 1` that the relaxed fixed point reaches in
+about twenty iterations, where the plain staggered iteration diverges), its content kept
+to 1e-10; on a mesh, the uptake of a slab within 1 % of Crank's (sixteen elements
+through it) and the content of a closed bilayer kept to 1e-10 while the stress draws it
+to the tensile side; the supports of a free body bear no force (1e-10 of the loads); the
+planes of symmetry; the time series (a grid per time, the arrays of their sizes).
+
+## 109. Inverse design of active structures (`optimization.morphing`)
+
+Where to put two materials that expand differently with a stimulus — or one of them and
+voids — in a structure, so that it takes target shapes when it is stimulated: at
+equilibrium, or at chosen times while the stimulus diffuses into it. Materials that
+absorb a species or heat at different rates fold a printed structure one way and then
+another (the fourth dimension of 4D printing: Tibbits 2014; Mao et al. 2015, sequential
+folding by polymers of different glass transitions; Maute et al. 2015, level sets of
+printed active composites; Hamel et al. 2019, layouts of active voxels found by
+evolutionary search; Geiss et al. 2019, density and level-set designs in large
+deformations).
+
+**Design.** A box of voxels (trilinear hexahedra, the mechanics of §108), held by
+supports on some faces; the density `ρ_e ∈ [0, 1]` of a voxel is its share of the
+material 1, interpolated between the two solids (SIMP, Bendsøe & Sigmund 1999; three
+phases: Sigmund & Torquato 1997): the elasticity `C(ρ) = C_0 + ρ^p (C_1 − C_0)`, the
+eigenstrain per unit of the stimulus `a(ρ) = a_0 + ρ^q (a_1 − a_0)`, and when the stimulus
+diffuses its capacity and conductivity linearly. With voids (`void=True`), a second
+density `ρ_s`, that of the solid, scales the element by `ε + (1 − ε) ρ_s^p`. The design
+variables are filtered by the linear hat of radius `r` voxels, cut at the faces of the
+box (`hat_filter`, rows normalized; Bruns & Tortorelli 2001), projected (Heaviside of
+threshold 0.5 whose sharpness doubles from 1 every `continuation` iterations or when the
+design settles, up to `projection`; Wang, Lazarov & Sigmund 2011), extruded along an
+axis when asked, and updated by the method of moving asymptotes (§18) under the volume
+constraints `mean(ρ) ≤ V_1` (with voids: `mean(ρ ρ_s) ≤ V_1`, `mean(ρ_s) ≤ V_s`).
+
+**Objective.** Targets are displacements of points (the nodes nearest to them) at output
+times, `J = Σ_k w_k Σ_i (x_k,i − v_k,i)² / Σ_k w_k Σ_i v_k,i²` (1 for a structure that
+does not move). `bending_target(κ)` gives the deflections `−κ s² / 2` of the line of
+nodes in the middle of the section of a strip clamped at `s = 0`.
+
+**States and adjoints.** At equilibrium the stimulus rises by `Δθ` everywhere: `K(ρ) x =
+f(ρ)`, `f = Σ_e F_e(ρ) a_e(ρ) Δθ` with `F_e = V B̄ᵀ C(ρ_e)`; with `K λ = ∂J/∂x`, `dJ/dρ_e =
+λ_e · (∂f_e/∂ρ_e − ∂K_e/∂ρ_e x_e)`. In time, the stimulus `θ` diffuses from faces held at
+values (the finite volumes of §108, implicit Euler: `A_n θ^n = B_n θ^(n−1) + b_n`, `A_n = V
+C / dt_n + K_D`, `B_n = V C / dt_n`, `b_n` the loads of the faces held) and the
+displacement follows it at each output time, `K x_k = f(θ^(n_k))`. The adjoint of the
+displacements `K λ_k = ∂J/∂x_k` loads that of the stimulus, `r_(n_k) = Σ_e λ_k,e · F_e a_e`,
+which runs backwards from `μ_(N+1) = 0`, `A_n μ_n = r_n + B_(n+1) μ_(n+1)`; and `dJ/dρ_e`
+gains `−Σ_n μ_n^T (∂A_n/∂ρ_e θ^n − ∂B_n/∂ρ_e θ^(n−1) − ∂b_n/∂ρ_e)`: the capacity, `μ_e V
+ΔC (θ^n_e − θ^(n−1)_e) / dt_n`; the harmonic conductances `g = 2 P_i P_j / (P_i + P_j)`
+of the faces of the voxel, `(∂g/∂ρ_e)(μ_i − μ_j)(θ_i − θ_j)` with `∂g/∂P_i = 2 P_j² /
+(P_i + P_j)²`; those of the faces of the box that it touches, `(∂l_e/∂ρ_e) μ_e (θ_e −
+θ_held)`. One factorization of `K` serves the states and the adjoints, one of `A_n` per
+length of step the diffusion and its adjoint. `verify` solves the black-and-white layout
+(densities above 0.5) with `ThermoChemoElastic`, its voids true pores.
+
+Checked (`tests/test_morphing.py`): the derivatives against central differences (steps
+of 1e-6) within 1e-6 of the largest, at equilibrium (thermal and chemical stimuli, a
+design extruded along y with `q = 2`, voids) and in time (a face held at a value and
+another at a function of time; outputs at 0 and later); the displacements of a random
+layout of the two materials are those of `ThermoChemoElastic` to 1e-12, at equilibrium
+and while the species diffuses; a strip clamped at one end (24 × 1 × 6 voxels), an active
+material expanding in a passive one: from uniform densities the layout for the
+deflections of the strip whose upper sixth is active (0.556 of the curvature of the
+bilayer of equal halves, by Timoshenko) puts the active material in the upper half and
+reaches them within 5 %, and so does its black-and-white layout solved by the coupled
+solver (the problem has many solutions on so few voxels through the thickness: thinner
+layers near the clamp, columns near the free end); two materials taking up a species
+from both faces of a strip (24 × 1 × 8), one fast that swells little (`D = 1`, `β =
+5·10⁻⁴`), one slow that swells more (`D = 0.02`, `β = 1.5·10⁻³`): for the tip displacements
+of the strip whose upper half is the fast material, down at `t = 2` and up at `t = 100`,
+the layout found from uniform densities puts the fast material on top and reaches both
+within 3 %, its black-and-white layout within 10 % (slow test).
+
+## 110. Woven textiles: the variability of the tows, 3D architectures, the tows as unidirectional composites (`woven_textile`, `homogenization.unidirectional`)
+
+**The variability of the tows.** The tomography of textile composites shows the tows
+wandering about their nominal paths and their sections changing along them: the centroids
+of the sections, their widths and thicknesses measured slice by slice along the tows of a
+2/2 twill laminate (Vanaerschot, Cox, Lomov & Vandepitte 2013) deviate from the mean
+path of the repeat by random fields correlated along the tows (the in-plane deviation the
+largest), and those of neighbouring tows of a ply are correlated with one another
+(Vanaerschot et al. 2014); Blacklock, Bale, Begley & Cox (2012) generated virtual specimens
+of the same statistics by Markov chains. The model describes four quantities of each tow
+as functions of the coordinate `s` along the direction of its family (the position of the
+slices): the deviation of its centreline across the tow in the plane of the fabric,
+`δ_n = s_n G_n(s)`, and through its thickness, `δ_z = s_z G_z(s)` (`deviation_in_plane`,
+`deviation_through`), and the factors of its half width and half thickness, `f_w = exp(σ_w
+G_w − σ_w²/2)` and `f_t = exp(σ_t G_t − σ_t²/2)`, lognormal of mean 1 and of the
+coefficients of variation `cv` (`width_variation`, `thickness_variation`; `σ = √ln(1 +
+cv²)`), the logarithms correlated by `ρ_s` at a point (`size_correlation`). Each `G` is a
+stationary Gaussian process of unit variance, periodic of the period `P` of the box along
+the direction of the tow, by its spectral representation
+
+    G(s) = Σ_{k=0..K} √w_k (A_k cos ω_k s + B_k sin ω_k s),   ω_k = 2πk/P,
+
+`A_k`, `B_k` independent standard normal variables, of covariance `Σ_k w_k cos ω_k d`. The
+weights are those of the periodization of the covariance `C`: `w_0 = c_0`, `w_k = 2 c_k`,
+`c_k = Ĉ(ω_k)/P`, `Ĉ` its Fourier transform — `ℓ√(2π) exp(−ω²ℓ²/2)` for the gaussian
+covariance `exp(−d²/2ℓ²)`, smooth paths, and `2ℓ/(1 + ω²ℓ²)` for the exponential one
+`exp(−|d|/ℓ)`, the Markov process (`variation_covariance`) —, truncated at `K` and
+normalized to sum to 1, so that the standard deviations are those prescribed exactly
+(`process_spectrum`). `K` reaches `ωℓ = 7.2` for the gaussian covariance (the weights left
+out below 10⁻¹¹; the covariance exact to 10⁻⁹ on a circle ten correlation lengths long)
+and three modes per correlation length for the exponential one, the Nyquist frequency of
+the segments of the polylines, a sixth of `ℓ`: its cusp is smoothed (the covariance within
+0.045 of `exp(−|d|/ℓ)`, the largest departure at an eighth of `ℓ`, and within 0.025 from
+`ℓ/2` on) and the variance of the roughness that the segments cannot follow is given back
+to the modes kept. The correlation length `ℓ` is one for the centrelines and one for the sections
+(`correlation_length`, by default twice the warp spacing). The weight `w_0` of the mean
+of a tow over the period (its whole offset, the mean of its sizes) is that of the
+periodized covariance, `ℓ√(2π)/P`. A window of the infinite fabric takes processes of the
+period of the window and six correlation lengths (ten for the exponential covariance),
+that its ends do not correlate.
+
+The tows of a ply (2D weaves) or of a layer (3D weaves; the binders of a column level of a
+layer-to-layer weave), side by side in the order of their transverse coordinates, have the
+coefficients `L W`, `W` independent between the tows and `L` the Cholesky factor of the
+correlations `ρ^d` of tows `d` apart (`neighbour_correlation`), periodized on the ring of
+the `n` tows of a periodic box, `(ρ^d + ρ^(n−d))/(1 + ρ^n)` (`neighbour_correlations`:
+positive definite, the covariance of the periodization of a Markov sequence); the
+thickness takes `ρ_s W_w + √(1 − ρ_s²) W_t`, so that the logarithms of the sizes correlate
+by `ρ_s` at every point. The four sets of coefficients are drawn after those of the
+nominal textile, all four whenever one quantity varies: the same seed gives the nominal
+textile and its variations, and a quantity switched on does not change the others.
+
+A tow that varies is sampled with segments of a sixth of the shorter correlation length at
+most along `s` (the straight tows of 3D weaves with them; the vertical lines of orthogonal
+binders, constant in `s`, move as a whole). Its nodes move by `δ_n n_0 + δ_z e_z` (`n_0`
+the horizontal width axis of the nominal tow, `e_z` the stacking axis); its tangents turn
+by the slopes of the deviations, `t ∝ t_0 + t_s (δ_n' n_0 + δ_z' e_z)` (`t_s = ds/dσ` the
+component of the nominal tangent along `s`), its width axes stay normal to them, turned
+from `n_0` by the slope of the deviation across the tow, `n = (n_0 − (n_0·t) t)/|n_0 −
+(n_0·t) t|`, `b = t × n`; its half sizes at the nodes are
+those of the tow times the factors (`Yarn.widths`, `thicknesses`), linear between the nodes
+in the kernels (`a = a_0 + τ (a_1 − a_0)` at the parameter `τ` of the closest point of the
+segment, exactly `a_0` for the constant sections), so that the point-wise functions of the
+phases, the partition of the tows, their labels and orientations and the exact meshes
+follow the varying tows. A segment of linearly varying sizes has the volume of its length
+times the mean area of its section (Gauss–Legendre, four points: exact for the ellipse
+and the power ellipse, whose areas are bilinear in `a` and `c`); the points of the
+interpenetration are drawn in the segments by their volumes, along them by the area of
+their sections (rejection) and in the sections there. With the variability at zero the
+realizations are those of the nominal model, bit for bit: the nodes, frames, sizes,
+voxels, labels, point-wise functions, summaries and theories of six textiles (a plain
+weave of interpenetrating tows, a two-ply twill shifted with resin between its plies, an
+orthogonal weave, layer-to-layer and through-thickness angle interlocks of lenticular
+sections, a window of a satin of power-ellipse tows of drawn widths; 525 arrays) are
+identical to those of the version without variability.
+
+The summary gives the deviations, the coefficients of variation and the correlation of the
+logarithms realized at the nodes, each weighted by its share of the length along `s`. The
+theory gives the nominal fractions with the mean area of the varying sections, `exp(ρ_s σ_w
+σ_t)` times the area at the mean sizes for the ellipse and the power ellipse (`E[f_w f_t] =
+exp(ρ_s σ_w σ_t)`), a Gauss–Hermite quadrature of 16 × 16 nodes of the correlated
+logarithms for the lens; and the lengths of the tows lengthened by the deviations of their
+centrelines, to the second order in them,
+
+    E|dX/dσ| = 1 + (λ₂/2)(t_s² s_n² + t_s⁴ s_z²),
+
+`λ₂ = Σ w_k ω_k²` the second spectral moment of the process of the centrelines (`1/ℓ²` for
+the gaussian covariance; finite for the exponential one by its truncation), integrated
+along the pieces of the nominal paths (Gauss–Legendre, 32 points each): the deviation
+across the tow, normal to it, lengthens it by `δ_n'²/2`, the deviation through the
+thickness by its part normal to the tow. The processes of the theory have the period of
+the periodic box of the domain given, or of one repeat.
+
+Checked (`tests/test_textile.py`): the spectra of unit variance, the gaussian covariance
+and its second moment `1/ℓ²` exact, 2,000 drawn processes of variance 1 within 0.03, of
+covariances at 2, 4 and 8 within 0.03 of `Σ w_k cos ω_k d`, of slopes of variance `1/ℓ²`
+within 5 %; the periodized correlations of a ring of six tows positive definite and in
+closed form; an orthogonal weave of 40 × 40 × 2.4 (40 straight warps) of deviations 0.06
+and 0.03, coefficients of variation 0.1 and 0.12 and size correlation −0.5 against the same
+weave without variability: the standard deviations of the deviations of the warps within
+8 %, their correlations along the warps at lags of 2, 4 and 8 (`ℓ/2`, `ℓ` and `2ℓ`) within
+0.08 of the covariance of their spectrum, the coefficients of variation within 10 %, the
+correlation of the logarithms within 0.06, the summary likewise, the tows closed across the
+period (no segment 2 % longer than the median), their frames orthonormal, the fractions of
+the warps and wefts within 2 % of the theory and the union of the tows against Monte Carlo
+(600,000 points); the neighbouring warps of a layer at `ρ = 0.7` correlated at distances
+1, 2 and 5 within 0.12 of the periodized `ρ^d` (four realizations), the two layers
+independent (below 0.15); a straight tow whose half width grows linearly from 0.4 to 0.8:
+its boundary at the half width of every station (points at 0.999 and 1.001 of it inside
+and outside, its function there `−0.001 a` to 10⁻⁶), its volume `π c ∫ a` to 10⁻¹²; the mean
+area of lenses of coefficients of variation 0.2 and 0.25 correlated by 0.4 against Monte
+Carlo (10⁶ draws); straight tows deviating by 0.3 and 0.2 with `ℓ = 2`, lengthened by
+`(s_n² + s_z²)/2ℓ²` = 1.6 % in the theory and in three realizations (within 0.4 %). Over 24
+realizations of a twill of 16 × 16 mm (deviations 0.05 and 0.02, coefficients of variation
+0.08 and 0.1, `ρ_s = −0.5`, `ℓ` = 3 and 2, `ρ` = 0.6) the volumes of the warps and wefts are
+1.002 ± 0.008 and 0.996 ± 0.007 times their theory; one realization departs by 3.5 % rms, the
+weight of the mean of the tows over the period and the neighbours that vary together
+leaving few independent samples in a box of eight tows.
+
+**3D architectures.** The binding depth of a 3D warp interlock, the number of weft layers
+that a binder ties together (Boussu, Cristian & Nauman 2015), `D = binder_depth`: a binder of
+the level `l` passes from the slot `l` (below the weft layer `l`) to the slot `l + D` (above
+the weft layer `l + D − 1`) from one weft column to the next, adjacent columns out of phase.
+A layer-to-layer angle interlock has `N + 2 − D` binders per column, all in phase, one slot
+apart (`D = 2` by default: a binder per warp layer, as before; `D = N + 1`: from the bottom to
+the top at each column); an orthogonal weave, a binder per column through the thickness by
+default (`D = N + 1`), or, shallower, the binders of the columns in turn between the
+`N + 2 − D` pairs of slots `D` apart (the column `i` at the level `i mod (N + 2 − D)`), lest
+the vertical lines of two binders in one gap overlap: its repeat across the warps is then
+the least common multiple of 2 and `N + 2 − D` rows. An angle interlock without stuffers
+(`stuffers: false`, Ansar et al. 2011) has no straight warps: its weft layers are a binder
+and a weft apart, the fabric `N (t_b + t_f) + t_f + 2 t_b` thick, its binders of the sizes of
+the warps by default, side by side within the warp spacing. Checked: layer-to-layer binders
+of depth 3 in three layers spanning the slots 0–3 and 1–4, their crimp that of half cosines
+of those rises over the spacing (`(2L/π) E(−(πΔz/2L)²)`, 10⁻⁹), their union against Monte
+Carlo (their steep half cosines graze the wefts: 1.9 % of the volume of the tows shared);
+depth 4, two binders from the bottom to the top; depth 2 the layer-to-layer weave of
+before; an orthogonal weave of depth 2 in three layers, a repeat of 2 × 6, its binders at
+the levels 0, 1, 2 in turn, no overlap, their fraction against Monte Carlo; a
+through-thickness interlock without stuffers, its phases (matrix, wefts, binders), its
+thickness and its union against Monte Carlo; the counts of tows of `expected_count`.
+
+**The tows as unidirectional composites.** A tow is a unidirectional composite of fibres in
+the matrix at the fibre fraction of the tows (`fibre_fraction_in_yarns`), transversely
+isotropic about its axis 3, which the orientations of the segments turn along the paths. In
+Hill's (1964) notation its stiffness has the plane-strain bulk modulus `k`, the coupling
+`l`, the axial modulus `n`, the transverse and axial shear moduli `m` and `p` (`C11 = k + m`,
+`C12 = k − m`, `C13 = l`, `C33 = n`, `C44 = p`, `C66 = m`; an isotropic phase `λ + μ`, `λ`,
+`λ + 2μ`, `μ`, `μ`). The composite cylinder assemblage (Hashin & Rosen 1964; Hashin 1979 for
+transversely isotropic fibres) gives, with `D = (k_f + m_m) v_m + (k_m + m_m) v_f`,
+
+    k = [k_m (k_f + m_m) v_m + k_f (k_m + m_m) v_f] / D,
+    l = [l_m (k_f + m_m) v_m + l_f (k_m + m_m) v_f] / D,
+    n = v_m n_m + v_f n_f − v_m v_f (l_f − l_m)² / D,
+    p = p_m [p_m v_m + p_f (1 + v_f)] / [p_m (1 + v_f) + p_f v_m],
+
+exact for the assemblage (`n` written so that phases of equal `k` raise no division), `k`
+and `p` the Hashin–Shtrikman lower bounds of fibre composites of any transverse geometry
+(Hashin 1965) when the fibres are stiffer. The transverse shear modulus is that of the
+generalized self-consistent scheme (Christensen & Lo 1979; Christensen 1990), the fibre in
+its shell of matrix embedded in the effective medium: the positive root of `A x² + 2B x + C
+= 0`, `x = m/m_m`, with `g = m_f/m_m`, `η = 1 + 2m/k` (`3 − 4ν` of an isotropic phase; the
+transverse plane of a transversely isotropic fibre is isotropic, of moduli `k`, `m`),
+`w = g η_m − η_f` and `d = 3 v_f (1 − v_f)² (g − 1)(g + η_f)`,
+
+    A = d + [g η_m + η_f η_m − w v_f³][v_f η_m (g − 1) − (g η_m + 1)],
+    B = −d + ½ [g η_m + (g − 1) v_f + 1][(η_m − 1)(g + η_f) − 2 w v_f³]
+           + ½ v_f (η_m + 1)(g − 1)[g + η_f + w v_f³],
+    C = d + [g η_m + (g − 1) v_f + 1][g + η_f + w v_f³];
+
+or Hashin's lower or upper bound, `m_m + v_f / (1/(m_f − m_m) + v_m (k_m + 2m_m)/(2 m_m
+(k_m + m_m)))` and the same with the phases exchanged (`transverse_shear`). Along the fibres
+the conductivities add, across them `K_T = K_m + v_f / (1/(K_f,T − K_m) + v_m/2K_m)`
+(Hashin's assemblage, Maxwell's form in two dimensions). The thermal expansions follow from
+the compliance by Levin's relation for two phases (Levin 1967; Rosen & Hashin 1970), `α =
+⟨α⟩ + (S − ⟨S⟩)(S_f − S_m)⁻¹(α_f − α_m)` (a pseudo-inverse: phases of equal moduli give
+`⟨α⟩`). Glass in epoxy (72 GPa, 0.22; 3.5 GPa, 0.35) at 0.5: `E_L` = 37.8, `E_T` = 9.67,
+`G_LT` = 3.49 and `G_TT` = 3.42 GPa (Hashin's bounds 3.13 and 8.62), `ν_LT` = 0.277.
+
+Checked (`tests/test_unidirectional.py`): the matrix and the fibres at the fractions 0 and
+1; Hill's universal relations — `(l − l_m)/(k − k_m) = (l_f − l_m)/(k_f − k_m)` and, with
+isotropic phases, `E_L = Σ v E + 4(ν_f − ν_m)²/(1/k_f − 1/k_m)² (v_f/k_f + v_m/k_m − 1/k)`
+and `ν_LT = Σ v ν + (ν_f − ν_m)/(1/k_m − 1/k_f) (v_f/k_f + v_m/k_m − 1/k)` — to 10⁻¹² for the
+assemblage (with isotropic and transversely isotropic fibres) and to 10⁻⁶ for the FFT
+solution of an array of fibres, where a uniform strain is admissible as well; `k` and `p`
+the lower bounds to 10⁻¹²; the self-consistent `m` between Hashin's bounds and of their
+dilute slope `(m − m_m)/v_f` (within `2v_f` relatively at 10⁻⁴ and 10⁻⁵); the conductivities;
+the expansions of phases expanding alike, of phases of equal moduli, the axial expansion
+between Schapery's estimate and 1.1 times it, and Levin's relation on the FFT expansion of
+an array of fibres to 10⁻⁵. Against the FFT stiffness of `long_fibers` realizations, which
+the staircase of the voxels overestimates by an error of the first order in the voxel size
+(a hexagonal array at 0.6545: `p` 10.0 % and 5.8 % above the assemblage on 192² and 384²
+voxels, 8 and 16 voxels per radius), extrapolated linearly from two resolutions: the
+hexagonal array within 0.95 % (`k`), 0.72 % below (`m`), 1.6 % (`p`) and 0.3 % (`n`) of the
+assemblage and of the self-consistent scheme, `p` 0.6 % above Rayleigh's multipole solution
+of the antiplane problem of a hexagonal array (Perrins, McKenzie & McPhedran 1979; 1.0 %
+above the assemblage); a random array at 0.5 whose fibres keep 0.4 radius apart within
+2.1 % (`k`), 1.2 % (`m`) and 4.4 % (`p`) — fibres 0.2 radius apart, in clusters of close
+fibres, stiffen it to 5.8, 6.7 and 12.1 % above, which the assemblage of separate cylinders
+does not describe; the clustering of the filaments within real tows (Gommer, Endruweit &
+Long 2016) is a variability of that kind. A tow of carbon fibres (E_L 230, E_T 15.7 GPa) in
+epoxy at 0.6: `E_L` = 139, `E_T` = 8.2, `G_LT` = 3.9 GPa. In configurations, a material
+`{unidirectional: {fibre, matrix, fibre_fraction, transverse_shear}}`; on the model,
+`WovenTextile.tow_material(fibre, matrix)` at its `fibre_fraction_in_yarns`.
+
+## 112. The credibility of the simulations with VIMSEO (`interop.vimseo`)
+
+VIMSEO (IRT Saint Exupéry; LGPL-3.0; the package `vimseo`, 0.1.7 or later, on Python 3.10
+to 3.12) demonstrates the credibility of simulations — the qualification or certification
+by analysis that tests support — with the tools of GEMSEO. A model of VIMSEO is a GEMSEO
+discipline of named inputs and outputs (one-dimensional arrays of numbers) run for a load
+case, its runs archived (the inputs, outputs and metadata of each, `results.json`) and
+cached (HDF5). Its tools take such models: the verification of a code against reference
+values at the same inputs, by error metrics (squared, relative, absolute errors); the
+verification of a solution against its discretization, on four sizes of the elements
+(Richardson's extrapolation of the output to the size zero, the observed order `β`, the
+grid convergence index of Roache with the safety factor 1.25); the validation against
+measurements with uncertain inputs (the area metric, the Wasserstein distance between the
+distributions of the simulations and of the measurements); plans of experiments,
+sensitivities, calibration.
+
+morphoGen gives VIMSEO its computations as functions of named numbers (`Simulation`: the
+defaults of the inputs, the inputs taken as whole numbers, their bounds; a variable is an
+input or an output, not both, as in GEMSEO): a configuration of `morphogen run` whose
+entries chosen by their dotted paths (`voxels.voxel_size`, `mesh.size`, `model.
+volume_fraction`, `homogenization.materials.1.young`, `seed`; the integer keys of the
+phases found as such) are the inputs and whose results of one realization (the columns
+of `results.csv`; the measures asked for added to its analysis) are the outputs; and the
+four Minkowski densities of the realizations of a model of spheres, exactly (§105), on the
+torus of a periodic cube, the parameters of the model as inputs (prefixed `model_`, the
+outputs having the names of the densities), with the closed forms of the model at the
+same inputs as their references (`theory_of`): a verification of the code in which only
+the fluctuation of the realizations remains. Their GEMSEO disciplines (the grammars of
+one number per variable, the defaults), their VIMSEO models (`BaseDisciplineModel` of the
+load case `Dummy`), the reference datasets (`IODataset`), and the two tools of
+verification run on them. GEMSEO and VIMSEO are imported by these functions only.
+
+Checked (`tests/test_vimseo.py`; with VIMSEO 0.1.7, GEMSEO 6.3.3 on Python 3.12): the
+entries of nested configurations; a configuration of FFT conductivity run with its voxel
+size and seed as inputs (the same seed the same outputs, another voxel size another
+conductivity); the exact densities of three realizations of Boolean spheres against
+their closed forms within the fluctuation of a cube of 12 (the fraction within 0.03, the
+specific surface within 8 %); with VIMSEO, their code verification (relative errors
+1.8 % on the fraction and 1.0 % on the specific surface over the three points) and the
+solution verification of the FFT conductivity of a Boolean model (radius 1, fraction 0.3,
+cube of 6) on voxels of 0.4, 0.2, 0.1 and 0.05: Richardson's extrapolation 2.278, the
+observed order 0.90 (the first order of the interfaces cut by the voxels), the grid
+convergence indices 7.7 % and 1.9 %.
+
+## 113. Spinodal decomposition (`spinodal`)
+
+A mixture quenched inside its spinodal separates into two phases by the Cahn–Hilliard
+equation (Cahn & Hilliard 1958; Cahn 1961) of the composition `c` (`−1` and `1` the phases
+at equilibrium), of the free energy `∫ f(c) + (κ/2)|∇c|²`, `f(c) = (c² − 1)²/4`:
+
+    ∂c/∂t = ∇²(f'(c) − κ∇²c),        f'(c) = c³ − c
+
+(the mobility and the scales of time and of `κ` taken as units). About the mean composition
+`c̄`, inside the spinodal (`f''(c̄) = 3c̄² − 1 < 0`, `|c̄| < 1/√3`), the fluctuations of the
+wave number `k` grow at the rate `ω(k) = −k²(f''(c̄) + κk²)`, the fastest at `k_m =
+√(−f''/2κ)`, of the wavelength `λ_m = 2π/k_m` and the rate `ω_m = f''²/4κ`; the phases then
+separate, their pattern coarsening as `t^{1/3}` (Lifshitz & Slyozov 1961; Huse 1986),
+and the fraction of the phase 1 tends to the lever rule `p = (1 + c̄)/2`. The equation is
+integrated on a periodic grid by the semi-implicit Fourier spectral method with a
+linear stabilization `S = 2` (Chen & Shen 1998; Zhu, Chen, Shen & Tikare 1999),
+
+    ĉ^{n+1} = (ĉ^n (1 + Δt S k²) − Δt k² F[f'(c^n)]) / (1 + Δt S k² + Δt κ k⁴),
+
+of the steps `0.01/ω_m` at first (the linear stage resolved) growing by 2 % a step up to
+`1/ω_m`; the mean composition, the mode `k = 0`, is kept exactly. The model takes the
+fraction of the lever rule (0.212 to 0.788: the spinodal), the wavelength `λ_m` as the
+unit of length (`resolution` points of the grid, `κ = |f''| (resolution/2π)²/2` in grid
+units), the age of the pattern (`coarsening`, the time in units of `1/ω_m`) and the
+amplitude of the initial fluctuations; a domain that is not periodic is a window of a
+periodic box larger by a wavelength on each side. The realization is the composition on
+its grid, interpolated between its points: the phase 1 is `c > 0`, its implicit function
+`−c` over the median of the gradient of `c` across the interfaces, as the images of §107;
+the summary gives the length `2π/k*` of the pattern from the peak `k*` of its radially
+averaged structure factor.
+
+Checked (`tests/test_spinodal.py`): on 96³ points of a symmetric mixture at the age 3,
+the peak of the structure factor at `k_m = 2π/12` within a bin (0.505 for 0.524); the free
+energy decreasing at every step and the mean composition kept to `10⁻¹²`; from the age 20
+to the age 160 the length of the pattern doubling, `8^{1/3}`, within 10 % (2.005); the
+fraction of a realization at the age 10 within 0.02 of 0.5 (0.5007), its pattern 1.19
+wavelengths long; a window of an off-critical mixture (0.4); round trips.
+
 ## References
 
 See [specification.md](specification.md#14-references). In addition:
@@ -13403,3 +14126,90 @@ See [specification.md](specification.md#14-references). In addition:
 * Geuzaine, C., Remacle, J.-F. (2009). Gmsh: a 3-D finite element mesh generator with
   built-in pre- and post-processing facilities. *Int. J. Numer. Methods Eng.* 79,
   1309–1331.
+* Cahn, J. W. (1961). On spinodal decomposition. *Acta Metall.* 9, 795–801.
+* Chen, L. Q., Shen, J. (1998). Applications of semi-implicit Fourier-spectral method to
+  phase field equations. *Comput. Phys. Commun.* 108, 147–158.
+* Edelsbrunner, H. (1995). The union of balls and its dual shape. *Discrete Comput.
+  Geom.* 13, 415–440.
+* Edelsbrunner, H., Mücke, E. P. (1994). Three-dimensional alpha shapes. *ACM Trans.
+  Graph.* 13, 43–72.
+* Hart, J. C. (1996). Sphere tracing: a geometric method for the antialiased ray tracing
+  of implicit surfaces. *The Visual Computer* 12, 527–545.
+* Huse, D. A. (1986). Corrections to late-stage behavior in spinodal decomposition:
+  Lifshitz–Slyozov scaling and Monte Carlo simulations. *Phys. Rev. B* 34, 7845–7850.
+* Liao, P.-S., Chen, T.-S., Chung, P.-C. (2001). A fast algorithm for multilevel
+  thresholding. *J. Inf. Sci. Eng.* 17, 713–727.
+* Lifshitz, I. M., Slyozov, V. V. (1961). The kinetics of precipitation from
+  supersaturated solid solutions. *J. Phys. Chem. Solids* 19, 35–50.
+* Otsu, N. (1979). A threshold selection method from gray-level histograms. *IEEE Trans.
+  Syst. Man Cybern.* 9, 62–66.
+* Roache, P. J. (1994). Perspective: a method for uniform reporting of grid refinement
+  studies. *J. Fluids Eng.* 116, 405–413.
+* Serra, J. (1982). *Image Analysis and Mathematical Morphology*. Academic Press.
+* Van Oosterom, A., Strackee, J. (1983). The solid angle of a plane triangle. *IEEE Trans.
+  Biomed. Eng.* 30, 125–126.
+* Zhu, J., Chen, L.-Q., Shen, J., Tikare, V. (1999). Coarsening kinetics from a
+  variable-mobility Cahn–Hilliard equation: application of a semi-implicit Fourier
+  spectral method. *Phys. Rev. E* 60, 3564–3572.
+* Bendsøe, M. P., Sigmund, O. (1999). Material interpolation schemes in topology
+  optimization. *Archive of Applied Mechanics* 69, 635–654.
+* Bruns, T. E., Tortorelli, D. A. (2001). Topology optimization of non-linear elastic
+  structures and compliant mechanisms. *Computer Methods in Applied Mechanics and
+  Engineering* 190, 3443–3459.
+* Geiss, M. J., Boddeti, N., Weeger, O., Maute, K., Dunn, M. L. (2019). Combined
+  level-set-XFEM-density topology optimization of four-dimensional printed structures
+  undergoing large deformation. *Journal of Mechanical Design* 141, 051405.
+* Hamel, C. M., Roach, D. J., Long, K. N., Demoly, F., Dunn, M. L., Qi, H. J. (2019).
+  Machine-learning based design of active composite structures for 4D printing. *Smart
+  Materials and Structures* 28, 065005.
+* Hosea, M. E., Shampine, L. F. (1996). Analysis and implementation of TR-BDF2. *Applied
+  Numerical Mathematics* 20, 21–37.
+* Irons, B. M., Tuck, R. C. (1969). A version of the Aitken accelerator for computer
+  iteration. *International Journal for Numerical Methods in Engineering* 1, 275–277.
+* Küttler, U., Wall, W. A. (2008). Fixed-point fluid–structure interaction solvers with
+  dynamic relaxation. *Computational Mechanics* 43, 61–72.
+* Larché, F. C., Cahn, J. W. (1985). The interactions of composition and stress in
+  crystalline solids. *Acta Metallurgica* 33, 331–357.
+* Mao, Y., Yu, K., Isakov, M. S., Wu, J., Dunn, M. L., Qi, H. J. (2015). Sequential
+  self-folding structures by 3D printed digital shape memory polymers. *Scientific Reports*
+  5, 13616.
+* Maute, K., Tkachuk, A., Wu, J., Qi, H. J., Ding, Z., Dunn, M. L. (2015). Level set
+  topology optimization of printed active composites. *Journal of Mechanical Design* 137,
+  111402.
+* Scharfetter, D. L., Gummel, H. K. (1969). Large-signal analysis of a silicon Read
+  diode oscillator. *IEEE Transactions on Electron Devices* 16, 64–77.
+* Sigmund, O., Torquato, S. (1997). Design of materials with extreme thermal expansion
+  using a three-phase topology optimization method. *Journal of the Mechanics and Physics
+  of Solids* 45, 1037–1067.
+* Sofronis, P., McMeeking, R. M. (1989). Numerical analysis of hydrogen transport near a
+  blunting crack tip. *Journal of the Mechanics and Physics of Solids* 37, 317–350.
+* Tibbits, S. (2014). 4D printing: multi-material shape change. *Architectural Design* 84,
+  116–121.
+* Wang, F., Lazarov, B. S., Sigmund, O. (2011). On projection methods, convergence and
+  robust formulations in topology optimization. *Structural and Multidisciplinary
+  Optimization* 43, 767–784.
+* Blacklock, M., Bale, H., Begley, M. R., Cox, B. N. (2012). Generating virtual textile
+  composite specimens using statistical data from micro-computed tomography: 1D tow
+  representations for the Binary Model. *J. Mech. Phys. Solids* 60, 451–470.
+* Boussu, F., Cristian, I., Nauman, S. (2015). General definition of 3D warp interlock
+  fabric architecture. *Compos. Part B* 81, 171–188.
+* Christensen, R. M. (1990). A critical evaluation for a class of micro-mechanics models.
+  *J. Mech. Phys. Solids* 38, 379–404.
+* Christensen, R. M., Lo, K. H. (1979). Solutions for effective shear properties in three
+  phase sphere and cylinder models. *J. Mech. Phys. Solids* 27, 315–330.
+* Gommer, F., Endruweit, A., Long, A. C. (2016). Quantification of micro-scale variability
+  in fibre bundles. *Compos. Part A* 87, 131–137.
+* Hashin, Z. (1965). On elastic behaviour of fibre reinforced materials of arbitrary
+  transverse phase geometry. *J. Mech. Phys. Solids* 13, 119–134.
+* Hashin, Z. (1979). Analysis of properties of fiber composites with anisotropic
+  constituents. *J. Appl. Mech.* 46, 543–550.
+* Hashin, Z., Rosen, B. W. (1964). The elastic moduli of fiber-reinforced materials.
+  *J. Appl. Mech.* 31, 223–232.
+* Hill, R. (1964). Theory of mechanical properties of fibre-strengthened materials: I.
+  Elastic behaviour. *J. Mech. Phys. Solids* 12, 199–212.
+* Vanaerschot, A., Cox, B. N., Lomov, S. V., Vandepitte, D. (2013). Stochastic framework for
+  quantifying the geometrical variability of laminated textile composites using
+  micro-computed tomography. *Compos. Part A* 44, 122–131.
+* Vanaerschot, A., Cox, B. N., Lomov, S. V., Vandepitte, D. (2014). Simulation of the
+  cross-correlated positions of in-plane tow centroids in textile composites based on
+  experimental data. *Compos. Struct.* 116, 75–83.

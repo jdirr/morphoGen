@@ -4,7 +4,7 @@ A model holds the parameters of a random set or of a deterministic architecture,
 closed-form characteristics of the set when they exist (`model.theory()`: volume
 fraction, specific surface, covariance, integral range...). `model.generate(domain,
 seed)` draws one realization of it in a box, periodic or not; the same seed gives the
-same realization. morphoGen has 43 models, listed below by family, and takes the shapes of
+same realization. morphoGen has 45 models, listed below by family, and takes the shapes of
 [Microgen](https://github.com/3MAH/microgen) (3MAH) through the model `microgen`
 ([below](#shapes-of-microgen)): `morphogen models`
 lists them, `morphogen models <type>` gives the parameters of one, and the
@@ -64,6 +64,7 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | `dead_leaves` | Dead leaves of spheres or spheroids: mosaics of non-convex grains, families of leaves of their own sizes, finite coverage over a background, with their exact covariances (Jeulin 1997) |
 | `transparent_dead_leaves` | Excursions of the random function of transparent leaves (Jeulin 1997), with its exact covariance |
 | `reconstruction` | Stochastic reconstruction (Yeong & Torquato 1998): a lattice annealed to the two-point probability and lineal-path function of a Debye medium, a model or an image |
+| `image` | The microstructure of an image — a tomography, a stack of sections, a section — segmented into its phases (Otsu's thresholds, or its own phases) and described by implicit functions at any point (the iso-surfaces of its interpolated grey levels), in windows at its origin or drawn at random for each realization; a tomography of a particulate composite comes with morphoGen ([theory notes](theory.md) §107) |
 
 ### Lattices, foams and TPMS
 
@@ -89,6 +90,7 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | `aggregation` | Diffusion-limited, Eden and ballistic aggregates: fractal clusters and deposits |
 | `tile_assembly` | Compatible assemblies of building blocks: polarized blocks (combinatorial metamaterials), pipe networks |
 | `branching` | Vascular trees, roots and corals grown by space colonization, radii by Murray's law |
+| `spinodal` | Spinodal decomposition by the Cahn–Hilliard equation (spectral, semi-implicit): bicontinuous or droplet patterns of two phases at a fraction of the lever rule and an age of their coarsening (as `t^(1/3)`), the wavelength of the early decomposition as the unit of length (§113) |
 
 ### Bio-inspired structures
 

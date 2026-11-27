@@ -20,6 +20,70 @@ Each model knows its closed-form characteristics when they exist: volume fractio
 specific surface, covariance, integral range, variance exponent, cell statistics. The
 formulas and their sources are in the [theory notes](theory.md).
 
+## Measures of the implicit geometry
+
+A realization is described exactly, and so are its phases at any point of space: the
+measures of `morphogen.morphology` ask the realization itself, not a voxel image of it, so
+that their only errors are those of their sampling (which they give) and the fluctuation
+of the realization — never the bias of a grid ([theory notes](theory.md) §104, §105):
+
+* **Probes**: points (the fraction), pairs of points (the covariance, along a direction or
+  over all directions), segments (the Choquet capacity and the linear contact
+  distribution, by marching along them without ever crossing an interface), balls (the
+  capacity and the spherical contact distribution, from the distance to the phase), and
+  lines (the chords of each phase and the specific surface by Crofton's formula), with
+  the standard deviations of their estimators.
+* **Exact Minkowski functionals** of the unions of spheres (the Boolean models, the
+  packings): the volume, the surface, the integral of mean curvature and the Euler
+  characteristic of the union, on the torus of a periodic box, from the power diagram of
+  the spheres and its dual complex; and those of the sections of the union by a plane,
+  unions of discs (area, perimeter, Euler characteristic) — the densities that Miles'
+  formulae and the stereological identities `L_A = (π/4) S_V`, `χ_A = M_V / 2π` give.
+* **Operations**: the dilation of a union of spheres and fibres by a ball, exactly; the
+  measures of a realization beside the closed forms of its model (`compare_with_theory`).
+
+```python
+from morphogen import morphology as mm
+
+micro = model.generate(mg.Domain.cube(16.0, periodic=True), seed=1)
+print(mm.minkowski_functionals(micro).densities())  # V_V, S_V, M_V, χ_V of the union
+print(model.theory()["euler_density"])               # Miles' formula
+print(mm.capacity(micro, "segment", [0.0, 1.0, 2.0]).values)  # T(l), exact probes
+print(mm.compare_with_theory(micro).table())
+```
+
+The [tutorial of mathematical morphology](tutorial_morphology.md) follows the theory step
+by step with these measures: the Choquet capacity and Matheron's tests of a Boolean model,
+the morphological operations, the Minkowski functionals, stereology.
+
+## The model of an image
+
+An image — a volume of voxels, a stack of sections, or a single section — is turned into
+its phases by Otsu's thresholds (one or several, after a smoothing of its noise), its
+particles split and measured with the ellipsoids of their moments, and the scores of a
+segmentation against a reference given (`morphology.segmentation`). Its morphological
+model is then identified among candidates — Boolean spheres (of one radius or of a
+lognormal law of radii), hard spheres, a Gaussian excursion, Poisson fibres, a mosaic of
+Voronoi cells — each fitted to the fraction and the specific surface of the image by its
+closed forms, simulated on voxels of the size of the image, calibrated, and ranked by
+how well it reproduces the shape of the covariance and the contact distributions of the
+image (`morphology.identification`, §106): from a volume, or from one section
+(stereology). The image itself is also a microstructure of morphoGen, the model `image`:
+its phases described by implicit functions at any point (the iso-surfaces of its
+interpolated grey levels), in windows at the origin or drawn at random for the size of its
+representative volume, ready for the probes, the meshes and the solvers (§107).
+
+```python
+from morphogen.models.image import ImageModel
+from morphogen.morphology import identification, segmentation
+
+grey_image = ImageModel().image()                      # a tomography that comes with morphoGen
+phases = segmentation.segment(grey_image, sigma=1.0)   # Otsu, after a smoothing
+found = identification.identify(phases)                # candidates fitted and ranked
+print(found.table())
+larger = found.best.model.generate(mg.Domain.cube(50.0), seed=0)
+```
+
 ## Measures of images
 
 * **Geometry**: volume fraction, specific surface (Cauchy–Crofton, 13 directions),

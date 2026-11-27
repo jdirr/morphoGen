@@ -39,9 +39,11 @@ package, a command line and a graphical interface in the web browser; free softw
 ::::{container} card
 **[Generate](models.md)**
 
-43 models of random and architected media: Boolean models, packings, fibres,
-tessellations, Gaussian fields, dead leaves, automata and growths, lattices, foams,
-triply periodic surfaces, bio-inspired structures; periodic or not, combined, nested; and the shapes of Microgen (3MAH).
+45 models of random and architected media: Boolean models, packings, fibres,
+tessellations, Gaussian fields, dead leaves, automata and growths, spinodal decomposition,
+lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures, images
+segmented into their phases; periodic or not, combined, nested; and the shapes of Microgen
+(3MAH).
 ::::
 
 ::::{container} card
@@ -56,15 +58,17 @@ from voxels.
 **[Measure](measures.md)**
 
 Fractions, specific surface, covariance, chords, tortuosity, percolation thresholds,
-stereology, textures..., each beside the closed form of its model when there is one.
+stereology, textures..., each beside the closed form of its model when there is one; on
+the implicit geometry itself, exactly; the model of an image identified.
 ::::
 
 ::::{container} card
 **[Compute properties](properties.md)**
 
 Elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their weak
-and strong couplings, harmonic regimes, waves, flow and sound: an FFT solver on voxels
-(CPU or GPU), finite elements on conforming meshes, extended finite elements.
+and strong couplings, thermo-chemo-elastic fields in time, harmonic regimes, waves, flow
+and sound: an FFT solver on voxels (CPU or GPU), finite elements on conforming meshes,
+extended finite elements.
 ::::
 
 ::::{container} card
@@ -92,9 +96,10 @@ volume, the integral range, the volume and the number of realizations for a prec
 ::::{container} card
 **[Design](design.md)**
 
-Periodic cells optimized for their homogenized properties, compatible assemblies of
-building blocks, lattices with defects and their rigidity, holes shaped on their exact
-geometry, patterns after buckling.
+Periodic cells optimized for their homogenized properties, active structures designed for
+the shapes they take along a stimulus, compatible assemblies of building blocks, lattices
+with defects and their rigidity, holes shaped on their exact geometry, patterns after
+buckling.
 ::::
 
 :::::

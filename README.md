@@ -30,21 +30,22 @@ A study follows one chain, and each step is a part of the package:
 
 | Step | What morphoGen does |
 |---|---|
-| **Generate** | 43 models: Boolean models, packings, fibres, tessellations, Gaussian fields, dead leaves, automata and growths, lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures; monodisperse or polydisperse; periodic or not, combined, nested; and the shapes of Microgen (3MAH) |
+| **Generate** | 45 models: Boolean models, packings, fibres, tessellations, Gaussian fields, dead leaves, automata and growths, spinodal decomposition, lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures, images segmented into their phases; monodisperse or polydisperse; periodic or not, combined, nested; and the shapes of Microgen (3MAH) |
 | **Describe** | an exact description of each realization (centres, axes, cells) and an implicit function for each phase, from which voxel images, surfaces and conforming meshes are cut at any resolution |
-| **Measure** | fractions, specific surface, covariance, chords, tortuosity, percolation thresholds, stereology..., each beside the closed form of its model when there is one |
-| **Compute** | elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their couplings, harmonic regimes, waves, flow and sound: finite elements on conforming meshes (by default), an FFT solver on voxels (CPU or GPU), extended finite elements |
+| **Measure** | fractions, specific surface, covariance, chords, tortuosity, percolation thresholds, stereology..., each beside the closed form of its model when there is one; on the implicit geometry itself, exactly: the probes of mathematical morphology and the Minkowski functionals of unions of spheres; the model of an image or of a section identified among candidates |
+| **Compute** | elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their couplings, harmonic regimes, waves, flow and sound, thermo-chemo-elastic fields in time: finite elements on conforming meshes (by default), an FFT solver on voxels (CPU or GPU), extended finite elements |
 | **Load** | plasticity, crystal plasticity, viscoelasticity, hyperelasticity, damage and MFront laws along loading paths, in small or finite strains; macroscopic laws identified, reduced or learned from the responses |
 | **Break** | the phase field of fracture, cohesive zones, cracks of any front, ductile growth; contact and friction; high-cycle fatigue |
 | **Size the RVE** | the statistics of Kanit et al. (2003): the variance against the volume, the integral range, the volume and the number of realizations for a precision |
-| **Design** | topology optimization of periodic cells, compatible assemblies of building blocks, rigidity of lattices, isogeometric shape optimization |
+| **Design** | topology optimization of periodic cells, the inverse design of active structures (4D: their shapes along a stimulus), compatible assemblies of building blocks, rigidity of lattices, isogeometric shape optimization |
 
 Two application modules build on this chain: metal sheets architectured by localized
 laser treatment (`morphogen.laser`) and explicit dynamics with OpenRadioss
 (`morphogen.dynamics`). Meshes, images, behaviours and results go to Abaqus, CalculiX,
 AMITEX_FFTP, MFront, Z-set, Gmsh, Neper, DAMASK, FEniCSx and ParaView; particles to the
 codes of discrete elements (LMGC90, LAMMPS, YADE), scenes to Blender, voxel images to JAX
-and PyTorch, shapes to and from Microgen (3MAH).
+and PyTorch, shapes to and from Microgen (3MAH); the simulations to VIMSEO, for the
+demonstration of their credibility (verification, validation, uncertainties).
 
 ## Installation
 

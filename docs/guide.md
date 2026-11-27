@@ -10,7 +10,7 @@ questions.
 
 | Step | Page | What it covers |
 |---|---|---|
-| Generate | [Models of microstructures](models.md) | the 43 models by family and the shapes of Microgen, their anisotropy, their sizes (monodisperse or polydisperse), automata and growth, nested and bio-inspired models |
+| Generate | [Models of microstructures](models.md) | the 45 models by family and the shapes of Microgen, their anisotropy, their sizes (monodisperse or polydisperse), automata and growth, nested and bio-inspired models |
 | Describe | [Geometry, voxels and meshes](geometry.md) | exact descriptions, implicit functions, voxel images, conforming meshes, symmetric cells |
 | Measure | [Measures and theory](measures.md) | the closed forms of the models, the measures of images, percolation, crystallographic textures |
 | Compute | [Apparent properties](properties.md) | the solvers, elasticity and conduction, polycrystals, mixed loadings, the other physics, frames of beams, waves |

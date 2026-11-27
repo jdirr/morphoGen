@@ -119,21 +119,28 @@ def test_image_model_implicit_functions_and_windows(tmp_path):
 
 
 def test_identification_of_volumes():
+    """Each model found first among the candidates, from an image of one of its
+    realizations: the Boolean spheres, the hard spheres and the Gaussian excursion with a
+    score less than half that of the next, the Voronoi mosaic first too."""
     cases = {
-        "boolean_spheres": mg.models.BooleanSpheres(radius=1.0, volume_fraction=0.3),
-        "hardcore_spheres": mg.models.HardcoreSpheres(radius=1.0, volume_fraction=0.25),
-        "gaussian_excursion": mg.models.GaussianExcursion(
-            correlation_length=0.8, volume_fraction=0.35
+        "boolean_spheres": (mg.models.BooleanSpheres(radius=1.0, volume_fraction=0.3), 0.5),
+        "hardcore_spheres": (mg.models.HardcoreSpheres(radius=1.0, volume_fraction=0.25), 0.5),
+        "gaussian_excursion": (
+            mg.models.GaussianExcursion(correlation_length=0.8, volume_fraction=0.35),
+            0.5,
         ),
+        "voronoi": (mg.models.Voronoi(n_cells=150, phase_fractions=(0.6, 0.4)), 1.0),
     }
-    for name, model in cases.items():
+    found = {}
+    for name, (model, ratio) in cases.items():
         image = model.generate(mg.Domain.cube(12.0), seed=11).voxelize(64)
         result = identify(image)
         assert result.best.name == name, result.table()
-        second = result.candidates[1].total
-        assert result.best.total < 0.5 * second, result.table()
-    best = result.best.model
-    assert best.correlation_length == pytest.approx(0.8, rel=0.05)
+        assert result.best.total < ratio * result.candidates[1].total, result.table()
+        found[name] = result.best.model
+    assert found["boolean_spheres"].radius.mean() == pytest.approx(1.0, rel=0.05)
+    assert found["hardcore_spheres"].radius.mean() == pytest.approx(1.0, rel=0.05)
+    assert found["gaussian_excursion"].correlation_length == pytest.approx(0.8, rel=0.05)
 
 
 def test_identification_of_a_section():
