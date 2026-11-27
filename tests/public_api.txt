@@ -3052,6 +3052,8 @@ morphogen.models: ScaleRichNetwork
 morphogen.models: ScaleRichPlates
 morphogen.models: ScaleRichStructure
 morphogen.models: SeedCalibration
+morphogen.models: Spinodal
+morphogen.models: SpinodalStructure
 morphogen.models: StrutLattice
 morphogen.models: TPMSStructure
 morphogen.models: Tessellation
@@ -3771,6 +3773,20 @@ morphogen.models.scale_rich_3d.grow_plates(lower, upper, n_plates, thickness, en
 morphogen.models.scale_rich_3d.isotropic_directions(t, points, gen)
 morphogen.models.scale_rich_3d.mean_inverse_distance(a, b, c)
 morphogen.models.scale_rich_3d.prism(polygon, axes, axis, z0, z1)
+morphogen.models.spinodal.SPINODAL
+morphogen.models.spinodal.STABILIZATION
+morphogen.models.spinodal.Spinodal(volume_fraction=0.5, wavelength=1.0, coarsening=10.0, resolution=12, noise=0.05)
+morphogen.models.spinodal.Spinodal.generate(self, domain, seed=None)
+morphogen.models.spinodal.Spinodal.kappa
+morphogen.models.spinodal.Spinodal.mean_composition
+morphogen.models.spinodal.Spinodal.theory(self, domain=None)
+morphogen.models.spinodal.SpinodalStructure(domain, image, fields, corner, *, sigma=0.0, **kwargs)
+morphogen.models.spinodal.SpinodalStructure.phase_names
+morphogen.models.spinodal.SpinodalStructure.summary(self)
+morphogen.models.spinodal.cahn_hilliard(c, kappa, time, *, steps=None, energy=False)
+morphogen.models.spinodal.free_energy(c, kappa)
+morphogen.models.spinodal.structure_peak(c)
+morphogen.models.spinodal.wave_numbers(shape)
 morphogen.models.tessellation.Laguerre(n_cells=None, intensity=None, phase_fractions=None, crystal_orientations=False, boundary_thickness=0.0, boundary_phase=None, radius=Constant(value=1.0), germs='poisson', packing_fraction=0.3, *, texture=None, anisotropy=None)
 morphogen.models.tessellation.Laguerre.generate(self, domain, seed=None)
 morphogen.models.tessellation.Laguerre.theory(self, domain=None)

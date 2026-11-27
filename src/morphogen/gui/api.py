@@ -200,7 +200,7 @@ MODEL_FAMILIES = {
     "Bio-inspired": ("nacre", "bouligand", "osteons"),
     "Growth and patterns": (
         "cellular_automaton", "activator_inhibitor", "reaction_diffusion", "nucleation_growth",
-        "aggregation", "branching",
+        "aggregation", "branching", "spinodal",
     ),
     "Assemblies and combinations": ("tile_assembly", "combination", "coating"),
 }  # fmt: skip

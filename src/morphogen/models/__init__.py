@@ -62,6 +62,8 @@
                              or power-ellipse sections along crimped paths, 2D weaves
                              (plain, twill, satin, basket) and 3D weaves (orthogonal,
                              layer-to-layer, through-thickness angle interlock)
+``spinodal``                 Spinodal decomposition by the Cahn-Hilliard equation, at an age of
+                             the coarsening of its pattern
 ``microgen``                 A shape of Microgen (3MAH): TPMS sheets and skeletons, spinodoids,
                              primitives, by their fields (needs the package microgen)
 ===========================  ===============================================================
@@ -132,6 +134,7 @@ from morphogen.models.osteons import Osteons, OsteonStructure
 from morphogen.models.reconstruction import Reconstruction
 from morphogen.models.scale_rich import ScaleRichNetwork, ScaleRichStructure
 from morphogen.models.scale_rich_3d import ScaleRichBeams, ScaleRichPlates
+from morphogen.models.spinodal import Spinodal, SpinodalStructure
 from morphogen.models.tessellation import Laguerre, Tessellation, Voronoi
 from morphogen.models.textile import TextileStructure, WovenTextile
 from morphogen.models.tiling_field import TilingField
@@ -206,6 +209,8 @@ __all__ = [
     "ScaleRichPlates",
     "ScaleRichStructure",
     "SeedCalibration",
+    "Spinodal",
+    "SpinodalStructure",
     "StrutLattice",
     "TPMSStructure",
     "Tessellation",

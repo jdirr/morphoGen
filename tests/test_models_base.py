@@ -164,6 +164,7 @@ CONFIGS = {
     "ebsd": ({"file": "ebsd_map.ctf", "window": "random"}, False),
     # (the volume that comes with morphoGen)
     "image": ({"file": "example_image.npz", "window": "random"}, False),
+    "spinodal": ({"volume_fraction": 0.4, "wavelength": 2.0, "coarsening": 5.0}, True),
     "scale_rich_network": ({"n_ligaments": 80, "decay": 0.5, "volume_fraction": 0.3}, False),
     "woven_textile": (
         {
