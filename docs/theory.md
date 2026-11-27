@@ -22,7 +22,7 @@ them by these numbers (§75); by theme:
 | Behaviours along loading paths | [§31](#31-nonlinear-behaviours-along-loading-paths-the-periodic-element) Nonlinear behaviours along loading paths: the periodic element, [§32](#32-crystal-plasticity-homogenizationcrystal) Crystal plasticity, [§33](#33-finite-strains-homogenizationfinite) Finite strains, [§34](#34-loading-paths-on-voxel-images-the-nonlinear-fft-solver-homogenizationfft_nonlinear) Loading paths on voxel images: the nonlinear FFT solver, [§36](#36-mfront-behaviours-homogenizationmfront) MFront behaviours, [§37](#37-mfront-sources-of-morphogens-behaviours-iomfront) MFront sources of morphoGen's behaviours, [§43](#43-the-nonuniform-transformation-field-analysis-homogenizationntfa) The nonuniform transformation field analysis, [§49](#49-porous-plasticity-gurson-tvergaard-needleman-rousselier-compaction-homogenizationporous) Porous plasticity: Gurson-Tvergaard-Needleman, Rousselier, compaction, [§50](#50-micromorphic-continua-the-microfoam-model-and-micromorphic-damage-micromorphic) Micromorphic continua: the microfoam model and micromorphic damage, [§53](#53-identification-of-a-behaviour-homogenizationidentification) Identification of a behaviour, [§54](#54-hills-anisotropic-plasticity-homogenizationbehaviours) Hill's anisotropic plasticity, [§57](#57-behaviours-learned-from-data-learning) Behaviours learned from data, [§61](#61-viscoelasticity-hyperelasticity-and-damage-homogenizationlaws) Viscoelasticity, hyperelasticity and damage, [§83](#83-damage-coupled-to-plasticity-of-concrete-and-the-unilateral-effect-homogenizationlaws) Damage: coupled to plasticity, of concrete, and the unilateral effect, [§86](#86-twinning-of-crystals-and-hexagonal-lattices-homogenizationcrystal) Twinning of crystals, and hexagonal lattices, [§89](#89-cracks-that-close-twins-that-shear-back-and-turn-the-lattice-homogenizationcrystal) Cracks that close, twins that shear back and turn the lattice |
 | Fracture, contact and fatigue | [§46](#46-cohesive-zone-elements-fracturecohesive) Cohesive zone elements, [§47](#47-cracks-conforming-meshes-and-xfem-fracturelefm) Cracks: conforming meshes and XFEM, [§48](#48-mixed-mode-cracks-in-3d-in-small-and-finite-strains-fracturemixed) Mixed-mode cracks in 3D, in small and finite strains, [§51](#51-cracks-in-inelastic-solids-in-small-and-finite-strains-fracturebulk) Cracks in inelastic solids, in small and finite strains, [§64](#64-phase-field-of-brittle-fracture-fracturephasefield) Phase field of brittle fracture, [§73](#73-cracks-of-any-surface-and-front-fracturesurface) Cracks of any surface and front, [§81](#81-friction-of-interfaces-and-of-the-lips-of-cracks-fracturecohesive-fracturemixed) Friction of interfaces and of the lips of cracks, [§82](#82-contact-of-surfaces-self-contact-and-friction-contact) Contact of surfaces, self-contact and friction, [§84](#84-interfaces-that-debond-in-periodic-cells-fractureperiodic) Interfaces that debond in periodic cells, [§85](#85-multiaxial-high-cycle-fatigue-of-the-points-of-a-cell-homogenizationfatigue) Multiaxial high-cycle fatigue of the points of a cell, [§87](#87-cleavage-of-crystals-cracks-through-the-grains-and-between-them-homogenizationcrystal-fractureperiodic) Cleavage of crystals; cracks through the grains and between them, [§88](#88-cleavage-by-the-local-approach-the-weibull-stress-of-beremin-homogenizationberemin) Cleavage by the local approach: the Weibull stress of Beremin, [§90](#90-cleavage-that-the-slip-nucleates-homogenizationcrystal) Cleavage that the slip nucleates, [§91](#91-cleavage-planes-regularized-by-their-microdamage-homogenizationcrystal) Cleavage planes regularized by their microdamage |
 | Stability of periodic architectures | [§45](#45-post-bifurcated-patterns-by-group-theory-symmetry-homogenizationframes) Post-bifurcated patterns by group theory |
-| Other codes and libraries | [§99](#99-arrays-of-other-libraries-and-phase-fields-for-spectral-solvers-interoparrays) Arrays of other libraries and phase fields for spectral solvers, [§100](#100-the-particles-of-a-phase-for-the-discrete-element-method-iodem-modelsmesh_particles) The particles of a phase for the discrete element method, [§101](#101-microgen-modelsmicrogen-interopmicrogen) Microgen, [§102](#102-rigid-bodies-of-blender-interopblender) Rigid bodies of Blender, [§103](#103-alloys-from-their-phases-to-their-microstructures-interopalloys) Alloys: from their phases to their microstructures, [§112](#112-the-credibility-of-the-simulations-with-vimseo-interopvimseo) The credibility of the simulations with VIMSEO |
+| Other codes and libraries | [§99](#99-arrays-of-other-libraries-and-phase-fields-for-spectral-solvers-interoparrays) Arrays of other libraries and phase fields for spectral solvers, [§100](#100-the-particles-of-a-phase-for-the-discrete-element-method-iodem-modelsmesh_particles) The particles of a phase for the discrete element method, [§101](#101-microgen-modelsmicrogen-interopmicrogen) Microgen, [§102](#102-rigid-bodies-of-blender-interopblender) Rigid bodies of Blender, [§103](#103-alloys-from-their-phases-to-their-microstructures-interopalloys) Alloys: from their phases to their microstructures, [§111](#111-code_aster-and-openfoam-the-meshes-the-conditions-and-the-cases-written-iocode_aster-ioopenfoam) Code_Aster and OpenFOAM: the meshes, the conditions and the cases written, [§112](#112-the-credibility-of-the-simulations-with-vimseo-interopvimseo) The credibility of the simulations with VIMSEO |
 | Laser-architectured sheets | [§58](#58-architectured-sheets-by-localized-laser-treatment-laser) Architectured sheets by localized laser treatment, [§74](#74-a-treated-sheet-in-its-volume-lasersolid) A treated sheet in its volume |
 
 ## 1. Boolean models
@@ -13133,6 +13133,152 @@ epoxy at 0.6: `E_L` = 139, `E_T` = 8.2, `G_LT` = 3.9 GPa. In configurations, a m
 `{unidirectional: {fibre, matrix, fibre_fraction, transverse_shear}}`; on the model,
 `WovenTextile.tow_material(fibre, matrix)` at its `fibre_fraction_in_yarns`.
 
+## 111. Code_Aster and OpenFOAM: the meshes, the conditions and the cases written (`io.code_aster`, `io.openfoam`)
+
+**Code_Aster's mesh.** The native format of Code_Aster (`LIRE_MAILLAGE(FORMAT='ASTER')`,
+read by its routine `lrmast`) is made of blocks, each opened by a keyword at the start of
+a line and closed by `FINSF`, the file by `FIN`; words of at most eight characters (the
+names of the nodes and elements: `N` or `M` and at most seven digits), group names of at
+most 24 after `NOM=`, lines read up to their 80th character, comments after `%`.
+`write_aster_mesh` writes `COOR_3D`, the tetrahedra (`TETRA4`, `TETRA10`) and the
+triangles of the faces of the box (`TRIA3`, `TRIA6`) in the order of their nodes that
+Code_Aster's format, VTK and morphoGen share (the corners, then the middles of the edges
+1-2, 2-3, 3-1, 1-4, 2-4, 3-4), and the lists of an element or a group continue on the
+next lines. MED numbers
+the corners of a tetrahedron with the second and the third swapped (Code_Aster permutes
+them back as it reads them, a permutation that is its own inverse): its tetrahedra are
+written in that order, its groups as families, those of the elements numbered
+$-1, -2, \dots$ and those of the nodes $1, 2, \dots$, one per set of groups an item
+belongs to.
+
+**Periodic conditions without redundant equations.** In a periodic element the
+displacement is $u = E\,x + w$, $w$ periodic. A node $x$ of the upper faces and its image
+$x - s \odot L$ on the lower faces, $s_d = 1$ along each axis whose upper face holds the
+node and 0 along the others ($L$ the edges of the box), obey
+$u(x) - u(x - s \odot L) = E\,(s \odot L)$. The nodes of the same $s$ form a class: three
+faces, three edges and a corner for the seven $s \ne 0$ of a mesh of the box (whole
+periodic cells: the translations of $-1$, 0 or 1 period along each axis that tie the nodes
+of their boundary to the first of their translates, `mesh.periodic_links`). Each class is the group `PS_<s>` and its images the group `PM_<s>`;
+one `LIAISON_GROUP` per class and component pairs each node of `GROUP_NO_1` translated by
+`TRAN` $= -s \odot L$ with the nearest node of `GROUP_NO_2` (Code_Aster's routine `pacoap`:
+the vis-à-vis after the transformation, the lists of the same length, no node of the second
+used twice) and imposes `COEF_MULT_1` $u_i(x_1)$ + `COEF_MULT_2` $u_i(x_2)$ = `COEF_IMPO`,
+here $u_i(x_1) - u_i(x_2) = (E\,(s \odot L))_i$, the same for the whole class. A node of the
+upper faces is in one class only and its image lies on no upper face, so that no image is
+tied to another node: the $3 \sum_s |PS_s|$ equations are independent, at the edges and
+corners too, where the pairs of opposite faces taken one by one would tie the four
+nodes of an edge by four equations of rank three; the node `ORIGIN`, tied to no other, is
+fixed (the rigid translations). The temperature: $T(x_1) - T(x_2) = G \cdot (s \odot L)$,
+and `ORIGIN` at 0. The jump of the displacement imposed keeps the stresses `SIEF_ELGA`
+those of the total strain, $\sigma = C\,\varepsilon(u)$, whose means are the apparent
+stresses (`CALC_MATE_HOMO` solves for the fluctuation under a pre-strain, `PRE_EPSI`, and
+takes the energies of its correctors instead). Kinematic conditions:
+$u = E\,x$ ($T = G \cdot x$) at the nodes of the boundary, by `FORMULE` of `X`, `Y`, `Z`.
+`CALC_MATE_HOMO` (Code_Aster's own homogenization) imposes symmetric and antisymmetric
+conditions on the faces, which are the periodic ones for cells symmetric about their three
+mid-planes only; the conditions above hold for any cell.
+
+**The loadings and their averages.** The six unit strains of Voigt's order (11, 22, 33,
+23, 31, 12), of engineering shears ($E_{23} = E_{32} = \tfrac12$ for the fourth), and the
+three unit gradients; `MECA_STATIQUE`, `THER_LINEAIRE` (stationary, at the one instant of
+its required `INCREMENT`). `POST_ELEM`, `INTEGRALE` over the 3D elements of the model
+(`TOUT='OUI'`, `TYPE_MAILLE='3D'`) gives `VOL` and $\int \sigma_{ij}\,dV$
+(`INTE_SIXX`...; `peecal`: the columns `NOM_CHAM`, `NUME_ORDRE`, `INST`, `VOL`, the place,
+`INTE_<c>`, `MOYE_<c>`), printed by `IMPR_TABLE` (`FORMAT='TABLEAU'`) a file per loading.
+`read_code_aster` divides the integrals by the volume of the box — the voids, left out of
+the mesh, carry no stress —: the column $k$ of the apparent stiffness is the mean stress of
+the unit strain $k$, and minus the mean flux of the unit gradient $k$ that of the
+conductivity. **Crystals**: `ELAS_ORTH` of the engineering constants of the stiffness in
+the axes of the crystal ($E_L = 1/S_{11}$, $\nu_{LT} = -S_{21}/S_{11}$, $G_{LT} = 1/S_{66}$...,
+$S = C^{-1}$; an error for a stiffness that couples normal and shear components there),
+`THER_ORTH` of a diagonal conductivity, and `AFFE_CARA_ELEM`, `MASSIF`, `ANGL_EULER` of the
+Bunge angles of the grain: Code_Aster turns them (routine `eulnau`) into the matrix
+$R_z(\psi)\,R_x(\theta)\,R_z(\varphi)$ whose columns are its local axes, which for
+$(\psi, \theta, \varphi) = (\varphi_1, \Phi, \varphi_2)$ is $g^T$, $g$ Bunge's matrix
+(crystal $= g$ sample): the local frame is the frame of the crystal. The phases without
+grains: `ANGL_REP` $(0, 0, 0)$, the axes of the sample.
+
+**OpenFOAM's mesh.** A polyMesh is a list of faces; each has an owner and, inside, a
+neighbour; a cell is the set of the faces that it owns or neighbours. The rules
+(`polyMesh`, `primitiveMesh::checkMesh`): the internal faces first, the owner the lower
+cell, sorted by owner and then by neighbour (the upper-triangular order of the matrices of
+OpenFOAM); the order of the points of a face gives its normal by the right-hand rule, from
+the owner to the neighbour, outward on the boundary; the boundary faces patch by patch,
+each patch a contiguous range (`startFace`, `nFaces`). On the voxels, the cells are
+numbered with x varying fastest, so that the neighbour across $+x$, $+y$ or $+z$ is the
+higher cell, and the face at $+a$ of a voxel has the points $(b_0 c_0), (b_1 c_0),
+(b_1 c_1), (b_0 c_1)$ of the two other axes in the order $e_b \times e_c = e_a$. A face
+between a cell and a voxel of another phase is a wall; along a cyclic axis, the face of
+the box of a cell whose voxel across the periodic face is of the phase too is cyclic, a
+wall otherwise. **Cyclic pairs**: OpenFOAM couples the face $k$ of a cyclic patch with the
+face $k$ of its neighbour, the points of the one in the reverse order of the other from the
+same first point once translated (the faces of both patches are sorted by their position
+on the face of the box; those of tetrahedra matched by the centres of their translates, and
+their points turned); `separationVector` is the centre of the patch minus that of its
+neighbour ($-L_x\,e_x$ for `XMIN`; the convention of both lines, `cyclicPolyPatch` of
+OpenCFD and `cyclicTransform` of the Foundation, which read `transform` and
+`separationVector` alike).
+
+**The cases.** The flow: no slip on the walls, $p = \Delta p$ at the inlet and 0 at the
+outlet (kinematic, $p/\rho$), zero gradients of the velocity there, the other faces
+symmetry planes or cyclic. Darcy's law over the whole section, $Q/A = (k/\nu)\,\Delta p/L$,
+gives $k = \nu\,Q\,L / (A\,\Delta p)$ ($Q$ the flow rate through the outlet, `sum(phi)` of
+the function object `surfaceFieldValue`); the Reynolds number is that of the case
+($\nu$, $\Delta p$ and the sizes): small for a creeping flow. The diffusion:
+$T = \Delta T$ at the inlet, 0 at the outlet, no flux through the walls; the mean flux over
+the box is $\langle q \rangle = -D_T\,I/V$ with $I = \int \nabla T\,dV$ over the cells
+(the function objects `grad` and `volFieldValue`, `volIntegrate`), and the effective
+diffusivity $D_\mathrm{eff} = -\langle q \rangle_a\,L / \Delta T = -D_T\,I_a\,L / (V\,\Delta T)$,
+$D_\mathrm{eff}/D_T$ the inverse of the formation factor of the phase. With two-point
+fluxes on the orthogonal mesh of the voxels, the Gauss gradient summed over the cells is
+the sum $\sum_f T_f\,S_f$ over the faces of the boundary, the outlet flux of the scheme:
+the same effective diffusivity. A component of the phase that joins the inlet to no outlet
+(through the cyclic faces too) has no fixed value of $p$ or $T$, a singular block of the
+equations: it is left out (`connected`).
+
+Checked (`tests/test_code_aster.py`, `tests/test_openfoam.py`; `tests/fake_code_aster.py`
+and `tests/fake_openfoam.py` stand in for the programs, with their own readers of the
+files and their own linear elements or finite volumes): the meshes in Code_Aster's format
+read back node for node, element for element and group for group, every line within 80
+characters and every name within eight; the seven classes of a periodic box, every node of
+the upper faces in one, the images tied to no other node, the translations exact; the
+command file run by the stand-in (linear tetrahedra, the pairs of `LIAISON_GROUP` found as
+`pacoap` finds them, Lagrange multipliers) against morphoGen's finite elements on the same
+mesh of two phases, $3 \times 3 \times 3$ cells of six tetrahedra moved by 20 %: the
+stiffness and conductivity within $3.5\cdot10^{-7}$ and $1.4\cdot10^{-7}$ (periodic),
+$2.4\cdot10^{-7}$ and $1.2\cdot10^{-7}$ (kinematic), the tolerance of morphoGen's conjugate
+gradients; cubic crystals and orthotropic conductors in three grains turned by their Bunge
+angles (`ELAS_ORTH`, `THER_ORTH`, `ANGL_EULER` through Code_Aster's `eulnau`, equal to
+$g^T$ within $10^{-12}$) within $3.3\cdot10^{-7}$; a void phase left out within
+$4.6\cdot10^{-7}$; whole periodic cells of a Voronoi tessellation (classes of $-1$ periods)
+within $3.7\cdot10^{-7}$; the homogeneous material of a polycrystal, exactly
+($10^{-6}$), under both conditions. MED (with h5py): the groups read back by meshio as the
+families of the elements and nodes, the tetrahedra in MED's order, of negative volumes in
+VTK's. The polyMesh of voxels (7 × 6 × 5 voxels, 65 % of pores, anisotropic spacings) and
+of tetrahedra, without and with cyclic patches: every cell closed (the sum of the outward
+area vectors of its faces below $10^{-12}$ of a face), of its volume ($10^{-12}$),
+the order and the orientations of the faces, the walls counted, the cyclic faces matched
+point by point; read back; and by VTK's `vtkOpenFOAMReader` (where VTK is installed): the
+same cells, points and patches, the volumes within $10^{-6}$ (VTK's single precision). The
+case of the diffusion run by the stand-in of `laplacianFoam` (its own parsers, two-point
+fluxes, the cyclic faces coupled face by face): straight channels give their fraction,
+0.15, within $10^{-12}$; a random medium of 10 × 8 × 8 voxels at 69 % of pores, the
+effective diffusivity of finite volumes written directly on the voxels within
+$3\cdot10^{-13}$ (0.3389 with symmetry planes, 0.3764 with cyclic faces: the closed pores,
+0.6 % of the box, left out in the first); the flow rate read back to the permeability.
+
+Sources: EDF, *code_aster* 17, its sources (gitlab.com/codeaster/src:
+the catalogues of the commands `LIRE_MAILLAGE`, `AFFE_CHAR_MECA` (`LIAISON_GROUP`,
+`PRE_EPSI`), `AFFE_CHAR_THER`, `THER_LINEAIRE` (`C_INCREMENT`), `POST_ELEM`,
+`IMPR_TABLE`, `AFFE_CARA_ELEM`, `DEFI_MATERIAU`, `CALC_MATE_HOMO`; the routines `lrmast`,
+`stkgrp`, `lirtet`, `stkmai` of the reader of its format, `pacoap`, `calinn` and
+`caliag` of `LIAISON_GROUP`, `eulnau` and `matrot` of the frames, `peecal` of
+`INTEGRALE`; `run_aster/export.py` of the export files); OpenCFD, *OpenFOAM* v2606 and
+the OpenFOAM Foundation, *OpenFOAM* 11 and 12, their sources (`cyclicPolyPatch`,
+`cyclicTransform`, `surfaceFieldValue`, `volFieldValue`, `grad`); H. G. Weller, G.
+Tabor, H. Jasak, C. Fureby, Comput. Phys. 12 (1998) 620 (the finite volumes of
+OpenFOAM); H. Darcy (1856).
+
 ## 112. The credibility of the simulations with VIMSEO (`interop.vimseo`)
 
 VIMSEO (IRT Saint Exupéry; LGPL-3.0; the package `vimseo`, 0.1.7 or later, on Python 3.10
@@ -14213,3 +14359,6 @@ See [specification.md](specification.md#14-references). In addition:
 * Vanaerschot, A., Cox, B. N., Lomov, S. V., Vandepitte, D. (2014). Simulation of the
   cross-correlated positions of in-plane tow centroids in textile composites based on
   experimental data. *Compos. Struct.* 116, 75–83.
+* Weller, H. G., Tabor, G., Jasak, H., Fureby, C. (1998). A tensorial approach to
+  computational continuum mechanics using object-oriented techniques. *Comput. Phys.* 12,
+  620–631.

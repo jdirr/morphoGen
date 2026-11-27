@@ -15,6 +15,190 @@
   `microgen` presented as the shapes of Microgen, which morphoGen calls without copying any
   of it, beside its own 43 models (the README, the user guide, the API reference, the JOSS
   draft).
+* Mathematical morphology on the implicit geometry of the realizations (`morphogen.morphology`,
+  [docs/theory.md](docs/theory.md) §104, §105): the measures ask the realization itself, not a
+  voxel image of it. The four Minkowski functionals of a union of spheres — volume,
+  surface, integral of mean curvature, Euler characteristic — exactly, from the power
+  diagram of the spheres (the pyramids of each cell over its faces cut by its ball, the
+  solid angles of Van Oosterom and Strackee, the circles where two spheres meet in the
+  common faces of their cells) and the dual complex of their regular triangulation (Qhull),
+  on the torus of a periodic box (the balls repeated within a margin checked by the powers
+  of the orthocentres) or in space (`union_of_balls`, `minkowski_functionals`); the three of
+  the plane sections of a union of spheres, unions of discs (`union_of_discs`,
+  `section_functionals`). The probes of any structure through the implicit functions of its
+  phases (`morphology.measures`): points (the fraction), pairs (the covariance along a
+  direction or over all), segments marched by sphere tracing (the Choquet capacity and the
+  linear contact distribution, every length at once), balls through the distance (the
+  capacity and the spherical contact distribution), lines with their crossings located by
+  bisection (the chords of each phase, weighted for those cut by the ends, and the specific
+  surface by Crofton's formula), with the standard deviations of their estimators; the
+  exact dilation of unions of spheres and segments; `compare_with_theory`, the measures of a
+  realization beside the closed forms of its model. Tested (`tests/test_morphology_exact.py`,
+  `tests/test_morphology_probes.py`): one and two balls and discs in closed form (10⁻¹⁰),
+  the topology of rings (χ = 0), shells (χ = 2) and annuli, `dV/dt = S` and `dA/dt = L`
+  along the radii (10⁻⁶), Monte Carlo volumes and areas; eight realizations of Boolean
+  spheres within four standard errors of Miles' formulae for the four densities, the Euler
+  density included (−0.0536 ± 0.0021 for −0.0525), and their sections within the
+  stereological identities `L_A = (π/4) S_V` and `χ_A = M_V / 2π`; rays, crossings and chords
+  of a ball (10⁻⁸), the covariance and capacities of Boolean spheres and of a Gaussian
+  excursion against their closed forms.
+* Models of images (`morphology.segmentation`, `morphology.identification`, the model
+  `image`; §106, §107). Grey-level images and stacks turned into phases by Otsu's
+  thresholds (one or several, by dynamic programming over the histogram), after a Gaussian
+  smoothing; the particles of a phase with the ellipsoids of their moments and the laws of
+  their sizes; the scores of a segmentation (accuracy, precision, recall, intersection over
+  union, Dice). The model of an image identified among candidates — Boolean spheres of one
+  radius or of a lognormal law of radii, hard spheres, a Gaussian excursion, Poisson fibres,
+  a Voronoi mosaic — each fitted to the fraction and the specific surface of the image by its
+  closed forms, simulated on voxels of the size of the image, calibrated to its specific
+  surface and ranked by the shapes of the covariance and of the contact distributions of
+  balls and segments; from a volume, or from one section (stereology: `S_V = 4 L_A / π`, the
+  discs of the plane). The model `image` (45 models): a volume or a section of a file
+  segmented into its phases and described by implicit functions at any point (the
+  iso-surfaces of its interpolated grey levels, or the indicators of its phases), in windows
+  at its origin or drawn at random for each seed, for the probes, the exact meshes, the
+  sections and the solvers; a synthetic tomography of a particulate composite comes with
+  morphoGen (`example_image.npz`). Tested (`tests/test_model_identification.py`): Otsu's
+  criterion over every bin, the segmentation of the tomography (intersection over union
+  0.887, Dice 0.94), the ellipsoids of particles and of an ellipse (1 %), the phases of the
+  image structure at the centres of its voxels exactly those of its thresholded levels;
+  Boolean spheres, hard spheres, a Gaussian excursion and a Voronoi mosaic each identified
+  first from an image of 64³ voxels (the radii within 2 %, the correlation length 0.818 for
+  0.8), Boolean spheres from one section of 256² pixels.
+* The tutorial of mathematical morphology (`docs/tutorial_morphology.md`), from random closed
+  sets to the model of an image: the Choquet capacity probed on the exact geometry and
+  Matheron's tests of a Boolean model in straight lines, dilation, erosion, opening, closing
+  and granulometry, the four Minkowski functionals exactly against Miles' formulae and the
+  estimates of the voxels, the stereology of sections, the identification of the tomography;
+  its figures, its snippets run by the tests.
+* Spinodal decomposition (the model `spinodal`, §113): the two phases that a mixture quenched
+  inside its spinodal forms by the Cahn–Hilliard equation, integrated on a periodic grid by
+  the stabilized semi-implicit Fourier spectral method, at an age of the coarsening of their
+  pattern; the fraction of the lever rule, the wavelength of the fastest fluctuations of the
+  early stage as the unit of length; the composition interpolated between the points of its
+  grid as the implicit function. Tested (`tests/test_spinodal.py`): the peak of the linear
+  stage at the fastest wave number, the free energy decreasing at each step, the mean
+  composition kept to 10⁻¹², the length of the pattern doubling over eight times the age
+  (Lifshitz–Slyozov, 2.005), the fraction.
+* The computations of morphoGen as models of VIMSEO (`morphogen.interop.vimseo`, §112; the
+  extra `vimseo`, Python 3.10 to 3.12), for the demonstration of the credibility of the
+  simulations: a configuration of `morphogen run` with its entries as inputs and its results
+  as outputs, the exact densities of the realizations of a model of spheres with the closed
+  forms of the model as references, their GEMSEO disciplines and VIMSEO models, the
+  reference datasets, the verification of the code and of the solution against its
+  discretization. Tested with VIMSEO 0.1.7 on Python 3.12: the code verification of the
+  densities against Miles' formulae (1.8 % and 1.0 %, the fluctuation of single
+  realizations), the solution verification of an FFT conductivity on four voxel sizes
+  (Richardson 2.278, the observed order 0.90).
+* Thermo-chemo-elastic fields of a microstructure in time (`coupling.thermochemoelastic`:
+  `ThermoChemoElastic`, `thermochemoelastic`, `ThermoChemoMaterial`; §108). The temperature
+  (Fourier's law, a volumetric heat capacity, the heat a reaction releases), the activity of
+  a species (diffusion, a solubility per phase, a first-order consumption, its drift by the
+  gradient of the hydrostatic stress for a partial molar volume) and the quasi-static
+  displacement under the thermal and chemical expansions, solved together. Diffusivity and
+  rate follow Arrhenius' law. The fields at each output time come with a history: mean
+  temperature, uptake, mean stress, displacements of chosen points, curvature of strips, and
+  an XDMF time series for ParaView. On voxel images: finite volumes at the voxel centres
+  (harmonic conductances, Scharfetter–Gummel fluxes of the drift, exact at Boltzmann's
+  equilibrium) and trilinear hexahedra at their corners, with periodic axes free to expand
+  or held (`mean_strain`). On meshes of linear tetrahedra: every field linear, with lumped
+  capacities. Faces are held at a temperature or an activity (a value or a function of
+  time), clamped, or planes of symmetry; the remaining rigid motions are removed by
+  statically determinate supports. Implicit Euler or TR-BDF2 steps; fields coupled both ways
+  are solved to a fixed point by Aitken's relaxation of the staggered pass. Tested against
+  `transient_diffusion` (10⁻¹²), Crank's slabs (Euler first order in time, TR-BDF2 second),
+  free and clamped expansions (exact), a periodic laminate (10⁻¹⁰), Timoshenko's bilayer
+  (1.5 %), a strip swelling from its upper face against the beam of Crank's profile (3 %),
+  the energy of an adiabatic reaction (10⁻⁸), the Arrhenius scaling of times (10⁻¹³), and
+  Boltzmann's equilibrium of a species drawn by the stress (10⁻¹²; 10⁻⁷ under strong
+  two-way coupling).
+* Inverse design of active structures (`optimization.morphing`: `MorphingOptimization`,
+  `MorphingTarget`, `MorphingDesign`, `hat_filter`; §109): the layout of two materials that
+  expand differently with a stimulus (heat, or a species they absorb), or of one of them and
+  voids, in a box of voxels held by supports, for target displacements of points at
+  equilibrium, or at output times while the stimulus diffuses from faces held at values (the
+  sequential shapes of 4D-printed active composites). SIMP interpolation of elasticity,
+  eigenstrain, capacity and conductivity; a density filter cut at the faces of the box;
+  Heaviside projection by continuation; optional extrusion along an axis; the method of
+  moving asymptotes under volume constraints; exact adjoint sensitivities, run backwards
+  through the implicit Euler steps of the diffusion. `bending_target` gives the deflections
+  of a strip bent to a curvature, and `verify` solves the black-and-white layout with the
+  coupled solver. Tested: sensitivities against finite differences (10⁻⁶), states against
+  the coupled solver (10⁻¹²), a strip designed to bend like one whose upper sixth is active
+  (5 %, its black-and-white layout too), and a strip designed to bend down then up as two
+  materials take up a species at different rates (3 %; its layout 10 %).
+* The variability of the tows of woven textiles along their paths (`woven_textile`, §110), as
+  the tomography of textile composites measures it (Vanaerschot, Cox, Lomov & Vandepitte
+  2013, 2014; Blacklock et al. 2012): the deviations of the centrelines across the tows in
+  the plane of the fabric and through its thickness (`deviation_in_plane`,
+  `deviation_through`: standard deviations), and the widths and thicknesses of their sections
+  (`width_variation`, `thickness_variation`: coefficients of variation; lognormal, of the mean
+  of their tow, their logarithms correlated by `size_correlation`). Each is a stationary
+  Gaussian process along the direction of the tows, by its spectral representation, of a
+  gaussian (smooth paths) or exponential (Markov) covariance (`variation_covariance`) and of
+  correlation lengths `correlation_length` (one, or the centrelines and the sections),
+  periodic over the box (a window: over the window and six correlation lengths) and
+  correlated between the neighbouring tows of a ply or layer by `neighbour_correlation`
+  (`rho^d`, periodized on the ring of the tows of a periodic box). The nodes move by the
+  deviations, the frames of the sections turn with them, and the half sizes vary linearly
+  between the nodes in the point-wise functions of the phases and in the exact meshes. The
+  summary gives the deviations, coefficients of variation and correlation realized; the
+  theory, the mean areas of the varying sections along the lengthened paths. With the
+  variability at zero the textiles are those of before, bit for bit. Tested
+  (`tests/test_textile.py`): the standard deviations within 8 % of those prescribed, the
+  correlations along the tows within 0.08 of the covariance of their spectrum, the
+  coefficients of variation within 10 %, the correlation of the logarithms within 0.06,
+  neighbouring tows correlated as the periodized `rho^d` (within 0.12), the mean areas
+  against Monte Carlo, the fractions against the theory (2 %).
+* The binding depth of the 3D weaves of `woven_textile` (`binder_depth`, the number of weft
+  layers that a binder ties together; Boussu, Cristian & Nauman 2015): layer-to-layer angle
+  interlocks of any depth (`layers + 2 − D` binders per column; 2, the former weave, by
+  default), and orthogonal weaves whose shallower binders tie the layers in turn from one
+  column to the next; angle interlocks without stuffer warps (`stuffers: false`). Tested:
+  the spans and crimps of the binders in closed form (10⁻⁹), the fractions and unions
+  against Monte Carlo, the counts, the phases and the thickness without stuffers.
+* The tows as unidirectional composites (`morphogen.homogenization.unidirectional`, §110):
+  `composite_cylinders(fibre, matrix, fibre_fraction)` gives the transversely isotropic
+  material of aligned fibres in a matrix by the composite cylinder assemblage of Hashin &
+  Rosen (1964) and Hashin (1979) (the plane-strain bulk modulus, the coupling, the axial
+  modulus and the axial shear modulus exact; the transverse shear modulus of the generalized
+  self-consistent scheme of Christensen & Lo, or Hashin's bounds), with the conductivities
+  and the thermal expansions (Levin's relation); Hill's universal relations
+  (`hill_relations`), the material `{unidirectional: {fibre, matrix, fibre_fraction}}` of
+  configurations and `WovenTextile.tow_material`. Tested (`tests/test_unidirectional.py`):
+  the limits, Hill's relations (10⁻¹², 10⁻⁶ on an FFT solution), Levin's relation on the FFT
+  expansion (10⁻⁵), the FFT stiffness of hexagonal (0.65) and random (0.5) arrays of
+  `long_fibers` within 1.6 % and 4.4 % of the closed forms.
+* Studies of Code_Aster and cases of OpenFOAM (`morphogen.io.code_aster`,
+  `morphogen.io.openfoam`; §111). The study of Code_Aster of the apparent stiffness and
+  conductivity of a conforming mesh: the mesh in Code_Aster's format (`.mail`: the groups of
+  the phases, of the grains of oriented crystals, of the faces of the box and of their nodes;
+  or MED with h5py, its tetrahedra in MED's order), the command file (`ELAS`, `ELAS_ORTH`,
+  `THER`, `THER_ORTH` by group, the crystals turned by the Bunge angles of their grains
+  through `AFFE_CARA_ELEM`, `ANGL_EULER`; the six unit strains and three unit gradients under
+  periodic conditions, one `LIAISON_GROUP` per class of the nodes of the upper faces
+  translated alike, without a redundant equation at the edges and corners, or kinematic
+  ones; `MECA_STATIQUE`, `THER_LINEAIRE`, `POST_ELEM` `INTEGRALE`, a table per loading) and the
+  export file of `run_aster`, read back into the apparent tensors and their moduli. The
+  polyMesh of OpenFOAM of the voxels of some phases or of the tetrahedra of a conforming mesh
+  (the internal faces in upper-triangular order, the patches of the box, cyclic pairs along
+  the periodic axes, the walls, a cell zone per phase) and its cases: the flow through the
+  pores under a pressure drop (`simpleFoam`, or `foamRun` with `incompressibleFluid`),
+  Darcy's permeability from the flow rate through the outlet; the diffusion through a phase
+  (`laplacianFoam`), its effective diffusivity; the closed pores left out. The commands
+  `morphogen code-aster export|read` and `morphogen openfoam export|read`,
+  `outputs.code_aster`, `outputs.openfoam` and the mesh format `mail`, and the tools
+  *Code_Aster study* and *OpenFOAM case* of the tab Solvers & formats. Tested with stand-ins
+  of both programs: the command files run on their own linear tetrahedra give morphoGen's
+  periodic and kinematic stiffness and conductivity on the same meshes within 4·10⁻⁷ (two
+  phases, crystals turned by their grains, voids, whole periodic cells); the diffusion case
+  gives the effective diffusivity of finite volumes on the voxels within 3·10⁻¹³; the
+  polyMesh closed, ordered, oriented and read back, by VTK's reader where VTK is installed.
+* Fixed: the opening and the closing of `morphogen.analysis` took a ball of the size given in
+  voxels for their second step on images whose voxels are not of unit size (the opening of
+  spheres by a ball of 0.5 on voxels of 0.1875 was their erosion); both steps take the size
+  of the voxels. The capacity of balls of a periodic section (an image one voxel thick)
+  padded it across its plane into a volume: it is padded in its plane only.
 
 ## 1.1.0 — 2026-11-25
 

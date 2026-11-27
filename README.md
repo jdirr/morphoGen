@@ -42,10 +42,11 @@ A study follows one chain, and each step is a part of the package:
 Two application modules build on this chain: metal sheets architectured by localized
 laser treatment (`morphogen.laser`) and explicit dynamics with OpenRadioss
 (`morphogen.dynamics`). Meshes, images, behaviours and results go to Abaqus, CalculiX,
-AMITEX_FFTP, MFront, Z-set, Gmsh, Neper, DAMASK, FEniCSx and ParaView; particles to the
-codes of discrete elements (LMGC90, LAMMPS, YADE), scenes to Blender, voxel images to JAX
-and PyTorch, shapes to and from Microgen (3MAH); the simulations to VIMSEO, for the
-demonstration of their credibility (verification, validation, uncertainties).
+Code_Aster, OpenFOAM, AMITEX_FFTP, MFront, Z-set, Gmsh, Neper, DAMASK, FEniCSx and
+ParaView; particles to the codes of discrete elements (LMGC90, LAMMPS, YADE), scenes to
+Blender, voxel images to JAX and PyTorch, shapes to and from Microgen (3MAH); the
+simulations to VIMSEO, for the demonstration of their credibility (verification,
+validation, uncertainties).
 
 ## Installation
 
