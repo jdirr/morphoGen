@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import sys
+import time
 
 import numpy as np
 import pytest
@@ -22,9 +25,11 @@ from morphogen.config import ConfigError, load_config
 from morphogen.io.openfoam import (
     FACES,
     WALLS,
+    openfoam_found,
     polymesh,
     read_openfoam,
     read_polymesh,
+    run_openfoam,
     write_openfoam,
     write_polymesh,
 )
@@ -80,8 +85,8 @@ def _check_cyclic(mesh, axis, length):
     m = mesh.faces.shape[1]
     reverse = [0, *range(m - 1, 0, -1)]  # the reverse order from the same first point
     np.testing.assert_allclose(b, (a + shift)[:, reverse], atol=1e-12)
-    sep = np.array(lo.entries["separationVector"].strip("()").split(), dtype=float)
-    np.testing.assert_allclose(sep, a.mean(axis=(0, 1)) - b.mean(axis=(0, 1)), atol=1e-12)
+    # no transform given: OpenFOAM computes the translation from the faces
+    assert not {"transform", "separationVector"} & (set(lo.entries) | set(hi.entries))
 
 
 def test_voxel_polymesh():
@@ -167,7 +172,8 @@ def test_files_read_back(tmp_path):
     assert [(p.name, p.type, p.start, p.size) for p in back.patches] == [
         (p.name, p.type, p.start, p.size) for p in mesh.patches
     ]
-    assert back.patch("YMIN").entries["transform"] == "translational"
+    assert back.patch("YMIN").entries["neighbourPatch"] == "YMAX"
+    assert back.patch("YMIN").entries["matchTolerance"] == "0.0001"
     np.testing.assert_array_equal(back.zones["phase0"], mesh.zones["phase0"])
 
 
@@ -379,6 +385,8 @@ def test_runs_and_commands(tmp_path, capsys):
     ]:
         with pytest.raises(ConfigError, match=match):
             load_config({**cfg, **change})
+    dual = load_config({**cfg, "outputs": {**cfg["outputs"], "openfoam": {"dual": 1}}})
+    assert dual.outputs.openfoam == {"dual": True}
     # the commands: an image exported (a flow), its outputs read back
     image = _image()
     io.save_image(image, tmp_path / "pores.vti")
@@ -395,3 +403,130 @@ def test_runs_and_commands(tmp_path, capsys):
     length, area = 7 * 0.5, 6 * 0.4 * 5 * 0.3
     assert out["properties"]["permeability"] == pytest.approx(0.01 * 0.25 * length / area)
     assert out["lateral"] == "cyclic"
+
+
+def _slit(n):
+    """A slit between two plane walls, 0.25 < y < 0.75 of a box of 1 x 1 x 0.5, meshed with
+    tetrahedra (the walls on planes of nodes): the fluid the phase 0."""
+    return box_mesh(
+        (n, n, n // 2),
+        upper=(1.0, 1.0, 0.5),
+        phase=lambda c: ((c[:, 1] < 0.25) | (c[:, 1] > 0.75)).astype(int),
+    )
+
+
+def test_dual_of_tetrahedra(tmp_path):
+    """The flow through a tetrahedral mesh is solved on its polyhedral dual, which Allrun
+    makes first with polyDualMesh in the options of either line of OpenFOAM; not the
+    diffusion, nor voxels; checkMesh before the solver."""
+    mesh = _slit(4)
+    flow = write_openfoam(tmp_path / "flow", mesh, kind="flow")
+    text = (tmp_path / "flow" / "Allrun").read_text()
+    assert flow.manifest["dual"] and "polyDualMesh -overwrite 75" in text
+    assert "    polyDualMesh 75 >" in text  # the Foundation's, which overwrites by default
+    assert text.index("polyDualMesh") < text.index("checkMesh") < text.index("simpleFoam")
+    # the tetrahedra kept for the next run, which makes the dual of them again
+    assert "cp -r constant/polyMesh constant/polyMesh.tetrahedra" in text
+    assert text.index("polyMesh.tetrahedra") < text.index("polyDualMesh")
+    diffusion = write_openfoam(tmp_path / "diffusion", mesh, kind="diffusion")
+    assert not diffusion.manifest["dual"]
+    assert "polyDualMesh" not in (tmp_path / "diffusion" / "Allrun").read_text()
+    assert write_openfoam(tmp_path / "forced", mesh, kind="diffusion", dual=True).manifest["dual"]
+    assert not write_openfoam(tmp_path / "raw", mesh, kind="flow", dual=False).manifest["dual"]
+    image = _image()
+    assert not write_openfoam(tmp_path / "voxels", image).manifest["dual"]
+    with pytest.raises(ValueError, match="dual"):
+        write_openfoam(tmp_path / "no", image, dual=True)
+    (tmp_path / "raw" / "log.checkMesh").write_text("...\nFailed 2 mesh checks.\n\nEnd\n")
+    assert read_openfoam(tmp_path / "raw").mesh_check == "failed 2"
+    (tmp_path / "raw" / "log.checkMesh").write_text("...\nMesh OK.\n\nEnd\n")
+    assert read_openfoam(tmp_path / "raw").mesh_check == "OK"
+    # run again, OpenFOAM writes <name>_0.dat beside the first output: the newest is read
+    folder = tmp_path / "raw" / "postProcessing" / "flowRate" / "0"
+    folder.mkdir(parents=True)
+    (folder / "surfaceFieldValue.dat").write_text("# Time sum(phi)\n10 0.25\n")
+    newer = folder / "surfaceFieldValue_0.dat"
+    newer.write_text("# Time sum(phi)\n10 0.5\n")
+    later = time.time() + 10.0
+    os.utime(newer, (later, later))
+    assert read_openfoam(tmp_path / "raw").properties["flow_rate"] == 0.5
+
+
+@pytest.mark.skipif(os.name != "posix", reason="stand-ins of OpenFOAM's programs: sh scripts")
+def test_run_openfoam(tmp_path, monkeypatch, capsys):
+    """run_openfoam: Allrun run after the environment file sourced (stand-ins of checkMesh
+    and laplacianFoam on its PATH), its logs, the results read; a solver that fails raises
+    the end of its log; the command morphogen openfoam run."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    tests = os.path.dirname(fof.__file__)
+    (bin_dir / "checkMesh").write_text("#!/bin/sh\necho 'Mesh OK.'\necho\necho End\n")
+    solver = (
+        f'#!/bin/sh\n"{sys.executable}" -c "import sys; sys.path.insert(0, {tests!r}); '
+        "import fake_openfoam; fake_openfoam.solve('.')\" || exit 1\necho End\n"
+    )
+    (bin_dir / "laplacianFoam").write_text(solver)
+    for program in bin_dir.iterdir():
+        program.chmod(0o755)
+    environment = tmp_path / "bashrc"
+    environment.write_text(f'export PATH="{bin_dir}:$PATH"\n')
+    image = _image((10, 8, 8), fraction=0.3, seed=1, spacing=(1.0, 1.0, 1.0))
+    case = tmp_path / "case"
+    write_openfoam(case, image, kind="diffusion", lateral="cyclic")
+    run = run_openfoam(case, environment=environment)
+    assert run.mesh_check == "OK" and (case / "log.Allrun").is_file()
+    direct = _direct_diffusivity(image, (1, 2))
+    assert run.properties["relative_diffusivity"] == pytest.approx(direct, rel=1e-10)
+    monkeypatch.setenv("MORPHOGEN_OPENFOAM", str(environment))
+    assert openfoam_found()
+    assert cli.main(["openfoam", "run", str(case), "--json"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["mesh_check"] == "OK"
+    assert out["properties"]["relative_diffusivity"] == pytest.approx(direct, rel=1e-10)
+    (bin_dir / "laplacianFoam").write_text("#!/bin/sh\necho '--> FOAM FATAL ERROR: no T'\n")
+    with pytest.raises(RuntimeError, match="FOAM FATAL ERROR"):
+        run_openfoam(case)
+    monkeypatch.delenv("MORPHOGEN_OPENFOAM")
+    monkeypatch.setenv("PATH", str(tmp_path / "nowhere"))
+    assert not openfoam_found()
+    with pytest.raises(RuntimeError, match="OpenFOAM not found"):
+        run_openfoam(case)
+
+
+@pytest.mark.skipif(
+    not openfoam_found(), reason="OpenFOAM (its environment, or MORPHOGEN_OPENFOAM) not found"
+)
+def test_with_openfoam(tmp_path):
+    """The cases run by OpenFOAM itself: the flow through a slit of voxels, the permeability
+    of finite volumes with the walls on the faces of the cells (n^2/12 + 1/6 per voxel of the
+    slit, n voxels across), with symmetry planes and cyclic pairs; the diffusion through a
+    random medium, that of the finite volumes on its voxels; on tetrahedra, the diffusion
+    exact for a uniform gradient, and the flow through the slit solved on the polyhedral
+    dual, converging at the second order to the exact Poiseuille flow."""
+    data = np.ones((6, 10, 3), np.uint8)
+    data[:, 1:9, :] = 0  # the pores: 8 voxels between two walls
+    slit = mg.VoxelImage(data, spacing=(1.0, 1.0, 1.0), periodic=True)
+    for lateral in ("symmetryPlane", "cyclic"):
+        case = tmp_path / f"slit_{lateral}"
+        write_openfoam(case, slit, lateral=lateral, tolerance=1e-9, iterations=6000)
+        run = run_openfoam(case)
+        assert run.mesh_check == "OK"
+        assert run.properties["permeability"] == pytest.approx(0.8 * (64 / 12 + 1 / 6), rel=1e-6)
+    image = _image((10, 8, 8), fraction=0.3, seed=1, spacing=(1.0, 1.0, 1.0))
+    for lateral, cyclic in (("symmetryPlane", ()), ("cyclic", (1, 2))):
+        case = tmp_path / f"random_{lateral}"
+        write_openfoam(case, image, kind="diffusion", lateral=lateral)
+        run = run_openfoam(case)
+        direct = _direct_diffusivity(image, cyclic)
+        assert run.properties["relative_diffusivity"] == pytest.approx(direct, rel=1e-8)
+    case = tmp_path / "slit_tetrahedra_diffusion"
+    write_openfoam(case, _slit(8), kind="diffusion")
+    assert run_openfoam(case).properties["relative_diffusivity"] == pytest.approx(0.5, rel=1e-8)
+    errors = []
+    for n in (8, 16):
+        case = tmp_path / f"slit_tetrahedra_{n}"
+        write_openfoam(case, _slit(n), tolerance=1e-8, iterations=4000)
+        run = run_openfoam(case)
+        assert run.mesh_check == "OK"
+        errors.append(run.properties["permeability"] / (0.5 * 0.5**2 / 12) - 1)
+    assert abs(errors[1]) < 0.04 and abs(errors[1]) < abs(errors[0]) / 3

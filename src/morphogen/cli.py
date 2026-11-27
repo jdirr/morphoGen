@@ -240,7 +240,8 @@ def cmd_code_aster(args) -> int:
                 f"run_aster {study.name}.export there"
             )
         return 0
-    run = io.read_code_aster(args.sample, args.name)
+    reader = io.run_code_aster if args.action == "run" else io.read_code_aster
+    run = reader(args.sample, args.name)
     out = {
         "name": run.manifest["name"],
         "volume": run.manifest["volume"],
@@ -320,6 +321,7 @@ def cmd_openfoam(args) -> int:
             difference=args.difference,
             iterations=args.iterations,
             connected=not args.all_cells,
+            dual={"auto": None, "yes": True, "no": False}[args.dual],
         )
         if args.json:
             print(json.dumps({"directory": str(export.directory), **export.manifest}, indent=2))
@@ -329,8 +331,10 @@ def cmd_openfoam(args) -> int:
                 f"{export.directory}: {export.mesh.n_cells} cells; run ./Allrun there"
             )
         return 0
-    run = io.read_openfoam(args.sample)
+    run = io.run_openfoam(args.sample) if args.action == "run" else io.read_openfoam(args.sample)
     out = {**run.manifest, "values": run.values, "properties": run.properties}
+    if run.mesh_check is not None:
+        out["mesh_check"] = run.mesh_check
     if args.output:
         if not run.properties:
             raise ValueError("-o: a table of the results, which needs the outputs of the run")
@@ -338,6 +342,8 @@ def cmd_openfoam(args) -> int:
     if args.json:
         print(json.dumps(to_jsonable(out), indent=2))
         return 0
+    if run.mesh_check is not None:
+        print(f"{'checkMesh':>22s}: {run.mesh_check}")
     if not run.properties:
         print(f"{args.sample}: no outputs of the function objects (postProcessing/)")
         return 0
@@ -2745,13 +2751,17 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "code-aster",
         help="studies of Code_Aster of the apparent properties of a conforming mesh (export), "
-        "and their results (read)",
+        "their runs (run: run_aster, or MORPHOGEN_RUN_ASTER) and their results (read)",
     )
-    p.add_argument("action", choices=("export", "read"), help="write the study, or read results")
+    p.add_argument(
+        "action",
+        choices=("export", "run", "read"),
+        help="write the study, run it with Code_Aster, or read its results",
+    )
     p.add_argument(
         "sample",
         help="export: a geometry (.json, meshed with --size) or a tetrahedral mesh (.vtu, "
-        ".mesh); read: the directory of a study",
+        ".mesh); run, read: the directory of a study",
     )
     p.add_argument("--material", nargs="+", help="materials, as for morphogen homogenize")
     p.add_argument("--materials", help="YAML/JSON file of the materials of the phases")
@@ -2793,7 +2803,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--name", help="export: the name of the files (default aster); read: the study to read"
     )
-    p.add_argument("-o", "--output", help="export: directory; read: CSV table to append to")
+    p.add_argument("-o", "--output", help="export: directory; run, read: CSV table to append to")
     p.add_argument("--json", action="store_true", help="JSON output")
     p.set_defaults(
         func=cmd_code_aster,
@@ -2807,13 +2817,18 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "openfoam",
         help="cases of OpenFOAM of an image or a conforming mesh (export): the flow through the "
-        "pores or the diffusion through a phase, and their results (read)",
+        "pores or the diffusion through a phase, their runs (run: OpenFOAM's environment, or "
+        "MORPHOGEN_OPENFOAM naming its etc/bashrc) and their results (read)",
     )
-    p.add_argument("action", choices=("export", "read"), help="write the case, or read results")
+    p.add_argument(
+        "action",
+        choices=("export", "run", "read"),
+        help="write the case, run it with OpenFOAM, or read its results",
+    )
     p.add_argument(
         "sample",
         help="export: an image, a geometry (.json, with --voxels or --size) or a tetrahedral "
-        "mesh (.vtu, .mesh); read: the directory of a case",
+        "mesh (.vtu, .mesh); run, read: the directory of a case",
     )
     p.add_argument(
         "--kind",
@@ -2857,12 +2872,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="keep the closed pores (default: only what joins the inlet to the outlet)",
     )
+    p.add_argument(
+        "--dual",
+        choices=("auto", "yes", "no"),
+        default="auto",
+        help="solve on the polyhedral dual of a tetrahedral mesh (auto: for the flow)",
+    )
     p.add_argument("--voxels", type=int, help="voxels along the longest edge of a geometry")
     p.add_argument("--size", type=float, help="element size of a conforming mesh of a geometry")
     p.add_argument("--hausdorff", type=float, help="Hausdorff distance of the interface mesh")
     p.add_argument("--periodic", action="store_true", help="a periodic sample (image or mesh)")
     p.add_argument("--array", help="array of the image file")
-    p.add_argument("-o", "--output", help="export: directory; read: CSV table to append to")
+    p.add_argument("-o", "--output", help="export: directory; run, read: CSV table to append to")
     p.add_argument("--json", action="store_true", help="JSON output")
     p.set_defaults(func=cmd_openfoam)
 

@@ -154,10 +154,18 @@ impose the affine displacement on the faces (functions of the coordinates). The
 voids are left out of the mesh, the nonlinear materials written by their elasticity
 ([theory notes](theory.md), §111).
 
+`morphogen.io.run_code_aster` (`morphogen code-aster run`) runs a study with Code_Aster,
+`run_aster` on the PATH or the program that `MORPHOGEN_RUN_ASTER` names (Code_Aster 18 is
+on conda-forge, `code-aster`), and reads its results; a job that fails raises its
+diagnostic. Run by Code_Aster 18.1.11, the studies give the apparent stiffness and
+conductivity of morphoGen's finite elements on the same meshes within $10^{-13}$, in
+Code_Aster's format and in MED, of linear and quadratic tetrahedra, under both conditions,
+crystals turned by their grains included (§111).
+
 ```bash
 # a geometry meshed (or a .vtu mesh) with its materials: the study, run by Code_Aster
 morphogen code-aster export composite.json --size 0.1 --materials composite.yaml -o aster/
-cd aster && run_aster aster.export && cd ..   # where Code_Aster is installed
+morphogen code-aster run aster/               # run_aster, then the results
 morphogen code-aster read aster/              # the apparent stiffness and conductivity
 morphogen code-aster read aster/ -o properties.csv   # a row of a table of properties
 ```
@@ -188,10 +196,21 @@ in an insulating matrix, the inverse of its formation factor). The pores that jo
 inlet to no outlet are left out (`connected`), where the pressure would be undetermined
 ([theory notes](theory.md), §111).
 
+The flow through a tetrahedral mesh is solved on its polyhedral dual, which `Allrun`
+makes first (`polyDualMesh`; `dual`, `--dual`): on tetrahedra themselves, the finite
+volumes of OpenFOAM give a permeability that converges to a value about a fifth too low,
+on their dual to the exact one. The dual of a mesh with slivers can be invalid
+(`checkMesh`, which `Allrun` runs before the solver): the voxels are then the case to run.
+`morphogen.io.run_openfoam` (`morphogen openfoam run`) runs `Allrun` in the environment of
+OpenFOAM (its solvers on the PATH, or the file that `MORPHOGEN_OPENFOAM` names, its
+`etc/bashrc`, sourced first) and reads the results with the verdict of `checkMesh`. Run by
+OpenFOAM v2412, the cases of voxels give the permeability and the diffusivity of finite
+volumes written directly on the voxels within $10^{-10}$ (§111).
+
 ```bash
 # the pores of an image (phase 0) along x: the case, run by OpenFOAM, read back
 morphogen openfoam export foam.vti --periodic --viscosity 1e-6 --pressure-drop 1e-3 -o foam/
-cd foam && ./Allrun && cd ..     # in the environment of OpenFOAM
+morphogen openfoam run foam/     # ./Allrun in the environment of OpenFOAM, then the results
 morphogen openfoam read foam/    # the flow rate, the mean velocity, the permeability
 # the diffusion through the pores of a geometry voxelized
 morphogen openfoam export spheres.json --voxels 96 --kind diffusion -o diffusion/
@@ -199,7 +218,7 @@ morphogen openfoam export spheres.json --voxels 96 --kind diffusion -o diffusion
 
 In a configuration, `outputs.openfoam: true` (or its options `kind`, `phases`, `axis`,
 `lateral`, `viscosity`, `pressure_drop`, `diffusivity`, `difference`, `iterations`,
-`connected`, and `sample: mesh` for the conforming mesh rather than the image) writes the
+`connected`, `dual`, and `sample: mesh` for the conforming mesh rather than the image) writes the
 case of each realization (`<name>_<index>_openfoam/`); the tab Solvers & formats of the
 interface writes it too (*OpenFOAM case*). ParaView opens a case by its empty
 `<case>.foam` file. morphoGen's own Stokes solver gives the permeability tensor of

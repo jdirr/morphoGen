@@ -13149,7 +13149,14 @@ the corners of a tetrahedron with the second and the third swapped (Code_Aster p
 them back as it reads them, a permutation that is its own inverse): its tetrahedra are
 written in that order, its groups as families, those of the elements numbered
 $-1, -2, \dots$ and those of the nodes $1, 2, \dots$, one per set of groups an item
-belongs to.
+belongs to. The file is written with h5py in the layout of MED 4.2 that MED's library
+writes (that of MEDCoupling): the coordinates and the nodes of the elements one component
+after the other, each type of element with its number (`GEO`: 304 for `TE4`, 310 for
+`T10`, 203 and 206 for the triangles), the groups of the families of the elements and of
+the nodes indexed by their order of creation, which MED's library walks. MED's library of
+Code_Aster 18 refuses a file without them, as meshio's writer makes them (MED 3.0, without
+`GEO`: an abort while reading the elements; the families without the index of their order:
+an error of HDF5).
 
 **Periodic conditions without redundant equations.** In a periodic element the
 displacement is $u = E\,x + w$, $w$ periodic. A node $x$ of the upper faces and its image
@@ -13184,7 +13191,9 @@ three unit gradients; `MECA_STATIQUE`, `THER_LINEAIRE` (stationary, at the one i
 its required `INCREMENT`). `POST_ELEM`, `INTEGRALE` over the 3D elements of the model
 (`TOUT='OUI'`, `TYPE_MAILLE='3D'`) gives `VOL` and $\int \sigma_{ij}\,dV$
 (`INTE_SIXX`...; `peecal`: the columns `NOM_CHAM`, `NUME_ORDRE`, `INST`, `VOL`, the place,
-`INTE_<c>`, `MOYE_<c>`), printed by `IMPR_TABLE` (`FORMAT='TABLEAU'`) a file per loading.
+`INTE_<c>`, `MOYE_<c>`), printed by `IMPR_TABLE` (`FORMAT='TABLEAU'`) a file per loading,
+its reals with 14 significant digits (`FORMAT_R='E20.13'`; the default, `E12.5`, keeps 6, a
+relative error of $5\cdot10^{-6}$ on the apparent tensors).
 `read_code_aster` divides the integrals by the volume of the box — the voids, left out of
 the mesh, carry no stress —: the column $k$ of the apparent stiffness is the mean stress of
 the unit strain $k$, and minus the mean flux of the unit gradient $k$ that of the
@@ -13214,10 +13223,17 @@ wall otherwise. **Cyclic pairs**: OpenFOAM couples the face $k$ of a cyclic patc
 face $k$ of its neighbour, the points of the one in the reverse order of the other from the
 same first point once translated (the faces of both patches are sorted by their position
 on the face of the box; those of tetrahedra matched by the centres of their translates, and
-their points turned); `separationVector` is the centre of the patch minus that of its
-neighbour ($-L_x\,e_x$ for `XMIN`; the convention of both lines, `cyclicPolyPatch` of
-OpenCFD and `cyclicTransform` of the Foundation, which read `transform` and
-`separationVector` alike).
+their points turned). The patches give no transform: both lines compute the translation
+from the faces (OpenCFD's `transform` `unknown` by default, the Foundation's `unspecified`),
+and a translation given would be wrong for one of them, whose conventions are opposite —
+OpenCFD's separation is the centre of the neighbour minus that of the patch
+(`coupledPolyPatch::calcTransformTensors`: `Cr - Cf`), and a `separationVector` that
+differs from it is kept with a warning; the Foundation's is the centre of the patch minus
+that of its neighbour (`cyclicTransform`: `ctr - nbrCtr`), and one that does not bring the
+centres together is a fatal error. Run by OpenFOAM v2412, the cases written with the
+Foundation's sign had their cyclic faces non-orthogonal by 180° and their points not
+opposite their coupled ones (`checkMesh`), the neighbours across them coupled at the
+distance $2L - h$ instead of $h$.
 
 **The cases.** The flow: no slip on the walls, $p = \Delta p$ at the inlet and 0 at the
 outlet (kinematic, $p/\rho$), zero gradients of the velocity there, the other faces
@@ -13236,6 +13252,27 @@ the same effective diffusivity. A component of the phase that joins the inlet to
 (through the cyclic faces too) has no fixed value of $p$ or $T$, a singular block of the
 equations: it is left out (`connected`).
 
+**Tetrahedra.** The finite volumes of OpenFOAM are collocated, the velocity and the
+pressure in the cells, coupled by the interpolation of Rhie and Chow (SIMPLE). On
+tetrahedra they solve the diffusion well: $-\Delta T = 1$ in a slit with $T = 0$ on its
+walls (`laplacianFoam` with a source, 6 tetrahedra per cube) converges to the exact mean
+$H^2/12$ at the second order (+4.2 %, +1.04 %, +0.26 % for 8, 16 and 32 cubes across), and
+a linear $T$ is exact. Not the creeping flow: in the same slit, the permeability of
+`simpleFoam` converges, as the mesh is refined, to a value 19 % lower than the exact
+Poiseuille flow (−11.6 %, −16.4 %, −18.0 % for 8, 16 and 32 cubes; −22 % on tetrahedra
+moved at random, the walls kept plane), with the pressure oscillating from cell to cell by
+14 % of its drop; the Gauss gradient on skew faces is not exact for a linear field, nor the
+explicit part of the viscous stress, and least squares or a skew correction do not remove
+it (`icoFoam` likewise, −6 % then −9 %). On the polyhedral dual of the same meshes
+(`polyDualMesh`, a cell around each node of the tetrahedra) it converges to the exact value
+at the second order: +10.9 %, +2.95 %, +0.74 %. `Allrun` therefore makes the dual of a
+tetrahedral mesh before the flow (`dual`, the feature angle 75°: the edges of the box kept;
+OpenCFD's `polyDualMesh -overwrite`, the Foundation's without, which overwrites by default
+and knows `-noOverwrite`), and the diffusion runs on the tetrahedra themselves. The dual of
+a mesh with slivers (dihedral angles near 0 or 180°, as conforming meshes of curved
+interfaces can hold) can be invalid (`checkMesh`: faces of incorrectly oriented pyramids);
+the voxels of the sample are then the case to run.
+
 Checked (`tests/test_code_aster.py`, `tests/test_openfoam.py`; `tests/fake_code_aster.py`
 and `tests/fake_openfoam.py` stand in for the programs, with their own readers of the
 files and their own linear elements or finite volumes): the meshes in Code_Aster's format
@@ -13245,14 +13282,13 @@ the upper faces in one, the images tied to no other node, the translations exact
 command file run by the stand-in (linear tetrahedra, the pairs of `LIAISON_GROUP` found as
 `pacoap` finds them, Lagrange multipliers) against morphoGen's finite elements on the same
 mesh of two phases, $3 \times 3 \times 3$ cells of six tetrahedra moved by 20 %: the
-stiffness and conductivity within $3.5\cdot10^{-7}$ and $1.4\cdot10^{-7}$ (periodic),
-$2.4\cdot10^{-7}$ and $1.2\cdot10^{-7}$ (kinematic), the tolerance of morphoGen's conjugate
-gradients; cubic crystals and orthotropic conductors in three grains turned by their Bunge
-angles (`ELAS_ORTH`, `THER_ORTH`, `ANGL_EULER` through Code_Aster's `eulnau`, equal to
-$g^T$ within $10^{-12}$) within $3.3\cdot10^{-7}$; a void phase left out within
-$4.6\cdot10^{-7}$; whole periodic cells of a Voronoi tessellation (classes of $-1$ periods)
-within $3.7\cdot10^{-7}$; the homogeneous material of a polycrystal, exactly
-($10^{-6}$), under both conditions. MED (with h5py): the groups read back by meshio as the
+stiffness and conductivity within $1.9\cdot10^{-13}$ and $1.1\cdot10^{-13}$ (periodic),
+$1.8\cdot10^{-13}$ and $8\cdot10^{-14}$ (kinematic); cubic crystals and orthotropic
+conductors in three grains turned by their Bunge angles (`ELAS_ORTH`, `THER_ORTH`,
+`ANGL_EULER` through Code_Aster's `eulnau`, equal to $g^T$ within $10^{-12}$) within
+$1.4\cdot10^{-13}$; a void phase left out, whole periodic cells of a Voronoi tessellation
+(classes of $-1$ periods) and the homogeneous material of a polycrystal, under both
+conditions. MED (with h5py): the groups read back by meshio as the
 families of the elements and nodes, the tetrahedra in MED's order, of negative volumes in
 VTK's. The polyMesh of voxels (7 × 6 × 5 voxels, 65 % of pores, anisotropic spacings) and
 of tetrahedra, without and with cyclic patches: every cell closed (the sum of the outward
@@ -13267,17 +13303,50 @@ effective diffusivity of finite volumes written directly on the voxels within
 $3\cdot10^{-13}$ (0.3389 with symmetry planes, 0.3764 with cyclic faces: the closed pores,
 0.6 % of the box, left out in the first); the flow rate read back to the permeability.
 
+**Code_Aster itself** (18.1.11 of conda-forge, `run_code_aster`;
+`test_with_code_aster` where `run_aster` is found): the same studies in its format and in
+MED, of linear and quadratic tetrahedra, under periodic and kinematic conditions, the
+stiffness and conductivity of morphoGen's finite elements within $3.4\cdot10^{-14}$ in its
+format (the coordinates of 15 digits) as in MED, without an alarm; the crystals within
+$1.4\cdot10^{-13}$ (their engineering constants); the void phase and the whole cells of the
+Voronoi tessellation (1034 tetrahedra) within $3.2\cdot10^{-13}$; the results in MED
+(`fields`); a conforming mesh of 79 968 tetrahedra of overlapping spheres (periodic, in a
+box and in whole cells; kinematic) within $6.4\cdot10^{-10}$, the tolerance of morphoGen's
+conjugate gradients, in 26 to 41 s per study. Found so and mended, which the stand-ins had
+not caught: the tables of 6 digits (and the coordinates of 12, now 15), and MED's
+layout.
+
+**OpenFOAM itself** (v2412 of conda-forge, `run_openfoam`; `test_with_openfoam` where
+OpenFOAM is found): `checkMesh` passes the polyMesh of voxels and of tetrahedra, cyclic
+pairs included; a slit of 8 voxels between two walls, the permeability of finite volumes
+with the walls on the faces of the cells, $\phi\,(H^2/12 + h^2/6)$ ($H = n h$ the width of
+the slit, $\phi$ its fraction of the section: the discrete Poiseuille flow, the parabola
+raised by the half-cell distance to the walls and sampled at the centres of the cells),
+within $1.2\cdot10^{-10}$ with symmetry planes and with cyclic pairs (`simpleFoam`); the
+random medium, the effective diffusivity of the finite volumes written on its voxels
+within $1.6\cdot10^{-11}$ (`laplacianFoam`, both lateral conditions); a linear $T$ through
+tetrahedra exactly; the slit of tetrahedra on its dual as above. On overlapping spheres
+(a phase of 49 % joining the faces), the effective diffusivity of `laplacianFoam` on
+the 78 809 tetrahedra of the phase (197 628 in the mesh), 0.32250, against 0.32253 by
+morphoGen's quadratic elements and 0.32675 by its linear ones (an upper bound) under the
+same conditions (fixed values on two faces, no flux elsewhere); the permeability on the
+voxels, $6.71\cdot10^{-4}$ and $6.90\cdot10^{-4}$ of the box for 24 and 48 voxels across,
+against $7.46\cdot10^{-4}$ and $7.54\cdot10^{-4}$ by morphoGen's lattice Boltzmann method (a
+periodic cell driven by a body force, its walls halfway between the nodes).
+
 Sources: EDF, *code_aster* 17, its sources (gitlab.com/codeaster/src:
 the catalogues of the commands `LIRE_MAILLAGE`, `AFFE_CHAR_MECA` (`LIAISON_GROUP`,
 `PRE_EPSI`), `AFFE_CHAR_THER`, `THER_LINEAIRE` (`C_INCREMENT`), `POST_ELEM`,
 `IMPR_TABLE`, `AFFE_CARA_ELEM`, `DEFI_MATERIAU`, `CALC_MATE_HOMO`; the routines `lrmast`,
 `stkgrp`, `lirtet`, `stkmai` of the reader of its format, `pacoap`, `calinn` and
 `caliag` of `LIAISON_GROUP`, `eulnau` and `matrot` of the frames, `peecal` of
-`INTEGRALE`; `run_aster/export.py` of the export files); OpenCFD, *OpenFOAM* v2606 and
-the OpenFOAM Foundation, *OpenFOAM* 11 and 12, their sources (`cyclicPolyPatch`,
-`cyclicTransform`, `surfaceFieldValue`, `volFieldValue`, `grad`); H. G. Weller, G.
-Tabor, H. Jasak, C. Fureby, Comput. Phys. 12 (1998) 620 (the finite volumes of
-OpenFOAM); H. Darcy (1856).
+`INTEGRALE`; `run_aster/export.py` of the export files); EDF, *code_aster* 18.1.11
+(conda-forge); the MED file format 4.2 and MEDCoupling 9.16 (the layout of the files);
+OpenCFD, *OpenFOAM* v2412 (conda-forge) and v2606, and the OpenFOAM Foundation,
+*OpenFOAM* 11, 12 and dev, their sources (`cyclicPolyPatch`, `coupledPolyPatch`,
+`cyclicTransform`, `polyDualMesh`, `surfaceFieldValue`, `volFieldValue`, `grad`); H. G.
+Weller, G. Tabor, H. Jasak, C. Fureby, Comput. Phys. 12 (1998) 620 (the finite volumes of
+OpenFOAM); C. M. Rhie, W. L. Chow, AIAA J. 21 (1983) 1525; H. Darcy (1856).
 
 ## 112. The credibility of the simulations with VIMSEO (`interop.vimseo`)
 

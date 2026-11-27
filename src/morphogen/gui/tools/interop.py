@@ -1247,7 +1247,9 @@ def code_aster_study(p: dict, ctx) -> dict:
         f"properties under {conditions} conditions ({name}.comm). Run it with\n\n"
         f"    run_aster {name}.export\n\n"
         "and read the apparent stiffness and conductivity from the tables it writes with\n\n"
-        "    morphogen code-aster read .\n"
+        "    morphogen code-aster read .\n\n"
+        "or both at once, where run_aster is on the path (or MORPHOGEN_RUN_ASTER names it), "
+        "with\n\n    morphogen code-aster run .\n"
     )
     ctx.path("README.md").write_text(readme, encoding="utf-8")
     values = {
@@ -1346,7 +1348,9 @@ def openfoam_case(p: dict, ctx) -> dict:
         f"faces {m['lateral']}. Run it ({solver}) in {name}/, with the environment of OpenFOAM, "
         "by\n\n    ./Allrun\n\nand read the "
         f"{'permeability' if p['kind'] == 'flow' else 'effective diffusivity'} with\n\n"
-        f"    morphogen openfoam read {name}\n"
+        f"    morphogen openfoam read {name}\n\n"
+        "or both at once, in the environment of OpenFOAM (or with MORPHOGEN_OPENFOAM naming "
+        f"its etc/bashrc), with\n\n    morphogen openfoam run {name}\n"
     )
     ctx.path("README.md").write_text(readme, encoding="utf-8")
     values = {

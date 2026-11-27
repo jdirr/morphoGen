@@ -255,6 +255,7 @@ OPENFOAM_OPTIONS = (
     "iterations",
     "tolerance",
     "connected",
+    "dual",
 )
 
 
@@ -325,6 +326,8 @@ def _openfoam(value) -> dict | None:
         out["iterations"] = _positive_int("outputs.openfoam.iterations", out["iterations"])
     if "connected" in out:
         out["connected"] = bool(out["connected"])
+    if out.get("dual") is not None:
+        out["dual"] = bool(out["dual"])
     return out
 
 

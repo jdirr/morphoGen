@@ -176,27 +176,41 @@
   `morphogen.io.openfoam`; §111). The study of Code_Aster of the apparent stiffness and
   conductivity of a conforming mesh: the mesh in Code_Aster's format (`.mail`: the groups of
   the phases, of the grains of oriented crystals, of the faces of the box and of their nodes;
-  or MED with h5py, its tetrahedra in MED's order), the command file (`ELAS`, `ELAS_ORTH`,
+  or MED 4.2 written with h5py in the layout of MED's library, its tetrahedra in MED's
+  order), the command file (`ELAS`, `ELAS_ORTH`,
   `THER`, `THER_ORTH` by group, the crystals turned by the Bunge angles of their grains
   through `AFFE_CARA_ELEM`, `ANGL_EULER`; the six unit strains and three unit gradients under
   periodic conditions, one `LIAISON_GROUP` per class of the nodes of the upper faces
   translated alike, without a redundant equation at the edges and corners, or kinematic
-  ones; `MECA_STATIQUE`, `THER_LINEAIRE`, `POST_ELEM` `INTEGRALE`, a table per loading) and the
-  export file of `run_aster`, read back into the apparent tensors and their moduli. The
-  polyMesh of OpenFOAM of the voxels of some phases or of the tetrahedra of a conforming mesh
-  (the internal faces in upper-triangular order, the patches of the box, cyclic pairs along
-  the periodic axes, the walls, a cell zone per phase) and its cases: the flow through the
-  pores under a pressure drop (`simpleFoam`, or `foamRun` with `incompressibleFluid`),
-  Darcy's permeability from the flow rate through the outlet; the diffusion through a phase
-  (`laplacianFoam`), its effective diffusivity; the closed pores left out. The commands
-  `morphogen code-aster export|read` and `morphogen openfoam export|read`,
+  ones; `MECA_STATIQUE`, `THER_LINEAIRE`, `POST_ELEM` `INTEGRALE`, a table per loading, of
+  14 digits) and the export file of `run_aster`, read back into the apparent tensors and
+  their moduli. The polyMesh of OpenFOAM of the voxels of some phases or of the tetrahedra
+  of a conforming mesh (the internal faces in upper-triangular order, the patches of the
+  box, cyclic pairs along the periodic axes whose translation OpenFOAM computes from their
+  faces, the walls, a cell zone per phase) and its cases: the flow through the pores under
+  a pressure drop (`simpleFoam`, or `foamRun` with `incompressibleFluid`), Darcy's
+  permeability from the flow rate through the outlet, through a tetrahedral mesh on its
+  polyhedral dual (`polyDualMesh` in `Allrun`; `dual`); the diffusion through a phase
+  (`laplacianFoam`), its effective diffusivity; the closed pores left out; `checkMesh`
+  before the solver. The runs: `morphogen.io.run_code_aster` (`run_aster`, or the program
+  that `MORPHOGEN_RUN_ASTER` names) and `morphogen.io.run_openfoam` (in OpenFOAM's
+  environment, or after the file that `MORPHOGEN_OPENFOAM` names). The commands
+  `morphogen code-aster export|run|read` and `morphogen openfoam export|run|read`,
   `outputs.code_aster`, `outputs.openfoam` and the mesh format `mail`, and the tools
   *Code_Aster study* and *OpenFOAM case* of the tab Solvers & formats. Tested with stand-ins
-  of both programs: the command files run on their own linear tetrahedra give morphoGen's
-  periodic and kinematic stiffness and conductivity on the same meshes within 4·10⁻⁷ (two
-  phases, crystals turned by their grains, voids, whole periodic cells); the diffusion case
-  gives the effective diffusivity of finite volumes on the voxels within 3·10⁻¹³; the
+  of both programs, and with the programs themselves where they are found (Code_Aster
+  18.1.11 and OpenFOAM v2412, of conda-forge): the studies give morphoGen's periodic and
+  kinematic stiffness and conductivity on the same meshes within 3.4·10⁻¹⁴ (two phases, in
+  Code_Aster's format and in MED, linear and quadratic tetrahedra) and 1.4·10⁻¹³ (crystals
+  turned by their grains), voids and whole periodic cells too; the cases of voxels, the
+  permeability of the finite volumes of a slit in closed form within 1.2·10⁻¹⁰ and the
+  effective diffusivity of the finite volumes on the voxels of a random medium within
+  1.6·10⁻¹¹, with symmetry planes and cyclic pairs, `checkMesh` passed; the flow through a
+  slit of tetrahedra, on their dual, converging to Poiseuille's at the second order; the
   polyMesh closed, ordered, oriented and read back, by VTK's reader where VTK is installed.
+  Public interface: the modules `io.code_aster` and `io.openfoam`, their names in `io`
+  (`run_code_aster`, `aster_executable`, `run_openfoam` and `openfoam_found` among them),
+  `write_openfoam(dual=...)` and `OpenFoamRun.mesh_check` (`tests/public_api.txt`).
 * Fixed: the opening and the closing of `morphogen.analysis` took a ball of the size given in
   voxels for their second step on images whose voxels are not of unit size (the opening of
   spheres by a ball of 0.5 on voxels of 0.1875 was their erosion); both steps take the size

@@ -134,17 +134,19 @@ def solve(case) -> dict:
         elif kind == "cyclic" and name < p["neighbourPatch"]:
             other = data["patches"][p["neighbourPatch"]]
             o_start = int(other["startFace"])
-            separation = np.array(p["separationVector"].strip("()").split(), dtype=float)
+            # the translation from the faces, as OpenFOAM computes it without a transform
+            assert "transform" not in p and "separationVector" not in p
+            own = range(start, start + size)
+            shift = centre[o_start : o_start + size].mean(axis=0) - centre[list(own)].mean(axis=0)
             for k in range(size):
                 f, g = start + k, o_start + k
                 assert (
                     np.abs(
-                        x[faces[g]]
-                        - (x[faces[f]] - separation)[[0, *range(len(faces[f]) - 1, 0, -1)]]
+                        x[faces[g]] - (x[faces[f]] + shift)[[0, *range(len(faces[f]) - 1, 0, -1)]]
                     ).max()
                     < 1e-9
                 )
-                d = np.linalg.norm(cells[owner[g]] - (cells[owner[f]] - separation))
+                d = np.linalg.norm(cells[owner[g]] - (cells[owner[f]] + shift))
                 couple(owner[f], owner[g], dt * mag[f] / d)
         else:
             assert kind in ("zeroGradient", "symmetryPlane", "cyclic"), kind

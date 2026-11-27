@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import sys
 
 import numpy as np
 import pytest
@@ -20,10 +22,12 @@ from morphogen.homogenization import Material
 from morphogen.homogenization.apparent import conductivity_tensor, make_problem, stiffness_tensor
 from morphogen.io.code_aster import (
     STRAIN_CASES,
+    aster_executable,
     aster_groups,
     read_aster_mesh,
     read_aster_table,
     read_code_aster,
+    run_code_aster,
     write_aster_mesh,
     write_code_aster,
 )
@@ -111,9 +115,9 @@ def test_periodic_and_kinematic_studies_against_morphogen(tmp_path, mesh):
         result = read_code_aster(study.directory)
         c_ref, _ = stiffness_tensor(make_problem(mesh, MATERIALS, "elastic", bc))
         k_ref, _ = conductivity_tensor(make_problem(mesh, MATERIALS, "thermal", bc))
-        assert _relative(result.stiffness, c_ref) < 2e-6
-        assert _relative(result.conductivity, k_ref) < 2e-6
-        assert result.properties["bulk_modulus"] == pytest.approx(c_ref[:3, :3].sum() / 9, 1e-5)
+        assert _relative(result.stiffness, c_ref) < 1e-9
+        assert _relative(result.conductivity, k_ref) < 1e-9
+        assert result.properties["bulk_modulus"] == pytest.approx(c_ref[:3, :3].sum() / 9, 1e-9)
         names = [n for n, _ in run.calls]
         assert names[0] == "DEBUT" and names[-1] == "FIN"
         assert names.count("MECA_STATIQUE") == 6 and names.count("THER_LINEAIRE") == 3
@@ -131,16 +135,17 @@ def test_periodic_and_kinematic_studies_against_morphogen(tmp_path, mesh):
             assert names.count("FORMULE") == 18 + 3
 
 
-def test_crystals_turned_by_their_grains(tmp_path):
-    """Cubic crystals (ELAS_ORTH) and orthotropic conductors (THER_ORTH) turned by the
-    Bunge angles of their grains (MASSIF, ANGL_EULER): Code_Aster's frame of these angles
-    is the frame of the crystal, the stiffness and conductivity those of morphoGen."""
+ORIENTATIONS = np.array(
+    [[10.0, 20.0, 30.0], [45.0, 60.0, 15.0], [100.0, 35.0, 200.0], [0.0, 0.0, 0.0]]
+)
+
+
+def _crystals():
+    """Three grains of a cubic crystal, an orthotropic conductor, and a fourth of the phase
+    1: their mesh (its grains turned by ORIENTATIONS) and materials."""
     base = box_mesh((3, 3, 3), upper=(1.0, 1.2, 0.9), perturb=0.2)
     centres = base.nodes[base.elements].mean(axis=1)
     cell = (centres[:, 0] > 0.5).astype(int) + 2 * (centres[:, 1] > 0.6).astype(int)
-    orientations = np.array(
-        [[10.0, 20.0, 30.0], [45.0, 60.0, 15.0], [100.0, 35.0, 200.0], [0.0, 0.0, 0.0]]
-    )
     mesh = TetMesh(
         base.nodes,
         base.elements,
@@ -149,7 +154,7 @@ def test_crystals_turned_by_their_grains(tmp_path):
         base.upper,
         periodic=True,
         cell=cell,
-        orientations=orientations,
+        orientations=ORIENTATIONS,
     )
     cubic = Material.cubic(108.0, 62.0, 28.0)
     crystal = Material(
@@ -157,28 +162,35 @@ def test_crystals_turned_by_their_grains(tmp_path):
         symmetry=cubic.symmetry,
         conductivities=((1.0, 0.0, 0.0), (0.0, 2.0, 0.0), (0.0, 0.0, 4.0)),
     )
-    materials = {0: crystal, 1: MATERIALS[1]}
+    return mesh, {0: crystal, 1: MATERIALS[1]}
+
+
+def test_crystals_turned_by_their_grains(tmp_path):
+    """Cubic crystals (ELAS_ORTH) and orthotropic conductors (THER_ORTH) turned by the
+    Bunge angles of their grains (MASSIF, ANGL_EULER): Code_Aster's frame of these angles
+    is the frame of the crystal, the stiffness and conductivity those of morphoGen."""
+    mesh, materials = _crystals()
     study = write_code_aster(tmp_path, mesh, materials)
     run = fake.run(study.directory / "aster.export")
     cara = next(c for n, c in run.calls if n == "AFFE_CARA_ELEM")
     assert [m["GROUP_MA"] for m in cara["MASSIF"]] == ["GRAIN_0", "GRAIN_1", "GRAIN_2"]
     for c, item in enumerate(cara["MASSIF"]):  # the local frame: the axes of the crystal
         np.testing.assert_allclose(
-            fake.euler_frame(item["ANGL_EULER"]), euler_to_matrix(orientations[c])[0].T, atol=1e-12
+            fake.euler_frame(item["ANGL_EULER"]), euler_to_matrix(ORIENTATIONS[c])[0].T, atol=1e-12
         )
     result = read_code_aster(study.directory)
     c_ref, _ = stiffness_tensor(make_problem(mesh, materials, "elastic", "periodic"))
     k_ref, _ = conductivity_tensor(make_problem(mesh, materials, "thermal", "periodic"))
-    assert _relative(result.stiffness, c_ref) < 2e-6
-    assert _relative(result.conductivity, k_ref) < 2e-6
+    assert _relative(result.stiffness, c_ref) < 1e-9
+    assert _relative(result.conductivity, k_ref) < 1e-9
     # without grains, the axes of the crystals are those of the sample (ANGL_REP 0 0 0)
-    plain = TetMesh(base.nodes, base.elements, mesh.phase, base.lower, base.upper, periodic=True)
+    plain = TetMesh(mesh.nodes, mesh.elements, mesh.phase, mesh.lower, mesh.upper, periodic=True)
     study = write_code_aster(tmp_path / "plain", plain, materials, physics="elastic")
     run = fake.run(study.directory / "aster.export")
     cara = next(c for n, c in run.calls if n == "AFFE_CARA_ELEM")
     assert cara["MASSIF"]["ANGL_REP"] == (0.0, 0.0, 0.0)
     c_ref, _ = stiffness_tensor(make_problem(plain, materials, "elastic", "periodic"))
-    assert _relative(read_code_aster(study.directory).stiffness, c_ref) < 2e-6
+    assert _relative(read_code_aster(study.directory).stiffness, c_ref) < 1e-9
     assert read_code_aster(study.directory).conductivity is None
 
 
@@ -196,7 +208,7 @@ def test_voids_and_whole_periodic_cells(tmp_path):
     assert len(mail["elements"]["TETRA4"][0]) == int((porous.phase == 0).sum())
     fake.run(study.directory / "aster.export")
     c_ref, _ = stiffness_tensor(make_problem(porous, materials, "elastic", "periodic"))
-    assert _relative(read_code_aster(study.directory).stiffness, c_ref) < 2e-6
+    assert _relative(read_code_aster(study.directory).stiffness, c_ref) < 1e-9
     # whole cells: translations of -1, 0 or 1 period along each axis
     import morphogen as mg
     from morphogen.mesh.conforming import conforming_mesh
@@ -210,7 +222,7 @@ def test_voids_and_whole_periodic_cells(tmp_path):
     assert any("M" in g[3:] for g in groups if g.startswith("PS_"))
     fake.run(study.directory / "aster.export")
     c_ref, _ = stiffness_tensor(make_problem(cells, crystal, "elastic", "periodic"))
-    assert _relative(read_code_aster(study.directory).stiffness, c_ref) < 2e-6
+    assert _relative(read_code_aster(study.directory).stiffness, c_ref) < 1e-9
 
 
 def test_files_of_a_study(tmp_path, mesh):
@@ -288,7 +300,8 @@ def test_mail_through_save_mesh(tmp_path, mesh):
 
 
 @pytest.mark.skipif(
-    importlib.util.find_spec("h5py") is None, reason="MED files need h5py (meshio's writer)"
+    importlib.util.find_spec("h5py") is None or importlib.util.find_spec("meshio") is None,
+    reason="MED files need h5py, and meshio reads them back",
 )
 def test_med_mesh(tmp_path, mesh):
     import meshio
@@ -369,6 +382,79 @@ def test_runs_and_commands(tmp_path, capsys):
     assert cli.main(["code-aster", "read", str(tmp_path / "cmd"), "--json"]) == 0
     out = json.loads(capsys.readouterr().out)
     c_ref, _ = stiffness_tensor(make_problem(mesh, MATERIALS, "elastic", "periodic"))
-    assert _relative(out["stiffness"], c_ref) < 2e-6 and len(out["conductivity"]) == 3
+    assert _relative(out["stiffness"], c_ref) < 1e-9 and len(out["conductivity"]) == 3
     assert cli.main(["code-aster", "read", str(tmp_path / "cmd"), *table]) == 0
     assert "C11" in (tmp_path / "t.csv").read_text().splitlines()[0]
+
+
+def _stand_in(tmp_path, diagnostic="OK", code=0):
+    """A stand-in of the program run_aster: the stand-in of Code_Aster run on the export
+    file given, then the diagnostic of the job and its exit code."""
+    script = tmp_path / f"run_aster_{code}.py"
+    script.write_text(
+        "import sys\n"
+        f"sys.path.insert(0, {str(fake.__file__.rsplit(os.sep, 1)[0])!r})\n"
+        "import fake_code_aster\n"
+        f"if {code} == 0:\n"
+        "    fake_code_aster.run(sys.argv[1])\n"
+        f"print('--- DIAGNOSTIC JOB : {diagnostic}')\n"
+        f"sys.exit({code})\n"
+    )
+    return [sys.executable, str(script)]
+
+
+def test_run_code_aster(tmp_path, mesh, monkeypatch, capsys):
+    """run_code_aster: the program (MORPHOGEN_RUN_ASTER, or run_aster on the PATH) run on
+    the export file in the directory of the study, its output kept, the results read; the
+    diagnostic of a job that failed raised; the command morphogen code-aster run."""
+    study = write_code_aster(tmp_path / "study", mesh, MATERIALS)
+    run = run_code_aster(study.directory, run_aster=_stand_in(tmp_path))
+    c_ref, _ = stiffness_tensor(make_problem(mesh, MATERIALS, "elastic", "periodic"))
+    assert _relative(run.stiffness, c_ref) < 1e-9
+    assert "DIAGNOSTIC JOB : OK" in (study.directory / "aster.log").read_text()
+    with pytest.raises(RuntimeError, match="<F>_ERROR"):
+        run_code_aster(study.directory, run_aster=_stand_in(tmp_path, "<F>_ERROR", 1))
+    monkeypatch.setenv("MORPHOGEN_RUN_ASTER", "/opt/aster/bin/run_aster")
+    assert aster_executable() == "/opt/aster/bin/run_aster"
+    monkeypatch.delenv("MORPHOGEN_RUN_ASTER")
+    monkeypatch.setenv("PATH", str(tmp_path / "nowhere"))
+    assert aster_executable() is None
+    with pytest.raises(RuntimeError, match="Code_Aster not found"):
+        run_code_aster(study.directory)
+    if os.name == "posix":  # the command, with a program of its own for the variable
+        program = tmp_path / "run_aster"
+        words = " ".join(f'"{w}"' for w in _stand_in(tmp_path))
+        program.write_text(f'#!/bin/sh\nexec {words} "$@"\n')
+        program.chmod(0o755)
+        monkeypatch.setenv("MORPHOGEN_RUN_ASTER", str(program))
+        assert cli.main(["code-aster", "run", str(study.directory), "--json"]) == 0
+        out = json.loads(capsys.readouterr().out)
+        assert _relative(np.array(out["stiffness"]), c_ref) < 1e-9
+
+
+@pytest.mark.skipif(
+    aster_executable() is None, reason="Code_Aster (run_aster, or MORPHOGEN_RUN_ASTER) not found"
+)
+def test_with_code_aster(tmp_path, mesh):
+    """The studies run by Code_Aster itself: the apparent stiffness and conductivity of its
+    linear and quadratic tetrahedra under periodic and kinematic conditions, of meshes in
+    its format and in MED, and of crystals turned by their grains, those of morphoGen's
+    finite elements on the same meshes, to the precision of the tables."""
+    med = importlib.util.find_spec("h5py") is not None
+    for conditions, bc in (("periodic", "periodic"), ("kinematic", "kubc")):
+        for mesh_format, sample in (("aster", mesh), ("med" if med else "aster", mesh.quadratic())):
+            folder = tmp_path / f"{conditions}_{mesh_format}_{sample.order}"
+            study = write_code_aster(
+                folder, sample, MATERIALS, conditions=conditions, mesh_format=mesh_format
+            )
+            run = run_code_aster(study.directory)
+            c_ref, _ = stiffness_tensor(make_problem(sample, MATERIALS, "elastic", bc))
+            k_ref, _ = conductivity_tensor(make_problem(sample, MATERIALS, "thermal", bc))
+            assert _relative(run.stiffness, c_ref) < 1e-9
+            assert _relative(run.conductivity, k_ref) < 1e-9
+    crystals, materials = _crystals()
+    run = run_code_aster(write_code_aster(tmp_path / "crystals", crystals, materials).directory)
+    c_ref, _ = stiffness_tensor(make_problem(crystals, materials, "elastic", "periodic"))
+    k_ref, _ = conductivity_tensor(make_problem(crystals, materials, "thermal", "periodic"))
+    assert _relative(run.stiffness, c_ref) < 1e-9
+    assert _relative(run.conductivity, k_ref) < 1e-9

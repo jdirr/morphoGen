@@ -48,8 +48,10 @@ from morphogen.io.amitex import (
     write_amitex_loading,
 )
 from morphogen.io.code_aster import (
+    aster_executable,
     read_aster_mesh,
     read_code_aster,
+    run_code_aster,
     write_aster_mesh,
     write_code_aster,
 )
@@ -76,9 +78,11 @@ from morphogen.io.metaimage import read_mhd, write_mhd
 from morphogen.io.mfront import mfront_source, write_mfront
 from morphogen.io.native import read_npy, read_npz, write_npy, write_npz
 from morphogen.io.openfoam import (
+    openfoam_found,
     polymesh,
     read_openfoam,
     read_polymesh,
+    run_openfoam,
     write_openfoam,
     write_polymesh,
 )
@@ -209,10 +213,12 @@ __all__ = [
     "MESH_FORMATS",
     "EBSDMap",
     "amitex_stiffness",
+    "aster_executable",
     "export",
     "load_image",
     "load_microstructure",
     "mfront_source",
+    "openfoam_found",
     "particles",
     "polymesh",
     "read_amitex",
@@ -240,6 +246,8 @@ __all__ = [
     "read_vtk_grid",
     "read_vtu",
     "read_xdmf",
+    "run_code_aster",
+    "run_openfoam",
     "save_image",
     "save_mesh",
     "save_microstructure",

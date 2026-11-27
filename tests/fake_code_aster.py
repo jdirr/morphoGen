@@ -465,7 +465,9 @@ class FakeAster:
         out = self._record("IMPR_TABLE", k)
         assert k["FORMAT"] == "TABLEAU"
         row = k["TABLE"].row
-        cells = [f"{v:13.6E}" if isinstance(v, float) else str(v) for v in row.values()]
+        # FORMAT_R as Fortran's Ew.d (Code_Aster's default E12.5): d digits after the point
+        digits = int(k.get("FORMAT_R", "E12.5").split(".")[1])
+        cells = [f"{v:.{digits}E}" if isinstance(v, float) else str(v) for v in row.values()]
         text = (
             "#\n#ASTER stand-in: table of POST_ELEM\n#\n"
             + "-" * 60

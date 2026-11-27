@@ -6,8 +6,8 @@ element, and their results.
 (:class:`~morphogen.mesh.tetra.TetMesh`, 4- or 10-node elements):
 
 * the mesh, ``<name>.mail`` in the native format of Code_Aster (``LIRE_MAILLAGE``,
-  ``FORMAT='ASTER'``; :func:`write_aster_mesh`) or ``<name>.med`` (MED through meshio and
-  h5py, its groups as families): the nodes ``N1``, ``N2``..., the elements ``M1``...
+  ``FORMAT='ASTER'``; :func:`write_aster_mesh`) or ``<name>.med`` (MED 4.2 through h5py,
+  its groups as families): the nodes ``N1``, ``N2``..., the elements ``M1``...
   (``TETRA4`` or ``TETRA10``, then the triangles ``TRIA3`` or ``TRIA6`` of the faces of
   the box), numbered as in VTK and morphoGen (the corners, then the middles of the edges
   1-2, 2-3, 3-1, 1-4, 2-4 and 3-4 of a tetrahedron; 1-2, 2-3, 3-1 of a triangle), which
@@ -32,7 +32,9 @@ element, and their results.
   (``THER_LINEAIRE``, stationary at the one instant of its ``INCREMENT``, then
   ``CALC_CHAMP`` of ``FLUX_ELGA``), the integrals of the stresses ``SIEF_ELGA`` (of the
   fluxes) over the elements (``POST_ELEM``, ``INTEGRALE``) and their tables
-  (``IMPR_TABLE``, ``FORMAT='TABLEAU'``, a file per loading, ``<name>_<case>.table``), and
+  (``IMPR_TABLE``, ``FORMAT='TABLEAU'``, a file per loading, ``<name>_<case>.table``, its
+  numbers of 14 significant digits: ``FORMAT_R='E20.13'``, where Code_Aster prints 6 by
+  default), and
   with ``fields`` the results in MED;
 * ``<name>.export``, the export file of ``run_aster`` (``run_aster <name>.export``): the
   parameters of the run (``P``), the data and result files with their logical units
@@ -63,12 +65,20 @@ unit strain, a column of the apparent stiffness (Voigt order 11, 22, 33, 23, 31,
 engineering shears: the shear strains of the loadings are ``E_ij = 1/2``), and minus the
 mean flux of a unit gradient, a column of the apparent conductivity. The nonlinear
 materials are written by their elasticity; the expansion of the materials is not.
+
+**Runs.** :func:`run_code_aster` runs a study with ``run_aster`` (on the PATH, or the
+program that ``MORPHOGEN_RUN_ASTER`` names) and reads its results; run by Code_Aster
+18.1.11, the studies give the apparent tensors of morphoGen's finite elements on the same
+meshes within ``1e-13``.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -91,6 +101,8 @@ GRADIENT_CASES = ("G1", "G2", "G3")
 PHYSICS = ("elastic", "thermal")
 CONDITIONS = ("periodic", "kinematic")
 MESH_FORMATS = ("aster", "med")
+#: The format of the numbers of the tables (Code_Aster's default, ``E12.5``, has 6 digits)
+TABLE_FORMAT = "E20.13"
 #: The nodes of the tetrahedra of MED in the order of VTK's and Code_Aster's (indices of
 #: MED's nodes; the permutation is its own inverse)
 MED_TETRA4 = (0, 2, 1, 3)
@@ -236,7 +248,7 @@ def write_aster_mesh(path, mesh: TetMesh, *, groups: AsterGroups | None = None) 
         "%",
         "COOR_3D",
     ]
-    lines += [f"N{i + 1} {x:.12g} {y:.12g} {z:.12g}" for i, (x, y, z) in enumerate(mesh.nodes)]
+    lines += [f"N{i + 1} {x:.15g} {y:.15g} {z:.15g}" for i, (x, y, z) in enumerate(mesh.nodes)]
     lines += ["FINSF", "%", "TETRA10" if quadratic else "TETRA4"]
     for e, row in enumerate(mesh.elements):
         lines += _wrapped([f"N{v + 1}" for v in row], first=f"M{e + 1}")
@@ -325,45 +337,97 @@ def _families(labels: list[tuple[str, ...]], sign: int) -> tuple[np.ndarray, dic
     return out, {v: list(k) for k, v in numbers.items()}
 
 
-def _write_med(path: Path, mesh: TetMesh, groups: AsterGroups) -> Path:
-    """The mesh and its groups in MED (meshio and h5py): the groups as families."""
+#: MED's names and numbers of the types of elements, by their numbers of nodes
+_MED_TYPES = {4: ("TE4", 304), 10: ("T10", 310), 3: ("TR3", 203), 6: ("TR6", 206)}
+#: The one step of a mesh without time (MED's NDT and NOR: -1)
+_MED_STEP = "-0000000000000000001-0000000000000000001"
+#: The longest name of a group in MED
+_MED_GROUP = 80
+
+
+def _med_attrs(item, **values) -> None:
+    """Attributes of an object of MED: integers of 64 bits, reals of 64 bits, strings."""
+    for key, value in values.items():
+        if isinstance(value, str):
+            item.attrs.create(key, np.bytes_(value))
+        elif isinstance(value, float):
+            item.attrs.create(key, value, dtype=np.float64)
+        else:
+            item.attrs.create(key, int(value), dtype=np.int64)
+
+
+def _write_med(path: Path, mesh: TetMesh, groups: AsterGroups, name: str = "mesh") -> Path:
+    """The mesh and its groups in MED 4.2 through h5py, in the layout that MED's library
+    writes and Code_Aster reads (that of MEDCoupling): the coordinates and the nodes of
+    the elements one component after the other (the nodes numbered from 1), each type of
+    element with its number (``GEO``), the groups as families (one per set of groups of an
+    item; negative numbers for the elements, positive for the nodes)."""
     try:
-        import h5py  # noqa: F401 - meshio's MED writer needs it
-        import meshio
+        import h5py
     except ImportError as exc:  # pragma: no cover - depends on the installation
         raise ImportError(
-            "MED meshes need meshio and h5py (python -m pip install meshio h5py); or write "
-            "the mesh in Code_Aster's format (mesh_format='aster')"
+            "MED meshes need h5py (python -m pip install h5py); or write the mesh in "
+            "Code_Aster's format (mesh_format='aster')"
         ) from exc
     quadratic = mesh.order == 2
     tri = [t for t in groups.faces.values() if len(t)]
     tri = np.concatenate(tri) if tri else np.zeros((0, 6 if quadratic else 3), np.int64)
     n_tet, n_all = mesh.n_elements, mesh.n_elements + len(tri)
     member: list[list[str]] = [[] for _ in range(n_all)]
-    for name, ids in groups.elements.items():
+    for group, ids in groups.elements.items():
         for i in ids:
-            member[i].append(name)
-    tags, cell_tags = _families([tuple(m) for m in member], -1)
+            member[i].append(group)
+    tags, cell_families = _families([tuple(m) for m in member], -1)
     node_member: list[list[str]] = [[] for _ in range(mesh.n_nodes)]
-    for name, ids in groups.nodes.items():
+    for group, ids in groups.nodes.items():
         for i in ids:
-            node_member[i].append(name)
-    node_tags, point_tags = _families([tuple(m) for m in node_member], 1)
+            node_member[i].append(group)
+    node_tags, node_families = _families([tuple(m) for m in node_member], 1)
     # MED numbers the nodes of the tetrahedra otherwise than VTK and Code_Aster: 1 3 2 4
     # (the mid-edge nodes 7 6 5 8 10 9), a permutation that is its own inverse, which
     # Code_Aster applies when it reads them
     order = MED_TETRA10 if quadratic else MED_TETRA4
-    cells = [("tetra10" if quadratic else "tetra", mesh.elements[:, order])]
-    data = [tags[:n_tet]]
+    blocks = [(mesh.elements[:, order], tags[:n_tet])]
     if len(tri):
-        cells.append(("triangle6" if quadratic else "triangle", tri))
-        data.append(tags[n_tet:])
-    out = meshio.Mesh(
-        mesh.nodes, cells, point_data={"point_tags": node_tags}, cell_data={"cell_tags": data}
-    )
-    out.cell_tags = cell_tags
-    out.point_tags = point_tags
-    meshio.write(path, out, file_format="med")
+        blocks.append((tri, tags[n_tet:]))
+    with h5py.File(path, "w") as f:
+        _med_attrs(f.create_group("INFOS_GENERALES"), MAJ=4, MIN=2, REL=0)
+        top = f.create_group("ENS_MAA").create_group(name)
+        _med_attrs(
+            top, DIM=3, ESP=3, REP=0, TYP=0, SRT=0, NXI=-1, NXT=-1, DES="",
+            NOM="".join(f"{axis:<16}" for axis in "XYZ"), UNI=" " * 48, UNT="",
+        )  # fmt: skip
+        step = top.create_group(_MED_STEP)
+        _med_attrs(step, CGT=1, NDT=-1, NOR=-1, PDT=0.0, NXI=-1, NXT=-1, PVI=-1, PVT=-1)
+
+        def data(group, key, values, count):
+            _med_attrs(group.create_dataset(key, data=values), CGT=1, NBR=count)
+
+        nodes = step.create_group("NOE")
+        _med_attrs(nodes, CGT=1, CGS=1, PFL="MED_NO_PROFILE_INTERNAL")
+        data(nodes, "COO", np.asarray(mesh.nodes, np.float64).ravel(order="F"), mesh.n_nodes)
+        data(nodes, "FAM", node_tags, mesh.n_nodes)
+        cells = step.create_group("MAI")
+        _med_attrs(cells, CGT=1)
+        for connectivity, families in blocks:
+            kind, number = _MED_TYPES[connectivity.shape[1]]
+            block = cells.create_group(kind)
+            _med_attrs(block, CGT=1, CGS=1, GEO=number, PFL="MED_NO_PROFILE_INTERNAL")
+            n = len(connectivity)
+            data(block, "NOD", np.asarray(connectivity, np.int64).ravel(order="F") + 1, n)
+            data(block, "FAM", families, n)
+        fas = f.create_group("FAS").create_group(name)
+        _med_attrs(fas.create_group("FAMILLE_ZERO"), NUM=0)
+        for kind, families in (("ELEME", cell_families), ("NOEUD", node_families)):
+            where = fas.create_group(kind, track_order=True)  # MED reads them in this order
+            for number, names in families.items():
+                family = where.create_group(f"FAM_{number}")
+                _med_attrs(family, NUM=number)
+                gro = family.create_group("GRO")
+                _med_attrs(gro, NBR=len(names))
+                nom = gro.create_dataset("NOM", (len(names),), dtype=f"{_MED_GROUP}int8")
+                for i, group in enumerate(names):  # blank-padded, as MED's library
+                    nom[i] = np.frombuffer(f"{group:<{_MED_GROUP}}".encode("ascii"), np.int8)
     return path
 
 
@@ -695,7 +759,14 @@ def write_code_aster(
                 ],
             )
             comm += _call(
-                "IMPR_TABLE", None, [f"TABLE={table}", f"UNITE={unit}", 'FORMAT="TABLEAU"']
+                "IMPR_TABLE",
+                None,
+                [
+                    f"TABLE={table}",
+                    f"UNITE={unit}",
+                    'FORMAT="TABLEAU"',
+                    f'FORMAT_R="{TABLE_FORMAT}"',
+                ],
             )
             comm.append("")
             cases[case] = {
@@ -800,6 +871,18 @@ class CodeAsterRun:
     properties: dict[str, float] = field(default_factory=dict)
 
 
+def _study(directory: Path, name: str | None) -> dict:
+    """The description of a study (``<name>_aster.json``; the only one by default)."""
+    if name is None:
+        found = sorted(directory.glob("*_aster.json"))
+        if len(found) != 1:
+            raise ValueError(f"{directory}: give the name of the study ({len(found)} found)")
+        target = found[0]
+    else:
+        target = directory / f"{name}_aster.json"
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
 def read_code_aster(directory, name: str | None = None) -> CodeAsterRun:
     """The results of a study written by :func:`write_code_aster` (``<name>_aster.json``
     in ``directory``; the only one there by default): the tables of its loadings, the
@@ -813,14 +896,7 @@ def read_code_aster(directory, name: str | None = None) -> CodeAsterRun:
     from morphogen.homogenization.postprocess import engineering_constants
 
     directory = Path(directory)
-    if name is None:
-        found = sorted(directory.glob("*_aster.json"))
-        if len(found) != 1:
-            raise ValueError(f"{directory}: give the name of the study ({len(found)} found)")
-        target = found[0]
-    else:
-        target = directory / f"{name}_aster.json"
-    manifest = json.loads(target.read_text(encoding="utf-8"))
+    manifest = _study(directory, name)
     out = CodeAsterRun(manifest=manifest)
     volume = float(manifest["volume"])
     for case, spec in manifest["cases"].items():
@@ -846,3 +922,61 @@ def read_code_aster(directory, name: str | None = None) -> CodeAsterRun:
         out.conductivity = 0.5 * (k + k.T)
         out.properties["conductivity"] = float(np.trace(out.conductivity) / 3.0)
     return out
+
+
+# -- the runs ------------------------------------------------------------------------------
+
+#: The variable of the environment that names the program ``run_aster``
+RUN_ASTER = "MORPHOGEN_RUN_ASTER"
+#: The diagnostics of the jobs of Code_Aster that went through (without, or with alarms)
+_PASSED = ("OK", "<A>_ALARM")
+
+
+def aster_executable() -> str | None:
+    """The program ``run_aster`` of Code_Aster: ``MORPHOGEN_RUN_ASTER``, or ``run_aster`` on
+    the PATH (None if neither)."""
+    return os.environ.get(RUN_ASTER) or shutil.which("run_aster")
+
+
+def run_code_aster(
+    directory, name: str | None = None, *, run_aster=None, timeout: float | None = None
+) -> CodeAsterRun:
+    """Run a study written by :func:`write_code_aster` with Code_Aster, ``run_aster
+    <name>.export`` in its directory (``run_aster``: the program, or the words of a command,
+    by default :func:`aster_executable`), its output in ``<name>.log``, and read its results
+    (:func:`read_code_aster`). Raises RuntimeError with the diagnostic of the job and its
+    first errors when it fails."""
+    directory = Path(directory)
+    study = _study(directory, name)["name"]
+    program = run_aster or aster_executable()
+    if program is None:
+        raise RuntimeError(
+            "Code_Aster not found: run_aster on the PATH or MORPHOGEN_RUN_ASTER (for instance "
+            f"from conda-forge, code-aster); or run the study by hand in {directory}: "
+            f"run_aster {study}.export"
+        )
+    command = [program] if isinstance(program, (str, os.PathLike)) else list(program)
+    log = directory / f"{study}.log"
+    with open(log, "w", encoding="utf-8") as out:
+        code = subprocess.run(
+            [*map(str, command), f"{study}.export"],
+            cwd=directory,
+            stdout=out,
+            stderr=subprocess.STDOUT,
+            timeout=timeout,
+            check=False,
+        ).returncode
+    text = log.read_text(encoding="utf-8", errors="replace")
+    diagnostics = re.findall(r"DIAGNOSTIC JOB : (\S+)", text)
+    diagnostic = diagnostics[-1] if diagnostics else None
+    if code != 0 or diagnostic not in _PASSED:
+        errors = [
+            line.strip(" ║|")
+            for line in text.splitlines()
+            if re.search(r"<[EFS]>|Traceback|Error", line)
+        ][:5]
+        raise RuntimeError(
+            f"Code_Aster failed (exit {code}, diagnostic {diagnostic}); its output: {log}"
+            + ("\n" + "\n".join(errors) if errors else "")
+        )
+    return read_code_aster(directory, study)

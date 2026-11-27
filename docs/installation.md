@@ -132,7 +132,21 @@ program, runs the scenes of `morphogen.interop.blender` (`blender` on the path, 
 OpenFOAM, separate programs, run the studies and cases that `morphogen.io.code_aster` and
 `morphogen.io.openfoam` write: morphoGen writes their files and reads their results
 without them; the MED meshes of Code_Aster need h5py (`python -m pip install h5py`), its
-own format does not. morphoGen never requires them.
+own format does not. morphoGen never requires them. Both are on conda-forge, in an
+environment of their own:
+
+```bash
+conda create -n aster -c conda-forge "code-aster=*=*nompi*"   # run_aster
+conda create -n openfoam -c conda-forge openfoam               # OpenCFD's OpenFOAM
+```
+
+`morphogen code-aster run` finds `run_aster` on the path, or the program that
+`MORPHOGEN_RUN_ASTER` names (e.g. `.../envs/aster/bin/run_aster`); `morphogen openfoam
+run` runs where OpenFOAM's environment is set (its solvers on the path), or sources first
+the file that `MORPHOGEN_OPENFOAM` names: OpenFOAM's `etc/bashrc` of an installation of
+OpenCFD or of the Foundation, or a file that activates the environment of conda-forge
+(`eval "$(conda shell.bash hook)"` then `conda activate openfoam`). With them, the tests
+run the studies and cases with the programs themselves.
 
 **MFront behaviours.** MGIS and MFront are not on PyPI: install them from
 conda-forge in morphoGen's environment, with a C++ compiler for the behaviours:

@@ -17,9 +17,10 @@ conforming tetrahedral mesh (a cell per element):
   along the axes given, ``cyclic``; then ``WALLS``, the faces between the cells and the
   voxels (elements) of the other phases, of type ``wall``. The face ``k`` of a cyclic
   patch faces the face ``k`` of its neighbour, translated by the edge of the box, its
-  points in the reverse order from the same first point, as OpenFOAM matches them, and
-  the patch gives ``transform translational`` and ``separationVector``, its centre minus
-  that of its neighbour (the names that both lines of OpenFOAM read);
+  points in the reverse order from the same first point, as OpenFOAM matches them; the
+  patches give no transform, which both lines of OpenFOAM then compute from their faces
+  (a translation given as ``separationVector`` has opposite signs in the two: the
+  neighbour's centre minus the patch's for OpenCFD, the reverse for the Foundation);
 * the cell zones, one per phase (``phase<p>``).
 
 :func:`write_polymesh` writes its files (``points``, ``faces``, ``owner``, ``neighbour``,
@@ -46,6 +47,16 @@ the description of the case. The components of the phase that do not join the in
 the outlet (closed pores, where the pressure or ``T`` would be undetermined) are left out
 by default (``connected``).
 
+**Tetrahedral meshes.** The finite volumes of OpenFOAM on tetrahedra (collocated, with
+the interpolation of Rhie and Chow) solve the diffusion well, but not the creeping flow:
+their permeability of a slit between plane walls converges, as the mesh is refined, to a
+value about a fifth lower than the exact one, with the pressure oscillating from cell to
+cell, while on the polyhedral dual of the same meshes it converges to the exact value at
+the second order. ``Allrun`` therefore replaces a tetrahedral mesh by its dual
+(``polyDualMesh``, the feature angle :data:`DUAL_FEATURE_ANGLE`) before the flow (``dual``);
+a mesh with slivers can have an invalid dual (``checkMesh``), for which the voxels of the
+sample are the case to run.
+
 :func:`read_openfoam` reads the last values written by the function objects
 (``postProcessing/``): Darcy's permeability ``k = nu Q L / (A dp)`` (``Q`` the flow rate,
 ``L`` the length of the box along the axis, ``A`` the area of its section: the mean
@@ -58,7 +69,11 @@ ratio to ``DT``, the inverse of the formation factor of the phase.
 from __future__ import annotations
 
 import json
+import os
 import re
+import shlex
+import shutil
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -78,6 +93,24 @@ _BANNER = (
     "\\*---------------------------------------------------------------------------*/\n"
 )
 _RULE = "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n"
+#: The feature angle of the polyhedral dual of a tetrahedral mesh: the edges of the box
+#: (90 degrees) are kept, the facets of the curved walls are smoothed
+DUAL_FEATURE_ANGLE = 75
+#: The commands of Allrun that replace a tetrahedral mesh by its polyhedral dual, the
+#: tetrahedra kept (``constant/polyMesh.tetrahedra``) for the next run: OpenCFD's
+#: polyDualMesh overwrites the mesh with -overwrite, the Foundation's without (-noOverwrite)
+_DUAL = (
+    "if [ -d constant/polyMesh.tetrahedra ]; then\n"
+    "    rm -rf constant/polyMesh && cp -r constant/polyMesh.tetrahedra constant/polyMesh\n"
+    "else\n"
+    "    cp -r constant/polyMesh constant/polyMesh.tetrahedra\n"
+    "fi\n"
+    'if polyDualMesh -help 2>&1 | grep -q -- "-overwrite"; then\n'
+    f"    polyDualMesh -overwrite {DUAL_FEATURE_ANGLE} > log.polyDualMesh 2>&1 || exit 1\n"
+    "else\n"
+    f"    polyDualMesh {DUAL_FEATURE_ANGLE} > log.polyDualMesh 2>&1 || exit 1\n"
+    "fi\n"
+)
 
 
 @dataclass
@@ -413,10 +446,8 @@ def polymesh(
         points, owner, neighbour, faces, groups, zones, _ = _voxel_polymesh(
             sample, phases, cyclic, connected_axis
         )
-        lengths = np.asarray(sample.spacing, dtype=float) * np.asarray(sample.shape)
     elif isinstance(sample, TetMesh):
         points, owner, neighbour, faces, groups, zones = _tet_polymesh(sample, phases, cyclic)
-        lengths = sample.size
     else:
         raise TypeError("polymesh: a VoxelImage or a TetMesh")
     all_faces = [faces]
@@ -434,14 +465,13 @@ def polymesh(
                 kind = "cyclic"
                 lower = FACES.index(name) % 2 == 0
                 partner = FACES[2 * axis + (1 if lower else 0)]
-                separation = np.zeros(3)
-                separation[axis] = -lengths[axis] if lower else lengths[axis]
+                # no transform: both lines of OpenFOAM compute the translation from the
+                # faces, and their signs of a separation given differ (OpenCFD: the
+                # neighbour minus the patch; the Foundation: the patch minus the neighbour)
                 entries = {
                     "inGroups": "List<word> 1(cyclic)",
                     "matchTolerance": "0.0001",
-                    "transform": "translational",
                     "neighbourPatch": partner,
-                    "separationVector": "(" + " ".join(f"{v:.12g}" for v in separation) + ")",
                 }
         patches.append(Patch(name, kind, start, len(fc), entries))
         all_faces.append(fc)
@@ -690,6 +720,7 @@ def write_openfoam(
     iterations: int = 2000,
     tolerance: float = 1e-7,
     connected: bool = True,
+    dual: bool | None = None,
 ) -> OpenFoamExport:
     """A case of OpenFOAM of a voxel image or a conforming mesh (see the module): ``kind``
     ``"flow"`` (the pores, ``phases``: by default the phase 0) or ``"diffusion"``, along
@@ -699,8 +730,10 @@ def write_openfoam(
     ``diffusivity`` and ``difference`` (of ``T`` between the inlet and the outlet) of the
     diffusion; ``iterations`` (the largest number of iterations of SIMPLE) and
     ``tolerance`` (the residuals at which they stop); ``connected``: only the components
-    of the phases that join the inlet to the outlet (voxels). The lengths are those of the
-    sample, in metres for OpenFOAM."""
+    of the phases that join the inlet to the outlet (voxels); ``dual``: the case solved on
+    the polyhedral dual of a tetrahedral mesh, which ``Allrun`` makes first
+    (``polyDualMesh``; by default for the flow through a conforming mesh, see the module).
+    The lengths are those of the sample, in metres for OpenFOAM."""
     if kind not in KINDS:
         raise ValueError(f"kind: one of {KINDS}")
     axis = int(axis)
@@ -714,6 +747,11 @@ def write_openfoam(
                 "faces); mesh it with cells='box'"
             )
         periodic = periodic and sample.matching_faces()
+    tetrahedra = isinstance(sample, TetMesh)
+    if dual is None:
+        dual = tetrahedra and kind == "flow"
+    if dual and not tetrahedra:
+        raise ValueError("dual: the polyhedral dual of a tetrahedral mesh (a conforming mesh)")
     if lateral is None:
         lateral = "cyclic" if periodic else "symmetryPlane"
     if lateral not in LATERAL:
@@ -975,7 +1013,10 @@ functions
     allrun.write_text(
         "#!/bin/sh\n"
         f"# morphoGen {__version__}: the case run by OpenFOAM (its environment sourced)\n"
-        'cd "${0%/*}" || exit 1\n' + run,
+        'cd "${0%/*}" || exit 1\n'
+        + (_DUAL if dual else "")
+        + "checkMesh > log.checkMesh 2>&1\n"
+        + run,
         encoding="ascii",
     )
     allrun.chmod(0o755)
@@ -998,6 +1039,7 @@ functions
         "faces": len(mesh.faces),
         "fraction": fraction,
         "connected_fraction": float(cells_fraction),
+        "dual": bool(dual),
         "viscosity": float(viscosity),
         "pressure_drop": float(pressure_drop),
         "diffusivity": float(diffusivity),
@@ -1013,8 +1055,9 @@ functions
 
 
 def _last_values(folder: Path) -> list[float] | None:
-    """The numbers of the last line of the outputs of a function object (the files of its
-    last start time), or None."""
+    """The numbers of the last line of the outputs of a function object (the newest file of
+    its last start time: a run again writes ``<name>_0.dat`` beside ``<name>.dat``), or
+    None."""
     if not folder.is_dir():
         return None
     starts = sorted(
@@ -1022,7 +1065,7 @@ def _last_values(folder: Path) -> list[float] | None:
         key=lambda p: float(p.name) if re.fullmatch(r"[-+.\deE]+", p.name) else 0.0,
     )
     for start in reversed(starts):
-        for data in sorted(start.glob("*.dat")):
+        for data in sorted(start.glob("*.dat"), key=lambda p: (-p.stat().st_mtime, p.name)):
             rows = [
                 line
                 for line in data.read_text(encoding="utf-8").splitlines()
@@ -1044,6 +1087,9 @@ class OpenFoamRun:
     manifest: dict
     values: dict[str, list[float]] = field(default_factory=dict)
     properties: dict[str, float] = field(default_factory=dict)
+    #: The verdict of checkMesh (``log.checkMesh``): ``"OK"``, the number of the checks
+    #: that failed (``"failed 2"``), or None without its log
+    mesh_check: str | None = None
 
 
 def read_openfoam(directory) -> OpenFoamRun:
@@ -1054,6 +1100,13 @@ def read_openfoam(directory) -> OpenFoamRun:
     directory = Path(directory)
     manifest = json.loads((directory / "morphogen_openfoam.json").read_text(encoding="utf-8"))
     out = OpenFoamRun(manifest=manifest)
+    check = directory / "log.checkMesh"
+    if check.is_file():
+        text = check.read_text(encoding="utf-8", errors="replace")
+        failed = re.search(r"Failed (\d+) mesh checks", text)
+        out.mesh_check = (
+            f"failed {failed.group(1)}" if failed else "OK" if "Mesh OK." in text else None
+        )
     post = directory / "postProcessing"
     length, area, volume = manifest["length"], manifest["area"], manifest["volume"]
     if manifest["kind"] == "flow":
@@ -1081,3 +1134,73 @@ def read_openfoam(directory) -> OpenFoamRun:
                 relative_diffusivity=d_eff / manifest["diffusivity"],
             )
     return out
+
+
+# -- the runs ------------------------------------------------------------------------------
+
+#: The variable of the environment that names the file which sets OpenFOAM's environment
+#: (its ``etc/bashrc``), sourced by bash before ``Allrun``
+OPENFOAM_ENVIRONMENT = "MORPHOGEN_OPENFOAM"
+#: The logs of the solvers, by kind of case
+_SOLVER_LOGS = {"flow": ("log.simpleFoam", "log.foamRun"), "diffusion": ("log.laplacianFoam",)}
+
+
+def openfoam_found() -> bool:
+    """Whether OpenFOAM can run the cases: ``MORPHOGEN_OPENFOAM`` set, or its solvers on the
+    PATH (its environment sourced)."""
+    return bool(os.environ.get(OPENFOAM_ENVIRONMENT)) or (
+        shutil.which("laplacianFoam") is not None
+        and (shutil.which("simpleFoam") or shutil.which("foamRun")) is not None
+    )
+
+
+def run_openfoam(directory, *, environment=None, timeout: float | None = None) -> OpenFoamRun:
+    """Run a case written by :func:`write_openfoam` with OpenFOAM, its ``Allrun`` (the
+    polyhedral dual of a tetrahedral mesh, ``checkMesh``, the solver): after sourcing
+    ``environment`` (a file that sets OpenFOAM's environment, its ``etc/bashrc``; by default
+    the file named by ``MORPHOGEN_OPENFOAM``) in bash, or with the solvers on the PATH. The
+    outputs of an earlier run are removed first (the logs, ``postProcessing``, the times
+    after 0); the output of ``Allrun`` in ``log.Allrun``, those of the programs in their
+    logs; returns the results (:func:`read_openfoam`). Raises RuntimeError with the end of
+    the log of the program that failed."""
+    directory = Path(directory)
+    manifest = json.loads((directory / "morphogen_openfoam.json").read_text(encoding="utf-8"))
+    source = environment or os.environ.get(OPENFOAM_ENVIRONMENT)
+    if source:
+        command = ["bash", "-c", f". {shlex.quote(str(source))} && sh ./Allrun"]
+    elif openfoam_found():
+        command = ["sh", "./Allrun"]
+    else:
+        raise RuntimeError(
+            "OpenFOAM not found: its solvers on the PATH (its etc/bashrc sourced), or "
+            f"MORPHOGEN_OPENFOAM naming its etc/bashrc; or run {directory / 'Allrun'} by hand"
+        )
+    for stale in directory.glob("log.*"):  # the outputs of an earlier run
+        stale.unlink()
+    for stale in directory.iterdir():
+        if stale.is_dir() and (
+            stale.name == "postProcessing"
+            or (
+                re.fullmatch(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", stale.name)
+                and float(stale.name) != 0
+            )
+        ):
+            shutil.rmtree(stale)
+    with open(directory / "log.Allrun", "w", encoding="utf-8") as out:
+        code = subprocess.run(
+            command, cwd=directory, stdout=out, stderr=subprocess.STDOUT, timeout=timeout,
+            check=False,
+        ).returncode  # fmt: skip
+    logs = [directory / name for name in ("log.polyDualMesh", *_SOLVER_LOGS[manifest["kind"]])]
+    for log in logs:
+        if not log.is_file():
+            continue
+        text = log.read_text(encoding="utf-8", errors="replace")
+        lines = text.rstrip().splitlines()
+        if "FOAM FATAL" in text or "\nFloating point exception" in text or lines[-1:] != ["End"]:
+            tail = "\n".join(lines[-12:])
+            raise RuntimeError(f"OpenFOAM failed ({log.name}):\n{tail}")
+    if code != 0 or not any(log.is_file() for log in logs[1:]):
+        tail = (directory / "log.Allrun").read_text(encoding="utf-8", errors="replace")[-2000:]
+        raise RuntimeError(f"OpenFOAM failed (Allrun, exit {code}):\n{tail}")
+    return read_openfoam(directory)
