@@ -119,8 +119,10 @@ def _convert(kind: str, value: Any, name: str):
 _REGISTRY: dict[str, type[Model]] = {}
 
 
-def register(cls: type[Model]) -> type[Model]:
-    """Class decorator adding a model to the registry under ``cls.name``."""
+def register[M: type[Model]](cls: M) -> M:
+    """Class decorator adding a model to the registry under ``cls.name``. Typed as returning
+    the class it is given, so that editors and type checkers show each model with its own
+    signature and documentation (not those of :class:`Model`)."""
     if not cls.name:
         raise ValueError(f"{cls.__name__} has no registry name")
     _REGISTRY[cls.name] = cls
@@ -295,9 +297,9 @@ class Model(ABC):
 _KINDS: dict[str, type[Microstructure]] = {}
 
 
-def register_kind(cls: type[Microstructure]) -> type[Microstructure]:
-    """Registers a kind of microstructure (a class decorator), which
-    :meth:`Microstructure.from_dict` then reads back."""
+def register_kind[K: type[Microstructure]](cls: K) -> K:
+    """Registers a kind of microstructure (a class decorator, typed as returning the class
+    it is given), which :meth:`Microstructure.from_dict` then reads back."""
     _KINDS[cls.kind] = cls
     return cls
 

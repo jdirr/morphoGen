@@ -73,12 +73,15 @@ def check_scale(law, volume_fraction, name: str) -> None:
     size whose scale the fraction sets (the shape of its law kept)."""
     if volume_fraction is None:
         if law is None:
-            raise ValueError(f"give exactly one of '{name}' and 'volume_fraction'")
+            raise ValueError(
+                f"give exactly one of '{name}' and 'volume_fraction' (neither is given)"
+            )
         return
     if law is not None and not polydisperse(law):
         raise ValueError(
-            f"give exactly one of '{name}' and 'volume_fraction' (or a distribution of "
-            f"'{name}' whose scale the volume fraction sets)"
+            f"give exactly one of '{name}' and 'volume_fraction', not both (got {name}="
+            f"{law!r} and volume_fraction={volume_fraction!r}), or a distribution of "
+            f"'{name}' whose scale the volume fraction sets"
         )
 
 

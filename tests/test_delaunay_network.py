@@ -148,6 +148,20 @@ def test_fibres_of_the_network():
             DelaunayNetwork(**{"n_points": 50, "radius": 0.1, **bad})
 
 
+def test_one_parameter_of_each_pair():
+    # n_points or intensity, radius or volume_fraction: the messages say whether both or
+    # neither were given, with the values given
+    with pytest.raises(ValueError, match=r"'n_points' and 'intensity', not both.*n_points=1000"):
+        DelaunayNetwork(n_points=1000, intensity=1)
+    with pytest.raises(ValueError, match=r"'n_points' and 'intensity' \(neither is given\)"):
+        DelaunayNetwork(radius=0.1)
+    with pytest.raises(ValueError, match=r"'radius' and 'volume_fraction' \(neither is given\)"):
+        DelaunayNetwork(n_points=1000)
+    with pytest.raises(ValueError, match=r"'radius' and 'volume_fraction', not both"):
+        DelaunayNetwork(n_points=1000, radius=0.1, volume_fraction=0.1)
+    assert DelaunayNetwork(n_points=1000, volume_fraction=0.1).n_points == 1000
+
+
 def test_template_and_interface():
     from morphogen import cli
     from morphogen.config import load_config
