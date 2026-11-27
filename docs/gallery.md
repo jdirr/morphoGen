@@ -728,6 +728,30 @@ morphogen run seeded_matrix.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-seeded-plane
+
+```{image} _static/gallery/seeded_plane.png
+:alt: seeded_plane
+:loading: lazy
+```
+
+**`seeded_plane`** — Grains of the plane grown from elliptical seeds: the section of a rolled sheet, grains elongated along x among the smaller equiaxed grains of a second phase, columnar through a thin slice.
+
+```bash
+morphogen template seeded_plane -o seeded_plane.yaml
+morphogen run seeded_plane.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/seeded_plane.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-nested-grains
 
 ```{image} _static/gallery/nested_grains.png

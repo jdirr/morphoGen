@@ -593,7 +593,8 @@ def _exact_grains(micro, seed) -> dict[str, float]:
     """The grains of a tessellation from its exact cells: their number, the mean and the
     coefficient of variation of their equivalent diameters, the medians of the ratios a/b
     and b/c of their ellipsoids (over the grains that the faces of the box do not cut), the
-    fractions of the volume of the phases; for the grains of seeds, the gaps to their seeds
+    fractions of the volume of the phases (in the plane, of the ellipses of the sections of
+    the columnar grains); for the grains of seeds, the gaps to their seeds
     (the relative RMS error of the diameters, the RMS errors of the ratios, the mean angle
     between their axes, the largest Kolmogorov–Smirnov distance to the laws of the
     seeds)."""
@@ -614,7 +615,8 @@ def _exact_grains(micro, seed) -> dict[str, float]:
         out["grain_diameter_mean"] = float(d.mean())
         out["grain_diameter_cv"] = float(d.std() / d.mean())
         out["grain_aspect_ratio_median"] = float(np.median(semi[:, 0] / semi[:, 1]))
-        out["grain_flatness_median"] = float(np.median(semi[:, 1] / semi[:, 2]))
+        if semi.shape[1] == 3:  # but in the plane
+            out["grain_flatness_median"] = float(np.median(semi[:, 1] / semi[:, 2]))
     phases = np.asarray(getattr(micro, "grain_phases", micro.cell_phases), dtype=np.int64)
     volume = np.bincount(phases, shapes["volume"])
     for k in np.flatnonzero(volume):
@@ -627,9 +629,12 @@ def _exact_grains(micro, seed) -> dict[str, float]:
         if fit.any():
             out["seed_diameter_error"] = float(np.sqrt(np.mean(rel[fit] ** 2)))
         out["seed_aspect_ratio_error"] = errors["aspect_ratio"]["rmse"]
-        out["seed_flatness_error"] = errors["flatness"]["rmse"]
+        if "flatness" in errors:
+            out["seed_flatness_error"] = errors["flatness"]["rmse"]
         out["seed_axis_angle"] = errors["axis_angle"]["mean"]
         for name in ("diameter", "aspect_ratio", "flatness"):
+            if name not in errors:
+                continue
             ks = [v for v in errors[name]["ks"].values() if np.isfinite(v)]
             if ks:
                 out[f"seed_{name}_ks"] = float(max(ks))

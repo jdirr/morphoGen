@@ -11,7 +11,7 @@ them by these numbers (§75); by theme:
 
 | Theme | Sections |
 |---|---|
-| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image`, [§114](#114-reconstruction-from-descriptors-by-gradient-descent-morphologyreconstruction) Reconstruction from descriptors by gradient descent, [§115](#115-grains-grown-from-seeds-modelsseeded-kernelsseeds) Grains grown from seeds, [§116](#116-seeds-of-several-phases-and-the-verification-of-their-grains-modelsseeded-meshpolyhedra-kernelsseeds) Seeds of several phases and the verification of their grains |
+| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image`, [§114](#114-reconstruction-from-descriptors-by-gradient-descent-morphologyreconstruction) Reconstruction from descriptors by gradient descent, [§115](#115-grains-grown-from-seeds-modelsseeded-kernelsseeds) Grains grown from seeds, [§116](#116-seeds-of-several-phases-and-the-verification-of-their-grains-modelsseeded-meshpolyhedra-kernelsseeds) Seeds of several phases and the verification of their grains, [§117](#117-seeds-of-the-plane-and-the-figures-of-the-verification-modelsseeded-vizfigures) Seeds of the plane and the figures of the verification |
 | Architected and bio-inspired structures | [§6](#6-tpms) TPMS, [§7](#7-strut-lattices) Strut lattices, [§30](#30-bio-inspired-models) Bio-inspired models, [§71](#71-diamond-and-pyrochlore-lattices-of-struts-homogenizationframes-modelslattice) Diamond and pyrochlore lattices of struts, [§96](#96-woven-textile-composites-woven_textile) Woven textile composites, [§110](#110-woven-textiles-the-variability-of-the-tows-3d-architectures-the-tows-as-unidirectional-composites-woven_textile-homogenizationunidirectional) Woven textiles: the variability of the tows, 3D architectures, the tows as unidirectional composites |
 | Growth and design | [§14](#14-cellular-automata-automata) Cellular automata, [§15](#15-nucleation-and-growth-johnsonmehlavramikolmogorov) Nucleation and growth (Johnson–Mehl–Avrami–Kolmogorov), [§16](#16-aggregation) Aggregation, [§17](#17-combinatorial-design-design) Combinatorial design, [§18](#18-topology-optimization-of-periodic-cells-optimization) Topology optimization of periodic cells, [§78](#78-isogeometric-analysis-iga) Isogeometric analysis, [§79](#79-isogeometric-shape-optimization-igaoptimization) Isogeometric shape optimization, [§109](#109-inverse-design-of-active-structures-optimizationmorphing) Inverse design of active structures, [§113](#113-spinodal-decomposition-spinodal) Spinodal decomposition |
 | Geometry and meshes | [§19](#19-polycrystals-exact-cells-and-conforming-meshes-meshpolyhedra-meshpolycrystal) Polycrystals: exact cells and conforming meshes, [§24](#24-whole-periodic-grains-meshpolycrystal-cells-whole) Whole periodic grains, [§52](#52-views-and-measures-of-the-level-sets-vizsections) Views and measures of the level sets, [§75](#75-the-implicit-geometry-of-every-model-modelsimplicit-meshconforming) The implicit geometry of every model, [§76](#76-quadratic-tetrahedra-isoparametric-elements-and-curved-interfaces-meshcurved-homogenizationfe) Quadratic tetrahedra: isoparametric elements and curved interfaces, [§80](#80-sharp-edges-of-the-phases-meshes-that-follow-them-modelspieces-meshconforming-meshcurved) Sharp edges of the phases: meshes that follow them, [§94](#94-exact-meshes-without-a-background-grid-meshexact-meshoctree) Exact meshes without a background grid |
@@ -13722,6 +13722,65 @@ it (beyond the faces of its cells for a fifth of the points at least, a lower bo
 distance to them), saved without NaN and read back, meshed as one subdomain or left out;
 seeds of radii 0.02 to 0.6 placed in boxes periodic or not, the seeds that clear within the
 tolerance of those before them by brute force.
+
+## 117. Seeds of the plane and the figures of the verification (`models.seeded`, `viz.figures`)
+
+**Seeds of the plane.** MicroStructPy grows microstructures of the plane from ellipses.
+`seeded_laguerre` with `dimension: 2` draws elliptical seeds in the middle plane $z$ of the
+box: their equivalent diameter $d$ is that of the disc of their area, $\pi a b = \pi d^2/4$,
+with their ratio $a/b$ and their long axis at a uniform angle in the plane or along $x$
+(`aligned`); they fill the area of the box, the seeds of each phase with
+$p_i \propto q_i/E[A_i]$, $E[A_i] = \pi E[d_i^2]/4$. An ellipse is broken down as the
+section through its axis of the prolate spheroid $(a, b, b)$: the circles centred on its
+medial segment $|x| \le (a^2 - b^2)/a$, each the largest of the ellipse about its centre
+(§115: the spheres of the spheroid cut by the plane), at the spacing $0.5\,b$. The
+positions tried lie in the middle plane (the kernel draws $x$ and $y$), and the tolerance
+is the fit of MicroStructPy in the plane,
+
+$$t(v) = \frac{0.362954\,v^2 - 0.419069\,v + 0.184959}{v^2 - 1.05989\,v + 0.365096},$$
+
+0.507 for seeds of one size, $v$ the coefficient of variation of their areas. With all the
+germs in one plane, the power distance of a point $(x, y, z)$ to a germ $(x_k, y_k, z_0)$ is
+that of the plane plus $(z - z_0)^2$, the same for every germ: the Laguerre cells are the
+prisms of the power diagram of the circles in the plane through the thickness — in a
+periodic box too, the images of the germs in $z$ being no nearer — and the grains are
+columnar, the same labels on every layer of voxels. A box that is not periodic is widened in
+the plane only.
+
+**Their verification.** The grains of the plane are measured by their sections: the area
+$V/L_z$ of each, the diameter of the disc of that area and the ellipse of the same second
+moments in the plane, the covariance of a solid ellipse being $\mathrm{diag}(a^2, b^2)/4$
+(`grain_shapes`, two semi-axes); `seed_comparison` and `exact_grains` compare the diameters,
+the ratios $a/b$ and the long axes. Seeds of lognormal diameters (coefficient of variation
+0.2) and of $a/b$ uniform on $[1.5, 3]$ in a periodic square of edge 12 (184 grains): the
+diameters within 6.7 % RMS ($R^2$ 0.925, Kolmogorov–Smirnov 0.083), the long axes 3.5°
+from those of their seeds on average. The ratios of the grains exceed those of their seeds
+(a bias of +0.42, Kolmogorov–Smirnov 0.26): a cell of a partition is no ellipse, and discs
+give grains whose ellipses have the ratio 1.31 on average (1.15 for the grains of spheres in
+space), seeds of the ratio 2 grains of 2.37. The template `seeded_plane` (the section of a
+rolled sheet: grains of lognormal sizes and of $a/b$ uniform on $[2, 3.5]$ along $x$, among
+the equiaxed grains of a second phase, 0.8 and 0.2 of the area) gives the fractions 0.814
+and 0.186, the diameters within 7.0 %, the axes within 2.0°, the distances of
+Kolmogorov–Smirnov 0.070 and 0.097 (138 grains, 6 s).
+
+**The figures.** `seed_figure` draws what MicroStructPy draws after its verification: for
+each quantity the distribution functions of the grains of each phase (solid), of their seeds
+(dotted) and the law of the seeds of the phase (black, `Distribution.cdf`), on the bulk of
+the values (to 1.1 times the 98th percentile of the grains: a few slivers do not stretch the
+axis); the histogram of the angles between the axes of the grains and of their seeds; the
+fractions of the phases, asked and realized. The tool *Grains and their seeds* of the
+interface (Statistics) gives the tables of the errors and of the fractions and this figure
+for a realization of `seeded_laguerre` of the workspace (the trait `seeds` of its items).
+
+Checked (`tests/test_seeded_phases.py`, `tests/test_gui_tools.py`): elliptical seeds in the
+middle plane of a thin periodic box, the germs in that plane, the tolerance of the plane for
+seeds of one size, the same labels on four layers, the areas of the grains summing to that
+of the box, two semi-axes and no ratio b/c, the diameters within 8 % RMS and the axes within
+8°, the columns of `exact_grains`, the number of grains within 15 % of the theory; in a box
+that is not periodic, the seeds about it in the plane only and the grains cut by its sides,
+not by its faces $z$; the parameters checked; the figure, five panels for two phases in
+space and four in the plane; the tool, the trait of the items grown from seeds, its tables
+and its figure, a polycrystal of germs refused.
 
 ## References
 

@@ -1444,3 +1444,55 @@ def _anisotropy_outputs(family, p: dict, name: str, ctx) -> dict:
     values = {k: float(v) for k, v in values.items() if np.isfinite(v)}
     values["realizations"] = r.realizations
     return {"values": values}
+
+
+@tool(
+    "seeds",
+    "statistics",
+    "Grains and their seeds",
+    "The grains of a morphology grown from seeds (seeded_laguerre) against their seeds, on "
+    "their exact cells, as the verification of MicroStructPy: the equivalent diameters, the "
+    "ratios of the ellipsoids of their second moments (of the ellipses of their sections in "
+    "the plane) and their axes against those of their seeds; their errors, the distances of "
+    "Kolmogorov–Smirnov of the grains of each phase to the laws of its seeds and the "
+    "fractions of the phases; the distributions of the grains, of the seeds and of their "
+    "laws.",
+    [
+        Field("source", "item", label="grains of seeds", required=True, needs=("seeds",),
+              doc="a realization of seeded_laguerre"),
+    ],
+    order=9,
+    menu="Grains of seeds",
+)  # fmt: skip
+def seeds(p: dict, ctx) -> dict:
+    from morphogen.viz.figures import SEED_QUANTITIES, seed_figure
+
+    micro = p["source"]["micro"]
+    if not callable(getattr(micro, "seed_comparison", None)):
+        raise ValueError(f"{p['source']['title']}: not grown from seeds (seeded_laguerre)")
+    ctx.progress(0.1, "the exact cells of the grains")
+    cmp = micro.seed_comparison()
+    errors = cmp["errors"]
+    rows = []
+    for name, label in SEED_QUANTITIES.items():
+        if name not in errors:
+            continue
+        e = errors[name]
+        row = {"quantity": label, "bias": e["bias"], "mean absolute": e["mae"],
+               "RMS": e["rmse"], "largest": e["max"], "R²": e["r2"]}  # fmt: skip
+        for phase, ks in sorted(e["ks"].items()):
+            row[f"KS phase {phase}"] = ks
+        rows.append(row)
+    ctx.table(rows, "errors", "the grains against their seeds (the crystals inside the box)")
+    ctx.table([{"phase": k, "asked": a, "realized": r}
+               for k, (r, a) in sorted(cmp["fractions"].items())],
+              "fractions", "fractions of the volume of the phases")  # fmt: skip
+    ctx.progress(0.8, "figure")
+    ctx.figure(seed_figure(micro, cmp), "seeds")
+    inside = np.asarray(cmp["inside"], dtype=bool)
+    values = {
+        "crystals": len(cmp["grain"]),
+        "crystals inside the box": int(inside.sum()),
+        "mean angle of the axes (degrees)": errors["axis_angle"]["mean"],
+    }
+    return {"values": {k: v for k, v in values.items() if v == v}}

@@ -12,7 +12,11 @@ a seed is of the phase ``i`` with the probability ``p_i ∝ q_i / E[V_i]`` (Micr
 phase takes its fraction of the volume. The seeds of an amorphous phase
 (``amorphous_phases``: a matrix, a glass) are merged into one region without grain
 boundaries; a void is an amorphous phase that the meshes leave out (their ``phases``).
-They are placed the largest first, each at the first of uniform positions where
+With ``dimension: 2`` the seeds are ellipses in the middle plane z of the box (the diameter
+of the disc of their area, their ratio a/b, an angle in the plane), broken down as the
+sections of the prolate spheroids ``(a, b, b)``: the grains are columnar, the prisms of the
+power diagram of their circles in the plane. They are placed the largest first, each at
+the first of uniform positions where
 its spheres overlap those of the seeds placed by at most ``overlap`` times the smaller
 radius (:mod:`morphogen.kernels.seeds`); by default the tolerance of Hart and Rimoli, a
 rational function of the coefficient of variation of the volumes of the seeds fitted to
@@ -120,14 +124,19 @@ def ellipsoid_spheres(a: float, b: float, c: float, *, spacing: float = 0.5,
     return np.column_stack([x, y, np.zeros_like(x)]), radii
 
 
-def overlap_tolerance(volumes) -> float:
+def overlap_tolerance(volumes, dimension: int = 3) -> float:
     """The overlap of the seeds tolerated at their placement (relative to the smaller
-    sphere) for the coefficient of variation of their volumes: the rational fit of Hart and
-    Rimoli (2020, Fig. 10) in 3D, with MicroStructPy's coefficients, between 0 and 1."""
+    sphere) for the coefficient of variation of their volumes (of their areas in the plane):
+    the rational fit of Hart and Rimoli (2020, Fig. 10), with MicroStructPy's coefficients
+    in 3D and in 2D, between 0 and 1."""
     v = np.asarray(volumes, dtype=float)
     cv = float(v.std() / v.mean()) if len(v) > 1 and v.mean() > 0 else 0.0
-    numer = 0.471115 * cv * cv - 0.602324 * cv + 0.297562
-    denom = cv * cv - 1.08469 * cv + 0.428216
+    if dimension == 2:
+        numer = 0.362954 * cv * cv - 0.419069 * cv + 0.184959
+        denom = cv * cv - 1.05989 * cv + 0.365096
+    else:
+        numer = 0.471115 * cv * cv - 0.602324 * cv + 0.297562
+        denom = cv * cv - 1.08469 * cv + 0.428216
     return float(np.clip(numer / denom, 0.0, 1.0))
 
 
@@ -241,24 +250,35 @@ class SeededTessellation(Tessellation):
         error, the largest error, the coefficient of determination ``R²`` and the
         Kolmogorov–Smirnov distance of the grains of each phase to the law of the seeds of
         the phase (a continuous law); ``fractions``: the fraction of the volume of each
-        phase, realized and asked."""
+        phase, realized and asked. In the plane, the ellipses of the seeds and of the
+        sections of the grains: the diameters of the discs of their areas, their ratios
+        a/b and their long axes."""
         shapes = self.grain_shapes() if shapes is None else shapes
         crystal = ~self.amorphous
         if "axes" not in self.seeds:
             raise ValueError("seed_comparison: the realization has no seeds")
         seed_axes = self.seeds["axes"]
         semi = shapes["semi_axes"]
-        values = {
-            "diameter": (2.0 * np.cbrt(np.prod(seed_axes, axis=1)), shapes["diameter"]),
-            "aspect_ratio": (seed_axes[:, 0] / seed_axes[:, 1], semi[:, 0] / semi[:, 1]),
-            "flatness": (seed_axes[:, 1] / seed_axes[:, 2], semi[:, 1] / semi[:, 2]),
-        }
+        planar = self.metadata.get("dimension") == 2
+        if planar:  # ellipses: the diameter of the disc of their area, a/b
+            values = {
+                "diameter": (2.0 * np.sqrt(seed_axes[:, 0] * seed_axes[:, 1]), shapes["diameter"]),
+                "aspect_ratio": (seed_axes[:, 0] / seed_axes[:, 1], semi[:, 0] / semi[:, 1]),
+            }
+        else:
+            values = {
+                "diameter": (2.0 * np.cbrt(np.prod(seed_axes, axis=1)), shapes["diameter"]),
+                "aspect_ratio": (seed_axes[:, 0] / seed_axes[:, 1], semi[:, 0] / semi[:, 1]),
+                "flatness": (seed_axes[:, 1] / seed_axes[:, 2], semi[:, 1] / semi[:, 2]),
+            }
         # the distinguished axis: the long one, or the short one of a flat seed
         rows = euler_to_matrix(np.nan_to_num(self.seeds["angles"]))  # rows: axes of the seeds
-        ab, bc = values["aspect_ratio"][0], values["flatness"][0]
+        ab = values["aspect_ratio"][0]
+        bc = values["flatness"][0] if "flatness" in values else np.ones_like(ab)
         long_ = ab >= bc
+        last = shapes["axes"].shape[2] - 1
         seed_axis = np.where(long_[:, None], rows[:, 0, :], rows[:, 2, :])
-        grain_axis = np.where(long_[:, None], shapes["axes"][:, :, 0], shapes["axes"][:, :, 2])
+        grain_axis = np.where(long_[:, None], shapes["axes"][:, :, 0], shapes["axes"][:, :, last])
         cos = np.abs(np.einsum("ni,ni->n", seed_axis, grain_axis))
         angle = np.degrees(np.arccos(np.clip(cos, 0.0, 1.0)))
         angle[(ab < 1.0 + 1e-9) & (bc < 1.0 + 1e-9)] = np.nan
@@ -289,6 +309,8 @@ class SeededTessellation(Tessellation):
                                 "max": float(np.max(a)) if a.size else math.nan}  # fmt: skip
         volume = np.bincount(phases, shapes["volume"], minlength=int(phases.max(initial=0)) + 1)
         asked = getattr(model, "phase_fractions", None)
+        if asked is None and isinstance(model, SeededLaguerre):  # every grain of phase 1
+            asked = (0.0, 1.0)
         fractions = {
             int(k): (float(volume[k] / volume.sum()),
                      float(asked[k]) if asked is not None and k < len(asked) else math.nan)
@@ -355,9 +377,13 @@ class SeedFamily(NamedTuple):
     orientation: str
     fraction: float
     share: float
+    dimension: int = 3
 
     def mean_volume(self) -> float:
-        """The mean volume of its seeds, ``π E[d³]/6``."""
+        """The mean volume of its seeds, ``π E[d³]/6`` (their mean area ``π E[d²]/4`` in
+        the plane)."""
+        if self.dimension == 2:
+            return math.pi / 4.0 * self.diameter.moment(2)
         return math.pi / 6.0 * self.diameter.moment(3)
 
 
@@ -391,9 +417,16 @@ class SeededLaguerre(Model):
     )
     orientation: str = param(
         "random",
-        doc="The axes of the seeds: random (uniform rotations) or aligned (a along x, b "
-        "along y, c along z)",
+        doc="The axes of the seeds: random (uniform rotations; uniform angles in the plane) or "
+        "aligned (a along x, b along y, c along z)",
         kind="str",
+    )
+    dimension: int = param(
+        3,
+        doc="3, or 2: elliptical seeds in the middle plane z of the box (their equivalent "
+        "diameter that of the disc of their area, their ratio a/b, an angle in the plane), "
+        "columnar grains",
+        kind="int",
     )
     phase_fractions: tuple[float, ...] | None = param(
         None,
@@ -500,6 +533,12 @@ class SeededLaguerre(Model):
         for k in self.amorphous_phases or ():
             if not 0 <= k < n:
                 raise ValueError(f"amorphous_phases: phases among 0 to {n - 1}")
+        if self.dimension not in (2, 3):
+            raise ValueError("dimension: 3, or 2 (seeds of the plane)")
+        if self.dimension == 2:
+            for law in (self.flatness, *(self.phase_flatness or ())):
+                if not (law.is_constant and law.mean() == 1.0):
+                    raise ValueError("flatness: the seeds of the plane are ellipses (1)")
         if self.overlap is not None and not 0.0 <= self.overlap <= 1.0:
             raise ValueError("overlap: between 0 and 1")
         check_positive(self.spacing, "spacing")
@@ -517,18 +556,19 @@ class SeededLaguerre(Model):
         """The families of seeds: one per phase of a positive fraction (of the laws of the
         phase, or of those shared), the fraction of the volume ``q`` of its seeds and its
         share ``p`` of the seeds, ``p ∝ q / E[V]`` (MicroStructPy)."""
+        dim = int(self.dimension)
         if self.phase_fractions is None:
             return [SeedFamily(1, self.diameter, self.aspect_ratio, self.flatness,
-                               self.orientation, 1.0, 1.0)]  # fmt: skip
+                               self.orientation, 1.0, 1.0, dim)]  # fmt: skip
         q = np.asarray(self.phase_fractions, dtype=float)
         rows = []
         for i, qi in enumerate(q):
             if qi > 0:
-                rows.append([i, *(self._law(name, i) for name in
-                                  ("diameter", "aspect_ratio", "flatness", "orientation")),
-                             float(qi)])  # fmt: skip
-        w = np.array([r[5] / (math.pi / 6.0 * r[1].moment(3)) for r in rows])
-        return [SeedFamily(*r, float(wi / w.sum())) for r, wi in zip(rows, w, strict=True)]
+                rows.append(SeedFamily(i, *(self._law(name, i) for name in
+                                            ("diameter", "aspect_ratio", "flatness",
+                                             "orientation")), float(qi), 0.0, dim))  # fmt: skip
+        w = np.array([f.fraction / f.mean_volume() for f in rows])
+        return [f._replace(share=float(wi / w.sum())) for f, wi in zip(rows, w, strict=True)]
 
     def _law(self, name: str, phase: int):
         own = getattr(self, f"phase_{name}")
@@ -536,12 +576,12 @@ class SeededLaguerre(Model):
 
     def mean_seed_volume(self) -> float:
         """The mean volume of the seeds, ``π E[d³]/6`` over their families
-        (``1 / Σ q / E[V]``)."""
+        (``1 / Σ q / E[V]``; their mean area in the plane)."""
         return 1.0 / sum(f.fraction / f.mean_volume() for f in self.families())
 
     def _seeds(self, rng, volume: float):
-        """Seeds whose volumes fill ``volume``: their semi-axes (a >= b >= c) and their
-        families."""
+        """Seeds whose volumes fill ``volume`` (their areas in the plane): their semi-axes
+        (a >= b >= c; a >= b = c for the ellipses of the plane) and their families."""
         families = self.families()
         share = np.array([f.share for f in families])
         drawn, kinds, total = [], [], 0.0
@@ -561,9 +601,14 @@ class SeededLaguerre(Model):
                     d[mine] = f.diameter.sample(rng, int(mine.sum()))
                     ab[mine] = f.aspect_ratio.sample(rng, int(mine.sum()))
                     bc[mine] = f.flatness.sample(rng, int(mine.sum()))
-            c = 0.5 * d / np.cbrt(ab * bc * bc)  # a b c = (d/2)^3
-            axes = np.column_stack([ab * bc * c, bc * c, c])
-            v = math.pi / 6.0 * d**3
+            if self.dimension == 2:  # ellipses: a b = (d/2)^2, broken down as (a, b, b)
+                b = 0.5 * d / np.sqrt(ab)
+                axes = np.column_stack([ab * b, b, b])
+                v = math.pi / 4.0 * d**2
+            else:
+                c = 0.5 * d / np.cbrt(ab * bc * bc)  # a b c = (d/2)^3
+                axes = np.column_stack([ab * bc * c, bc * c, c])
+                v = math.pi / 6.0 * d**3
             room = np.cumsum(v) + total
             take = int(np.searchsorted(room, volume)) + 1  # the first that fills it
             drawn.append(axes[:take])
@@ -576,17 +621,28 @@ class SeededLaguerre(Model):
 
         rng, seed_info = make_rng(seed)
         families = self.families()
+        planar = self.dimension == 2
         if domain.periodic:
             window, margin = domain, math.inf
         else:  # seeds about the box too, so that its faces cut grains
             margin = max(float(f.diameter.upper()) for f in families)
             window = domain.dilated(margin)
-        axes, kind = self._seeds(rng, window.volume)
+            if planar:  # in the plane only
+                window = Domain(size=(*window.size[:2], domain.size[2]),
+                                origin=(*window.origin[:2], domain.origin[2]), periodic=False,
+                                unit=domain.unit)  # fmt: skip
+        lengths = window.lengths
+        axes, kind = self._seeds(rng, float(lengths[0] * lengths[1]) if planar else window.volume)
         n = len(axes)
-        volumes = 4.0 / 3.0 * math.pi * np.prod(axes, axis=1)
+        if planar:
+            volumes = math.pi * axes[:, 0] * axes[:, 1]  # their areas
+        else:
+            volumes = 4.0 / 3.0 * math.pi * np.prod(axes, axis=1)
         turned = np.array([f.orientation == "random" for f in families])[kind]
         angles = np.zeros((n, 3))
-        if turned.all():
+        if planar:  # an angle about z
+            angles[turned, 0] = rng.uniform(0.0, 2.0 * math.pi, int(turned.sum()))
+        elif turned.all():
             angles = random_orientations(rng, n)
         elif turned.any():
             angles[turned] = random_orientations(rng, int(turned.sum()))
@@ -606,11 +662,12 @@ class SeededLaguerre(Model):
             first.append(first[-1] + len(r))
         offsets = np.vstack(offsets)
         radii = np.concatenate(radii)
-        tolerance = overlap_tolerance(volumes) if self.overlap is None else float(self.overlap)
+        tolerance = (overlap_tolerance(volumes, self.dimension) if self.overlap is None
+                     else float(self.overlap))  # fmt: skip
         centres, placed, crowded, positions = place_seeds(
             offsets, radii, np.asarray(first), window.lengths, rng,
             periodic=domain.periodic, rtol=tolerance, attempts=int(self.attempts),
-            crowded=self.crowded == "place",
+            crowded=self.crowded == "place", planar=planar,
         )  # fmt: skip
         kept = np.flatnonzero(placed)
         if not len(kept):
@@ -644,11 +701,16 @@ class SeededLaguerre(Model):
             out[grain_of[~merged]] = values[~merged]
             return out
 
+        seed_axes = axes[seeds_kept].copy()
+        if planar:  # ellipses: no third semi-axis
+            seed_axes[:, 2] = np.nan
         seeds = {"centres": by_grain(centres[kept] + window.lower),
-                 "axes": by_grain(axes[seeds_kept]),
+                 "axes": by_grain(seed_axes),
                  "angles": by_grain(angles[seeds_kept])}  # fmt: skip
         metadata = {"overlap": tolerance, "seeds_drawn": n, "seeds_left_out": n - len(kept),
                     "seeds_crowded": int(crowded.sum())}  # fmt: skip
+        if planar:
+            metadata["dimension"] = 2
         if len(regions):
             metadata["amorphous_phases"] = [int(k) for k in regions]
         if math.isfinite(margin):
@@ -658,20 +720,22 @@ class SeededLaguerre(Model):
 
     def theory(self, domain: Domain | None = None) -> dict[str, float]:
         """The mean volume of the seeds and that of the crystals (the grains of the seeds of
-        the phases that are not amorphous, where the seeds fill the box), the number of
-        grains it implies in the domain (the crystals and one region per amorphous phase);
-        the fractions of the phases."""
+        the phases that are not amorphous, where the seeds fill the box; their areas in the
+        plane), the number of grains it implies in the domain (the crystals and one region
+        per amorphous phase); the fractions of the phases."""
         families = self.families()
         amorphous = set(self.amorphous_phases or ())
         crystals = [f for f in families if f.phase not in amorphous]
-        out = {"mean_seed_volume": self.mean_seed_volume()}
+        size = "area" if self.dimension == 2 else "volume"
+        out = {f"mean_seed_{size}": self.mean_seed_volume()}
         if crystals:
             density = sum(f.fraction / f.mean_volume() for f in crystals)
-            out["mean_grain_volume"] = sum(f.fraction for f in crystals) / density
+            out[f"mean_grain_{size}"] = sum(f.fraction for f in crystals) / density
         if domain is not None:
             regions = len(families) - len(crystals)
-            out["expected_grains"] = (domain.volume * sum(f.fraction / f.mean_volume()
-                                                          for f in crystals) + regions)  # fmt: skip
+            room = domain.volume if self.dimension == 3 else float(np.prod(domain.lengths[:2]))
+            out["expected_grains"] = (room * sum(f.fraction / f.mean_volume()
+                                                 for f in crystals) + regions)  # fmt: skip
         if self.phase_fractions is not None:
             for i, p in enumerate(self.phase_fractions):
                 out[f"volume_fraction_{i}"] = float(p)

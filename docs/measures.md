@@ -152,6 +152,13 @@ model = mg.models.Reconstruction(reference=spheres, cell_size=1.0, method="gradi
   (`analysis.particle_sizes`: touching particles split by a watershed of their distance
   map, their sizes and number per unit volume, with the frame correction of images that
   are not periodic).
+* **Grains and their seeds**: the grains of a tessellation measured on their exact cells
+  (`Tessellation.grain_shapes`: volumes, equivalent diameters, the ellipsoids of their
+  second moments — the ellipses of their sections for the columnar grains of the plane),
+  and the grains of seeds against their seeds (`SeededTessellation.seed_comparison`, the
+  verification of MicroStructPy: errors, Kolmogorov–Smirnov distances to the laws of the
+  seeds, fractions of the phases; `morphogen.viz.figures.seed_figure` draws them; the tool
+  *Grains and their seeds* of the interface; [theory notes](theory.md) §116, §117).
 
 ## Crystallographic textures and orientation maps
 

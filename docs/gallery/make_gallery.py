@@ -221,6 +221,9 @@ FAMILIES = [
             ("seeded_matrix", "Crystals grown from seeds in an amorphous matrix: laths and "
              "equiaxed crystals of their own sizes, the seeds of the glass merged into one "
              "region; the grains checked against their seeds on their exact cells."),
+            ("seeded_plane", "Grains of the plane grown from elliptical seeds: the section "
+             "of a rolled sheet, grains elongated along x among the smaller equiaxed grains "
+             "of a second phase, columnar through a thin slice."),
             ("nested_grains", "Grains with subgrains: each grain of a polycrystal divided by "
              "the germs of a finer tessellation, its subgrains turned by 1 to 3° from its "
              "crystal (low-angle boundaries)."),

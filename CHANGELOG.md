@@ -158,6 +158,23 @@
   `amorphous_phases`, `families`), `SeedFamily`, `SeededTessellation.amorphous`,
   `SeededTessellation.seed_comparison`, `Tessellation.grain_shapes`,
   `CellComplex.piece_moments`, `Distribution.cdf`, `ks_statistic` (`tests/public_api.txt`).
+* Seeds of the plane and the figures of the verification, as MicroStructPy (`seeded_laguerre`,
+  §117): with `dimension: 2`, elliptical seeds in the middle plane z of the box (the diameter
+  of the disc of their area, their ratio a/b, a uniform angle in the plane or along x), broken
+  down into the circles of their medial segments and placed in that plane with the tolerance
+  of MicroStructPy for the plane: columnar grains, the prisms of the power diagram of their
+  circles, periodic or not (a box that is not periodic widened in the plane only); their
+  grains measured by their sections (`grain_shapes`: their areas, the discs of those areas and
+  the ellipses of their second moments) and compared with their seeds (`seed_comparison`,
+  `exact_grains`). `morphogen.viz.figures.seed_figure`: the distribution functions of the
+  grains of each phase, of their seeds and of the laws of the seeds, the angles of their axes
+  and the fractions of the phases; the tool *Grains and their seeds* of the interface
+  (Statistics, the trait `seeds` of the items grown from seeds) with the tables of the errors
+  and of the fractions and this figure. The template `seeded_plane` (the section of a rolled
+  sheet) and its card in the gallery. Tested (`tests/test_seeded_phases.py`,
+  `tests/test_gui_tools.py`). Public interface: `SeededLaguerre(dimension=...)`,
+  `overlap_tolerance(volumes, dimension)`, `SeedFamily.dimension`, `seed_figure`
+  (`tests/public_api.txt`).
 * The computations of morphoGen as models of VIMSEO (`morphogen.interop.vimseo`, §112; the
   extra `vimseo`, Python 3.10 to 3.12), for the demonstration of the credibility of the
   simulations: a configuration of `morphogen run` with its entries as inputs and its results

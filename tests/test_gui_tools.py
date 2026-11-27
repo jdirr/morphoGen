@@ -299,6 +299,31 @@ def test_stereology_tool(tmp_path):
     assert out["tables"][0]["count"] == 3  # the three directions
 
 
+def test_seeds_tool(tmp_path):
+    """The grains of seeds against their seeds: the items grown from seeds have the trait the
+    tool needs, its tables give the errors of the quantities and the fractions of the
+    phases, its figure is drawn; a polycrystal of germs is refused."""
+    session = api.Session(tmp_path)
+    model = model_from_config({"type": "seeded_laguerre", "diameter": 0.5, "aspect_ratio": 2.0})
+    micro = model.generate(Domain(size=2.0, periodic=True), derive_seed(1, 0))
+    key, _ = session.folder()
+    session.add(key, "morphology", "seeds", micro=micro, model=model.to_config(), seed=1)
+    assert session.workspace()[0]["traits"] == ["model", "grains", "seeds"]
+    out = _run(session, "seeds", {"source": key})
+    assert out["values"]["crystals"] == micro.n_grains
+    assert out["values"]["mean angle of the axes (degrees)"] < 10.0
+    errors, fractions = out["tables"]
+    assert errors["count"] == 3 and errors["columns"][:3] == ["quantity", "bias", "mean absolute"]
+    assert fractions["rows"] == [[1, 1.0, pytest.approx(1.0)]]
+    assert [f["url"].rsplit("/", 1)[1] for f in out["figures"]] == ["seeds.png"]
+    cells = model_from_config({"type": "voronoi", "n_cells": 8})
+    poly, _ = session.folder()
+    session.add(poly, "morphology", "voronoi", micro=cells.generate(Domain(size=1.0), 1),
+                model=cells.to_config())  # fmt: skip
+    with pytest.raises(ValueError, match="grains grown from seeds"):
+        tools.TOOLS["seeds"].parse({"source": poly}, session)
+
+
 def test_table_fit_and_reconstruction(tmp_path):
     """The RVE law fitted to a pasted table whose variance falls as 1/V, and a morphology
     reconstructed from the two-point function of another one, joining the workspace."""
@@ -412,6 +437,7 @@ def test_menus_of_the_tabs():
         "Representative volume": ["rve", "fit_table"],
         "Reconstruction": ["reconstruction"],
         "Orientation maps": ["texture"],
+        "Grains of seeds": ["seeds"],
     }
     assert list(menu("fracture")) == ["Cracks", "Cohesive zones", "Phase field"]
     assert list(menu("interop")) == [

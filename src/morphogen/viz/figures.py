@@ -1,5 +1,6 @@
-"""Figures of microstructures, automata, optimizations, frames of beams and textures
-(matplotlib, optional extra ``[plot]``). Figures are built without pyplot
+"""Figures of microstructures, automata, optimizations, frames of beams, textures and of the
+grains of seeds against their seeds (matplotlib, optional extra ``[plot]``). Figures are
+built without pyplot
 (``matplotlib.figure.Figure``): they work headless and can be saved with
 ``fig.savefig(path)``."""
 
@@ -687,6 +688,84 @@ def disorientation_figure(angles, weights=None, *, lattice: str = "cubic", bins:
     ax.legend(fontsize=8, frameon=False)
     if title:
         ax.set_title(title, fontsize=10)
+    return fig
+
+
+#: The quantities of the seeds and of their grains, and their labels
+SEED_QUANTITIES = {"diameter": "equivalent diameter", "aspect_ratio": "ratio a/b",
+                   "flatness": "ratio b/c"}  # fmt: skip
+
+
+def seed_figure(micro, comparison: dict | None = None, *, title: str | None = None):
+    """The grains of seeds against their seeds (the figures of the verification of
+    MicroStructPy, :meth:`~morphogen.models.seeded.SeededTessellation.seed_comparison`): for
+    each quantity (the equivalent diameter, the ratios a/b and b/c — a/b alone in the
+    plane), the distribution functions of the grains of each phase (solid), of their seeds
+    (dotted) and the law of the seeds of the phase (thin, black); the angles between the
+    distinguished axes of the grains and of their seeds; the fractions of the volume of the
+    phases, asked and realized. The crystals that the faces of the box do not cut."""
+    cmp = micro.seed_comparison() if comparison is None else comparison
+    names = [q for q in SEED_QUANTITIES if f"seed_{q}" in cmp]
+    model = getattr(micro, "model", None)
+    laws = {}
+    if model is not None and hasattr(model, "families"):
+        laws = {f.phase: f for f in model.families()}
+    fig = _figure(3.0 * (len(names) + 2), 3.1)
+    axes = fig.subplots(1, len(names) + 2)
+    use = np.asarray(cmp["inside"], dtype=bool)
+    phases = np.asarray(cmp["phase"])
+    shown = [int(k) for k in np.unique(phases[use])]
+    for ax, name in zip(axes, names, strict=False):
+        grain = np.asarray(cmp[f"grain_{name}"])
+        seed = np.asarray(cmp[f"seed_{name}"])
+        both = np.concatenate([grain[use], seed[use]])
+        both = both[np.isfinite(both)]
+        if not len(both):
+            continue
+        # the bulk of the values: a few slivers of grains do not stretch the axis
+        low = 0.9 * float(both.min())
+        high = 1.1 * max(float(np.quantile(grain[use & np.isfinite(grain)], 0.98)),
+                         float(np.nanmax(seed[use])))  # fmt: skip
+        t = np.linspace(low, high, 300)
+        for k in shown:
+            colour = PALETTE[(k + 1) % len(PALETTE)] / 255.0
+            mine = use & (phases == k)
+            for values, style in ((grain[mine], "-"), (seed[mine], ":")):
+                x = np.sort(values[np.isfinite(values)])
+                if len(x):
+                    x = np.concatenate([[low], x, [high]])
+                    y = np.concatenate([[0.0], np.arange(1, len(x) - 1) / (len(x) - 2), [1.0]])
+                    ax.step(x, y, where="post", color=colour, linestyle=style, linewidth=1.4)
+            law = getattr(laws.get(k), name, None)
+            if law is not None:
+                ax.plot(t, law.cdf(t), color="black", linewidth=0.8)
+        ax.set_xlim(low, high)
+        ax.set_xlabel(SEED_QUANTITIES[name], fontsize=9)
+        ax.set_ylabel("distribution function", fontsize=9)
+        ax.tick_params(labelsize=8)
+        ax.set_ylim(0.0, 1.02)
+    angle = np.asarray(cmp["axis_angle"])[use]
+    angle = angle[np.isfinite(angle)]
+    ax = axes[len(names)]
+    if len(angle):
+        ax.hist(angle, bins=18, range=(0.0, max(10.0, float(angle.max()))), color="#7a9cc6",
+                edgecolor="white", linewidth=0.5)  # fmt: skip
+    ax.set_xlabel("angle of the axes (degrees)", fontsize=9)
+    ax.set_ylabel("grains", fontsize=9)
+    ax.tick_params(labelsize=8)
+    ax = axes[-1]
+    rows = sorted(cmp["fractions"].items())
+    x = np.arange(len(rows))
+    asked = [a for _, (_, a) in rows]
+    ax.bar(x - 0.2, np.nan_to_num(asked, nan=0.0), width=0.4, color="#c8c8c8", label="asked")
+    ax.bar(x + 0.2, [r for _, (r, _) in rows], width=0.4, color="#4c72b0", label="realized")
+    ax.set_xticks(x, [f"phase {k}" for k, _ in rows], fontsize=8)
+    ax.set_ylabel("fraction of the volume", fontsize=9)
+    ax.set_ylim(0.0, 1.3 * max([r for _, (r, _) in rows] + list(np.nan_to_num(asked)) + [0.1]))
+    ax.tick_params(labelsize=8)
+    ax.legend(fontsize=8, frameon=False, loc="upper left", ncol=2)
+    if title:
+        fig.suptitle(title, fontsize=10)
     return fig
 
 

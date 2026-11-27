@@ -210,14 +210,16 @@ QUICK = 32
 
 
 def place_seeds(offsets, radii, first, box, rng, *, periodic: bool, rtol: float,
-                attempts: int = 10000, batch: int = 64, crowded: bool = True):  # fmt: skip
+                attempts: int = 10000, batch: int = 64, crowded: bool = True,
+                planar: bool = False):  # fmt: skip
     """The centres of the seeds (``first``: the ranges of their spheres in ``offsets`` and
     ``radii``, the seeds in the order of their placement) placed in the box ``[0, box)``
     (see the module), each tried at ``attempts`` uniform positions at most, those that clear
     at none left out or (``crowded``) placed at the least excess: the centres, whether each
     seed was placed, whether it was placed crowded, the positions of all their spheres. The
     positions are drawn :data:`QUICK` per seed for ``batch`` seeds at once, and the rest of
-    its attempts for a seed that clears at none of them."""
+    its attempts for a seed that clears at none of them; ``planar``: in the middle plane z
+    of the box (the seeds of the plane)."""
     offsets = np.ascontiguousarray(offsets, dtype=np.float64)
     radii = np.ascontiguousarray(radii, dtype=np.float64)
     first = np.ascontiguousarray(first, dtype=np.int64)
@@ -236,16 +238,21 @@ def place_seeds(offsets, radii, first, box, rng, *, periodic: bool, rtol: float,
     quick = min(attempts, QUICK)
     grid = (box, bool(periodic), float(rtol), level, lev_h, lev_n, lev_off, lev_r, head, nxt,
             pos, centres, placed, crowd)  # fmt: skip
+
+    def draw(k):  # uniform positions, in the middle plane for the seeds of the plane
+        if not planar:
+            return rng.random((k, 3)) * box
+        return np.column_stack([rng.random((k, 2)) * box[:2], np.full(k, 0.5 * box[2])])
+
     start = 0
     while start < n:
         stop = min(n, start + batch)
-        candidates = rng.random(((stop - start) * quick, 3)) * box
+        candidates = draw((stop - start) * quick)
         s = insert_seeds(offsets, radii, first, start, stop, *grid, candidates, quick,
                          quick == attempts, bool(crowded))  # fmt: skip
         if s < stop:  # cleared at none of its first positions: all its attempts
             row = (s - start) * quick
-            rest = np.vstack([candidates[row : row + quick],
-                              rng.random((attempts - quick, 3)) * box])  # fmt: skip
+            rest = np.vstack([candidates[row : row + quick], draw(attempts - quick)])
             insert_seeds(offsets, radii, first, s, s + 1, *grid, rest, attempts, True,
                          bool(crowded))  # fmt: skip
             s += 1

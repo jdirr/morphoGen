@@ -3902,9 +3902,9 @@ morphogen.models.scale_rich_3d.prism(polygon, axes, axis, z0, z1)
 morphogen.models.seeded.CROWDED
 morphogen.models.seeded.MOST_SPHERES
 morphogen.models.seeded.SEED_ORIENTATIONS
-morphogen.models.seeded.SeedFamily(phase, diameter, aspect_ratio, flatness, orientation, fraction, share)
+morphogen.models.seeded.SeedFamily(phase, diameter, aspect_ratio, flatness, orientation, fraction, share, dimension=3)
 morphogen.models.seeded.SeedFamily.mean_volume(self)
-morphogen.models.seeded.SeededLaguerre(diameter=Constant(value=1.0), aspect_ratio=Constant(value=1.0), flatness=Constant(value=1.0), orientation='random', phase_fractions=None, phase_diameter=None, phase_aspect_ratio=None, phase_flatness=None, phase_orientation=None, amorphous_phases=None, overlap=None, spacing=0.5, attempts=10000, crowded='place', crystal_orientations=False, *, texture=None)
+morphogen.models.seeded.SeededLaguerre(diameter=Constant(value=1.0), aspect_ratio=Constant(value=1.0), flatness=Constant(value=1.0), orientation='random', dimension=3, phase_fractions=None, phase_diameter=None, phase_aspect_ratio=None, phase_flatness=None, phase_orientation=None, amorphous_phases=None, overlap=None, spacing=0.5, attempts=10000, crowded='place', crystal_orientations=False, *, texture=None)
 morphogen.models.seeded.SeededLaguerre.active_phases(self)
 morphogen.models.seeded.SeededLaguerre.families(self)
 morphogen.models.seeded.SeededLaguerre.generate(self, domain, seed=None)
@@ -3921,7 +3921,7 @@ morphogen.models.seeded.SeededTessellation.n_grains
 morphogen.models.seeded.SeededTessellation.seed_comparison(self, shapes=None)
 morphogen.models.seeded.SeededTessellation.summary(self)
 morphogen.models.seeded.ellipsoid_spheres(a, b, c, *, spacing=0.5, most=256)
-morphogen.models.seeded.overlap_tolerance(volumes)
+morphogen.models.seeded.overlap_tolerance(volumes, dimension=3)
 morphogen.models.spinodal.SPINODAL
 morphogen.models.spinodal.STABILIZATION
 morphogen.models.spinodal.Spinodal(volume_fraction=0.5, wavelength=1.0, coarsening=10.0, resolution=12, noise=0.05)
@@ -4582,6 +4582,7 @@ morphogen.viz.export.VECTOR
 morphogen.viz.export.save_figure(fig, path, *, dpi=200, transparent=False)
 morphogen.viz.export.tikz(fig, path=None)
 morphogen.viz.figures.FRAME_SCALES
+morphogen.viz.figures.SEED_QUANTITIES
 morphogen.viz.figures.VECTOR_BEAMS
 morphogen.viz.figures.as_array(source, shape=None, *, labels=False)
 morphogen.viz.figures.disorientation_figure(angles, weights=None, *, lattice='cubic', bins=21, title=None)
@@ -4597,6 +4598,7 @@ morphogen.viz.figures.mesh_section(mesh, axis=2, position=None)
 morphogen.viz.figures.path_figure(result, *, title=None)
 morphogen.viz.figures.pole_figures_figure(figures, *, axes=('x', 'y'), cmap='viridis', vmax=None, title=None)
 morphogen.viz.figures.save_gif(frames, path, *, fps=8, kind='auto', scale=4)
+morphogen.viz.figures.seed_figure(micro, comparison=None, *, title=None)
 morphogen.viz.figures.slices_figure(source, *, shape=None, labels=False, title=None)
 morphogen.viz.figures.softening_figure(studies, *, title=None)
 morphogen.viz.figures.surface_figure(source, *, shape=None, phase=1, title=None)

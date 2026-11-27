@@ -31,7 +31,8 @@ dynamics) and **Export & compare**
 on its left, under the headings of what they do: in Mechanics, *Loading paths* (of a
 morphology, its macroscopic law, the NTFA), *Behaviours of materials* (material point,
 identification) and *Linear elasticity* (tensors, frames of beams); in Statistics,
-*Morphology*, *Representative volume* and *Reconstruction*; in Fracture, *Cracks*, *Cohesive
+*Morphology*, *Representative volume*, *Reconstruction*, *Orientation maps* and *Grains of
+seeds*; in Fracture, *Cracks*, *Cohesive
 zones* and *Phase field*; in Solvers & formats, *AMITEX_FFTP*, *Abaqus and meshes*,
 *Code_Aster and OpenFOAM* and *Behaviours of materials*. Generate lists its models by family, with a filter.
 

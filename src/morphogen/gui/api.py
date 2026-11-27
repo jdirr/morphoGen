@@ -417,6 +417,7 @@ class Session:
 TRAITS = {
     "model": "the realization of a model (generated in Generate)",
     "grains": "a polycrystal (a Voronoi or Laguerre tessellation)",
+    "seeds": "grains grown from seeds (a realization of seeded_laguerre)",
     "curves": "the run of a loading path, a material point, an identification, a learned "
     "law or a dynamic test (its curves)",
     "framework": "a network of fibres or struts (a realization of delaunay_network, open_foam "
@@ -439,6 +440,8 @@ def item_traits(item: dict) -> list[str]:
     out = ["model"] if item.get("model") else []
     if micro is not None and hasattr(micro, "cell_of") and hasattr(micro, "germs"):
         out.append("grains")
+    if micro is not None and callable(getattr(micro, "seed_comparison", None)):
+        out.append("seeds")
     if micro is not None and (getattr(micro, "metadata", None) or {}).get("framework"):
         out.append("framework")
     if item.get("tool") in CURVE_TOOLS:

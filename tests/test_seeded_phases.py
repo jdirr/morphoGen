@@ -2,7 +2,8 @@
 mesh.polyhedra): the exact moments of the cells, the shapes of the grains (the ellipsoids of
 their second moments), the grains against their seeds, the seeds of each phase of their own
 laws and in their fractions, the amorphous phases merged into one region, the placement of
-seeds of very different sizes, the exact measure ``exact_grains``."""
+seeds of very different sizes, the exact measure ``exact_grains``; the seeds of the plane
+(ellipses, columnar grains); the figure of the grains against their seeds."""
 
 from __future__ import annotations
 
@@ -83,7 +84,7 @@ def test_grains_against_their_seeds():
     assert errors["axis_angle"]["mean"] < 10.0
     assert errors["diameter"]["ks"][1] < 0.15 and errors["aspect_ratio"]["ks"][1] < 0.15
     assert math.isnan(errors["flatness"]["ks"][1])  # a constant law
-    assert cmp["fractions"] == {1: (pytest.approx(1.0), pytest.approx(math.nan, nan_ok=True))}
+    assert cmp["fractions"] == {1: (pytest.approx(1.0), 1.0)}  # every grain of phase 1
     columns = measure_exact(micro, ["exact_grains"])
     assert columns["grains"] == micro.n_grains
     assert columns["seed_diameter_error"] == pytest.approx(np.sqrt(np.mean(rel**2)))
@@ -192,3 +193,65 @@ def test_placement_of_seeds_of_very_different_sizes():
             earlier = np.flatnonzero(placed[:i])
             assert excess[i, earlier].max(initial=-np.inf) <= 1e-12
         assert placed.sum() > 400
+
+
+def test_seeds_of_the_plane():
+    """Elliptical seeds in the middle plane of a thin box: germs in that plane, columnar
+    grains (prisms through the thickness, the same labels on every layer), the areas of the
+    grains summing to that of the box, their diameters (of the discs of their areas) within
+    8 % of their seeds, their long axes along those of their seeds, the tolerance of the
+    plane; in a box that is not periodic, the seeds about it in the plane only; the
+    parameters checked."""
+    from morphogen.models.seeded import overlap_tolerance
+
+    model = SeededLaguerre(
+        dimension=2, diameter=LogNormal(1.0, 0.2), aspect_ratio=Uniform(1.5, 3.0)
+    )
+    box = mg.Domain(size=(8.0, 8.0, 0.2), periodic=True)
+    micro = model.generate(box, seed=1)
+    assert micro.metadata["dimension"] == 2 and np.ptp(micro.germs[:, 2]) == 0.0
+    assert micro.germs[0, 2] == pytest.approx(0.1)
+    assert micro.metadata["overlap"] == pytest.approx(
+        overlap_tolerance(math.pi * micro.seeds["axes"][:, 0] * micro.seeds["axes"][:, 1], 2),
+        rel=0.05,
+    )
+    assert overlap_tolerance(np.ones(5), 2) == pytest.approx(0.184959 / 0.365096)
+    layers = micro.labels((64, 64, 4)).data
+    assert all(np.array_equal(layers[:, :, 0], layers[:, :, k]) for k in range(1, 4))
+    shapes = micro.grain_shapes()
+    assert shapes["area"].sum() == pytest.approx(64.0, rel=1e-9)
+    assert shapes["semi_axes"].shape == (micro.n_grains, 2)
+    cmp = micro.seed_comparison()
+    assert "flatness" not in cmp["errors"] and "seed_flatness" not in cmp
+    rel = (cmp["grain_diameter"] - cmp["seed_diameter"]) / cmp["seed_diameter"]
+    assert np.sqrt(np.mean(rel**2)) < 0.08 and cmp["errors"]["axis_angle"]["mean"] < 8.0
+    columns = measure_exact(micro, ["exact_grains"])
+    assert "grain_flatness_median" not in columns and columns["grains"] == micro.n_grains
+    theory = model.theory(box)
+    assert theory["expected_grains"] == pytest.approx(64.0 / theory["mean_seed_area"])
+    assert micro.n_grains == pytest.approx(theory["expected_grains"], rel=0.15)
+    cut = model.generate(mg.Domain(size=(6.0, 6.0, 0.2), periodic=False), seed=2)
+    assert np.all(cut.germs[:, 2] == pytest.approx(0.1))
+    assert cut.germs[:, :2].min() < 0.0 and cut.germs[:, :2].max() > 6.0
+    shapes = cut.grain_shapes()
+    assert 0 < shapes["inside"].sum() < cut.n_grains  # the faces z do not cut the columns
+    flat = {"dimension": 2, "phase_fractions": (0.5, 0.5), "phase_flatness": (1.0, 1.5)}
+    for wrong in ({"dimension": 4}, {"dimension": 2, "flatness": 2.0}, flat):
+        with pytest.raises(ValueError):
+            SeededLaguerre(**wrong)
+
+
+def test_figure_of_the_grains_against_their_seeds():
+    """The figure of the verification: a panel per quantity (b/c but in the plane), the
+    angles and the fractions; drawn for two phases in space and for the plane."""
+    pytest.importorskip("matplotlib")
+    from morphogen.viz.figures import seed_figure
+
+    model = SeededLaguerre(phase_fractions=(0.5, 0.5), phase_diameter=(0.6, 1.0), aspect_ratio=2.0)
+    two = model.generate(mg.Domain.cube(2.0, periodic=True), seed=3)
+    fig = seed_figure(two, title="two phases")
+    assert len(fig.axes) == 5 and fig.axes[0].get_xlabel() == "equivalent diameter"
+    plane = SeededLaguerre(dimension=2, aspect_ratio=2.0).generate(
+        mg.Domain(size=(4.0, 4.0, 0.1), periodic=True), seed=4
+    )
+    assert len(seed_figure(plane).axes) == 4

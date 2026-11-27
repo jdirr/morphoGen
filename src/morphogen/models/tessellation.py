@@ -112,10 +112,13 @@ class Tessellation(Microstructure):
         (:meth:`~morphogen.mesh.polyhedra.CellComplex.piece_moments`): their ``volume``,
         ``centroid``, equivalent ``diameter`` ``(6 V / π)^(1/3)`` and the ellipsoid of the
         same second moments, ``C = R diag(a², b², c²) Rᵀ / 5`` (``semi_axes`` a >= b >= c,
-        ``axes`` the columns of ``R``). In a periodic box the whole cells of a grain are
-        gathered about its first one (grains smaller than half the box); in a box that is
-        not periodic, ``inside`` tells the grains that its faces do not cut (NaN shapes for
-        those outside it)."""
+        ``axes`` the columns of ``R``). The columnar grains of a tessellation of the plane
+        (``metadata["dimension"] = 2``: germs in the middle plane z) have their ``area``,
+        the ``diameter`` of the disc of that area and the ellipses of the same second moments
+        in the plane, ``C = R diag(a², b²) Rᵀ / 4`` (two semi-axes, two axes). In a periodic
+        box the whole cells of a grain are gathered about its first one (grains smaller than
+        half the box); in a box that is not periodic, ``inside`` tells the grains that its
+        faces do not cut (NaN shapes for those outside it)."""
         periodic = bool(self.domain.periodic)
         cx = self.cell_complex(whole=periodic)
         volumes, centres, second = cx.piece_moments()
@@ -136,20 +139,35 @@ class Tessellation(Microstructure):
         d = centres - centroid[g]
         moments = np.zeros((n, 3, 3))
         np.add.at(moments, g, second + volumes[:, None, None] * np.einsum("ni,nj->nij", d, d))
-        w, v = np.linalg.eigh(moments / safe[:, None, None])
-        semi_axes = np.sqrt(5.0 * np.clip(w[:, ::-1], 0.0, None))
-        axes = v[:, :, ::-1]
+        planar = self.metadata.get("dimension") == 2
+        if planar:  # the ellipses in the plane of the sections of the columnar grains
+            w, v = np.linalg.eigh(moments[:, :2, :2] / safe[:, None, None])
+            semi_axes = np.sqrt(4.0 * np.clip(w[:, ::-1], 0.0, None))
+            axes = np.zeros((n, 3, 2))
+            axes[:, :2, :] = v[:, :, ::-1]
+        else:
+            w, v = np.linalg.eigh(moments / safe[:, None, None])
+            semi_axes = np.sqrt(5.0 * np.clip(w[:, ::-1], 0.0, None))
+            axes = v[:, :, ::-1]
         inside = filled.copy()
         if periodic:
             centroid = self.domain.lower + np.mod(centroid - self.domain.lower, lengths)
-        else:  # the grains cut by the faces of the box
+        else:  # the grains cut by the faces of the box (but those of the plane, z)
+            box = np.asarray(cx.facet_box)
             cut = np.zeros(cx.n_pieces, dtype=bool)
-            cut[np.asarray(cx.facet_pieces)[np.asarray(cx.facet_box) > 0, 0]] = True
+            faces = (box > 0) & (box <= 4) if planar else box > 0
+            cut[np.asarray(cx.facet_pieces)[faces, 0]] = True
             inside &= np.bincount(g, cut.astype(float), minlength=n) == 0
         centroid[~filled] = semi_axes[~filled] = np.nan
         axes[~filled] = np.nan
-        return {"volume": volume, "centroid": centroid, "diameter": np.cbrt(6.0 * volume / math.pi),
-                "semi_axes": semi_axes, "axes": axes, "inside": inside}  # fmt: skip
+        out = {"volume": volume, "centroid": centroid, "semi_axes": semi_axes, "axes": axes,
+               "inside": inside}  # fmt: skip
+        if planar:
+            out["area"] = volume / float(lengths[2])
+            out["diameter"] = np.sqrt(4.0 * out["area"] / math.pi)
+        else:
+            out["diameter"] = np.cbrt(6.0 * volume / math.pi)
+        return out
 
     # -- cell assignment -------------------------------------------------------------
 
