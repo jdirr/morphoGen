@@ -190,8 +190,8 @@ MODEL_FAMILIES = {
         "random_laminate", "woven_textile",
     ),
     "Tessellations and foams": (
-        "voronoi", "laguerre", "nested_grains", "ebsd", "open_foam", "level_set_foam",
-        "honeycomb",
+        "voronoi", "laguerre", "seeded_laguerre", "nested_grains", "ebsd", "open_foam",
+        "level_set_foam", "honeycomb",
     ),
     "Lattices and TPMS": (
         "strut_lattice", "random_lattice", "hierarchical_lattice", "scale_rich_network", "tpms",

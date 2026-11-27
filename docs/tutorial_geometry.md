@@ -63,7 +63,7 @@ print(level.data.dtype, bool(((level.data < 0) == (image.data == 2)).all()))
 mg.io.save_image(level, "interphase.vti")  # for ParaView: its zero level is the interface
 ```
 
-Every model has such functions — the 45 models, the shapes of Microgen, their combinations, coatings, nested and
+Every model has such functions — the 46 models, the shapes of Microgen, their combinations, coatings, nested and
 transformed structures: distances to unions of spheres and segments, differences of
 power distances to the germs of cells, the rings of osteons, the leaves of a dead-leaves
 model outside those that cover them ([theory notes](theory.md), §75). A structure of two

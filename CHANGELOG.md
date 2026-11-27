@@ -106,6 +106,30 @@
   covariance off the planes, the method of the model. Public interface: the module
   `morphology.reconstruction`, `Reconstruction(method=..., iterations=...)`,
   `Reconstruction.descriptors` (`tests/public_api.txt`).
+* Grains grown from seeds, as MicroStructPy (the model `seeded_laguerre`,
+  `morphogen.models.seeded`, its kernel `morphogen.kernels.seeds`, §115): ellipsoidal seeds of
+  laws of equivalent diameters and of ratios a/b and b/c, their axes at random or aligned with
+  the box, drawn until their volumes fill it, broken down into the spheres inscribed about the
+  points of their medial surfaces (their radii in closed form; 94 to 97 % of the ellipsoid at
+  the default spacing, 98 to 99 % at half of it) and placed the largest first within the
+  overlap tolerance of Hart and Rimoli; the grain of a seed is the union of the Laguerre cells
+  of its spheres (`SeededTessellation`: the grains as labels, their exact volumes, their
+  phases and crystal orientations, the table of their seeds). The seeds that clear at none of
+  their positions — elongated seeds jam the sequential addition — are placed where they
+  overlap least by default, every seed then its grain, or left out as MicroStructPy does
+  (`crowded: leave`). The conforming meshes of polycrystals and the surfaces of their cells by
+  grain: the cells of a grain merged in the cell complex (`CellComplex.merged`), one subdomain
+  per grain, MMG free inside it; the elements of the crack meshes of polycrystals take the
+  grains of their centroids (`Tessellation.grain_of`); the export to Neper refuses these
+  grains, which its tessellations do not describe. Against MicroStructPy 1.6.1 on the same
+  seeds: spheres alike (cv of the grain volumes 0.147 and 0.150); seeds of aspect ratio 3, all
+  413 placed in 4 s and grains of their volume, where MicroStructPy keeps 276 of them in
+  375 s, its grains 1.5 times larger; the grains elongated as their seeds (a/b 3.08) along
+  their axes. Tested (`tests/test_seeded_grains.py`), the template `seeded_laguerre` and its
+  card in the gallery. Public interface: `SeededLaguerre`, `SeededTessellation`,
+  `ellipsoid_spheres`, `overlap_tolerance`, `Tessellation.n_grains`,
+  `Tessellation.cell_grains`, `Tessellation.grain_of`, `CellComplex.merged`
+  (`tests/public_api.txt`).
 * The computations of morphoGen as models of VIMSEO (`morphogen.interop.vimseo`, §112; the
   extra `vimseo`, Python 3.10 to 3.12), for the demonstration of the credibility of the
   simulations: a configuration of `morphogen run` with its entries as inputs and its results

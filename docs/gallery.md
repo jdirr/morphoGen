@@ -680,6 +680,30 @@ morphogen run laguerre.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-seeded-laguerre
+
+```{image} _static/gallery/seeded_laguerre.png
+:alt: seeded_laguerre
+:loading: lazy
+```
+
+**`seeded_laguerre`** — Grains grown from ellipsoidal seeds (MicroStructPy; Hart & Rimoli 2020): the Laguerre cells of the spheres that fill each seed gathered into its grain, elongated along x as the seeds.
+
+```bash
+morphogen template seeded_laguerre -o seeded_laguerre.yaml
+morphogen run seeded_laguerre.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/seeded_laguerre.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-nested-grains
 
 ```{image} _static/gallery/nested_grains.png

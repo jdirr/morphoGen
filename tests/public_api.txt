@@ -2984,6 +2984,7 @@ morphogen.mesh.polyhedra.CellComplex.edges(self)
 morphogen.mesh.polyhedra.CellComplex.facet_vectors(self)
 morphogen.mesh.polyhedra.CellComplex.grain_boundary_area(self)
 morphogen.mesh.polyhedra.CellComplex.interface_facets(self)
+morphogen.mesh.polyhedra.CellComplex.merged(self, groups)
 morphogen.mesh.polyhedra.CellComplex.n_facets
 morphogen.mesh.polyhedra.CellComplex.n_pieces
 morphogen.mesh.polyhedra.CellComplex.n_vertices
@@ -3165,6 +3166,8 @@ morphogen.models: ScaleRichNetwork
 morphogen.models: ScaleRichPlates
 morphogen.models: ScaleRichStructure
 morphogen.models: SeedCalibration
+morphogen.models: SeededLaguerre
+morphogen.models: SeededTessellation
 morphogen.models: Spinodal
 morphogen.models: SpinodalStructure
 morphogen.models: StrutLattice
@@ -3888,6 +3891,24 @@ morphogen.models.scale_rich_3d.grow_plates(lower, upper, n_plates, thickness, en
 morphogen.models.scale_rich_3d.isotropic_directions(t, points, gen)
 morphogen.models.scale_rich_3d.mean_inverse_distance(a, b, c)
 morphogen.models.scale_rich_3d.prism(polygon, axes, axis, z0, z1)
+morphogen.models.seeded.CROWDED
+morphogen.models.seeded.MOST_SPHERES
+morphogen.models.seeded.SEED_ORIENTATIONS
+morphogen.models.seeded.SeededLaguerre(diameter=Constant(value=1.0), aspect_ratio=Constant(value=1.0), flatness=Constant(value=1.0), orientation='random', phase_fractions=None, overlap=None, spacing=0.5, attempts=10000, crowded='place', crystal_orientations=False, *, texture=None)
+morphogen.models.seeded.SeededLaguerre.active_phases(self)
+morphogen.models.seeded.SeededLaguerre.generate(self, domain, seed=None)
+morphogen.models.seeded.SeededLaguerre.mean_seed_volume(self)
+morphogen.models.seeded.SeededLaguerre.theory(self, domain=None)
+morphogen.models.seeded.SeededTessellation(domain, germs, weights, grains, grain_phases=None, orientations=None, seeds=None, **kwargs)
+morphogen.models.seeded.SeededTessellation.boundary_distance(self, points, reach=inf)
+morphogen.models.seeded.SeededTessellation.cell_grains(self)
+morphogen.models.seeded.SeededTessellation.cell_table(self)
+morphogen.models.seeded.SeededTessellation.grain_volumes(self)
+morphogen.models.seeded.SeededTessellation.labels(self, shape=None, *, voxel_size=None, grid=None)
+morphogen.models.seeded.SeededTessellation.n_grains
+morphogen.models.seeded.SeededTessellation.summary(self)
+morphogen.models.seeded.ellipsoid_spheres(a, b, c, *, spacing=0.5, most=256)
+morphogen.models.seeded.overlap_tolerance(volumes)
 morphogen.models.spinodal.SPINODAL
 morphogen.models.spinodal.STABILIZATION
 morphogen.models.spinodal.Spinodal(volume_fraction=0.5, wavelength=1.0, coarsening=10.0, resolution=12, noise=0.05)
@@ -3908,15 +3929,18 @@ morphogen.models.tessellation.Laguerre.theory(self, domain=None)
 morphogen.models.tessellation.Tessellation(domain, germs, weights=None, cell_phases=None, orientations=None, boundary_thickness=0.0, boundary_phase=0, **kwargs)
 morphogen.models.tessellation.Tessellation.boundary_distance(self, points, reach=inf)
 morphogen.models.tessellation.Tessellation.cell_complex(self, whole=False)
+morphogen.models.tessellation.Tessellation.cell_grains(self)
 morphogen.models.tessellation.Tessellation.cell_of(self, points)
 morphogen.models.tessellation.Tessellation.cell_table(self)
 morphogen.models.tessellation.Tessellation.contains(self, points)
+morphogen.models.tessellation.Tessellation.grain_of(self, points)
 morphogen.models.tessellation.Tessellation.implicit_phases(self)
 morphogen.models.tessellation.Tessellation.labels(self, shape=None, *, voxel_size=None, grid=None)
 morphogen.models.tessellation.Tessellation.level_set(self, shape=None, *, voxel_size=None, grid=None)
 morphogen.models.tessellation.Tessellation.level_set_at(self, points, reach=inf)
 morphogen.models.tessellation.Tessellation.lipschitz
 morphogen.models.tessellation.Tessellation.n_cells
+morphogen.models.tessellation.Tessellation.n_grains
 morphogen.models.tessellation.Tessellation.phase_level_set(self, phase, shape=None, *, voxel_size=None, grid=None)
 morphogen.models.tessellation.Tessellation.phase_level_sets_at(self, points, reach=inf)
 morphogen.models.tessellation.Tessellation.summary(self)

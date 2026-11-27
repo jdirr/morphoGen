@@ -110,8 +110,9 @@ import morphogen as mg
 from morphogen.morphology import reconstruction as rc
 
 spheres = mg.models.BooleanSpheres(radius=4.0, volume_fraction=0.3)
-target = rc.descriptors_of_model(spheres, (96, 96, 1), (1.0, 1.0, 1.0), phase=0,
-                                 max_lag=16.0, lineal=True)  # exact, from the closed forms
+target = rc.descriptors_of_model(
+    spheres, (96, 96, 1), (1.0, 1.0, 1.0), phase=0, max_lag=16.0, lineal=True
+)  # exact, from the closed forms
 done = rc.reconstruct(target, lineal_weight=1.0, seed=0)
 print(done.errors)  # the gaps of the two-point probability and of the lineal paths
 # as a model: a volume from the exact covariance of a reference

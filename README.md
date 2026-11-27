@@ -30,7 +30,7 @@ A study follows one chain, and each step is a part of the package:
 
 | Step | What morphoGen does |
 |---|---|
-| **Generate** | 45 models: Boolean models, packings, fibres, tessellations, Gaussian fields, dead leaves, automata and growths, spinodal decomposition, lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures, images segmented into their phases; monodisperse or polydisperse; periodic or not, combined, nested; and the shapes of Microgen (3MAH) |
+| **Generate** | 46 models: Boolean models, packings, fibres, tessellations, Gaussian fields, dead leaves, automata and growths, spinodal decomposition, lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures, images segmented into their phases; monodisperse or polydisperse; periodic or not, combined, nested; and the shapes of Microgen (3MAH) |
 | **Describe** | an exact description of each realization (centres, axes, cells) and an implicit function for each phase, from which voxel images, surfaces and conforming meshes are cut at any resolution |
 | **Measure** | fractions, specific surface, covariance, chords, tortuosity, percolation thresholds, stereology..., each beside the closed form of its model when there is one; on the implicit geometry itself, exactly: the probes of mathematical morphology and the Minkowski functionals of unions of spheres; the model of an image or of a section identified among candidates |
 | **Compute** | elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their couplings, harmonic regimes, waves, flow and sound, thermo-chemo-elastic fields in time: finite elements on conforming meshes (by default), an FFT solver on voxels (CPU or GPU), extended finite elements |

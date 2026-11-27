@@ -39,7 +39,7 @@ package, a command line and a graphical interface in the web browser; free softw
 ::::{container} card
 **[Generate](models.md)**
 
-45 models of random and architected media: Boolean models, packings, fibres,
+46 models of random and architected media: Boolean models, packings, fibres,
 tessellations, Gaussian fields, dead leaves, automata and growths, spinodal decomposition,
 lattices, foams, triply periodic surfaces, woven textiles, bio-inspired structures, images
 segmented into their phases; periodic or not, combined, nested; and the shapes of Microgen

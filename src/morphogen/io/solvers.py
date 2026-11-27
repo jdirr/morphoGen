@@ -251,7 +251,14 @@ def write_neper(stem, tessellation) -> list[Path]:
     (``_ori.txt``: Bunge angles in degrees) of a tessellation, and ``<stem>_neper.sh``,
     the command building it with Neper (``-morphooptiini``). Germs outside the box (the
     window of a non-periodic tessellation) have no Neper equivalent: they are left out,
-    which changes the cells next to the faces."""
+    which changes the cells next to the faces. The grains of seeds, unions of the cells of
+    their spheres, are not a tessellation of Neper (their meshes come from morphoGen)."""
+    grains = np.asarray(tessellation.cell_grains())
+    if not np.array_equal(grains, np.arange(len(grains))):
+        raise ValueError(
+            "Neper: the grains of seeds are unions of the Laguerre cells of their spheres, "
+            "which a tessellation of Neper does not describe (mesh them with morphoGen)"
+        )
     stem = Path(stem)
     domain = tessellation.domain
     germs = np.asarray(tessellation.germs, dtype=float) - np.asarray(domain.lower)

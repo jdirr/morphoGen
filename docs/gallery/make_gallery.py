@@ -215,6 +215,9 @@ FAMILIES = [
              "orientations."),
             ("laguerre", "A Laguerre (power) tessellation as a two-phase mosaic (Kanit et al. "
              "2003)."),
+            ("seeded_laguerre", "Grains grown from ellipsoidal seeds (MicroStructPy; Hart & "
+             "Rimoli 2020): the Laguerre cells of the spheres that fill each seed gathered "
+             "into its grain, elongated along x as the seeds."),
             ("nested_grains", "Grains with subgrains: each grain of a polycrystal divided by "
              "the germs of a finer tessellation, its subgrains turned by 1 to 3° from its "
              "crystal (low-angle boundaries)."),

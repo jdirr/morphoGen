@@ -4,7 +4,7 @@ A model holds the parameters of a random set or of a deterministic architecture,
 closed-form characteristics of the set when they exist (`model.theory()`: volume
 fraction, specific surface, covariance, integral range...). `model.generate(domain,
 seed)` draws one realization of it in a box, periodic or not; the same seed gives the
-same realization. morphoGen has 45 models, listed below by family, and takes the shapes of
+same realization. morphoGen has 46 models, listed below by family, and takes the shapes of
 [Microgen](https://github.com/3MAH/microgen) (3MAH) through the model `microgen`
 ([below](#shapes-of-microgen)): `morphogen models`
 lists them, `morphogen models <type>` gives the parameters of one, and the
@@ -53,6 +53,7 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | Model | Description |
 |---|---|
 | `voronoi`, `laguerre` | Poisson–Voronoi and Laguerre tessellations (Poisson germs, germs of sphere packings, or stealthy hyperuniform germs: disordered but regular cells): polycrystals with random orientations, multiphase mosaics, grain-boundary phases |
+| `seeded_laguerre` | Grains grown from ellipsoidal seeds (MicroStructPy: Hart & Rimoli 2020): seeds of laws of equivalent diameters and of ratios a/b and b/c, their axes at random or aligned with the box, broken down into the spheres of their medial surfaces and placed the largest first within an overlap tolerance; the grain of a seed is the union of the Laguerre cells of its spheres, elongated and turned as the seed, of two or more phases and of crystal orientations; meshed grain by grain ([theory notes](theory.md) §115) |
 | `nested_grains` | Grains with subgrains: the germs of a finer tessellation in each grain, the subgrains turned by small angles from the crystal of their grain (low-angle boundaries), laths along an axis of the crystal; or grains filled with another model turned with their crystals (lamellar colonies, precipitates) |
 | `ebsd` | Measured polycrystals: windows of an orientation map (EBSD: `.ang` and `.ctf` files), its grains found from the disorientations of its points, each with its mean orientation |
 

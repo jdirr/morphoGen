@@ -17,6 +17,8 @@
                              or misaligned, their sections packed at random or in arrays
 ``voronoi``                  Poisson-Voronoi tessellation (multiphase mosaic, polycrystal)
 ``laguerre``                 Laguerre (power) tessellation with random weights
+``seeded_laguerre``          Grains grown from ellipsoidal seeds (MicroStructPy): the Laguerre
+                             cells of the spheres of each seed gathered into its grain
 ``gaussian_excursion``       Excursion set of a Gaussian random field
 ``tpms``                     Gyroid, Schwarz P/D, Neovius sheet or network lattices
 ``strut_lattice``            Cubic, BCC, FCC and octet strut lattices
@@ -134,6 +136,7 @@ from morphogen.models.osteons import Osteons, OsteonStructure
 from morphogen.models.reconstruction import Reconstruction
 from morphogen.models.scale_rich import ScaleRichNetwork, ScaleRichStructure
 from morphogen.models.scale_rich_3d import ScaleRichBeams, ScaleRichPlates
+from morphogen.models.seeded import SeededLaguerre, SeededTessellation
 from morphogen.models.spinodal import Spinodal, SpinodalStructure
 from morphogen.models.tessellation import Laguerre, Tessellation, Voronoi
 from morphogen.models.textile import TextileStructure, WovenTextile
@@ -209,6 +212,8 @@ __all__ = [
     "ScaleRichPlates",
     "ScaleRichStructure",
     "SeedCalibration",
+    "SeededLaguerre",
+    "SeededTessellation",
     "Spinodal",
     "SpinodalStructure",
     "StrutLattice",

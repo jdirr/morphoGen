@@ -11,7 +11,7 @@ them by these numbers (§75); by theme:
 
 | Theme | Sections |
 |---|---|
-| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image`, [§114](#114-reconstruction-from-descriptors-by-gradient-descent-morphologyreconstruction) Reconstruction from descriptors by gradient descent |
+| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image`, [§114](#114-reconstruction-from-descriptors-by-gradient-descent-morphologyreconstruction) Reconstruction from descriptors by gradient descent, [§115](#115-grains-grown-from-seeds-modelsseeded-kernelsseeds) Grains grown from seeds |
 | Architected and bio-inspired structures | [§6](#6-tpms) TPMS, [§7](#7-strut-lattices) Strut lattices, [§30](#30-bio-inspired-models) Bio-inspired models, [§71](#71-diamond-and-pyrochlore-lattices-of-struts-homogenizationframes-modelslattice) Diamond and pyrochlore lattices of struts, [§96](#96-woven-textile-composites-woven_textile) Woven textile composites, [§110](#110-woven-textiles-the-variability-of-the-tows-3d-architectures-the-tows-as-unidirectional-composites-woven_textile-homogenizationunidirectional) Woven textiles: the variability of the tows, 3D architectures, the tows as unidirectional composites |
 | Growth and design | [§14](#14-cellular-automata-automata) Cellular automata, [§15](#15-nucleation-and-growth-johnsonmehlavramikolmogorov) Nucleation and growth (Johnson–Mehl–Avrami–Kolmogorov), [§16](#16-aggregation) Aggregation, [§17](#17-combinatorial-design-design) Combinatorial design, [§18](#18-topology-optimization-of-periodic-cells-optimization) Topology optimization of periodic cells, [§78](#78-isogeometric-analysis-iga) Isogeometric analysis, [§79](#79-isogeometric-shape-optimization-igaoptimization) Isogeometric shape optimization, [§109](#109-inverse-design-of-active-structures-optimizationmorphing) Inverse design of active structures, [§113](#113-spinodal-decomposition-spinodal) Spinodal decomposition |
 | Geometry and meshes | [§19](#19-polycrystals-exact-cells-and-conforming-meshes-meshpolyhedra-meshpolycrystal) Polycrystals: exact cells and conforming meshes, [§24](#24-whole-periodic-grains-meshpolycrystal-cells-whole) Whole periodic grains, [§52](#52-views-and-measures-of-the-level-sets-vizsections) Views and measures of the level sets, [§75](#75-the-implicit-geometry-of-every-model-modelsimplicit-meshconforming) The implicit geometry of every model, [§76](#76-quadratic-tetrahedra-isoparametric-elements-and-curved-interfaces-meshcurved-homogenizationfe) Quadratic tetrahedra: isoparametric elements and curved interfaces, [§80](#80-sharp-edges-of-the-phases-meshes-that-follow-them-modelspieces-meshconforming-meshcurved) Sharp edges of the phases: meshes that follow them, [§94](#94-exact-meshes-without-a-background-grid-meshexact-meshoctree) Exact meshes without a background grid |
@@ -8734,7 +8734,7 @@ previous one), and the vertices that face each other on opposite faces keep equa
 Cells of several phases are meshed by their grains (§19), each element with the phase of
 its cell.
 
-Checked (`tests/test_implicit.py`): for the 44 models of the registry and 19 other
+Checked (`tests/test_implicit.py`): for the 46 models of the registry, the shapes of Microgen and 19 other
 configurations of several phases (cells of two and three phases with and without grain
 boundaries, leaves of three phases, spheroids, finite coverage, leaves and cells mapped by an
 anisotropy, opaque transparent leaves, osteons along x, coatings of hard spheres, of a lattice and of a gyroid,
@@ -13511,6 +13511,116 @@ realization of the model itself on 40³ (18 %: its fluctuation); the model with
 `method="gradient"` from the closed forms of a reference, a Debye medium and an image,
 their errors within 2 %, and its round trip.
 
+## 115. Grains grown from seeds (`models.seeded`, `kernels.seeds`)
+
+The cells of a Laguerre tessellation are convex polyhedra, and the tessellation of the germs
+of a packing of spheres (§4) gives grains of the sizes of the spheres, not of chosen shapes.
+MicroStructPy (Hart & Rimoli 2020a, 2020b) grows the grains from seeds of any shape
+instead: each seed is broken down into spheres, the spheres of all the seeds are the germs
+of one Laguerre tessellation, their weights the squares of their radii, and the grain of a
+seed is the union of the cells of its spheres — not convex in general, its shape that of
+its seed where the seeds fill the box. The model `seeded_laguerre` grows them from
+ellipsoidal seeds.
+
+**The seeds.** A seed has an equivalent diameter $d$ (that of the sphere of its volume) and
+the ratios $a/b \ge 1$ and $b/c \ge 1$ of its semi-axes, each drawn from its law, so that
+$c = \tfrac d2\,[(a/b)(b/c)^2]^{-1/3}$ and $abc = (d/2)^3$. The seeds are drawn until their
+volumes $\pi d^3/6$ fill the box (a box that is not periodic dilated by the largest diameter,
+so that its faces cut grains), their axes turned by uniform rotations or aligned with those
+of the box, their phases drawn with the fractions of the phases.
+
+**Breakdown.** The ellipsoid $x^2/a^2 + y^2/b^2 + z^2/c^2 \le 1$ ($a \ge b \ge c$) holds, about
+each point of its medial surface — the ellipse of semi-axes $(a^2 - c^2)/a$ and
+$(b^2 - c^2)/b$ in the plane $z = 0$, a segment for a prolate spheroid — a largest sphere,
+which touches it at the nearest points of its surface: from $(x, y, 0)$ they are
+$(a^2 x/(a^2 - c^2),\, b^2 y/(b^2 - c^2),\, \pm z)$, where the normal points back to the
+centre, which gives its radius in closed form ($c$ at the centre, the radius of curvature
+$c^2/a$ at the ends of the long axis). The spheres are centred on a triangular lattice of the
+medial ellipse and on its rim, at the spacing `spacing` times $c$ (widened to keep at most
+256 spheres per seed); their union fills the ellipsoid as follows (Monte Carlo):
+
+| Semi-axes $a, b, c$ | Spacing 0.25 | 0.5 (default) | 1 |
+|---|---|---|---|
+| 2, 1, 1 | 13 spheres, 99.0 % | 7, 95.9 % | 4, 83.3 % |
+| 4, 1, 1 | 31, 99.2 % | 16, 96.7 % | 9, 88.3 % |
+| 2, 2, 1 | 161, 98.4 % | 52, 94.3 % | 17, 80.5 % |
+| 3, 2, 1 | 284, 98.6 % | 88, 95.0 % | 27, 80.1 % |
+| 6, 3, 1 | 1014, 98.7 % | 283, 94.8 % | 84, 79.7 % |
+
+MicroStructPy approximates the elliptical sections $x$–$z$ and $y$–$z$ of the seed by circles
+and scales them into spheres; here each sphere is inscribed in the seed and touches it.
+
+**Placement.** The seeds are placed the largest first, each at the first of uniform positions
+where its spheres overlap those of the seeds already placed by at most a tolerance $t$: for
+every sphere $k$ of the seed at $c$ (its centre $c + o_k$) and every sphere $q$ placed,
+$|c + o_k - x_q| + t \min(r_k, r_q) \ge r_k + r_q$ — the depth of their overlap at most $t$
+times the smaller radius (0: none; 1: the centre of the smaller on the surface of the
+other), across the faces of a periodic box. The default tolerance is the rational fit of
+MicroStructPy, in 3D, to the tolerances that Hart and Rimoli (2020a) plot against the coefficient of
+variation $v$ of the volumes of the seeds (their Fig. 10),
+
+$$t(v) = \frac{0.471115\,v^2 - 0.602324\,v + 0.297562}{v^2 - 1.08469\,v + 0.428216},$$
+
+0.695 for seeds of one size, 0.86 at $v = 0.4$, 0.48 at $v = 1$ (the default of `overlap`).
+The positions are drawn 32 per seed for 64 seeds at a time, and the rest of its attempts
+(10 000 in all, as MicroStructPy) for a seed that clears at none of them; the spheres placed
+are kept in a grid of cells of twice the largest radius, so that a position is tested
+against the 27 neighbouring cells, its test stopping as soon as its overlap exceeds the
+least found so far for the seed.
+
+**Crowded seeds.** The sequential addition of elongated seeds jams before they fill the box.
+MicroStructPy leaves out a seed that clears at none of its positions, its volume going to the
+grains of its neighbours, larger than their seeds. Here it is placed at the position of its
+least excess of overlap, $\max_{k,q} (r_k + r_q - |c + o_k - x_q|)/\min(r_k, r_q) - t$, by
+default (`crowded: place`): every seed has its grain, of its volume on average;
+`crowded: leave` leaves it out.
+
+**The grains.** A point belongs to the sphere of least power distance $|x - x_k|^2 - r_k^2$
+(the k-d tree of the tessellation, exact at any point) and to the grain of its seed
+(`SeededTessellation`: the labels of the grains, `grain_of`, their exact volumes from the
+cells, their phases and crystal orientations, the table of their seeds). The implicit
+function of a phase takes the distance to the faces between the cells of different grains:
+the distance to the boundary of the grain where the cell of the point holds its nearest
+part, a lower bound otherwise, its sign exact. The conforming mesh of a polycrystal (§19)
+merges the cells of each grain in the complex of the cells (`CellComplex.merged`): the facets
+between them are no longer between cells, MMG meshes the grain as one subdomain, its
+elements with the phase and the orientation of the grain; the surfaces of the cells are
+drawn grain by grain, and the elements of the crack meshes of a polycrystal take the grains
+of their centroids. The tessellations of Neper, of convex cells, do not describe them: its
+export refuses them.
+
+**Against MicroStructPy.** MicroStructPy 1.6.1 and morphoGen on the same seeds: a periodic
+cube of edge 6, seeds of equivalent diameter 1 (413 of them), the tolerance of the fit
+(0.695). Spheres: all placed by both, the grains of the volumes of their seeds on average
+(0.999), the coefficient of variation of their volumes 0.147 (MicroStructPy 0.150). Seeds of
+aspect ratio 3 at random: MicroStructPy keeps 276 of them (its positioning 375 s), its
+grains 1.495 times the volume of their seeds on average, the coefficient of variation of
+their volumes 0.108; morphoGen keeps 276 of them too with `crowded: leave` (3.1 s; 1.495 and
+0.104), and with `crowded: place` all of them (156 crowded) in 3.8 s, the grains of the
+volumes of their seeds (0.999; 0.148). The shapes of the grains, from the second moments of
+their labels (120³ voxels, the coordinates about their seeds), medians: seeds of aspect
+ratio 3, the grains $a/b$ 3.08 and $b/c$ 1.16, their long axes along those of their seeds
+($|\cos|$ 0.999) — 2.77 when the crowded seeds are left out, their grains swollen by the
+volume of the others —; seeds of ratios $a/b = b/c = 2$, the grains 2.11 and 2.08 ($|\cos|$
+0.998; 118 spheres a seed, 48 734 in all, 241 seeds crowded, placed in 78 s); spheres, 1.14
+and 1.15 (the facets of the cells), their axes at random.
+
+Checked (`tests/test_seeded_grains.py`): each sphere of the breakdown of five ellipsoids
+touches it at the nearest points in closed form (on the surface within $10^{-12}$, at the
+distance of its radius, the normal through its centre) and no point of a sampling of 180 000
+points of the surface is nearer; their union at least 93 % of the ellipsoid at the spacing
+0.5 and 97 % at 0.25; the fit of the tolerance at three variations; seeds of one sphere and
+of two placed in a periodic box within the tolerance, those of a box too small left out or
+placed crowded, the seeds that clear within the tolerance of each other; seeds of one size:
+one grain per seed, the volumes of the grains summing to that of the box (to $10^{-9}$) and
+their mean that of the seeds (2 %), in a box that is not periodic too; seeds of aspect ratio
+2.5 at random give grains of ratio 2 to 3 along their seeds' axes ($|\cos|$ > 0.98), flat
+seeds flat grains; elongated seeds placed crowded or left out; the parameters checked, the
+labels those of the grains, the realization saved and read back, the table, the export to
+Neper refused; the exact surfaces by grain, their regions the grains with their phases; the
+elements of a mesh in the grains of their centroids; the mesh of the grains, their volumes
+those of the grains within 2 %, their phases and orientations.
+
 ## References
 
 See [specification.md](specification.md#14-references). In addition:
@@ -14439,6 +14549,11 @@ See [specification.md](specification.md#14-references). In addition:
   Graph.* 13, 43–72.
 * Hart, J. C. (1996). Sphere tracing: a geometric method for the antialiased ray tracing
   of implicit surfaces. *The Visual Computer* 12, 527–545.
+* Hart, K. A., Rimoli, J. J. (2020a). Generation of statistically representative
+  microstructures with direct grain geometry control. *Comput. Methods Appl. Mech. Eng.*
+  370, 113242.
+* Hart, K. A., Rimoli, J. J. (2020b). MicroStructPy: a statistical microstructure mesh
+  generator in Python. *SoftwareX* 12, 100595.
 * Huse, D. A. (1986). Corrections to late-stage behavior in spinodal decomposition:
   Lifshitz–Slyozov scaling and Monte Carlo simulations. *Phys. Rev. B* 34, 7845–7850.
 * Liao, P.-S., Chen, T.-S., Chung, P.-C. (2001). A fast algorithm for multilevel

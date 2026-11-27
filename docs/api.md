@@ -19,7 +19,7 @@ the steps of a study:
 
 | Step | Package | What it holds |
 |---|---|---|
-| Generate | [`morphogen.models`](api/morphogen.models.rst) | the 45 models of microstructures and the shapes of Microgen (3MAH), their realizations and their theory |
+| Generate | [`morphogen.models`](api/morphogen.models.rst) | the 46 models of microstructures and the shapes of Microgen (3MAH), their realizations and their theory |
 | | [`morphogen.automata`](api/morphogen.automata.rst) | cellular automata and lattice growth processes, on grids and tilings |
 | | [`morphogen.design`](api/morphogen.design.rst) | tile assemblies, strut frameworks and their rigidity, searches of design spaces |
 | | [`morphogen.optimization`](api/morphogen.optimization.rst) | topology optimization of periodic cells by inverse homogenization, and the inverse design of active structures |

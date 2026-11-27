@@ -452,13 +452,16 @@ def without_voids(mesh: TetMesh, voids=(), islands: float = 0.01) -> TetMesh:
 
 
 def with_grains(mesh: TetMesh, grains) -> TetMesh:
-    """The mesh with the grains of a tessellation (``grains``: its ``cell_of(points)`` and
-    its ``orientations``): each element in the cell of its centroid (``mesh.cell``), the
-    crystal orientations of the cells (``mesh.orientations``). The grain boundaries are
-    then staircases of element faces, whose steps shrink with the elements; the crack
-    meshes of a polycrystal stay conforming to the crack alone (MMG cuts one level set)."""
+    """The mesh with the grains of a tessellation (``grains``: its ``grain_of(points)``, or
+    its ``cell_of(points)``, and its ``orientations``): each element in the grain of its
+    centroid (``mesh.cell``), the crystal orientations of the grains (``mesh.orientations``).
+    The grain boundaries are then staircases of element faces, whose steps shrink with the
+    elements; the crack meshes of a polycrystal stay conforming to the crack alone (MMG
+    cuts one level set)."""
     centroids = mesh.nodes[mesh.elements[:, :4]].mean(axis=1)
-    cell = np.asarray(grains.cell_of(centroids), dtype=np.int64)
+    locate = getattr(grains, "grain_of", None)
+    locate = locate if callable(locate) else grains.cell_of
+    cell = np.asarray(locate(centroids), dtype=np.int64)
     return TetMesh(mesh.nodes, mesh.elements, mesh.phase, mesh.lower, mesh.upper,
                    periodic=mesh.periodic, metadata=dict(mesh.metadata), cell=cell,
                    orientations=getattr(grains, "orientations", None),

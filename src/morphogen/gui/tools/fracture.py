@@ -2309,14 +2309,15 @@ def _opening_frames(mesh, faces, law, fields, scale: float, captions) -> list[np
 
 @dataclass
 class Grains:
-    """The grains of a tessellation for the crack meshes: the cell of points and the crystal
-    orientation of each cell (:func:`~morphogen.fracture.lefm.with_grains`)."""
+    """The grains of a tessellation for the crack meshes: the grain of points and the crystal
+    orientation of each grain (:func:`~morphogen.fracture.lefm.with_grains`)."""
 
     tessellation: Any
     orientations: np.ndarray
 
     def cell_of(self, points) -> np.ndarray:
-        return self.tessellation.cell_of(points)
+        locate = getattr(self.tessellation, "grain_of", None)
+        return locate(points) if callable(locate) else self.tessellation.cell_of(points)
 
 
 def _grains_of(item: dict, seed) -> Grains:
@@ -2326,10 +2327,12 @@ def _grains_of(item: dict, seed) -> Grains:
                          "the workspace")  # fmt: skip
     orientations = getattr(micro, "orientations", None)
     if orientations is None:
+        from morphogen.models.tessellation import Tessellation
         from morphogen.orientations import random_orientations
 
         rng = np.random.default_rng(seed if seed is not None else item.get("seed"))
-        orientations = random_orientations(rng, len(micro.germs))
+        count = micro.n_grains if isinstance(micro, Tessellation) else len(micro.germs)
+        orientations = random_orientations(rng, count)
     return Grains(micro, np.asarray(orientations, dtype=float))
 
 

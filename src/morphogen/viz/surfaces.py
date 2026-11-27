@@ -558,7 +558,10 @@ def _cells_surface(micro, resolution: int) -> Surface:
     cx = micro.cell_complex()
     vectors, _ = cx.facet_vectors()
     pieces = cx.facet_pieces
-    cells = cx.piece_cell
+    grains = np.asarray(micro.cell_grains(), dtype=np.int64)  # the regions: the grains
+    cells = grains[np.asarray(cx.piece_cell)]
+    region_phase = np.zeros(int(grains.max()) + 1 if len(grains) else 0, dtype=np.int64)
+    region_phase[grains] = micro.cell_phases
     rows = []
     for f, loop in enumerate(cx.facets):
         if len(loop) < 3:
@@ -600,8 +603,8 @@ def _cells_surface(micro, resolution: int) -> Surface:
         normals=np.concatenate(normals) if normals else np.zeros((0, 3)),
         triangles=np.concatenate(triangles) if triangles else np.zeros((0, 3), np.int64),
         groups=np.array(groups, dtype=np.int64).reshape(-1, 6),
-        region_phase=np.asarray(micro.cell_phases, dtype=np.int64),
-        region_label=np.arange(micro.n_cells),
+        region_phase=region_phase,
+        region_label=np.arange(len(region_phase)),
         lower=domain.lower.astype(float),
         upper=domain.upper.astype(float),
         method="cells",

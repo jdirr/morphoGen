@@ -90,6 +90,22 @@ class Tessellation(Microstructure):
     def n_cells(self) -> int:
         return len(self.germs)
 
+    @property
+    def n_grains(self) -> int:
+        """The number of grains: the cells (the grains of
+        :class:`~morphogen.models.seeded.SeededTessellation` gather several)."""
+        return self.n_cells
+
+    def cell_grains(self) -> np.ndarray:
+        """The grain of each cell: the cell itself (the grains of
+        :class:`~morphogen.models.seeded.SeededTessellation` gather the cells of several
+        germs)."""
+        return np.arange(self.n_cells, dtype=np.int64)
+
+    def grain_of(self, points) -> np.ndarray:
+        """The grain of each point: that of its cell, the cell of least power distance."""
+        return self.cell_grains()[self.cell_of(points)]
+
     # -- cell assignment -------------------------------------------------------------
 
     def _lift(self, points: np.ndarray) -> np.ndarray:

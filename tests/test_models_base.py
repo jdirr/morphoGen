@@ -50,6 +50,15 @@ CONFIGS = {
         {"intensity": 0.05, "radius": {"type": "uniform", "low": 0.5, "high": 1.0}},
         False,
     ),
+    "seeded_laguerre": (
+        {
+            "diameter": {"type": "uniform", "low": 1.5, "high": 2.5},
+            "aspect_ratio": 2.0,
+            "phase_fractions": [0.4, 0.6],
+            "crystal_orientations": True,
+        },
+        True,
+    ),
     "gaussian_excursion": ({"correlation_length": 1.0, "volume_fraction": 0.4}, True),
     "tpms": (
         {"surface": "gyroid", "cell_size": 4.0, "variant": "sheet", "volume_fraction": 0.2},

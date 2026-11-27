@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import itertools
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 from scipy.optimize import linprog
@@ -125,6 +125,12 @@ class CellComplex:
         """Facets between pieces of different cells (grain boundaries)."""
         a, b = self.facet_pieces[:, 0], self.facet_pieces[:, 1]
         return np.flatnonzero((b >= 0) & (self.piece_cell[a] != self.piece_cell[np.maximum(b, 0)]))
+
+    def merged(self, groups) -> CellComplex:
+        """The complex whose cells are groups of its cells (``groups[c]``, the group of the
+        cell ``c``): the same pieces and facets, those between cells of a group no longer
+        between cells (the grains of seeds, unions of the cells of their spheres)."""
+        return replace(self, piece_cell=np.asarray(groups, dtype=np.int64)[self.piece_cell])
 
     def edges(self) -> np.ndarray:
         """Unique edges (sorted vertex pairs) of the facets."""

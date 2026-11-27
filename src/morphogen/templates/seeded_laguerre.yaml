@@ -1,0 +1,22 @@
+# Grains grown from ellipsoidal seeds (MicroStructPy): the Laguerre cells of the spheres
+# that approximate each seed gathered into its grain; elongated grains aligned with x.
+model:
+  type: seeded_laguerre
+  diameter: {type: lognormal, mean: 0.25, std: 0.05}  # equivalent diameter of the seeds
+  aspect_ratio: 2.5    # a/b of the seeds
+  flatness: 1.0        # b/c of the seeds
+  orientation: aligned  # a along x, b along y, c along z
+  phase_fractions: [0.2, 0.8]
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+seed: 3
+voxels:
+  shape: 96
+outputs:
+  directory: out/seeded_laguerre
+  name: grains
+  image: [vti]
+  labels: [vti]
+analysis: [volume_fraction, cells]

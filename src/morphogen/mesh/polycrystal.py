@@ -878,7 +878,9 @@ def polycrystal_mesh(
 ) -> TetMesh:
     """Conforming tetrahedral mesh of a Voronoi or Laguerre tessellation, one subdomain
     per cell: each element knows its cell (``mesh.cell``), its phase and, through its
-    cell, its crystal orientation (``mesh.orientations``).
+    cell, its crystal orientation (``mesh.orientations``). The grains of seeds
+    (:class:`~morphogen.models.seeded.SeededTessellation`) are the subdomains, the cells of
+    their spheres merged: ``mesh.cell`` is then the grain.
 
     Parameters
     ----------
@@ -941,6 +943,11 @@ def polycrystal_mesh(
     exe = mmg_executable(executable)
     t0 = time.perf_counter()
     cx = micro.cell_complex(whole=whole)
+    grains = np.asarray(micro.cell_grains(), dtype=np.int64)
+    if not np.array_equal(grains, np.arange(len(grains))):  # grains of several cells
+        cx = cx.merged(grains)
+    grain_phases = np.zeros(int(grains.max()) + 1 if len(grains) else 0, dtype=np.int64)
+    grain_phases[grains] = micro.cell_phases
     if periodic != cx.periodic:
         raise ValueError("the cells of the tessellation and the mesh differ in periodicity")
     cx = regularize(cx, feature) if feature > 0 else cx
@@ -1001,14 +1008,15 @@ def polycrystal_mesh(
         nodes[np.abs(nodes[:, d] - domain.lower[d]) <= tol, d] = domain.lower[d]
         nodes[np.abs(nodes[:, d] - domain.upper[d]) <= tol, d] = domain.upper[d]
     elements = data["Tetrahedra"]
-    cell = data["Tetrahedra_refs"] - 1
+    cell = data["Tetrahedra_refs"] - 1  # the grain (the cell, but for the grains of seeds)
+    phase = grain_phases[cell]
     flip = tet_volumes(nodes, elements) < 0
     elements[flip] = elements[flip][:, [0, 2, 1, 3]]
     used, inverse = np.unique(elements, return_inverse=True)
     mesh = TetMesh(
         nodes=nodes[used],
         elements=inverse.reshape(elements.shape),
-        phase=micro.cell_phases[cell].astype(np.int64),
+        phase=phase,
         lower=domain.lower,
         upper=domain.upper,
         periodic=periodic,
@@ -1025,6 +1033,7 @@ def polycrystal_mesh(
             "relabelled_caps": int(cx.metadata.get("relabelled_caps", 0)),
             "contracted_edges": int(cx.metadata.get("contracted_edges", 0)),
             "n_cells": int(micro.n_cells),
+            "n_grains": len(grain_phases),
             "phases": phases,
             "matching_faces": periodic,
             "time_cells_s": round(t_cells, 3),
