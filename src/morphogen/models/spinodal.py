@@ -48,7 +48,7 @@ from morphogen.seeding import SeedLike, make_rng, seed_from_description
 
 #: The linear stabilization of the scheme
 STABILIZATION = 2.0
-#: The bounds of the fraction (the spinodal: |c̄| < 1/√3)
+#: The bounds of the fraction (the spinodal: ``|c̄| < 1/√3``)
 SPINODAL = (0.5 * (1.0 - 1.0 / math.sqrt(3.0)), 0.5 * (1.0 + 1.0 / math.sqrt(3.0)))
 
 
