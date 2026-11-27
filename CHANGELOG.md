@@ -83,6 +83,23 @@
   stage at the fastest wave number, the free energy decreasing at each step, the mean
   composition kept to 10⁻¹², the length of the pattern doubling over eight times the age
   (Lifshitz–Slyozov, 2.005), the fraction.
+* Reconstruction from descriptors by gradient descent (`morphogen.morphology.reconstruction`,
+  §114; the model `reconstruction` with `method: gradient`, as MCRpy): the cells of a
+  periodic grid relaxed to `[0, 1]`, their two-point probability at every lag within the
+  largest (two Fourier transforms, its gradient exact) and their lineal paths along the axes
+  (the products of the cells of the segments, their gradient the products of the others)
+  brought to their targets by L-BFGS-B within the bounds, in stages that draw the cells to
+  0 and 1, then thresholded at the fraction. The targets in closed form — the covariance of
+  the isotropic models at every lag of the grid, the lineal paths of the pores of the models
+  with a Choquet capacity — or measured on an image, a planar one giving a volume through the
+  three coordinate planes of the grid. Tested (`tests/test_gradient_reconstruction.py`): the
+  descriptors of binary fields those of `morphogen.analysis` exactly, the gradient against
+  finite differences, a Debye medium within 0.5 % of the variance, the pores of sections of
+  a Boolean model of spheres — their exact covariance alone missing their lineal path by 7 %,
+  both within 0.5 % with it —, a volume from a section within 3.5 % of the exact 3D
+  covariance off the planes, the method of the model. Public interface: the module
+  `morphology.reconstruction`, `Reconstruction(method=..., iterations=...)`,
+  `Reconstruction.descriptors` (`tests/public_api.txt`).
 * The computations of morphoGen as models of VIMSEO (`morphogen.interop.vimseo`, §112; the
   extra `vimseo`, Python 3.10 to 3.12), for the demonstration of the credibility of the
   simulations: a configuration of `morphogen run` with its entries as inputs and its results

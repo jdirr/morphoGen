@@ -84,6 +84,33 @@ print(found.table())
 larger = found.best.model.generate(mg.Domain.cube(50.0), seed=0)
 ```
 
+## Structures rebuilt from their descriptors
+
+A structure can also be rebuilt from descriptors alone, without a model of its own: the
+cells of a periodic grid, relaxed to values between 0 and 1, descend the gradient of the
+gap between their two-point probability at every lag (and their lineal paths along the
+axes) and the targets, by L-BFGS-B, then are thresholded at the fraction
+(`morphology.reconstruction`, as MCRpy; §114). The targets are the closed forms of a model
+— the exact covariance of a Boolean model of spheres or of a Gaussian excursion, the lineal
+path of the pores from the Choquet capacity — or the measures of an image; a single
+section gives a volume, its two-point probability imposed on the three coordinate planes of
+the grid. The covariance alone gives the fraction and the specific surface, not the
+connectivity, which the lineal paths constrain: the pores of a Boolean model rebuilt from
+their covariance miss their lineal path by 7 %, within 0.5 % with it.
+
+```python
+import morphogen as mg
+from morphogen.morphology import reconstruction as rc
+
+spheres = mg.models.BooleanSpheres(radius=4.0, volume_fraction=0.3)
+target = rc.descriptors_of_model(spheres, (96, 96, 1), (1.0, 1.0, 1.0), phase=0,
+                                 max_lag=16.0, lineal=True)  # exact, from the closed forms
+done = rc.reconstruct(target, lineal_weight=1.0, seed=0)
+print(done.errors)  # the gaps of the two-point probability and of the lineal paths
+# as a model: a volume from the exact covariance of a reference
+model = mg.models.Reconstruction(reference=spheres, cell_size=1.0, method="gradient")
+```
+
 ## Measures of images
 
 * **Geometry**: volume fraction, specific surface (Cauchy–Crofton, 13 directions),

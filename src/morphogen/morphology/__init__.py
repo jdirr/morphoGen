@@ -20,7 +20,10 @@ random closed sets without the bias of a discretization:
   well they reproduce what was not fitted;
 * :mod:`morphogen.morphology.segmentation`: grey-level images and stacks turned into phases
   and particles (thresholds, the separation of touching particles), and the statistics of
-  the particles that models of their own take.
+  the particles that models of their own take;
+* :mod:`morphogen.morphology.reconstruction`: structures rebuilt from their descriptors by
+  gradient descent (the two-point probability at every lag, the lineal paths), towards the
+  closed forms of a model or the measures of an image — a volume from a section.
 """
 
 from morphogen.morphology.balls import (

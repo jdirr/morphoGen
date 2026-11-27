@@ -3783,7 +3783,9 @@ morphogen.models.planar.hardcore_germs(n, lengths, distance, rng)
 morphogen.models.planar.jamming_distance(n, area)
 morphogen.models.planar.pixel_centres(grid, axes)
 morphogen.models.planar.plane_axes(axis)
-morphogen.models.reconstruction.Reconstruction(reference=None, image=None, correlation_length=None, volume_fraction=None, lineal_path=0.0, max_lag=None, sweeps=100, cooling=0.98, tolerance=1e-10, cell_size=1.0, dimension=3, smoothing=0.0)
+morphogen.models.reconstruction.METHODS
+morphogen.models.reconstruction.Reconstruction(reference=None, image=None, correlation_length=None, volume_fraction=None, lineal_path=0.0, method='annealing', max_lag=None, sweeps=100, cooling=0.98, tolerance=1e-10, iterations=2000, cell_size=1.0, dimension=3, smoothing=0.0)
+morphogen.models.reconstruction.Reconstruction.descriptors(self, domain, seed=None)
 morphogen.models.reconstruction.Reconstruction.generate(self, domain, seed=None)
 morphogen.models.reconstruction.Reconstruction.targets(self, domain, seed=None)
 morphogen.models.reconstruction.Reconstruction.theory(self, domain=None)
@@ -4124,6 +4126,20 @@ morphogen.morphology.measures.phases_at(micro, points)
 morphogen.morphology.measures.sample_points(domain, n, *, seed=None, method='sobol', margin=None)
 morphogen.morphology.measures.specific_surface(micro, *, phase=1, lines=512, length=None, seed=0)
 morphogen.morphology.measures.volume_fraction(micro, phase=1, *, points=65536, seed=0)
+morphogen.morphology.reconstruction.Descriptors(shape, spacing, fraction, two_point, mask, lineal=None, axes=(0, 1, 2), source='')
+morphogen.morphology.reconstruction.Descriptors.max_lag
+morphogen.morphology.reconstruction.Reconstructed(structure, relaxed, energies=<factory>, iterations=0, evaluations=0, errors=<factory>)
+morphogen.morphology.reconstruction.STAGES
+morphogen.morphology.reconstruction.TINY
+morphogen.morphology.reconstruction.debye_descriptors(shape, spacing, *, fraction, length, max_lag)
+morphogen.morphology.reconstruction.descriptor_errors(structure, target)
+morphogen.morphology.reconstruction.descriptors_of_image(image, shape, spacing, *, phase=1, max_lag, lineal=False, sections=None)
+morphogen.morphology.reconstruction.descriptors_of_model(model, shape, spacing, *, phase=1, max_lag, lineal=False, domain=None, seed=None)
+morphogen.morphology.reconstruction.energy(x, target, mu=0.0, lineal_weight=1.0, fraction_weight=10.0)
+morphogen.morphology.reconstruction.lag_vectors(shape, spacing)
+morphogen.morphology.reconstruction.lineal_paths(x, max_lag, axes=(0, 1, 2))
+morphogen.morphology.reconstruction.reconstruct(target, *, seed=None, iterations=2000, lineal_weight=1.0, fraction_weight=10.0, stages=(0.0, 0.03, 0.3), tolerance=1e-12, initial=None)
+morphogen.morphology.reconstruction.two_point(x)
 morphogen.morphology.segmentation.ParticleShapes(semi_axes, axes, radii, weights, centroids, density, planar)
 morphogen.morphology.segmentation.ParticleShapes.aspect_ratios
 morphogen.morphology.segmentation.ParticleShapes.count

@@ -13,6 +13,15 @@ with the weight ``lineal_path``, approach their targets, those of
 * a phase image (``image``: a file), its descriptors measured at its own voxels and
   interpolated at the lags of the lattice (``p^2`` and 0 beyond its half size).
 
+``method="gradient"`` reconstructs by gradient descent instead
+(:mod:`morphogen.morphology.reconstruction`, as MCRpy): the cells relaxed to ``[0, 1]``,
+``S_2`` at every lag of the lattice within ``max_lag`` (not only along the axes) and, with the
+weight ``lineal_path``, the lineal paths, by L-BFGS-B in ``iterations``, then thresholded at
+the fraction. Its targets: the covariance of the reference in closed form when the model has
+one that depends on the distance alone (the exact ``S_2`` of a Boolean model of spheres, of a
+Gaussian excursion...), else measured on its realization; a Debye medium in closed form; an
+image, whose planar sections give a 3D structure (``dimension`` 3).
+
 ``S_2`` alone does not determine a microstructure: two microstructures with the same
 ``S_2`` can differ in their connectivity, which ``L`` (and the chords) retains in part.
 """
@@ -32,6 +41,9 @@ from morphogen.kernels.annealing import anneal
 from morphogen.models.base import Model, param, register
 from morphogen.models.lattice_field import LatticeField, lattice_shape
 from morphogen.seeding import SeedLike, make_rng
+
+#: The methods of the reconstruction
+METHODS = ("annealing", "gradient")
 
 
 def _measured(image, rmax: int, lags: np.ndarray, n_axes: int):
@@ -77,6 +89,13 @@ class Reconstruction(Model):
     lineal_path: float = param(
         0.0, doc="Weight of the lineal-path function in the energy (0: S2 alone)"
     )
+    method: str = param(
+        "annealing",
+        doc="'annealing': swaps of cells (Yeong & Torquato), S2 and L along the axes; "
+        "'gradient': L-BFGS-B on the relaxed cells, S2 at every lag within max_lag (MCRpy; a "
+        "planar image gives a 3D structure by its sections)",
+        kind="str",
+    )
     max_lag: int | None = param(
         None,
         doc="Largest lag of the descriptors, in cells (default: a quarter of the lattice, "
@@ -88,6 +107,7 @@ class Reconstruction(Model):
         0.98, doc="Factor of the temperature after every tenth of a sweep", kind="fraction"
     )
     tolerance: float = param(1e-10, doc="Energy at which the annealing stops")
+    iterations: int = param(2000, doc="Iterations of L-BFGS-B (method 'gradient')", kind="int")
     cell_size: float = param(1.0, doc="Edge of the cells of the lattice", unit="length")
     dimension: int = param(
         3, doc="3, or 2 for planar structures (one cell through the thickness)", kind="int"
@@ -119,6 +139,10 @@ class Reconstruction(Model):
         check_positive(self.lineal_path, "lineal_path", allow_zero=True)
         if self.max_lag is not None and self.max_lag < 1:
             raise ValueError("max_lag: a positive number of cells")
+        if self.method not in METHODS:
+            raise ValueError(f"method: one of {METHODS}")
+        if self.iterations < 1:
+            raise ValueError("iterations: a positive number")
         if self.sweeps < 1:
             raise ValueError("sweeps: a positive number of swaps per cell")
         if not 0.0 < self.cooling <= 1.0:
@@ -164,8 +188,51 @@ class Reconstruction(Model):
         s, line, p = _measured(image, rmax, lags, n_axes)
         return s, line, p
 
+    def descriptors(self, domain: Domain, seed: SeedLike = None):
+        """The targets of the method ``gradient`` on the lattice of the domain: a
+        :class:`~morphogen.morphology.reconstruction.Descriptors`."""
+        rng, _ = make_rng(seed)
+        lattice, _, rmax = self._lattice(domain)
+        return self._descriptors(lattice, rmax, rng)
+
+    def _descriptors(self, lattice: Grid, rmax: int, rng):
+        from morphogen.morphology import reconstruction as rc
+
+        shape, spacing = lattice.shape, tuple(float(h) for h in lattice.spacing)
+        n_axes = 3 if self.dimension == 3 else 2
+        reach = rmax * min(spacing[:n_axes])
+        lineal = self.lineal_path > 0
+        if self.correlation_length is not None:
+            fraction, length = float(self.volume_fraction), float(self.correlation_length)
+            return rc.debye_descriptors(shape, spacing, fraction=fraction, length=length,
+                                        max_lag=reach)  # fmt: skip
+        if self.reference is not None:
+            return rc.descriptors_of_model(self.reference, shape, spacing, phase=1,
+                                           max_lag=reach, lineal=lineal,
+                                           domain=lattice.domain, seed=rng)  # fmt: skip
+        from morphogen import io
+
+        return rc.descriptors_of_image(io.load_image(self.image), shape, spacing, phase=1,
+                                       max_lag=reach, lineal=lineal)  # fmt: skip
+
+    def _gradient(self, domain: Domain, rng, seed_info) -> LatticeField:
+        from morphogen.morphology import reconstruction as rc
+
+        lattice, _, rmax = self._lattice(domain)
+        target = self._descriptors(lattice, rmax, rng)
+        done = rc.reconstruct(target, seed=rng, iterations=int(self.iterations),
+                              lineal_weight=float(self.lineal_path))  # fmt: skip
+        attributes = {"method": "gradient", "energy": done.energies[-1],
+                      "iterations": done.iterations, "evaluations": done.evaluations,
+                      "max_lag": rmax, "targets": target.source,
+                      **{f"error_{k}": v for k, v in done.errors.items()}}  # fmt: skip
+        return LatticeField(domain, done.structure, smoothing=self.smoothing,
+                            attributes=attributes, model=self, seed=seed_info)  # fmt: skip
+
     def generate(self, domain: Domain, seed: SeedLike = None) -> LatticeField:
         rng, seed_info = make_rng(seed)
+        if self.method == "gradient":
+            return self._gradient(domain, rng, seed_info)
         lattice, n_axes, rmax = self._lattice(domain)
         target_s, target_l, p = self._targets(domain, rng)
         cells = int(np.prod(lattice.shape))

@@ -63,7 +63,7 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | `gaussian_excursion` | Excursions of Gaussian random fields (bicontinuous porous media) |
 | `dead_leaves` | Dead leaves of spheres or spheroids: mosaics of non-convex grains, families of leaves of their own sizes, finite coverage over a background, with their exact covariances (Jeulin 1997) |
 | `transparent_dead_leaves` | Excursions of the random function of transparent leaves (Jeulin 1997), with its exact covariance |
-| `reconstruction` | Stochastic reconstruction (Yeong & Torquato 1998): a lattice annealed to the two-point probability and lineal-path function of a Debye medium, a model or an image |
+| `reconstruction` | Stochastic reconstruction (Yeong & Torquato 1998): a lattice annealed to the two-point probability and lineal-path function of a Debye medium, a model or an image; or (`method: gradient`, as MCRpy) its cells relaxed and descended to the two-point probability at every lag, from the closed forms of a model or from an image, a volume from a planar section (§114) |
 | `image` | The microstructure of an image — a tomography, a stack of sections, a section — segmented into its phases (Otsu's thresholds, or its own phases) and described by implicit functions at any point (the iso-surfaces of its interpolated grey levels), in windows at its origin or drawn at random for each realization; a tomography of a particulate composite comes with morphoGen ([theory notes](theory.md) §107) |
 
 ### Lattices, foams and TPMS

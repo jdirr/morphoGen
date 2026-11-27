@@ -11,7 +11,7 @@ them by these numbers (§75); by theme:
 
 | Theme | Sections |
 |---|---|
-| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image` |
+| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image`, [§114](#114-reconstruction-from-descriptors-by-gradient-descent-morphologyreconstruction) Reconstruction from descriptors by gradient descent |
 | Architected and bio-inspired structures | [§6](#6-tpms) TPMS, [§7](#7-strut-lattices) Strut lattices, [§30](#30-bio-inspired-models) Bio-inspired models, [§71](#71-diamond-and-pyrochlore-lattices-of-struts-homogenizationframes-modelslattice) Diamond and pyrochlore lattices of struts, [§96](#96-woven-textile-composites-woven_textile) Woven textile composites, [§110](#110-woven-textiles-the-variability-of-the-tows-3d-architectures-the-tows-as-unidirectional-composites-woven_textile-homogenizationunidirectional) Woven textiles: the variability of the tows, 3D architectures, the tows as unidirectional composites |
 | Growth and design | [§14](#14-cellular-automata-automata) Cellular automata, [§15](#15-nucleation-and-growth-johnsonmehlavramikolmogorov) Nucleation and growth (Johnson–Mehl–Avrami–Kolmogorov), [§16](#16-aggregation) Aggregation, [§17](#17-combinatorial-design-design) Combinatorial design, [§18](#18-topology-optimization-of-periodic-cells-optimization) Topology optimization of periodic cells, [§78](#78-isogeometric-analysis-iga) Isogeometric analysis, [§79](#79-isogeometric-shape-optimization-igaoptimization) Isogeometric shape optimization, [§109](#109-inverse-design-of-active-structures-optimizationmorphing) Inverse design of active structures, [§113](#113-spinodal-decomposition-spinodal) Spinodal decomposition |
 | Geometry and meshes | [§19](#19-polycrystals-exact-cells-and-conforming-meshes-meshpolyhedra-meshpolycrystal) Polycrystals: exact cells and conforming meshes, [§24](#24-whole-periodic-grains-meshpolycrystal-cells-whole) Whole periodic grains, [§52](#52-views-and-measures-of-the-level-sets-vizsections) Views and measures of the level sets, [§75](#75-the-implicit-geometry-of-every-model-modelsimplicit-meshconforming) The implicit geometry of every model, [§76](#76-quadratic-tetrahedra-isoparametric-elements-and-curved-interfaces-meshcurved-homogenizationfe) Quadratic tetrahedra: isoparametric elements and curved interfaces, [§80](#80-sharp-edges-of-the-phases-meshes-that-follow-them-modelspieces-meshconforming-meshcurved) Sharp edges of the phases: meshes that follow them, [§94](#94-exact-meshes-without-a-background-grid-meshexact-meshoctree) Exact meshes without a background grid |
@@ -13442,6 +13442,75 @@ to the age 160 the length of the pattern doubling, `8^{1/3}`, within 10 % (2.005
 fraction of a realization at the age 10 within 0.02 of 0.5 (0.5007), its pattern 1.19
 wavelengths long; a window of an off-critical mixture (0.4); round trips.
 
+## 114. Reconstruction from descriptors by gradient descent (`morphology.reconstruction`)
+
+The annealing of Yeong and Torquato (§38) swaps cells one pair at a time, which keeps the
+fraction and changes the two-point probability along the axes by counts of its lines; it
+needs many sweeps for a large grid and sees no lag off the axes. Seibert, Ambati, Raßloff and
+Kästner (2021; MCRpy, 2022) relax the indicator instead and descend the gradient of the
+descriptors. On a periodic grid of $N$ cells, the field $x$ takes its values in $[0, 1]$, and
+
+$$S_2[x](r) = \frac1N \sum_y x(y)\,x(y + r) = \frac{\mathrm{IFFT}(|\hat x|^2)(r)}{N},
+\qquad \frac{\partial E}{\partial x} = \frac2N\,\mathrm{IFFT}(\hat G\,\hat x),\quad
+G(r) = \frac{\partial E}{\partial S_2(r)},$$
+
+$G$ even in $r$, at every lag of the grid at once (two transforms); its lineal path along
+the axis $a$, the mean of the products $P_r(y) = \prod_{k=0}^{r} x(y + k e_a)$ — for an
+indicator, the probability that $r + 1$ cells in a row lie in the phase, the lineal-path
+function of §38 at the lag of $r$ cells — has the gradient
+$\partial L_a(r)/\partial x(z) = \frac1N \sum_{k=0}^{r} P_r(z - k e_a)/x(z)$, the products of
+the other cells of the segments through $z$, each a backward sum along the axis, $O(N)$ per
+lag. The energy
+
+$$E = \operatorname{mean}_M \frac{(S_2 - S_2^*)^2}{v^2} + \lambda_L
+\operatorname{mean}_{a,r}\frac{(L_a - L_a^*)^2}{v^2} + \lambda_p \frac{(\bar x - p)^2}{v^2}
++ \mu\,\overline{x(1 - x)},$$
+
+$v = p(1 - p)$ the variance of the indicator, $M$ the lags within the largest (a ball), is
+minimized by L-BFGS-B within the bounds 0 and 1, in three stages of $\mu$ (0, 0.03, 0.3) that
+draw the field to 0 and 1; the lineal paths enter after the first, the field near its
+structure, and the field is thresholded at the quantile of $p$, which keeps the fraction
+exactly. The bounds matter: with the field $x = \sigma(u)$ of logits $u$ instead, the factor
+$x(1 - x)$ of every gradient vanishes as the cells approach 0 and 1, and the descent froze at
+5 % of error on the planes of the example below, the lineal paths without effect; within the
+bounds the gradient of a cell at a bound is that of its products, and a cell at 0 inside a
+run of the phase is drawn back.
+
+**Exact targets.** A model of random sets gives its descriptors in closed form, not those of
+one realization with its fluctuations: the covariance $C(|r|)$ at every lag of the grid for
+the isotropic models that have one (Boolean models of spheres, §1, $C = 1 - 2q +
+q^2 e^{\theta E[K(h)]}$; excursions of Gaussian fields, §5) — the pores $1 - 2p + C$ — and the
+lineal path of the pores of the models with a Choquet capacity,
+$L_0(l) = 1 - T([0, l]) = q\,e^{-\theta\,\pi E[R^2]\,l}$ for spheres, along each axis for
+oriented fibres (§2); the others are measured on a realization of the grid. An image gives
+its own, interpolated at the lags of the grid; a planar image gives a volume (MCRpy's
+dimensionality expansion): the section of a stationary isotropic set has the covariance of
+the set at the lags of its plane, which the three coordinate planes of the grid take, and
+its two lineal paths each axis of the grid. The model `reconstruction` runs it with
+`method="gradient"` (`iterations`; `lineal_path` the weight $\lambda_L$).
+
+**What the covariance does not say.** The covariance determines the fraction and the
+specific surface ($S_V = -4 S_2'(0)$ in 3D, $-\pi S_2'(0)$ in 2D), not the connectivity: the
+pores of plane sections of a Boolean model of spheres (radius 4 cells, 30 % of grains,
+96² cells) rebuilt from their exact covariance alone match it within 0.32 % of $v$, and
+miss their lineal path by 7.1 % ($L(16)$ 0.22 for 0.240); with the lineal paths among the
+targets, both within 0.5 % (0.48 % and 0.44 %); for a radius of 6 cells on 160², 6.9 %
+without and 0.30 % with them, $L(24)$ 0.2402 for 0.2401. In 3D (48³ cells), 6.5 % without
+and 2.0 % with them ($L(12)$ 0.292 and 0.317 for 0.314), the covariance within 0.27 % and
+0.67 % (35 s and 133 s for 2000 iterations).
+
+Checked (`tests/test_gradient_reconstruction.py`): on a field of 0 and 1 the two-point
+probability equals the covariance map of §38 and the lineal paths its lineal-path
+function, exactly; every term of the gradient, cells at the bound 0 included, against
+centred differences within $10^{-5}$; a Debye medium (§38) within 0.47 % of $v$ on 48²
+cells (0.4 s) and 0.21 % on 24³ (3.7 s, 2000 iterations); the pores of sections of spheres
+as above; a volume of 24³ cells from a section of 128² of a Boolean model of spheres
+(radius 3 cells): the planes within 0.43 %, and the lags off them within 3.5 % of the exact
+3D covariance (on 40³ from a section of 192², radius 4: 0.50 % and 2.4 %) — closer than a
+realization of the model itself on 40³ (18 %: its fluctuation); the model with
+`method="gradient"` from the closed forms of a reference, a Debye medium and an image,
+their errors within 2 %, and its round trip.
+
 ## References
 
 See [specification.md](specification.md#14-references). In addition:
@@ -13587,6 +13656,14 @@ See [specification.md](specification.md#14-references). In addition:
   solid. II. *J. Appl. Phys.* 28, 679–683.
 * Lu, B., Torquato, S. (1992). Lineal-path function for random heterogeneous
   materials. *Phys. Rev. A* 45, 922–929.
+* Seibert, P., Ambati, M., Raßloff, A., Kästner, M. (2021). Reconstructing random
+  heterogeneous media through differentiable optimization. *Comput. Mater. Sci.* 196,
+  110455.
+* Seibert, P., Raßloff, A., Kalina, K. A., Ambati, M., Kästner, M. (2022). Microstructure
+  characterization and reconstruction in Python: MCRpy. *Integr. Mater. Manuf. Innov.* 11,
+  450–466.
+* Byrd, R. H., Lu, P., Nocedal, J., Zhu, C. (1995). A limited memory algorithm for bound
+  constrained optimization. *SIAM J. Sci. Comput.* 16, 1190–1208.
 * Lubachevsky, B. D., Stillinger, F. H. (1990). Geometric properties of random disk
   packings. *J. Stat. Phys.* 60, 561–583.
 * Prager, S. (1963). Interphase transfer in stationary two-phase media. *Chem. Eng.
