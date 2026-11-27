@@ -11,7 +11,7 @@ them by these numbers (§75); by theme:
 
 | Theme | Sections |
 |---|---|
-| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image`, [§114](#114-reconstruction-from-descriptors-by-gradient-descent-morphologyreconstruction) Reconstruction from descriptors by gradient descent, [§115](#115-grains-grown-from-seeds-modelsseeded-kernelsseeds) Grains grown from seeds, [§116](#116-seeds-of-several-phases-and-the-verification-of-their-grains-modelsseeded-meshpolyhedra-kernelsseeds) Seeds of several phases and the verification of their grains, [§117](#117-seeds-of-the-plane-and-the-figures-of-the-verification-modelsseeded-vizfigures) Seeds of the plane and the figures of the verification |
+| Models of random media | [§1](#1-boolean-models) Boolean models, [§2](#2-poisson-fibres-jeulin-1991-dirrenberger-et-al-2014) Poisson fibres (Jeulin 1991; Dirrenberger et al. 2014), [§3](#3-random-sequential-addition) Random sequential addition, [§4](#4-tessellations) Tessellations, [§5](#5-excursions-of-gaussian-random-fields) Excursions of Gaussian random fields, [§22](#22-combinations-of-models-and-grain-boundary-phases) Combinations of models and grain-boundary phases, [§23](#23-further-models) Further models, [§29](#29-nested-models) Nested models, [§38](#38-torquatos-approaches-dense-packings-cherry-pit-spheres-reconstruction-and-descriptors) Torquato's approaches: dense packings, cherry-pit spheres, reconstruction and descriptors, [§42](#42-foams-as-level-sets-of-distance-fields-level_set_foam) Foams as level sets of distance fields, [§56](#56-affine-anisotropy-of-the-models-modelsaffine) Affine anisotropy of the models, [§93](#93-scale-rich-networks-scale_rich_network) Scale-rich networks, [§95](#95-long-fibres-unidirectional-composites-parallel-or-misaligned-long_fibers) Long fibres: unidirectional composites, parallel or misaligned, [§97](#97-grains-with-subgrains-or-filled-with-another-structure-modelsnested_grains) Grains with subgrains, or filled with another structure, [§98](#98-monodisperse-and-polydisperse-objects) Monodisperse and polydisperse objects, [§107](#107-images-as-microstructures-segmentation-and-the-model-image-morphologysegmentation-modelsimage) Images as microstructures: segmentation and the model `image`, [§114](#114-reconstruction-from-descriptors-by-gradient-descent-morphologyreconstruction) Reconstruction from descriptors by gradient descent, [§115](#115-grains-grown-from-seeds-modelsseeded-kernelsseeds) Grains grown from seeds, [§116](#116-seeds-of-several-phases-and-the-verification-of-their-grains-modelsseeded-meshpolyhedra-kernelsseeds) Seeds of several phases and the verification of their grains, [§117](#117-seeds-of-the-plane-and-the-figures-of-the-verification-modelsseeded-vizfigures) Seeds of the plane and the figures of the verification, [§118](#118-seeds-of-boxes-and-of-rectangles-modelsseeded) Seeds of boxes and of rectangles |
 | Architected and bio-inspired structures | [§6](#6-tpms) TPMS, [§7](#7-strut-lattices) Strut lattices, [§30](#30-bio-inspired-models) Bio-inspired models, [§71](#71-diamond-and-pyrochlore-lattices-of-struts-homogenizationframes-modelslattice) Diamond and pyrochlore lattices of struts, [§96](#96-woven-textile-composites-woven_textile) Woven textile composites, [§110](#110-woven-textiles-the-variability-of-the-tows-3d-architectures-the-tows-as-unidirectional-composites-woven_textile-homogenizationunidirectional) Woven textiles: the variability of the tows, 3D architectures, the tows as unidirectional composites |
 | Growth and design | [§14](#14-cellular-automata-automata) Cellular automata, [§15](#15-nucleation-and-growth-johnsonmehlavramikolmogorov) Nucleation and growth (Johnson–Mehl–Avrami–Kolmogorov), [§16](#16-aggregation) Aggregation, [§17](#17-combinatorial-design-design) Combinatorial design, [§18](#18-topology-optimization-of-periodic-cells-optimization) Topology optimization of periodic cells, [§78](#78-isogeometric-analysis-iga) Isogeometric analysis, [§79](#79-isogeometric-shape-optimization-igaoptimization) Isogeometric shape optimization, [§109](#109-inverse-design-of-active-structures-optimizationmorphing) Inverse design of active structures, [§113](#113-spinodal-decomposition-spinodal) Spinodal decomposition |
 | Geometry and meshes | [§19](#19-polycrystals-exact-cells-and-conforming-meshes-meshpolyhedra-meshpolycrystal) Polycrystals: exact cells and conforming meshes, [§24](#24-whole-periodic-grains-meshpolycrystal-cells-whole) Whole periodic grains, [§52](#52-views-and-measures-of-the-level-sets-vizsections) Views and measures of the level sets, [§75](#75-the-implicit-geometry-of-every-model-modelsimplicit-meshconforming) The implicit geometry of every model, [§76](#76-quadratic-tetrahedra-isoparametric-elements-and-curved-interfaces-meshcurved-homogenizationfe) Quadratic tetrahedra: isoparametric elements and curved interfaces, [§80](#80-sharp-edges-of-the-phases-meshes-that-follow-them-modelspieces-meshconforming-meshcurved) Sharp edges of the phases: meshes that follow them, [§94](#94-exact-meshes-without-a-background-grid-meshexact-meshoctree) Exact meshes without a background grid |
@@ -13630,17 +13630,20 @@ whole and cut cells to $10^{-9}$.
 **Phases of their own seeds.** MicroStructPy describes each phase by its fraction of the
 volume, the laws of its seeds and its kind (crystalline, amorphous, void). `seeded_laguerre`
 takes the laws of each phase (`phase_diameter`, `phase_aspect_ratio`, `phase_flatness`,
-`phase_orientation`, instead of the shared ones): a seed is of the phase $i$ with the
-probability
+`phase_orientation`, instead of the shared ones). MicroStructPy draws the phase of each
+seed at random, the phase $i$ with the probability
 
 $$p_i = \frac{q_i / E[V_i]}{\sum_j q_j / E[V_j]},\qquad E[V_i] = \frac\pi6 E[d_i^3],$$
 
-so that the seeds of each phase fill its fraction $q_i$ of the volume in expectation, the
-mean volume of the seeds $1/\sum_i q_i/E[V_i]$; the seeds of all the phases are placed
-together, the largest first. The template `seeded_matrix` (a glass of seeds of diameter
-0.08, laths of 0.22 and of ratio 3, equiaxed crystals of 0.16, in the fractions 0.4, 0.4
-and 0.2) gives 0.401, 0.396 and 0.203 in a periodic cube of edge 2 (13 154 seeds); in cubes of
-edge 1, 0.353 to 0.386 for the glass: the fluctuation of some seventy laths.
+so that the seeds of each phase fill its fraction $q_i$ of the volume in expectation; here
+the seeds of each phase are drawn until they fill it (§118: the fractions of the seeds exact
+to a seed), the mean volume of the seeds $1/\sum_i q_i/E[V_i]$; the seeds of all the phases
+are placed together, the largest first. The template `seeded_matrix` (a glass of seeds of
+diameter 0.08, laths of 0.22 and of ratio 3, equiaxed crystals of 0.16, in the fractions 0.4,
+0.4 and 0.2) gives 0.397 to 0.402, 0.396 to 0.403 and 0.200 to 0.202 in three periodic cubes
+of edge 1 (about 1650 seeds), 0.402, 0.398 and 0.200 in a cube of edge 2 (13 224 seeds);
+with the phases of the seeds drawn at random, 0.353 to 0.386 for the glass in cubes of edge
+1, the fluctuation of some seventy laths.
 
 **Amorphous phases.** The seeds of an amorphous phase (`amorphous_phases`) are merged into
 one region: the cells of their spheres make a single grain — one label, no grain boundary
@@ -13689,7 +13692,7 @@ seeds on average and 7.6° at most; lognormal diameters (coefficient of variatio
 $a/b$ uniform on $[1.5, 2.5]$ (edge 5, 228 grains), $R^2$ 0.977 for the diameters, the
 distances of Kolmogorov–Smirnov 0.083 and 0.091 (the critical value at 5 % is 0.090 for 228
 grains: the ratios at its edge); the crystals of the template `seeded_matrix` (seed 2), their
-diameters within 1.4 %, their ratios within 0.065, their axes within 0.65°: the small seeds
+diameters within 1.0 %, their ratios within 0.050, their axes within 0.68°: the small seeds
 of the glass, placed last, fill around the crystals without deforming them.
 
 **Seeds of very different sizes.** One grid of cells of twice the largest radius (§115) puts
@@ -13781,6 +13784,63 @@ that is not periodic, the seeds about it in the plane only and the grains cut by
 not by its faces $z$; the parameters checked; the figure, five panels for two phases in
 space and four in the plane; the tool, the trait of the items grown from seeds, its tables
 and its figure, a polycrystal of germs refused.
+
+## 118. Seeds of boxes and of rectangles (`models.seeded`)
+
+**Shapes.** MicroStructPy approximates rectangles and squares by circles — a row along
+the long axis and chains of smaller circles towards the corners — but has no breakdown of
+boxes. `shape: box` (per phase, `phase_shape`) makes the seeds boxes of the half sides
+$a \ge b \ge c$ in the ratios $a/b$ and $b/c$ (rectangles in the plane), of the volume of the
+sphere of their equivalent diameter, $8abc = \pi d^3/6$ ($4ab = \pi d^2/4$ in the plane).
+
+**Breakdown.** The largest sphere inscribed in a box about a point has the radius of its
+least distance to the faces. Those of the radius $c$ fill the slab about the medial rectangle
+$|x| \le a - c$, $|y| \le b - c$ of the box (on a lattice of the spacing $0.5\,c$): all of
+it but a rounding of the radius $c$ along its edges. A sphere of a radius $r < c$ touching
+the two faces of an edge has its centre on the edge of the box eroded by $r$: at the levels
+$k = 1, 2$, $r = c/2^k$, spheres along the twelve edges of the eroded boxes (at the spacing
+$k\,r$) fill those roundings down to that of the radius $c/4$; the spheres within larger ones
+are dropped, and the spacings widen to keep 256 spheres at most (`box_spheres`). They fill
+(Monte Carlo) a cube with 53 spheres at 87.7 %, the boxes $(2, 1, 1)$ with 89 at 90.4 %,
+$(2, 1.5, 1)$ with 115 at 91.9 %, $(3, 2, 1)$ with 193 at 93.6 %, $(4, 2, 0.5)$ with 238 at
+85.6 % (the spacings widened). A rectangle takes the circles of the radius $b$ on its medial
+segment $|x| \le a - b$ and, at the levels $k = 1, 2, 3$, one of the radius $b/2^k$ at each
+corner of the rectangle eroded by it (the chains of corners of MicroStructPy): 98 to 99 % of
+it with 13 to 29 circles.
+
+**The grains.** The ellipsoid of the same second moments as a box of half sides $a, b, c$
+has the semi-axes $\sqrt{5/3}\,(a, b, c)$, in the ratios of the box: `seed_comparison`
+compares the ratios of the boxes with those of their grains, and the diameters with those of
+the volumes of the seeds, kept with them. Periodic cubes, seed 1, the equivalent diameter 1:
+cubes aligned with the box (edge 4, 123 grains, 6519 spheres), the diameters of the grains
+within 7.2 % RMS of their seeds, their ellipsoids of the ratios 1.13 and 1.12 (those of the
+cells of spheres 1.15); boxes of the ratios 2 and 1.5 at random (edge 4, 123 grains, 19 557
+spheres, placed in 16 s, verified in 135 s), within 8.7 %, the ratios 1.86 and 1.51, the axes
+7.0° from those of their seeds. In the plane (squares of edge 10), rectangles of the ratio 2
+along $x$, 19.1 % (the ratio 1.97, the axes within 7.5°); squares at random, 15.5 % (the
+ratio 1.30); ellipses of the ratio 2 along $x$, 7.3 % (2.31; 4.4°). Polygonal seeds jam the
+sequential addition sooner — 43 % of the rectangles crowded for 27 % of the ellipses, the
+small circles of their corners counting their overlaps in their own radii — and their grains
+deviate more; left out (`crowded: leave`), 54 of the 128 rectangles, the grains of the
+others 32.7 % from their seeds. The template `seeded_precipitates` (the cubes of γ′ of a
+nickel superalloy aligned with the box, of lognormal diameters about 0.4, 0.6 of the volume,
+in a matrix of seeds of 0.12 merged into one region) gives 62 cubes within 1.7 % RMS of their
+seeds (a bias of −0.3 %), of the ratios 1.03 and 1.02, and the fractions 0.592 and 0.408: the
+small seeds of the matrix, placed last, fill around the cubes without deforming them.
+
+**Phases filled.** The seeds of each phase are drawn until their volumes fill its fraction
+of the volume: $q_i V / E[V_i]$ of them on average — the shares $p_i \propto q_i / E[V_i]$
+with which MicroStructPy draws the phase of each seed at random —, the fractions of the seeds
+then exact to a seed, where phases drawn at random fluctuate: for the template
+`seeded_precipitates`, 0.559 and 0.610 of precipitates in two realizations with the phases at
+random, 0.604 to 0.607 in four filled (their grains 0.583 to 0.593).
+
+Checked (`tests/test_seeded_phases.py`): the spheres of a cube and of the boxes $(2, 1, 1)$
+and $(3, 2, 1)$ inside them and filling 87 % of them at least, 256 at most, the circles of
+rectangles 97 % of them; cubes aligned with the box, their half sides and volumes, their
+grains of their volumes within 8 % RMS; rectangles of the ratio 2 along $x$, their grains
+of ratios 1.6 to 2.6 along their seeds (within 8°); boxes and ellipsoids of two phases, the
+table of the volumes of the seeds; the parameters checked.
 
 ## References
 

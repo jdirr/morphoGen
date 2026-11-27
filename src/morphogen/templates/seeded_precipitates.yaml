@@ -1,0 +1,23 @@
+# Cuboidal precipitates in a matrix (the cubes of gamma prime of a nickel superalloy): seeds
+# of cubes aligned with the box, of lognormal sizes, in a matrix whose seeds merge into one
+# region (an amorphous phase: the channels of gamma between the cubes). exact_grains checks
+# the precipitates against their seeds on their exact cells (half a minute more).
+model:
+  type: seeded_laguerre
+  phase_fractions: [0.4, 0.6]          # the matrix, the precipitates
+  phase_shape: [ellipsoid, box]
+  phase_diameter: [0.12, {type: lognormal, mean: 0.4, std: 0.06}]
+  phase_orientation: [random, aligned]
+  amorphous_phases: [0]
+domain:
+  size: 1.5
+  periodic: true
+seed: 1
+voxels:
+  shape: 96
+outputs:
+  directory: out/seeded_precipitates
+  name: superalloy
+  image: [vti]
+  labels: [vti]
+analysis: [phase_fractions]

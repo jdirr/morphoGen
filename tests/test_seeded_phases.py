@@ -3,7 +3,8 @@ mesh.polyhedra): the exact moments of the cells, the shapes of the grains (the e
 their second moments), the grains against their seeds, the seeds of each phase of their own
 laws and in their fractions, the amorphous phases merged into one region, the placement of
 seeds of very different sizes, the exact measure ``exact_grains``; the seeds of the plane
-(ellipses, columnar grains); the figure of the grains against their seeds."""
+(ellipses, columnar grains); the figure of the grains against their seeds; the seeds of
+boxes and of rectangles."""
 
 from __future__ import annotations
 
@@ -255,3 +256,67 @@ def test_figure_of_the_grains_against_their_seeds():
         mg.Domain(size=(4.0, 4.0, 0.1), periodic=True), seed=4
     )
     assert len(seed_figure(plane).axes) == 4
+
+
+@pytest.mark.parametrize("sides", [(1.0, 1.0, 1.0), (2.0, 1.0, 1.0), (3.0, 2.0, 1.0)])
+def test_breakdown_of_a_box(sides):
+    """The spheres of a box inside it (each within its half sides) and filling 87 % of it
+    at least (Monte Carlo), at most 256; the circles of a rectangle filling 97 % of it."""
+    from morphogen.models.seeded import MOST_SPHERES, box_spheres
+
+    a, b, c = sides
+    centres, radii = box_spheres(a, b, c)
+    assert np.all(np.abs(centres) + radii[:, None] <= np.array(sides) + 1e-12)
+    assert len(radii) <= MOST_SPHERES and radii.max() == pytest.approx(c)
+    rng = np.random.default_rng(0)
+    points = rng.uniform(-1.0, 1.0, (40000, 3)) * sides
+    covered = np.zeros(len(points), dtype=bool)
+    for x, r in zip(centres, radii, strict=True):
+        covered |= np.sum((points - x) ** 2, axis=1) <= r * r
+    assert covered.mean() >= 0.87
+    centres, radii = box_spheres(a, b, b, planar=True)
+    assert np.all(centres[:, 2] == 0.0) and radii.max() == pytest.approx(b)
+    points = rng.uniform(-1.0, 1.0, (40000, 2)) * (a, b)
+    covered = np.zeros(len(points), dtype=bool)
+    for x, r in zip(centres, radii, strict=True):
+        covered |= np.sum((points - x[:2]) ** 2, axis=1) <= r * r
+    assert covered.mean() >= 0.97
+    with pytest.raises(ValueError, match="half sides"):
+        box_spheres(1.0, 2.0, 1.0)
+
+
+def test_seeds_of_boxes():
+    """Seeds of cubes aligned with the box: of the volume of the sphere of their diameter,
+    their half sides those of cubes, their grains of their volumes (8 % RMS); rectangles of
+    the ratio 2 along x in the plane: their grains elongated along x; boxes and ellipsoids of
+    two phases; the parameters checked."""
+    cubes = SeededLaguerre(shape="box", orientation="aligned", diameter=0.9)
+    micro = cubes.generate(mg.Domain.cube(1.8, periodic=True), seed=1)
+    half = micro.seeds["axes"]
+    np.testing.assert_allclose(8.0 * np.prod(half, axis=1), math.pi / 6.0 * 0.9**3)
+    np.testing.assert_allclose(half[:, 0], half[:, 2])
+    np.testing.assert_allclose(micro.seeds["volume"][:, 0], math.pi / 6.0 * 0.9**3)
+    cmp = micro.seed_comparison()
+    rel = (cmp["grain_diameter"] - cmp["seed_diameter"]) / cmp["seed_diameter"]
+    assert np.sqrt(np.mean(rel**2)) < 0.08 and cmp["grain_diameter"].mean() == pytest.approx(
+        0.9, rel=0.05
+    )
+    rectangles = SeededLaguerre(shape="box", dimension=2, aspect_ratio=2.0, orientation="aligned")
+    flat = rectangles.generate(mg.Domain(size=(6.0, 6.0, 0.1), periodic=True), seed=2)
+    np.testing.assert_allclose(4.0 * flat.seeds["axes"][:, 0] * flat.seeds["axes"][:, 1],
+                               math.pi / 4.0)  # fmt: skip
+    cmp = flat.seed_comparison()
+    assert 1.6 < np.median(cmp["grain_aspect_ratio"]) < 2.6
+    assert cmp["errors"]["axis_angle"]["mean"] < 8.0
+    mixed = SeededLaguerre(phase_fractions=(0.5, 0.5), phase_shape=("ellipsoid", "box"),
+                           phase_diameter=(0.5, 0.9))  # fmt: skip
+    assert [f.shape for f in mixed.families()] == ["ellipsoid", "box"]
+    assert mg.models.model_from_config(mixed.to_config()) == mixed
+    two = mixed.generate(mg.Domain.cube(2.0, periodic=True), seed=3)
+    assert set(np.unique(two.grain_phases)) == {0, 1}
+    assert "seed_volume" in two.cell_table()
+    for wrong in ({"shape": "cylinder"},
+                  {"phase_fractions": (0.5, 0.5), "phase_shape": ("box", "cone")},
+                  {"phase_fractions": (0.5, 0.5), "phase_shape": ("box",)}):  # fmt: skip
+        with pytest.raises(ValueError):
+            SeededLaguerre(**wrong)

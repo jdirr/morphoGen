@@ -175,6 +175,23 @@
   `tests/test_gui_tools.py`). Public interface: `SeededLaguerre(dimension=...)`,
   `overlap_tolerance(volumes, dimension)`, `SeedFamily.dimension`, `seed_figure`
   (`tests/public_api.txt`).
+* Seeds of boxes and of rectangles (`seeded_laguerre`, §118): `shape: box` (per phase
+  `phase_shape`) makes the seeds boxes of the half sides a >= b >= c in the ratios a/b and b/c
+  (cubes for ratios of 1; rectangles and squares in the plane), of the volume of the sphere of
+  their equivalent diameter. A box is broken down into the spheres inscribed about its medial
+  rectangle and those that touch the two faces of its edges, centred on the edges of the boxes
+  eroded by their radii c/2 and c/4 (`box_spheres`: 88 to 94 % of it, 53 spheres for a cube),
+  a rectangle into the circles of its medial segment and of its corners at three levels (98 to
+  99 %, as the corner chains of MicroStructPy, which breaks down no box); the grains of boxes
+  compared with their seeds by the ratios of their ellipsoids and by the volumes of the seeds,
+  now kept with them (`seed_volume` in the table). The seeds of each phase are drawn until
+  they fill its fraction of the volume, the fractions of the seeds exact to a seed, where the
+  phase drawn at random for each seed made them fluctuate (0.559 and 0.610 of precipitates for
+  0.6 in two realizations). The template `seeded_precipitates` (the cubes of gamma prime of a
+  nickel superalloy in their matrix) and its card in the gallery. Tested
+  (`tests/test_seeded_phases.py`). Public interface: `SeededLaguerre(shape=...,
+  phase_shape=...)`, `SEED_SHAPES`, `BOX_LEVELS`, `RECTANGLE_LEVELS`, `box_spheres`,
+  `SeedFamily.shape` (`tests/public_api.txt`).
 * The computations of morphoGen as models of VIMSEO (`morphogen.interop.vimseo`, §112; the
   extra `vimseo`, Python 3.10 to 3.12), for the demonstration of the credibility of the
   simulations: a configuration of `morphogen run` with its entries as inputs and its results

@@ -224,6 +224,9 @@ FAMILIES = [
             ("seeded_plane", "Grains of the plane grown from elliptical seeds: the section "
              "of a rolled sheet, grains elongated along x among the smaller equiaxed grains "
              "of a second phase, columnar through a thin slice."),
+            ("seeded_precipitates", "Cuboidal precipitates in a matrix (the cubes of gamma "
+             "prime of a nickel superalloy): seeds of cubes aligned with the box, of lognormal "
+             "sizes, in a matrix whose seeds merge into one region."),
             ("nested_grains", "Grains with subgrains: each grain of a polycrystal divided by "
              "the germs of a finer tessellation, its subgrains turned by 1 to 3° from its "
              "crystal (low-angle boundaries)."),

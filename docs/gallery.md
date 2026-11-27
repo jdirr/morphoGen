@@ -752,6 +752,30 @@ morphogen run seeded_plane.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-seeded-precipitates
+
+```{image} _static/gallery/seeded_precipitates.png
+:alt: seeded_precipitates
+:loading: lazy
+```
+
+**`seeded_precipitates`** — Cuboidal precipitates in a matrix (the cubes of gamma prime of a nickel superalloy): seeds of cubes aligned with the box, of lognormal sizes, in a matrix whose seeds merge into one region.
+
+```bash
+morphogen template seeded_precipitates -o seeded_precipitates.yaml
+morphogen run seeded_precipitates.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/seeded_precipitates.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-nested-grains
 
 ```{image} _static/gallery/nested_grains.png
