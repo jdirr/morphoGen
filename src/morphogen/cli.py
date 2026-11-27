@@ -1364,18 +1364,44 @@ def _texture_figures(folder: Path, measured, grains, args, name: str) -> list[Pa
 
 
 def cmd_analyze(args) -> int:
-    image = io.load_image(args.image, name=args.array)
-    labels = None
-    if "cells" in args.measure:
-        labels = image
-    out = analysis.measure(image, [m for m in args.measure], labels=labels)
-    out = {"file": str(args.image), "shape": list(image.shape), **out}
+    from morphogen.morphology.measures import EXACT_MEASURES, measure_exact
+
+    if Path(args.image).suffix.lower() == ".json":  # a geometry: its implicit geometry
+        micro = io.load_microstructure(args.image)
+        names = args.measure or ["exact_fraction", "exact_surface"]
+        voxel = sorted(set(names) - set(EXACT_MEASURES))
+        if voxel:
+            raise SystemExit(f"--measure {voxel}: measures of an image; of a geometry: "
+                             f"{sorted(EXACT_MEASURES)}")  # fmt: skip
+        out = {"file": str(args.image), **measure_exact(micro, names, seed=args.seed)}
+        model = getattr(micro, "model", None)
+        if model is not None:
+            try:
+                theory = model.theory(micro.domain)
+            except (ValueError, NotImplementedError):
+                theory = {}
+            out.update({f"theory_{k}": v for k, v in theory.items() if isinstance(v, float)})
+    else:
+        image = io.load_image(args.image, name=args.array)
+        names = args.measure or ["volume_fraction", "specific_surface"]
+        exact = sorted(set(names) & set(EXACT_MEASURES))
+        if exact:
+            raise SystemExit(f"--measure {exact}: measures of a geometry (.json)")
+        labels = image if "cells" in names else None
+        out = analysis.measure(image, names, labels=labels)
+        out = {"file": str(args.image), "shape": list(image.shape), **out}
     if args.json:
         print(json.dumps(to_jsonable(out), indent=2))
     else:
         for key, value in out.items():
             print(f"{key:>20s}: {value}")
     return 0
+
+
+def _exact_measure_names():
+    from morphogen.morphology.measures import EXACT_MEASURES
+
+    return EXACT_MEASURES
 
 
 def cmd_identify(args) -> int:
@@ -3339,16 +3365,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", help="write the results of --homogenize to this JSON file")
     p.set_defaults(func=cmd_alloy)
 
-    p = sub.add_parser("analyze", help="morphological measurements on a voxel image")
-    p.add_argument("image", help="image file (.vti, .vtk, .mhd, .npz, .npy, .tif)")
+    p = sub.add_parser(
+        "analyze",
+        help="morphological measurements on a voxel image, or on the implicit geometry of a "
+        "realization (a geometry .json: exact_* measures, beside the theory of its model)",
+    )
+    p.add_argument("image", help="image file (.vti, .vtk, .mhd, .npz, .npy, .tif) or geometry")
     p.add_argument("--array", help="array name in multi-array files")
     p.add_argument(
         "--measure",
         nargs="+",
-        default=["volume_fraction", "specific_surface"],
-        choices=sorted(analysis.MEASURES),
-        help="measures to compute",
+        choices=sorted(analysis.MEASURES) + sorted(_exact_measure_names()),
+        help="measures to compute (default: volume_fraction specific_surface of an image, "
+        "exact_fraction exact_surface of a geometry)",
     )
+    p.add_argument("--seed", type=int, default=0, help="seed of the probes of a geometry")
     p.add_argument("--json", action="store_true", help="JSON output")
     p.set_defaults(func=cmd_analyze)
 

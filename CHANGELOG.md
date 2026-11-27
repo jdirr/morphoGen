@@ -41,7 +41,13 @@
   density included (−0.0536 ± 0.0021 for −0.0525), and their sections within the
   stereological identities `L_A = (π/4) S_V` and `χ_A = M_V / 2π`; rays, crossings and chords
   of a ball (10⁻⁸), the covariance and capacities of Boolean spheres and of a Gaussian
-  excursion against their closed forms.
+  excursion against their closed forms. The named measures of the implicit geometry
+  (`EXACT_MEASURES`, `measure_exact`: `exact_fraction`, `exact_surface`, `exact_chords`,
+  `exact_minkowski`) in the `analysis` of a configuration, which need no voxels (their
+  columns in `results.csv`), by `morphogen analyze` on a geometry beside the theory of its
+  model, and in the tool *Morphological measures* of the interface, the exact densities
+  beside the closed forms; the tool *Reconstruction from the statistics* with the gradient
+  descent of §114 (`method`, `iterations`).
 * Models of images (`morphology.segmentation`, `morphology.identification`, the model
   `image`; §106, §107). Grey-level images and stacks turned into phases by Otsu's
   thresholds (one or several, by dynamic programming over the histogram), after a Gaussian

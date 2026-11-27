@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Document | Software requirements specification |
-| Version | 1.171 |
+| Version | 1.172 |
 | Date | 2026-11-27 |
 | Author | @jdirr |
 | Status | Version 1.1 **validated** on 2026-10-21. The later versions, proposed, are listed in the change log (§13); changes go through pull requests that update this file and its change log. |
@@ -309,7 +309,7 @@ centred on morphological modelling.
 | Topic | Content |
 |---|---|
 | Implicit geometry first (2026-11-27) | The realizations generated in implicit geometry, their measures exact with respect to the theory of mathematical morphology and of random closed sets; the exports as meshes or voxels after that. |
-| Delivered | FR-M5 (`morphogen.morphology`, [theory.md](theory.md) §104, §105): the probes of mathematical morphology answered by the implicit functions of the phases at any point — points, pairs, segments (sphere tracing), balls (the distance), lines (crossings and chords) — for the fraction, the covariance, the Choquet capacities, the contact distributions, the chords and the specific surface (Crofton), with the standard deviations of their estimators; the four Minkowski functionals of unions of spheres (volume, surface, integral of mean curvature, Euler characteristic) and the three of their plane sections exactly, on the torus of a periodic box (power diagram and dual complex); the exact dilation of unions of spheres and segments; the measures of a realization beside the closed forms of its model |
+| Delivered | FR-M5 (`morphogen.morphology`, [theory.md](theory.md) §104, §105): the probes of mathematical morphology answered by the implicit functions of the phases at any point — points, pairs, segments (sphere tracing), balls (the distance), lines (crossings and chords) — for the fraction, the covariance, the Choquet capacities, the contact distributions, the chords and the specific surface (Crofton), with the standard deviations of their estimators; the four Minkowski functionals of unions of spheres (volume, surface, integral of mean curvature, Euler characteristic) and the three of their plane sections exactly, on the torus of a periodic box (power diagram and dual complex); the exact dilation of unions of spheres and segments; the measures of a realization beside the closed forms of its model; the named measures of the implicit geometry in configurations (`analysis`, without voxels), on the command line (`morphogen analyze` of a geometry) and in the interface (*Morphological measures*) |
 | Mathematical morphology and its teaching (2026-11-27) | The theory of mathematical morphology reinforced in the package, and a tutorial to learn the theory and its applications with morphoGen. |
 | Delivered | FR-M5 and the tutorial `docs/tutorial_morphology.md` (random closed sets, the Choquet capacity and Matheron's tests of a Boolean model, dilation, erosion, opening, closing and granulometry, the Minkowski functionals and Miles' formulae, stereology, the model of an image), run by the tests; the openings and closings of images of voxels not of unit size taking the voxels for both their steps |
 | The model of an image (2026-11-27) | A morphological model identified for an arbitrary microstructure from an image (stereology) or a volume (voxels, a stack of sections) by mathematical morphology. |
@@ -1284,6 +1284,7 @@ Packages: `models`, `kernels`, `analysis`, `rve`, `mesh`, `homogenization`, `io`
 | 1.169 | 2026-11-27 | Version 0.8 (§3.11): the measures of the implicit geometry and the exact Minkowski functionals (FR-M5), the identification of models from images (FR-M6), segmentation (FR-M7), woven variability and architectures (FR-G23, FR-G24), images and spinodal decomposition as models (FR-G25, FR-G26), Code_Aster, OpenFOAM and VIMSEO (FR-E15–E17), unidirectional tows (FR-H36), thermo-chemo-elastic couplings in time (FR-H37), the inverse design of active structures (FR-O7); roadmap 0.8 |
 | 1.170 | 2026-11-27 | The runs of Code_Aster and OpenFOAM, and their verification with the programs themselves (FR-E15, FR-E16, §3.11): the flow through tetrahedra on their polyhedral dual |
 | 1.171 | 2026-11-27 | The reconstruction from descriptors by gradient descent (FR-M8, §3.11), the method of MCRpy, from the closed forms of the models |
+| 1.172 | 2026-11-27 | The named measures of the implicit geometry in configurations, on the command line and in the interface (FR-M5, §3.11) |
 
 ## 14. References
 

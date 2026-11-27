@@ -138,3 +138,50 @@ def test_phases_of_points_and_minus_sampling():
         covariance(micro, [0.0, 9.0], direction=(1, 0, 0))
     with pytest.raises(ValueError, match="union of spheres"):
         capacity(micro, "ball", [0.1])
+
+
+def test_named_exact_measures(tmp_path, capsys):
+    """The named measures of the implicit geometry: their columns (the Minkowski densities of
+    a union of spheres exactly, against the estimates of the probes), in a run without voxels
+    (``analysis``), from the command line on a geometry, and their errors."""
+    import csv
+    import json
+
+    from morphogen import cli, pipeline
+    from morphogen.config import ConfigError, load_config
+    from morphogen.morphology.measures import EXACT_MEASURES, measure_exact
+
+    model = mg.models.BooleanSpheres(radius=1.0, volume_fraction=0.3)
+    micro = model.generate(mg.Domain.cube(8.0, periodic=True), seed=1)
+    out = measure_exact(micro, sorted(EXACT_MEASURES))
+    assert out["exact_V_V"] == pytest.approx(
+        out["exact_fraction"], abs=4 * out["exact_fraction_std"]
+    )
+    assert out["exact_S_V"] == pytest.approx(out["exact_specific_surface"],
+                                             abs=4 * out["exact_specific_surface_std"])  # fmt: skip
+    assert out["exact_mean_chord_1"] > 0 and out["exact_mean_chord_0"] > 0
+    with pytest.raises(ValueError, match="exact measure"):
+        measure_exact(micro, ["volume_fraction"])
+    voronoi = mg.models.Voronoi(n_cells=6).generate(mg.Domain.cube(2.0), seed=1)
+    with pytest.raises(ValueError, match="union of spheres"):
+        measure_exact(voronoi, ["exact_minkowski"])
+    cfg = {
+        "model": {"type": "boolean_spheres", "radius": 1.0, "volume_fraction": 0.3},
+        "domain": {"size": 8.0, "periodic": True},
+        "seed": 1,
+        "analysis": ["exact_fraction", "exact_minkowski"],
+        "outputs": {"directory": str(tmp_path / "run"), "name": "spheres", "geometry": ["json"]},
+    }  # no voxels: the measures of the implicit geometry need none
+    outdir = pipeline.run(load_config(cfg))
+    with open(outdir / "results.csv", encoding="utf-8") as f:
+        (row,) = list(csv.DictReader(f))
+    assert float(row["exact_V_V"]) == pytest.approx(float(row["exact_fraction"]), abs=0.01)
+    with pytest.raises(ConfigError, match="voxels"):  # a measure of the voxels still needs them
+        load_config({**cfg, "analysis": ["exact_fraction", "euler"]})
+    geometry = str(outdir / "spheres_0000.json")
+    assert cli.main(["analyze", geometry, "--measure", "exact_minkowski", "--json"]) == 0
+    shown = json.loads(capsys.readouterr().out)
+    assert shown["exact_V_V"] == pytest.approx(float(row["exact_V_V"]))
+    assert shown["theory_volume_fraction"] == pytest.approx(0.3)
+    with pytest.raises(SystemExit, match="measures of an image"):
+        cli.main(["analyze", geometry, "--measure", "euler"])

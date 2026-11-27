@@ -216,6 +216,15 @@ def test_statistics_tools(tmp_path):
     assert measured["values"]["fraction_1"] == pytest.approx(0.3, abs=0.05)
     theory = next(t for t in measured["tables"] if t["title"] == "theory of the model")
     assert "volume_fraction" in [row[0] for row in theory["rows"]]
+    # on the implicit geometry itself: no voxels, the theory beside the exact densities
+    chosen = ["exact_fraction", "exact_minkowski"]
+    exact = _run(session, "measures", {"source": key, "resolution": 48, "measures": chosen})
+    values = exact["values"]
+    assert values["exact_V_V"] == pytest.approx(values["exact_fraction"], abs=0.01)
+    assert {"exact_S_V", "exact_M_V", "exact_chi_V", "exact_fraction_std"} <= set(values)
+    theory = next(t for t in exact["tables"] if t["title"] == "theory of the model")
+    row = next(r for r in theory["rows"] if r[0] == "specific_surface")
+    assert row[-1] == pytest.approx(values["exact_S_V"], rel=1e-5)  # the table: 6 digits
     chosen = ["covariance", "chords", "capacity_ball"]
     curves = _run(session, "curves", {"source": key, "resolution": 32, "curves": chosen})
     titles = [f["title"] for f in curves["figures"]]
@@ -312,6 +321,12 @@ def test_table_fit_and_reconstruction(tmp_path):
     assert values["final energy"] < 0.2 * values["initial energy"]
     (item,) = rebuilt["items"]
     assert item["kind"] == "morphology" and session.item(item["key"])["source"] == key
+    # by gradient descent: the exact covariance of the Boolean model at every lag
+    params = {"source": key, "resolution": 20, "method": "gradient", "iterations": 300}
+    descended = _run(session, "reconstruction", params)
+    values = descended["values"]
+    assert values["fraction (reconstruction)"] == pytest.approx(0.3, abs=0.01)
+    assert values["error of the two-point function"] < 0.05
 
 
 def test_orientation_map_tool(tmp_path):

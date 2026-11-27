@@ -438,6 +438,11 @@ def _process(
             io.write_openfoam(outdir / f"{stem}_openfoam", mesh, **options)
     if out.neper:
         io.write_neper(outdir / stem, micro)
+    exact = [m for m in measures if m in _exact_names()]
+    if exact:  # on the implicit geometry of the realization itself, without voxels
+        from morphogen.morphology.measures import measure_exact
+
+        values.update(measure_exact(micro, exact, seed=index))
     morph = [m for m in measures if m in _measure_names()]
     use_image = cfg.voxels is not None and (
         out.needs_voxels
@@ -643,6 +648,12 @@ def _measure_names():
     from morphogen.analysis.measures import MEASURES
 
     return MEASURES
+
+
+def _exact_names():
+    from morphogen.morphology.measures import EXACT_MEASURES
+
+    return EXACT_MEASURES
 
 
 def _manifest(cfg: RunConfig, outdir: Path, extra: dict) -> Path:

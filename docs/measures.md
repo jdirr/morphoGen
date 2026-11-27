@@ -56,6 +56,13 @@ The [tutorial of mathematical morphology](tutorial_morphology.md) follows the th
 by step with these measures: the Choquet capacity and Matheron's tests of a Boolean model,
 the morphological operations, the Minkowski functionals, stereology.
 
+The same measures run by name from a configuration (`analysis: [exact_fraction,
+exact_surface, exact_chords, exact_minkowski]`, which need no voxels: their columns join
+`results.csv`), from the command line on a geometry (`morphogen analyze spheres_0000.json
+--measure exact_minkowski`, beside the theory of its model), and in the tool *Morphological
+measures* of the interface, whose table of the theory then gives the exact densities beside
+the closed forms.
+
 ## The model of an image
 
 An image — a volume of voxels, a stack of sections, or a single section — is turned into

@@ -557,3 +557,57 @@ def compare_with_theory(
                 np.asarray(model.choquet_capacity(element, sizes), dtype=float),
             )
     return Comparison(rows, curves, exact)
+
+
+# ----------------------------------------------------------------------------------
+# Named measures (configurations, the command line, the interface)
+
+
+def _exact_fraction(micro, seed) -> dict[str, float]:
+    e = volume_fraction(micro, 1, seed=seed)
+    return {"exact_fraction": float(e.value), "exact_fraction_std": float(e.error)}
+
+
+def _exact_surface(micro, seed) -> dict[str, float]:
+    e = specific_surface(micro, phase=1, seed=seed)
+    return {"exact_specific_surface": float(e.value), "exact_specific_surface_std": float(e.error)}
+
+
+def _exact_chords(micro, seed) -> dict[str, float]:
+    return {f"exact_mean_chord_{p}": chords(micro, phase=p, seed=seed).mean for p in (0, 1)}
+
+
+def _exact_minkowski(micro, seed) -> dict[str, float]:
+    from morphogen.morphology.balls import minkowski_functionals
+
+    d = minkowski_functionals(micro).densities()
+    return {
+        "exact_V_V": float(d["volume_fraction"]),
+        "exact_S_V": float(d["specific_surface"]),
+        "exact_M_V": float(d["mean_curvature_density"]),
+        "exact_chi_V": float(d["euler_density"]),
+    }
+
+
+#: The named measures of the implicit geometry of a realization, each a function of the
+#: realization and a seed to its columns: the fraction of the phase 1 by points and its
+#: specific surface by lines (Crofton), with the standard deviations of their estimators,
+#: the mean chords of the two phases, and the four Minkowski densities of a union of spheres
+#: exactly (:mod:`morphogen.morphology.balls`)
+EXACT_MEASURES = {
+    "exact_fraction": _exact_fraction,
+    "exact_surface": _exact_surface,
+    "exact_chords": _exact_chords,
+    "exact_minkowski": _exact_minkowski,
+}
+
+
+def measure_exact(micro, names, *, seed=0) -> dict[str, float]:
+    """The named measures ``names`` (:data:`EXACT_MEASURES`) of a realization, on its
+    implicit geometry, merged into one dictionary of columns."""
+    out: dict[str, float] = {}
+    for name in names:
+        if name not in EXACT_MEASURES:
+            raise ValueError(f"exact measure {name!r}: one of {sorted(EXACT_MEASURES)}")
+        out.update(EXACT_MEASURES[name](micro, seed))
+    return out

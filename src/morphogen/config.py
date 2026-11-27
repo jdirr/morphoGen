@@ -2231,7 +2231,9 @@ def load_config(source, *, base_dir=None) -> RunConfig:
             raise ConfigError(f"diffusion.phases: no properties for phase(s) {missing}")
     mesh = _mesh(data["mesh"]) if data.get("mesh") is not None else None
     outputs = _outputs(data.get("outputs") or {}, base)
-    analysis = _list_of("analysis", data.get("analysis"), MEASURES)
+    from morphogen.morphology.measures import EXACT_MEASURES
+
+    analysis = _list_of("analysis", data.get("analysis"), {**MEASURES, **EXACT_MEASURES})
     if homog is not None:
         mesh = _check_method(homog, mesh, rve=rve, voxels=voxels, domain=domain)
     if mesh is not None and mesh.order is None:
@@ -2314,7 +2316,7 @@ def load_config(source, *, base_dir=None) -> RunConfig:
             else ("are not tessellations")
         )
         raise ConfigError(f"mesh.grains: the realizations of model {model.name} {what}")
-    measures = set(analysis)
+    measures = set(analysis) - set(EXACT_MEASURES)  # those on the implicit geometry: no voxels
     if rve is not None:
         measures |= {p for p in rve.properties if p in MEASURES}
     # without voxels, the volume fraction is measured on the conforming mesh

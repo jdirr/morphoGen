@@ -254,8 +254,18 @@ def _mean_tensors(ctx) -> None:
 #: The measures offered (those of :data:`morphogen.analysis.measures.MEASURES`)
 def _measure_choices():
     from morphogen.analysis.measures import MEASURES
+    from morphogen.morphology.measures import EXACT_MEASURES
 
-    return tuple(MEASURES)
+    return (*MEASURES, *EXACT_MEASURES)
+
+
+#: The theory of the models beside the exact measures of their realizations
+_EXACT_OF_THEORY = {
+    "volume_fraction": ("exact_V_V", "exact_fraction"),
+    "specific_surface": ("exact_S_V", "exact_specific_surface"),
+    "mean_curvature_density": ("exact_M_V",),
+    "euler_density": ("exact_chi_V",),
+}
 
 
 @tool(
@@ -265,7 +275,10 @@ def _measure_choices():
     "Measures of a morphology on a voxel image of it: phase fractions, specific surface "
     "(Crofton), connectivity, Minkowski functionals and Betti numbers, chords, "
     "thicknesses, tortuosity, fractal dimension, anisotropy (mean intercept lengths), "
-    "minima of the covariance; with the closed forms of its model when known.",
+    "minima of the covariance; or on its implicit geometry itself, without voxels (exact_*: "
+    "the fraction by points, the specific surface by lines, the mean chords, the four "
+    "Minkowski densities of a union of spheres exactly); with the closed forms of its model "
+    "when known.",
     [
         Field("source", "item", label="morphology", required=True),
         Field("resolution", "int", 128, label="voxels per edge", doc="of the image measured"),
@@ -282,24 +295,37 @@ def _measure_choices():
 def measures(p: dict, ctx) -> dict:
     from morphogen.analysis import measure
     from morphogen.gui.api import _voxels
+    from morphogen.morphology.measures import EXACT_MEASURES, measure_exact
 
     micro = p["source"]["micro"]
-    _voxels(micro.domain, p["resolution"], 6.0, "image")
-    ctx.progress(0.1, "voxel image")
-    image = micro.voxelize(shape=p["resolution"])
-    labels = micro.labels(grid=image.grid()) if getattr(micro, "has_labels", False) else None
-    values = {}
     names = p["measures"] or []
-    for k, name in enumerate(names):
-        ctx.progress(0.1 + 0.9 * k / max(len(names), 1), name)
-        values.update(measure(image, [name], labels=labels))
+    exact = [n for n in names if n in EXACT_MEASURES]
+    voxel = [n for n in names if n not in EXACT_MEASURES]
+    values = {}
+    if voxel:
+        _voxels(micro.domain, p["resolution"], 6.0, "image")
+        ctx.progress(0.1, "voxel image")
+        image = micro.voxelize(shape=p["resolution"])
+        labels = micro.labels(grid=image.grid()) if getattr(micro, "has_labels", False) else None
+        for k, name in enumerate(voxel):
+            ctx.progress(0.1 + 0.6 * k / len(voxel), name)
+            values.update(measure(image, [name], labels=labels))
+    for k, name in enumerate(exact):  # on the implicit geometry, without voxels
+        ctx.progress(0.7 + 0.3 * k / len(exact), name)
+        values.update(measure_exact(micro, [name]))
     out = {"values": values}
     model = micro.model
     if model is not None:
         theory = {k: v for k, v in model.theory(micro.domain).items() if isinstance(v, float)}
         if theory:
-            ctx.table([{"quantity": k, "theory": v, "measured": values.get(k)}
-                       for k, v in theory.items()], "theory", "theory of the model")  # fmt: skip
+            rows = []
+            for k, v in theory.items():
+                row = {"quantity": k, "theory": v, "measured": values.get(k)}
+                known = [values[e] for e in _EXACT_OF_THEORY.get(k, ()) if e in values]
+                if exact:
+                    row["exact"] = known[0] if known else None
+                rows.append(row)
+            ctx.table(rows, "theory", "theory of the model")
     return out
 
 
@@ -642,14 +668,20 @@ def fit_table(p: dict, ctx) -> dict:
     "Reconstruction from the statistics",
     "A new morphology whose two-point correlation function (and lineal path) match those "
     "of a morphology of the workspace, by the simulated annealing of Yeong & Torquato "
-    "(1998) on a lattice of cells; it joins the workspace, to compare its properties "
-    "with those of the original.",
+    "(1998) on a lattice of cells, or by gradient descent on its relaxed cells (the "
+    "two-point function at every lag, as MCRpy; the exact covariance of the model when it "
+    "has one); it joins the workspace, to compare its properties with those of the "
+    "original.",
     [
         Field("source", "item", label="morphology", required=True),
         Field("resolution", "int", 48, label="cells per edge"),
         Field("lineal_path", "float", 0.0, label="weight of the lineal path",
               doc="0: the two-point function alone"),
-        Field("sweeps", "int", 60, doc="trial swaps per cell"),
+        Field("method", "choice", "annealing",
+              choices=(("annealing", "annealing: swaps of cells, S2 and L along the axes"),
+                       ("gradient", "gradient: the relaxed cells, S2 at every lag (MCRpy)"))),
+        Field("sweeps", "int", 60, doc="trial swaps per cell", when={"method": "annealing"}),
+        Field("iterations", "int", 2000, doc="of L-BFGS-B", when={"method": "gradient"}),
         Field("seed", "int", 1),
     ],
     order=7,
@@ -667,8 +699,13 @@ def reconstruction(p: dict, ctx) -> dict:
     micro = item["micro"]
     lengths = np.asarray(micro.domain.lengths, dtype=float)
     cell = float(lengths.max()) / p["resolution"]
-    spec = {"type": "reconstruction", "cell_size": cell, "sweeps": p["sweeps"],
-            "lineal_path": p["lineal_path"]}  # fmt: skip
+    method = p.get("method") or "annealing"
+    spec = {"type": "reconstruction", "cell_size": cell, "lineal_path": p["lineal_path"],
+            "method": method}  # fmt: skip
+    if method == "annealing":
+        spec["sweeps"] = p.get("sweeps") or 60
+    else:
+        spec["iterations"] = p.get("iterations") or 2000
     planar = bool(item.get("planar"))
     if planar:
         spec["dimension"] = 2
@@ -681,7 +718,7 @@ def reconstruction(p: dict, ctx) -> dict:
         spec["image"] = str(path)
     model = model_from_config(spec)
     domain = Domain(size=tuple(float(v) for v in lengths), periodic=True)
-    ctx.progress(0.1, "annealing")
+    ctx.progress(0.1, spec["method"])
     new = model.generate(domain, derive_seed(p["seed"], 0))
     ctx.progress(0.85, "views")
     views = api.morphology_views(new, 384)
@@ -725,6 +762,7 @@ def reconstruction(p: dict, ctx) -> dict:
             "fraction (reconstruction)": float((b.data == 1).mean()),
             "initial energy": attrs.get("initial_energy"),
             "final energy": attrs.get("energy"),
+            "error of the two-point function": attrs.get("error_two_point"),
         },
         "items": [] if added in ctx.items else [added],
     }
