@@ -171,3 +171,26 @@ def test_candidates_fit_their_closed_forms():
         assert fraction == pytest.approx(desc.volume_fraction, rel=1e-6), name
         if name in ("boolean_spheres", "gaussian_excursion"):
             assert th["specific_surface"] == pytest.approx(desc.specific_surface, rel=1e-6)
+
+
+def test_command_identify(tmp_path, monkeypatch, capsys):
+    """``morphogen identify``: the ranking printed, the best model written as a
+    configuration that runs."""
+    import yaml
+
+    from morphogen import cli
+    from morphogen.io import write_npz
+
+    monkeypatch.chdir(tmp_path)
+    image = mg.models.BooleanSpheres(radius=1.0, volume_fraction=0.3).generate(
+        mg.Domain.cube(8.0), seed=2
+    ).voxelize(32)  # fmt: skip
+    write_npz(tmp_path / "scan.npz", image)
+    code = cli.main(["identify", "scan.npz", "--candidates", "boolean_spheres",
+                     "hardcore_spheres", "--realizations", "1", "-o", "model.yaml"])  # fmt: skip
+    assert code == 0
+    assert "boolean_spheres" in capsys.readouterr().out
+    config = yaml.safe_load((tmp_path / "model.yaml").read_text(encoding="utf-8"))
+    assert config["model"]["type"] == "boolean_spheres"
+    assert config["domain"]["size"] == [8.0, 8.0, 8.0] and config["domain"]["periodic"]
+    assert cli.main(["run", "model.yaml", "-o", "out", "-q"]) == 0

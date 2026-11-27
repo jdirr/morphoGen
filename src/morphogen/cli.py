@@ -1372,6 +1372,59 @@ def cmd_analyze(args) -> int:
     return 0
 
 
+def cmd_identify(args) -> int:
+    """``morphogen identify``: the model of an image among the candidates (see
+    :mod:`morphogen.morphology.identification`), the best written as a configuration."""
+    from morphogen.image import VoxelImage
+    from morphogen.morphology import identification, segmentation
+
+    image = io.load_image(args.image, name=args.array)
+    if args.voxel_size is not None:
+        if len(args.voxel_size) not in (1, 3):
+            raise SystemExit("--voxel-size: one value, or three")
+        h = args.voxel_size * 3 if len(args.voxel_size) == 1 else args.voxel_size
+        image = VoxelImage(image.data, spacing=tuple(h), origin=image.origin,
+                           periodic=image.periodic, name=image.name)  # fmt: skip
+    if args.periodic:
+        image.periodic = True
+    data = image.data
+    holds = data.dtype.kind in "iub" and int(data.min()) >= 0 and int(data.max()) < args.classes
+    phases = image if holds else segmentation.segment(image, args.classes, sigma=args.sigma)
+    candidates = args.candidates or identification.CANDIDATES
+    found = identification.identify(phases, args.phase, candidates=candidates,
+                                    realizations=args.realizations, seed=args.seed)  # fmt: skip
+    if args.json:
+        print(json.dumps(to_jsonable(found.as_dict()), indent=2))
+    else:
+        if not holds:
+            print(f"thresholds: {phases.metadata['thresholds']}")
+        d = found.descriptors
+        print(f"fraction {d.volume_fraction:.4f}, specific surface {d.specific_surface:.4g}, "
+              f"{'a section' if d.planar else 'a volume'}")  # fmt: skip
+        print(found.table())
+    if args.output:
+        best = found.best
+        lengths = np.asarray(phases.data.shape, dtype=float) * np.asarray(phases.spacing)
+        if found.descriptors.planar:  # the model of a section is a model of the volume
+            lengths[2] = min(lengths[0], lengths[1])
+        config = {
+            "model": best.model.to_config(),
+            "domain": {"size": [float(v) for v in lengths], "periodic": bool(phases.periodic)},
+            "seed": int(args.seed),
+            "realizations": 1,
+        }
+        path = Path(args.output)
+        path.write_text(yaml.safe_dump(to_jsonable(config), sort_keys=False), encoding="utf-8")
+        print(f"{path}: the configuration of {best.name}")
+    return 0
+
+
+def _identification_candidates() -> tuple[str, ...]:
+    from morphogen.morphology.identification import CANDIDATES
+
+    return CANDIDATES
+
+
 def _sizes(text: str) -> list[int]:
     """Box sizes, in voxels per edge: integers separated by commas."""
     try:
@@ -3277,6 +3330,40 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--json", action="store_true", help="JSON output")
     p.set_defaults(func=cmd_analyze)
+
+    p = sub.add_parser(
+        "identify",
+        help="the morphological model of an image or a volume: candidate models fitted to "
+        "its measures, simulated on its voxels and ranked",
+    )
+    p.add_argument("image", help="image file (.vti, .vtk, .mhd, .npz, .npy, .tif stacks)")
+    p.add_argument("--array", help="array name in multi-array files")
+    p.add_argument("--phase", type=int, default=1, help="the phase modelled (default 1)")
+    p.add_argument(
+        "--classes", type=int, default=2,
+        help="phases of a grey-level image, split by Otsu's thresholds (default 2)",
+    )  # fmt: skip
+    p.add_argument(
+        "--sigma", type=float, default=0.0,
+        help="Gaussian smoothing of the grey levels before the thresholds, in voxels",
+    )  # fmt: skip
+    p.add_argument(
+        "--voxel-size", type=float, nargs="+", metavar="H",
+        help="the size of the voxels (one value, or three), if the file has none",
+    )  # fmt: skip
+    p.add_argument("--periodic", action="store_true", help="the image is periodic")
+    p.add_argument(
+        "--candidates", nargs="+", choices=list(_identification_candidates()),
+        help="the candidate models (default: all)",
+    )  # fmt: skip
+    p.add_argument(
+        "--realizations", type=int, default=2,
+        help="simulated images per candidate (default 2)",
+    )  # fmt: skip
+    p.add_argument("--seed", type=int, default=0, help="seed of the simulations (default 0)")
+    p.add_argument("-o", "--output", help="write the best model as a configuration (.yaml)")
+    p.add_argument("--json", action="store_true", help="JSON output")
+    p.set_defaults(func=cmd_identify)
 
     p = sub.add_parser(
         "texture",

@@ -1,0 +1,27 @@
+# The microstructure of an image: the grey levels of a tomography segmented into two
+# phases by Otsu's threshold (after a smoothing of one voxel against the noise), described
+# by implicit functions at any point — the iso-surfaces of the interpolated levels — in
+# windows drawn at random in the volume, as realizations of the medium it shows. Its
+# fraction and specific surface are measured on the voxels of each window.
+#
+# The volume is the tomography that comes with morphoGen (hard spheres in a matrix as an
+# acquisition would give them, written by morphogen.models.image.write_example_image):
+# put the path of a volume (.npz, .npy, .vti, .tif stack...) in its place, from the folder
+# of this file, and its voxel size.
+model:
+  type: image
+  file: example_image.npz
+  sigma: 1.0                   # voxels: the smoothing of the grey levels
+  window: random               # origin: the window at the first voxels of the volume
+domain:
+  size: 8.0                    # windows of 32 voxels of 0.25
+  periodic: false
+seed: 2026
+realizations: 3
+voxels:
+  shape: 64                    # the windows at twice the resolution of the volume
+outputs:
+  directory: out/image
+  name: window
+  image: [vti]
+analysis: [volume_fraction, specific_surface, particles]

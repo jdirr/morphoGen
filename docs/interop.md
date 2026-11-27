@@ -243,20 +243,25 @@ config = {
     "voxels": {"voxel_size": 0.25},
     "homogenization": {
         "method": "fft",
-        "materials": {0: {"young": 1.0, "poisson": 0.3, "conductivity": 1.0},
-                      1: {"young": 10.0, "poisson": 0.3, "conductivity": 10.0}},
+        "materials": {
+            0: {"young": 1.0, "poisson": 0.3, "conductivity": 1.0},
+            1: {"young": 10.0, "poisson": 0.3, "conductivity": 10.0},
+        },
         "properties": ["conductivity"],
     },
 }
 simulation = mv.configuration(config, {"h": "voxels.voxel_size"}, ["conductivity.periodic"])
-model = mv.model(simulation)                          # a model of VIMSEO, its runs archived
+model = mv.model(simulation)  # a model of VIMSEO, its runs archived
 tool = mv.solution_verification(model, "h", [0.4, 0.2, 0.1, 0.05], "conductivity.periodic")
 print(tool.result.extrapolation["q_extrap"], tool.result.extrapolation["beta"])  # 2.278, 0.90
 
 spheres = {"type": "boolean_spheres", "radius": 1.0, "volume_fraction": 0.3}
 exact = mv.model(mv.exact_morphology(spheres, 12.0))  # the exact densities of realizations
-points = {"model_volume_fraction": np.array([0.2, 0.3, 0.4]),
-          "model_radius": np.ones(3), "seed": np.arange(3.0)}
+points = {
+    "model_volume_fraction": np.array([0.2, 0.3, 0.4]),
+    "model_radius": np.ones(3),
+    "seed": np.arange(3.0),
+}
 references = mv.dataset(points, mv.theory_of(spheres, points))  # Miles' formulae
 tool = mv.code_verification(exact, references, output_names=["volume_fraction"])
 ```

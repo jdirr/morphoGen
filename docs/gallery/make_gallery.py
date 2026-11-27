@@ -168,6 +168,9 @@ FAMILIES = [
              "porous medium."),
             ("reconstruction", "A Boolean model of spheres rebuilt from its two-point and "
              "lineal-path functions by simulated annealing (Yeong & Torquato 1998)."),
+            ("image", "The microstructure of an image: a tomography segmented by Otsu's "
+             "threshold, its phases the iso-surfaces of its interpolated grey levels, in "
+             "windows drawn at random."),
         ],
     ),
     (
@@ -282,6 +285,8 @@ FAMILIES = [
              "random walkers (Witten & Sander 1981)."),
             ("vascular_tree", "A vascular tree grown by space colonization, its radii by "
              "Murray's law."),
+            ("spinodal", "Spinodal decomposition: two interwoven phases of a symmetric "
+             "mixture by the Cahn–Hilliard equation, at an age of their coarsening."),
         ],
     ),
     (

@@ -58,7 +58,10 @@
   iso-surfaces of its interpolated grey levels, or the indicators of its phases), in windows
   at its origin or drawn at random for each seed, for the probes, the exact meshes, the
   sections and the solvers; a synthetic tomography of a particulate composite comes with
-  morphoGen (`example_image.npz`). Tested (`tests/test_model_identification.py`): Otsu's
+  morphoGen (`example_image.npz`). `morphogen identify` ranks the candidates of an image
+  and writes the best as a configuration (`-o model.yaml`); the templates `image` (windows
+  of the tomography) and `spinodal`, with their cards in the gallery. Tested
+  (`tests/test_model_identification.py`): Otsu's
   criterion over every bin, the segmentation of the tomography (intersection over union
   0.887, Dice 0.94), the ellipsoids of particles and of an ellipse (1 %), the phases of the
   image structure at the centres of its voxels exactly those of its thresholded levels;

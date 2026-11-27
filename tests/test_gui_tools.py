@@ -399,7 +399,12 @@ def test_menus_of_the_tabs():
         "Orientation maps": ["texture"],
     }
     assert list(menu("fracture")) == ["Cracks", "Cohesive zones", "Phase field"]
-    assert list(menu("interop")) == ["AMITEX_FFTP", "Abaqus and meshes", "Behaviours of materials"]
+    assert list(menu("interop")) == [
+        "AMITEX_FFTP",
+        "Abaqus and meshes",
+        "Code_Aster and OpenFOAM",
+        "Behaviours of materials",
+    ]
     assert menu("learning") == {"": ["learn"]} and menu("nothing") == {}
     # a heading gathers its tools wherever their orders stand among those of the others
     registered = dict(tools.TOOLS)

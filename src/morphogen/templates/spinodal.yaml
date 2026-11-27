@@ -1,0 +1,20 @@
+# Spinodal decomposition: the two phases of a mixture quenched inside its spinodal, by the
+# Cahn-Hilliard equation, at an age of the coarsening of their pattern (the time in units
+# of the growth time of the fastest fluctuations of the early stage). A symmetric mixture
+# gives two interwoven phases; the fraction of the phase 1 is that of the lever rule.
+model:
+  type: spinodal
+  volume_fraction: 0.5
+  wavelength: 1.0              # the fastest fluctuations of the early stage
+  coarsening: 20.0             # the pattern coarsens as the cube root of this age
+domain:
+  size: 6.0
+  periodic: true
+seed: 3
+voxels:
+  shape: 96
+outputs:
+  directory: out/spinodal
+  name: spinodal
+  image: [vti]
+analysis: [volume_fraction, specific_surface, connectivity]

@@ -301,6 +301,30 @@ morphogen run reconstruction.yaml
 </details>
 :::
 
+:::{container} gallery-card
+:name: gallery-image
+
+```{image} _static/gallery/image.png
+:alt: image
+:loading: lazy
+```
+
+**`image`** — The microstructure of an image: a tomography segmented by Otsu's threshold, its phases the iso-surfaces of its interpolated grey levels, in windows drawn at random.
+
+```bash
+morphogen template image -o image.yaml
+morphogen run image.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/image.yaml
+:language: yaml
+```
+
+</details>
+:::
+
 ::::
 
 ## Fibres and layers
@@ -1171,6 +1195,30 @@ morphogen run vascular_tree.yaml
 <details><summary>Configuration</summary>
 
 ```{literalinclude} ../src/morphogen/templates/vascular_tree.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
+:name: gallery-spinodal
+
+```{image} _static/gallery/spinodal.png
+:alt: spinodal
+:loading: lazy
+```
+
+**`spinodal`** — Spinodal decomposition: two interwoven phases of a symmetric mixture by the Cahn–Hilliard equation, at an age of their coarsening.
+
+```bash
+morphogen template spinodal -o spinodal.yaml
+morphogen run spinodal.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/spinodal.yaml
 :language: yaml
 ```
 

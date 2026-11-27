@@ -254,14 +254,17 @@ along them (Vanaerschot et al. 2013, from the tomography of a twill laminate):
 import morphogen as mg
 
 model = mg.models.WovenTextile(
-    weave="twill", warp_spacing=2.0, yarn_width=1.6, yarn_thickness=0.3,
-    deviation_in_plane=0.05,      # mm, the standard deviation of the centrelines across the tows
-    deviation_through=0.02,       # through the thickness
-    width_variation=0.08,         # coefficients of variation of the widths and thicknesses
+    weave="twill",
+    warp_spacing=2.0,
+    yarn_width=1.6,
+    yarn_thickness=0.3,
+    deviation_in_plane=0.05,  # mm, the standard deviation of the centrelines across the tows
+    deviation_through=0.02,  # through the thickness
+    width_variation=0.08,  # coefficients of variation of the widths and thicknesses
     thickness_variation=0.1,
-    size_correlation=-0.5,        # a tow pressed flatter is wider
+    size_correlation=-0.5,  # a tow pressed flatter is wider
     correlation_length=[3.0, 2.0],  # mm, along the tows: the centrelines, the sections
-    neighbour_correlation=0.6,    # neighbouring tows of a ply wander together
+    neighbour_correlation=0.6,  # neighbouring tows of a ply wander together
 )
 micro = model.generate(mg.Domain(size=(16.0, 16.0, 1.0), periodic=True), seed=1)
 print(micro.summary()["deviation_in_plane"], micro.summary()["interpenetration"])

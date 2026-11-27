@@ -47,7 +47,7 @@ from morphogen import morphology as mm
 
 micro = model.generate(mg.Domain.cube(16.0, periodic=True), seed=1)
 print(mm.minkowski_functionals(micro).densities())  # V_V, S_V, M_V, χ_V of the union
-print(model.theory()["euler_density"])               # Miles' formula
+print(model.theory()["euler_density"])  # Miles' formula
 print(mm.capacity(micro, "segment", [0.0, 1.0, 2.0]).values)  # T(l), exact probes
 print(mm.compare_with_theory(micro).table())
 ```
@@ -77,9 +77,9 @@ representative volume, ready for the probes, the meshes and the solvers (§107).
 from morphogen.models.image import ImageModel
 from morphogen.morphology import identification, segmentation
 
-grey_image = ImageModel().image()                      # a tomography that comes with morphoGen
-phases = segmentation.segment(grey_image, sigma=1.0)   # Otsu, after a smoothing
-found = identification.identify(phases)                # candidates fitted and ranked
+grey_image = ImageModel().image()  # a tomography that comes with morphoGen
+phases = segmentation.segment(grey_image, sigma=1.0)  # Otsu, after a smoothing
+found = identification.identify(phases)  # candidates fitted and ranked
 print(found.table())
 larger = found.best.model.generate(mg.Domain.cube(50.0), seed=0)
 ```
@@ -134,6 +134,7 @@ orientation map to a textured polycrystal.
 
 ```bash
 morphogen analyze out/tpms/gyroid_0000.vti --measure volume_fraction specific_surface
+morphogen identify scan.tif --sigma 1 -o model.yaml   # the model of a tomography, ranked
 morphogen texture map.ctf -o texture/      # grains, pole figures, disorientations of an EBSD map
 morphogen texture out/polycrystal_0000_tension_periodic_4.vti -o texture/  # lattices of a path
 morphogen percolation spheres.yaml --lower 0.15 --upper 0.45  # percolation threshold
