@@ -13584,7 +13584,10 @@ the distance to the boundary of the grain where the cell of the point holds its 
 part, a lower bound otherwise, its sign exact. The conforming mesh of a polycrystal (§19)
 merges the cells of each grain in the complex of the cells (`CellComplex.merged`): the facets
 between them are no longer between cells, MMG meshes the grain as one subdomain, its
-elements with the phase and the orientation of the grain; the surfaces of the cells are
+elements with the phase and the orientation of the grain. With the exact facets of whole
+periodic cells (§24), MMG did not end with the merged grains (more than 300 s for 6 grains
+of 42 spheres, which their cells cut by the box mesh in 3 s): those are meshed cell by cell,
+then relabelled by grain (2 s), their volumes exact to $10^{-14}$. The surfaces of the cells are
 drawn grain by grain, and the elements of the crack meshes of a polycrystal take the grains
 of their centroids. The tessellations of Neper, of convex cells, do not describe them: its
 export refuses them.
@@ -13619,7 +13622,8 @@ seeds flat grains; elongated seeds placed crowded or left out; the parameters ch
 labels those of the grains, the realization saved and read back, the table, the export to
 Neper refused; the exact surfaces by grain, their regions the grains with their phases; the
 elements of a mesh in the grains of their centroids; the mesh of the grains, their volumes
-those of the grains within 2 %, their phases and orientations.
+those of the grains within 2 %, their phases and orientations, and with the exact facets of
+whole and cut cells to $10^{-9}$.
 
 ## References
 

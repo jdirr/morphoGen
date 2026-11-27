@@ -119,7 +119,8 @@
   overlap least by default, every seed then its grain, or left out as MicroStructPy does
   (`crowded: leave`). The conforming meshes of polycrystals and the surfaces of their cells by
   grain: the cells of a grain merged in the cell complex (`CellComplex.merged`), one subdomain
-  per grain, MMG free inside it; the elements of the crack meshes of polycrystals take the
+  per grain, MMG free inside it (the exact facets of whole periodic cells meshed cell by cell,
+  MMG not ending with their merged grains); the elements of the crack meshes of polycrystals take the
   grains of their centroids (`Tessellation.grain_of`); the export to Neper refuses these
   grains, which its tessellations do not describe. Against MicroStructPy 1.6.1 on the same
   seeds: spheres alike (cv of the grain volumes 0.147 and 0.150); seeds of aspect ratio 3, all

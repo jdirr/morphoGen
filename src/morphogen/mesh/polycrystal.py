@@ -880,7 +880,8 @@ def polycrystal_mesh(
     per cell: each element knows its cell (``mesh.cell``), its phase and, through its
     cell, its crystal orientation (``mesh.orientations``). The grains of seeds
     (:class:`~morphogen.models.seeded.SeededTessellation`) are the subdomains, the cells of
-    their spheres merged: ``mesh.cell`` is then the grain.
+    their spheres merged (but for the exact facets of whole cells, meshed cell by cell):
+    ``mesh.cell`` is then the grain.
 
     Parameters
     ----------
@@ -944,7 +945,10 @@ def polycrystal_mesh(
     t0 = time.perf_counter()
     cx = micro.cell_complex(whole=whole)
     grains = np.asarray(micro.cell_grains(), dtype=np.int64)
-    if not np.array_equal(grains, np.arange(len(grains))):  # grains of several cells
+    # grains of several cells (seeds): merged, MMG free inside them; but for the exact facets
+    # of whole cells, meshed cell by cell (MMG does not end with their merged grains)
+    by_cell = not np.array_equal(grains, np.arange(len(grains))) and exact and whole
+    if not by_cell and not np.array_equal(grains, np.arange(len(grains))):
         cx = cx.merged(grains)
     grain_phases = np.zeros(int(grains.max()) + 1 if len(grains) else 0, dtype=np.int64)
     grain_phases[grains] = micro.cell_phases
@@ -1009,6 +1013,8 @@ def polycrystal_mesh(
         nodes[np.abs(nodes[:, d] - domain.upper[d]) <= tol, d] = domain.upper[d]
     elements = data["Tetrahedra"]
     cell = data["Tetrahedra_refs"] - 1  # the grain (the cell, but for the grains of seeds)
+    if by_cell:
+        cell = grains[cell]
     phase = grain_phases[cell]
     flip = tet_volumes(nodes, elements) < 0
     elements[flip] = elements[flip][:, [0, 2, 1, 3]]

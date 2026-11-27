@@ -290,7 +290,8 @@ def test_grains_of_the_elements_of_a_crack_mesh():
 @pytest.mark.skipif(not has_mmg(), reason="MMG (pymmg) is not installed")
 def test_mesh_of_the_grains():
     """The conforming mesh of the grains: one subdomain per grain (the cells of its spheres
-    merged), their volumes those of the grains, their phases and orientations."""
+    merged), their volumes those of the grains, their phases and orientations; with the
+    exact facets, of whole or cut cells, their volumes exact."""
     from morphogen.mesh.polycrystal import polycrystal_mesh
     from morphogen.mesh.tetra import tet_volumes
 
@@ -304,3 +305,10 @@ def test_mesh_of_the_grains():
     np.testing.assert_array_equal(mesh.phase, micro.grain_phases[mesh.cell])
     assert mesh.orientations.shape == (micro.n_grains, 3)
     assert mesh.metadata["n_grains"] == micro.n_grains < mesh.metadata["n_cells"]
+    few = SeededLaguerre(diameter=0.7, aspect_ratio=2.0).generate(
+        mg.Domain.cube(1.0, periodic=True), seed=3
+    )
+    for cells in ("whole", "box"):  # exact facets: whole cells meshed cell by cell
+        exact = polycrystal_mesh(few, size=0.15, exact=True, cells=cells)
+        per_grain = np.bincount(exact.cell, tet_volumes(exact.nodes, exact.elements))
+        np.testing.assert_allclose(per_grain, few.grain_volumes(), rtol=1e-9)
