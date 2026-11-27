@@ -13842,6 +13842,124 @@ grains of their volumes within 8 % RMS; rectangles of the ratio 2 along $x$, the
 of ratios 1.6 to 2.6 along their seeds (within 8°); boxes and ellipsoids of two phases, the
 table of the volumes of the seeds; the parameters checked.
 
+## 119. Meshes of the plane and their finite elements (`mesh.triangles`, `homogenization.plane`)
+
+**Structures of the plane.** A structure invariant along $z$ — the columnar grains of a
+tessellation whose germs lie in one plane (the seeds of the plane of §117), the section of
+long fibres, a layer whose fields do not vary through its thickness — is meshed in its plane
+by triangles (`TriMesh`: three- or six-node elements counterclockwise, a phase each, a grain
+each with the orientations of the grains, the rectangle of the box, its periodicity, the
+height $z$ of the plane and the thickness of the box). The mesher in space cannot take such a
+tessellation: its cells are prisms through the whole thickness of the box, and its facets
+across the faces $z$ are the cells themselves.
+
+**Exact polygons.** With all the germs in one plane, the cell of a germ is the prism of its
+cell in the power diagram of the plane, the points of least power distance
+$|x - x_k|^2 - w_k$. The cell of germ $i$ is the polygon cut from a rectangle about the box
+by the half planes of its neighbours $j$,
+
+$$(x_j - x_i)\cdot x \le \tfrac12\,(|x_j|^2 - |x_i|^2 - w_j + w_i),$$
+
+clipped one after the other (Sutherland and Hodgman), the neighbours taken from a k-d tree
+of the germs and of their eight periodic images until the farthest of them lies beyond
+$\rho + \sqrt{\rho^2 - w_i + w_{\max}}$, $\rho$ the reach of the polygon from its germ — no
+farther germ can cut it. In a periodic box, the polygon and its eight translates are cut by
+the box; the vertices of the pieces are merged within $10^{-9}$ of the box
+(`planar_pieces`). The areas of the pieces are those of the exact cells in space over the
+thickness (`grain_shapes`) to $3 \cdot 10^{-14}$.
+
+**Edges graded from the small features.** The edges between grains and those of the sides are
+subdivided, then kept as they are while `mmg2d` remeshes the grains (`-nosurf`): left to
+`mmg2d`, the interfaces would follow its smooth curves through the corners of the polygons
+(the nodes of the boundaries 6·10⁻³ off the polygons, the areas of the grains 0.8 % off).
+The grain boundaries of seeds are polylines of short edges (those of the cells of the spheres
+of two seeds), and an edge subdivided at the size of the elements next to an edge of 10⁻⁴
+gives slivers (angles of 0.04°). The edges are subdivided at a size field
+
+$$h(x) = \min\Big(h_{\max},\ \min_k\,\big(h_k + g\,|x - p_k|\big)\Big), \qquad g = 0.25,$$
+
+over points $p_k$ along the edges every $h_{\max}/4$, whose sizes $h_k$ are their distances to
+the nearest edge that does not touch theirs (thin grains, close corners; across the sides of
+a periodic box with the vertices of the sides identified with their translates), at most the
+lengths of the edges of the vertices among them: the elements grow by at most a quarter from
+one to the next away from the small features. Each edge is marched from one end at the sizes
+of the field and its steps scaled to end on the other; the edges of the upper sides of a
+periodic box are the translates of those of the lower sides, and the opposite sides match
+node for node. The 46 grains of seeds of the plane in a periodic square of edge 6
+(`size: 0.2`) are meshed by 15 138 triangles in 0.4 s, their areas within 6·10⁻¹⁴ of those of
+the exact grains and the smallest angle 7.7°; in a box that is not periodic, 59 grains in
+17 391 triangles (6.5°); the 400 cells of a periodic Voronoi mosaic (edge 10, `size: 0.1`) in
+38 658 triangles in 0.6 s (5.3°).
+
+**Sections.** Any other structure is meshed in its plane $z$ from the implicit functions of its
+phases (`section_mesh`), as in space (§11): sampled at the nodes of a triangulation of the
+rectangle (a grid of squares cut by diagonals that alternate with their parity, symmetric
+about the lines of the grid), the values near zero moved away from it, the phases cut one
+after another by the level sets of `mmg2d` (its multi-material references, the phases cut
+before left whole), then remeshed within the Hausdorff distance of the interfaces, the sides
+of a periodic structure kept as the cut left them — matching, the functions taking the same
+values on opposite sides.
+
+**Elasticity of the plane.** The fields of a structure invariant along $z$ under a uniform
+macroscopic loading do not vary along $z$: $u = E\,x + w(x, y)$, the strain
+$\varepsilon = E + \operatorname{sym}\nabla w$ with $\partial_z = 0$, so that
+$\varepsilon_{33} = E_{33}$ is uniform and the anti-plane component $w_3$ gives the shears
+$2\varepsilon_{13} = 2E_{13} + w_{3,1}$ and $2\varepsilon_{23} = 2E_{23} + w_{3,2}$. In
+*generalized plane strain* (`plane: generalized`, the default) the three components of $w$ are
+unknowns, and the six components of $E$ give the 6 × 6 apparent stiffness of the structure in
+space: the anti-plane shears couple to the plane through the crystals whose axes leave it. In
+*plane strain* (`plane: strain`) $w_3 = 0$: the block 11, 22, 12 is the stiffness of plane
+strain, stiffer (the shears 13 and 23 uniform). Conduction: $T = G\cdot x + w(x, y)$, the
+3 × 3 tensor of the structure. Under periodic conditions $w$ takes the same values at the
+facing nodes of opposite sides, the corners one node; under kinematic ones $w = 0$ on the
+sides; under static ones the tractions $\Sigma n$ (the flux $Q\cdot n$) load the sides, the
+displacement (temperature) is the unknown, its rigid motions removed — the three translations
+and the rotation about $z$ —, and the uniform components that no field of the plane gives are
+unknowns of their own, dual to their stresses: $E_{33}$ (and $E_{13}$, $E_{23}$ in plane strain)
+loaded by the area times $\Sigma_{33}$ ($\Sigma_{13}$, $\Sigma_{23}$), $G_3$ by $-A\,Q_3$. The
+elements are integrated exactly on straight triangles (one point, or three of degree 2 for the
+six-node elements), and the problems take the macroscopic loadings of the solvers in space —
+mixed components condensed (§17), changes of temperature, named loadings — and give their
+averages, energies, statistics of the phases and fields.
+
+**The layer in space.** `TriMesh.extruded` cuts the prism over each triangle into three
+tetrahedra along the diagonals of its sides from their least node — the cuts of neighbouring
+prisms then match —, a layer periodic across its thickness. A function of the plane, linear
+on a triangle, is linear on each tetrahedron of its prism and takes the values of the nodes
+there: the four-node elements of the layer, its nodes tied across it, span the three-node
+elements of the plane, and the periodic problems in space are those of the plane.
+
+**Verification.** A homogeneous square gives its stiffness and conductivity under every
+condition, for both orders and both hypotheses, to 10⁻¹². Three layers across $x$ of two
+turned cubic crystals and an isotropic phase give the stiffness of the laminate — the
+components 11, 12, 13 harmonic means across the layers, the others their corrected averages —
+to 3·10⁻¹⁶, the strains being uniform in each layer. The checkerboard of two conductivities 1
+and 10 tends to the geometric mean $\sqrt{10}$ of Dykhne from above, slowly, as the field is
+singular at the corners of the squares: 13.9, 7.9 and 4.5 % above it on grids of 16, 32 and 64
+squares of three-node elements, 5.4, 3.1 and 1.8 % of six-node elements; across the plane, the
+arithmetic mean 5.5 exactly. The grains of seeds of the plane of cubic crystals
+($c_{11} = 168$, $c_{12} = 121$, $c_{44} = 75$) give the same stiffness and conductivity in the
+plane and on their extruded layer by the finite elements in space, to 10⁻¹⁵; their bulk
+modulus is that of the crystals, 136.667, under every condition, and their stiffnesses are
+ordered, kinematic above periodic above static ($C_{11}$ 196.3, 195.0 and 191.7).
+
+**Files.** The meshes of the plane are written as plane elements of Abaqus and CalculiX (CPE3
+and CPE6 in plane strain, CPS3 and CPS6 in plane stress; the sets of the phases, of the grains
+and of the nodes of the sides; the crystals of each grain turned into the axes of the box,
+`TYPE=ANISOTROPIC`, since a plane element takes no orientation out of its plane), as Gmsh
+files (triangles of types 2 and 9, the edges of the sides as lines of types 1 and 8), VTK
+files (cell types 5 and 22) and Medit files of dimension 2, and read back with their grains,
+orientations, rectangle, periodicity, plane and thickness.
+
+Checked (`tests/test_plane_meshes.py`): the triangles counterclockwise, their sides, six-node
+elements and layers of tetrahedra (three per triangle, the volume of the area times the
+thickness); the power diagram of coplanar germs against the exact cells, periodic or not;
+the grains of seeds of the plane meshed with the areas of the exact grains, angles above 3°,
+matching sides; the section of spheres against their level set on a fine grid; the files read
+back; the uniform fields, the laminates, the checkerboard and the layer in space; `homogenize`
+of a mesh of the plane (moduli, tensors, thermal expansion, named loadings, fields, porous
+meshes), what it does not solve refused.
+
 ## References
 
 See [specification.md](specification.md#14-references). In addition:

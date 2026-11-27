@@ -192,6 +192,33 @@
   (`tests/test_seeded_phases.py`). Public interface: `SeededLaguerre(shape=...,
   phase_shape=...)`, `SEED_SHAPES`, `BOX_LEVELS`, `RECTANGLE_LEVELS`, `box_spheres`,
   `SeedFamily.shape` (`tests/public_api.txt`).
+* Meshes of the plane and their finite elements (`morphogen.mesh.triangles`,
+  `morphogen.homogenization.plane`, §119). `TriMesh`, three- or six-node triangles of the
+  rectangle of a box in its plane z (phases, grains and their orientations, sides, thickness;
+  `extruded`: the layer of tetrahedra of the prisms over the triangles). The columnar grains of
+  the tessellations whose germs lie in one plane (the seeds of the plane), which the mesher in
+  space cannot take, meshed exactly (`tessellation_mesh`): the power diagram of the plane by
+  half planes (`planar_pieces`), its edges subdivided at a size graded from their small
+  features (short edges, thin grains, close corners), the opposite sides of a periodic box
+  matching node for node, `mmg2d` remeshing the grains within them — the areas of the grains
+  within 10⁻¹³ of the exact ones, angles above 5°; the sections of any other structure by the
+  level sets of its phases (`section_mesh`; `plane_mesh` chooses). Their files: the plane
+  elements of Abaqus and CalculiX (CPE3, CPE6, CPS3, CPS6; the sets of the sides; the crystals
+  of each grain turned into the axes of the box), Gmsh (with the edges of the sides), VTK and
+  Medit of dimension 2 (`save_mesh`, `read_tri_mesh`, `write_periodic_pairs`). The problems of
+  the plane (`PlaneElasticProblem`, `PlaneThermalProblem`, and `homogenize` of a `TriMesh`,
+  `plane`): the structure invariant across its plane in generalized plane strain (the
+  anti-plane fluctuation free: the 6 × 6 stiffness of the structure in space) or in plane
+  strain, conduction (the 3 × 3 tensor), periodic, kinematic and static conditions on the sides
+  (the uniform out-of-plane components unknowns of their own), the loadings, thermal
+  expansion, statistics and fields of the solvers in space. Tested
+  (`tests/test_plane_meshes.py`): exact areas, matching sides, files read back; uniform fields,
+  laminates of turned crystals to round-off, the checkerboard of Dykhne converging to the
+  geometric mean, the extruded layer giving the same tensors in space to 10⁻¹⁵, kinematic
+  conditions above periodic above static. Public interface: `morphogen.mesh.triangles`,
+  `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
+  plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
+  `write_medit_tri` (`tests/public_api.txt`).
 * The computations of morphoGen as models of VIMSEO (`morphogen.interop.vimseo`, §112; the
   extra `vimseo`, Python 3.10 to 3.12), for the demonstration of the credibility of the
   simulations: a configuration of `morphogen run` with its entries as inputs and its results

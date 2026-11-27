@@ -1123,6 +1123,8 @@ morphogen.homogenization: NonlinearXFEMProblem
 morphogen.homogenization: PathBifurcation
 morphogen.homogenization: PathResult
 morphogen.homogenization: PhaseStatistics
+morphogen.homogenization: PlaneElasticProblem
+morphogen.homogenization: PlaneThermalProblem
 morphogen.homogenization: Plasticity
 morphogen.homogenization: Response
 morphogen.homogenization: Sines
@@ -1206,6 +1208,7 @@ morphogen.homogenization.apparent.FLOW
 morphogen.homogenization.apparent.HARMONIC
 morphogen.homogenization.apparent.INTERFACE_OPTIONS
 morphogen.homogenization.apparent.PHYSICS
+morphogen.homogenization.apparent.PLANE_PROPERTIES
 morphogen.homogenization.apparent.PROPERTIES
 morphogen.homogenization.apparent.Response(name, bc, solution)
 morphogen.homogenization.apparent.Response.components(self)
@@ -1217,10 +1220,10 @@ morphogen.homogenization.apparent.apparent_conductivity(problem, axis=0, *, fiel
 morphogen.homogenization.apparent.apparent_shear_modulus(problem, plane=(0, 1), *, fields=False)
 morphogen.homogenization.apparent.bulk_isotropy(tensor)
 morphogen.homogenization.apparent.conductivity_tensor(problem)
-morphogen.homogenization.apparent.homogenize(sample, materials, *, bcs=('periodic',), properties=('bulk_modulus', 'shear_modulus'), solver='auto', tol=1e-08, maxiter=None, fields=False, grains=None, orientations=None, loadings=None, paths=None, nonlinear=None, device='cpu', ntfa=None, mean_temperature=300.0, frequencies=None, wavelengths=None, fracture=None, fluid_bulk_modulus=None, integration=None)
+morphogen.homogenization.apparent.homogenize(sample, materials, *, bcs=('periodic',), properties=('bulk_modulus', 'shear_modulus'), solver='auto', tol=1e-08, maxiter=None, fields=False, grains=None, orientations=None, loadings=None, paths=None, nonlinear=None, device='cpu', ntfa=None, mean_temperature=300.0, frequencies=None, wavelengths=None, fracture=None, fluid_bulk_modulus=None, integration=None, plane=None)
 morphogen.homogenization.apparent.isotropic_projection(stiffness)
 morphogen.homogenization.apparent.isotropy_errors(stiffness)
-morphogen.homogenization.apparent.make_problem(sample, materials, physics, bc='periodic', *, solver='auto', tol=1e-08, maxiter=None, grains=None, orientations=None, device='cpu', integration=None)
+morphogen.homogenization.apparent.make_problem(sample, materials, physics, bc='periodic', *, solver='auto', tol=1e-08, maxiter=None, grains=None, orientations=None, device='cpu', integration=None, plane=None)
 morphogen.homogenization.apparent.shear_isotropy(tensor)
 morphogen.homogenization.apparent.stiffness_tensor(problem)
 morphogen.homogenization.apparent.thermal_expansion(problem)
@@ -1788,6 +1791,11 @@ morphogen.homogenization.photonic.PlaneWaves.unknowns
 morphogen.homogenization.photonic.SUBSPACE
 morphogen.homogenization.photonic.electromagnetic_band_structure(sample, permittivity, path=('G', 'X', 'M', 'G', 'R'), *, permeability=1.0, bands=8, points=12, coarsen=1, tol=0.0001)
 morphogen.homogenization.photonic.smoothed_inverse(field, coarsen=1)
+morphogen.homogenization.plane.GAUSS
+morphogen.homogenization.plane.PLANES
+morphogen.homogenization.plane.PLANE_CONDITIONS
+morphogen.homogenization.plane.PlaneElasticProblem(mesh, materials, bc='periodic', *, plane='generalized', **options)
+morphogen.homogenization.plane.PlaneThermalProblem(mesh, materials, bc='periodic', *, solver='auto', tol=1e-08, maxiter=None, regularization=1e-12, physics=None)
 morphogen.homogenization.poroelastic.POROELASTIC_ENTRIES
 morphogen.homogenization.poroelastic.UNDRAINED_ENTRIES
 morphogen.homogenization.poroelastic.poroelastic_tensors(sample, materials, bc='periodic', *, fluid_bulk=None, **options)
@@ -2146,6 +2154,7 @@ morphogen.io: read_stl
 morphogen.io: read_table
 morphogen.io: read_tet_mesh
 morphogen.io: read_tiff
+morphogen.io: read_tri_mesh
 morphogen.io: read_vti
 morphogen.io: read_vtk
 morphogen.io: read_vtk_grid
@@ -2169,12 +2178,15 @@ morphogen.io: write_fenicsx
 morphogen.io: write_geo
 morphogen.io: write_inp
 morphogen.io: write_inp_tet
+morphogen.io: write_inp_tri
 morphogen.io: write_json
 morphogen.io: write_medit_tet
+morphogen.io: write_medit_tri
 morphogen.io: write_mfront
 morphogen.io: write_mhd
 morphogen.io: write_msh
 morphogen.io: write_msh_tet
+morphogen.io: write_msh_tri
 morphogen.io: write_neper
 morphogen.io: write_npy
 morphogen.io: write_npz
@@ -2192,6 +2204,7 @@ morphogen.io: write_vti
 morphogen.io: write_vtk
 morphogen.io: write_vtu
 morphogen.io: write_vtu_tet
+morphogen.io: write_vtu_tri
 morphogen.io: write_xdmf
 morphogen.io.GEOMETRY_FORMATS
 morphogen.io.IMAGE_FORMATS
@@ -2301,20 +2314,26 @@ morphogen.io.medit.read_sol(path)
 morphogen.io.medit.write_mesh(path, nodes, tetrahedra=None, triangles=None, *, edges=None, node_refs=None, tet_refs=None, tri_refs=None, edge_refs=None, required_triangles=None, required_edges=None, required_vertices=None, corners=None, ridges=None, comments=())
 morphogen.io.medit.write_sol(path, values, dimension=3)
 morphogen.io.meshes.FACE_TAGS
+morphogen.io.meshes.SIDE_TAGS
 morphogen.io.meshes.abaqus_anisotropic(stiffness)
 morphogen.io.meshes.read_msh(path)
 morphogen.io.meshes.read_stl(path)
 morphogen.io.meshes.read_tet_mesh(path, *, box=None, periodic=None)
+morphogen.io.meshes.read_tri_mesh(path, *, box=None, periodic=None)
 morphogen.io.meshes.write_inp(path, mesh, *, element_type='C3D8', label_sets=False, materials=None, orientations=None, kinematics='small')
 morphogen.io.meshes.write_inp_tet(path, mesh, *, materials=None, kinematics='small')
+morphogen.io.meshes.write_inp_tri(path, mesh, *, materials=None, plane='strain')
 morphogen.io.meshes.write_medit_tet(path, mesh)
+morphogen.io.meshes.write_medit_tri(path, mesh)
 morphogen.io.meshes.write_meshio(path, mesh)
 morphogen.io.meshes.write_msh(path, mesh, *, boundary=True)
 morphogen.io.meshes.write_msh_tet(path, mesh, *, boundary=True)
+morphogen.io.meshes.write_msh_tri(path, mesh, *, boundary=True)
 morphogen.io.meshes.write_periodic_pairs(path, mesh)
 morphogen.io.meshes.write_stl(path, surface, *, name='morphogen')
 morphogen.io.meshes.write_vtu_mesh(path, mesh, *, compress=True)
 morphogen.io.meshes.write_vtu_tet(path, mesh, cell_data=None, point_data=None, *, compress=True)
+morphogen.io.meshes.write_vtu_tri(path, mesh, cell_data=None, point_data=None, *, compress=True)
 morphogen.io.metaimage.read_mhd(path)
 morphogen.io.metaimage.write_mhd(path, image, *, compress=False)
 morphogen.io.mfront.ABAQUS_AXES
@@ -2929,6 +2948,7 @@ morphogen.mesh: HEX_FACES
 morphogen.mesh: ImplicitBody
 morphogen.mesh: SurfaceMesh
 morphogen.mesh: TetMesh
+morphogen.mesh: TriMesh
 morphogen.mesh: VoxelMesh
 morphogen.mesh: adaptive_mesh
 morphogen.mesh: conforming_mesh
@@ -2937,6 +2957,7 @@ morphogen.mesh: exact_mesh
 morphogen.mesh: exact_route
 morphogen.mesh: mirrored_mesh
 morphogen.mesh: mmg_executable
+morphogen.mesh: plane_mesh
 morphogen.mesh: polyhedral_mesh
 morphogen.mesh: surface_mesh
 morphogen.mesh: voxel_mesh
@@ -3041,6 +3062,44 @@ morphogen.mesh.tetra.element_volumes(nodes, elements)
 morphogen.mesh.tetra.jacobian_ratios(gradients, deviations, bary)
 morphogen.mesh.tetra.tet_quality(nodes, elements)
 morphogen.mesh.tetra.tet_volumes(nodes, elements)
+morphogen.mesh.triangles.GRADE
+morphogen.mesh.triangles.REF_INSIDE
+morphogen.mesh.triangles.REF_INTERFACE
+morphogen.mesh.triangles.REF_OUTSIDE
+morphogen.mesh.triangles.REF_PHASE
+morphogen.mesh.triangles.SIDE_REFS
+morphogen.mesh.triangles.SNAP
+morphogen.mesh.triangles.TRI6_EDGES
+morphogen.mesh.triangles.TriMesh(nodes, elements, phase, lower, upper, periodic=False, metadata=<factory>, cell=None, orientations=None, z=0.0, thickness=1.0)
+morphogen.mesh.triangles.TriMesh.areas(self)
+morphogen.mesh.triangles.TriMesh.boundary_edges(self)
+morphogen.mesh.triangles.TriMesh.box_area(self)
+morphogen.mesh.triangles.TriMesh.edges(self)
+morphogen.mesh.triangles.TriMesh.extruded(self, thickness=None, z0=None)
+morphogen.mesh.triangles.TriMesh.linear(self)
+morphogen.mesh.triangles.TriMesh.matching_sides(self)
+morphogen.mesh.triangles.TriMesh.min_angles(self)
+morphogen.mesh.triangles.TriMesh.n_elements
+morphogen.mesh.triangles.TriMesh.n_nodes
+morphogen.mesh.triangles.TriMesh.order
+morphogen.mesh.triangles.TriMesh.periodic_pairs(self, axis)
+morphogen.mesh.triangles.TriMesh.phase_fractions(self)
+morphogen.mesh.triangles.TriMesh.quadratic(self)
+morphogen.mesh.triangles.TriMesh.quality(self)
+morphogen.mesh.triangles.TriMesh.select(self, keep)
+morphogen.mesh.triangles.TriMesh.side_edges(self, axis, side)
+morphogen.mesh.triangles.TriMesh.side_nodes(self, axis, side)
+morphogen.mesh.triangles.TriMesh.size
+morphogen.mesh.triangles.TriMesh.subset(self, phases)
+morphogen.mesh.triangles.TriMesh.summary(self)
+morphogen.mesh.triangles.TriMesh.tolerance
+morphogen.mesh.triangles.background_triangulation(shape, lower, upper)
+morphogen.mesh.triangles.planar_pieces(micro)
+morphogen.mesh.triangles.planar_tessellation(micro)
+morphogen.mesh.triangles.plane_level_set(micro, spacing, z, phase=None)
+morphogen.mesh.triangles.plane_mesh(micro, *, size, **options)
+morphogen.mesh.triangles.section_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, background=None, z=None, phases='all', order=1, periodic=None, executable=None, workdir=None, timeout=None)
+morphogen.mesh.triangles.tessellation_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, phases='all', order=1, periodic=None, executable=None, workdir=None, timeout=None)
 morphogen.mesh.voxel.FACE_NAMES
 morphogen.mesh.voxel.HEX_FACES
 morphogen.mesh.voxel.VoxelMesh(nodes, elements, phase, label, node_ijk, element_ijk, grid_shape, spacing, node_sets=<factory>, metadata=<factory>)

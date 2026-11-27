@@ -34,6 +34,11 @@ Loading paths (:class:`~morphogen.homogenization.paths.LoadingPath`) follow the
 nonlinear behaviours of the phases in time: by finite elements with periodic or
 kinematic conditions (:mod:`morphogen.homogenization.nonlinear`), or by the FFT solver of
 voxel images with periodic conditions (:mod:`morphogen.homogenization.fft_nonlinear`).
+
+A triangular mesh of the plane (:class:`~morphogen.mesh.triangles.TriMesh`) is solved by
+the finite elements of the plane (:mod:`morphogen.homogenization.plane`): the apparent
+properties and tensors of its structure invariant across the plane, with periodic,
+kinematic or static conditions on its sides.
 """
 
 from __future__ import annotations
@@ -52,6 +57,7 @@ from morphogen.homogenization.fft_nonlinear import NonlinearFFTProblem
 from morphogen.homogenization.materials import TRANSPORT, Material, transport_physics
 from morphogen.homogenization.nonlinear import NonlinearFEProblem
 from morphogen.homogenization.paths import LoadingPath, PathResult
+from morphogen.homogenization.plane import PLANES, PlaneElasticProblem, PlaneThermalProblem
 from morphogen.homogenization.postprocess import anisotropy, compliance, engineering_constants
 from morphogen.homogenization.xfem import (
     LevelSetSample,
@@ -61,6 +67,7 @@ from morphogen.homogenization.xfem import (
 )
 from morphogen.image import VoxelImage
 from morphogen.mesh.tetra import TetMesh
+from morphogen.mesh.triangles import TriMesh
 from morphogen.stopping import checkpoint
 
 log = logging.getLogger("morphogen")
@@ -96,6 +103,9 @@ HARMONIC = ("dynamic_stiffness", "complex_conductivity", "refractive_index")
 #: (:mod:`morphogen.homogenization.flow`), and ``acoustic``, the parameters of the
 #: equivalent fluid of a rigid porous frame (:mod:`morphogen.homogenization.acoustics`)
 FLOW = ("hydraulic_permeability", "acoustic")
+#: The elastic properties of the finite elements of the plane (meshes of the plane), with
+#: those of the transport phenomena
+PLANE_PROPERTIES = ("bulk_modulus", "shear_modulus", "stiffness", "thermal_expansion")
 #: The physics of the problem that gives each property (``"coupled"``: the fields of a
 #: strong coupling solved together; ``"harmonic"``: a complex law at each frequency)
 PHYSICS = {
@@ -416,6 +426,7 @@ def make_problem(
     orientations=None,
     device: str = "cpu",
     integration: str | None = None,
+    plane: str | None = None,
 ):
     """Boundary-value problem of a sample for ``physics`` 'elastic', 'thermal' or another
     transport phenomenon of a scalar potential (:data:`~morphogen.homogenization.materials.
@@ -434,12 +445,33 @@ def make_problem(
     ``"bbar"``, the volume change of each element as its mean, for nearly incompressible
     phases (:mod:`morphogen.homogenization.dilatation`).
 
+    A :class:`~morphogen.mesh.triangles.TriMesh` (a mesh of the plane) is solved by the
+    finite elements of the plane (:mod:`morphogen.homogenization.plane`), with periodic,
+    kinematic or static conditions; ``plane``: ``"generalized"`` (default: the anti-plane
+    fluctuation free, the structure in space) or ``"strain"`` (plane strain) for its
+    elastic problems.
+
     Crystals (anisotropic materials) are turned by the orientation of their grain: the
     grains and orientations of a polycrystal mesh (``mesh.cell``, ``mesh.orientations``),
     or, for a voxel image, ``grains`` (image or array of grain labels, e.g.
     ``tessellation.labels(...)``) and ``orientations`` (Bunge angles of each grain).
     """
     elastic = not transport_physics(physics)
+    if plane is not None and not isinstance(sample, TriMesh):
+        raise ValueError("plane: the hypothesis of the elastic problems of a mesh of the plane")
+    if isinstance(sample, TriMesh):
+        if grains is not None or orientations is not None:
+            raise ValueError("a mesh carries its own grains and orientations (mesh.cell)")
+        _cpu_only(device)
+        if solver == "fenicsx":
+            raise ValueError("solver 'fenicsx' solves tetrahedral meshes, not those of the plane")
+        if integration is not None and integration_of(integration) != "full":
+            raise ValueError("integration 'bbar': the 10-node tetrahedra, not the triangles")
+        options = {"solver": solver, "tol": tol, "maxiter": maxiter, "physics": physics}
+        if elastic:
+            return PlaneElasticProblem(sample, materials, bc, plane=plane or "generalized",
+                                       **options)  # fmt: skip
+        return PlaneThermalProblem(sample, materials, bc, **options)
     if isinstance(sample, LevelSetSample):
         if grains is not None or orientations is not None:
             raise ValueError("XFEM: two phases without grains (no orientations)")
@@ -518,6 +550,7 @@ def homogenize(
     fracture=None,
     fluid_bulk_modulus: float | None = None,
     integration: str | None = None,
+    plane: str | None = None,
 ) -> dict[str, Apparent | Response | PathResult | dict]:
     """Apparent properties of ``sample`` for every pair (property, boundary condition).
 
@@ -626,6 +659,13 @@ def homogenize(
     tensor and the modulus of Biot and, with the bulk modulus of the fluid
     ``fluid_bulk_modulus``, its undrained response (Gassmann, Skempton).
 
+    A triangular mesh of the plane (:class:`~morphogen.mesh.triangles.TriMesh`) is solved
+    by the finite elements of the plane (:mod:`morphogen.homogenization.plane`; ``kubc``,
+    ``periodic`` and ``subc`` conditions on its sides): the elastic properties and tensors
+    (:data:`PLANE_PROPERTIES`), those of the transport phenomena and the named loadings, of
+    its structure invariant across the plane; ``plane``: ``"generalized"`` (default, the
+    anti-plane fluctuation free) or ``"strain"`` (plane strain).
+
     ``ntfa`` (voxel images): the ``paths`` are followed by a reduced model instead
     (:mod:`morphogen.homogenization.ntfa`), trained on the paths of ``ntfa["training"]``
     with ``ntfa["modes"]`` modes per plastic phase (default 6): ``"<name>.ntfa"`` ->
@@ -640,6 +680,23 @@ def homogenize(
     if unknown:
         raise ValueError(f"unknown properties {unknown}; available: {list(PHYSICS)}")
     bc_names = [boundary_condition(b) for b in bcs]
+    if plane is not None and plane not in PLANES:
+        raise ValueError(f"plane: one of {PLANES}")
+    if isinstance(sample, TriMesh):
+        allowed = set(PLANE_PROPERTIES) | {n for names in TRANSPORT_PROPERTIES.values()
+                                           for n in names}  # fmt: skip
+        other = [p for p in props if p not in allowed]
+        if other:
+            raise ValueError(f"{other}: not by the finite elements of the plane, which give "
+                             f"{sorted(allowed)}")  # fmt: skip
+        if paths or ntfa or fracture is not None or nonlinear:
+            raise ValueError("the loading paths and the nonlinear behaviours: meshes in "
+                             "space (TriMesh.extruded: tetrahedra) or images")  # fmt: skip
+        if "mixed" in bc_names:
+            raise ValueError("the problems of the plane take the conditions kubc, periodic "
+                             "and subc")  # fmt: skip
+    elif plane is not None:
+        raise ValueError("plane: the hypothesis of the elastic problems of a mesh of the plane")
     if isinstance(sample, (VoxelImage, LevelSetSample)):
         other = [b for b in bc_names if b != "periodic"]
         if other:
@@ -689,6 +746,8 @@ def homogenize(
                 extra = {}
                 if physics == "elastic" and isinstance(sample, TetMesh):
                     extra["integration"] = integration
+                if physics == "elastic" and isinstance(sample, TriMesh):
+                    extra["plane"] = plane
                 problems[physics] = make_problem(sample, materials, physics, bc, **options, **extra)
         for prop in (p for p in props if PHYSICS[p] == "coupled"):
             checkpoint()

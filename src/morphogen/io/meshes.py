@@ -4,7 +4,9 @@ and meshio.
 Voxel meshes (8-node hexahedra) and conforming tetrahedral meshes (4- or 10-node
 tetrahedra) are written with their phases (element sets, physical groups or cell data)
 and the nodes or element faces lying on the six faces of the box, or, for meshes of
-whole periodic cells, on the boundary of the cells (``outer``).
+whole periodic cells, on the boundary of the cells (``outer``); triangular meshes of the
+plane (3- or 6-node triangles) with their phases and the nodes or edges of the four sides
+of their rectangle.
 """
 
 from __future__ import annotations
@@ -19,10 +21,13 @@ from morphogen.io import medit
 from morphogen.io.vtk import write_vtu
 from morphogen.mesh.surface import SurfaceMesh
 from morphogen.mesh.tetra import TetMesh
+from morphogen.mesh.triangles import TriMesh
 from morphogen.mesh.voxel import FACE_NAMES, VoxelMesh
 
 #: Physical tags of the box faces in Gmsh files (``outer``: boundary of whole cells).
 FACE_TAGS = {**{name: 101 + i for i, name in enumerate(FACE_NAMES)}, "outer": 107}
+#: Physical tags of the sides of the rectangle in the Gmsh files of triangular meshes.
+SIDE_TAGS = {"x0": 101, "x1": 102, "y0": 103, "y1": 104}
 
 
 def _write_rows(f, rows: np.ndarray, fmt: str) -> None:
@@ -170,7 +175,7 @@ def write_vtu_mesh(path, mesh: VoxelMesh, *, compress: bool = True):
     return write_vtu(path, mesh.nodes, mesh.elements, 12, data, compress=compress)
 
 
-def write_periodic_pairs(path, mesh: VoxelMesh | TetMesh) -> Path:
+def write_periodic_pairs(path, mesh: VoxelMesh | TetMesh | TriMesh) -> Path:
     """CSV of facing nodes on opposite faces (1-based ids, as in .inp and .msh files).
     Meshes of whole periodic cells: each node of their boundary that is a translate of
     another, that node and the periods between them (``x_node = x_image + shift * edges``).
@@ -185,7 +190,7 @@ def write_periodic_pairs(path, mesh: VoxelMesh | TetMesh) -> Path:
         return path
     with open(path, "w", encoding="ascii", newline="\n") as f:
         f.write("axis,node_lower,node_upper\n")
-        for axis, name in enumerate("xyz"):
+        for axis, name in enumerate("xy" if isinstance(mesh, TriMesh) else "xyz"):
             pairs = mesh.periodic_pairs(axis) + 1
             for a, b in pairs:
                 f.write(f"{name},{a},{b}\n")
@@ -788,6 +793,279 @@ def read_tet_mesh(path, *, box=None, periodic: bool | None = None) -> TetMesh:
     )
 
 
+# ----------------------------------------------------------------------------------------
+# Triangular meshes of the plane
+
+
+def _tri_sides(mesh: TriMesh) -> dict[str, np.ndarray]:
+    return {f"{'xy'[axis]}{side}": mesh.side_edges(axis, side)
+            for axis in (0, 1) for side in (0, 1)}  # fmt: skip
+
+
+def _tri_box_fields(mesh: TriMesh) -> dict:
+    return {
+        "box_lower": mesh.lower,
+        "box_upper": mesh.upper,
+        "periodic": np.array([int(mesh.periodic)], dtype=np.int32),
+        "plane_z": np.array([mesh.z]),
+        "thickness": np.array([mesh.thickness]),
+    }
+
+
+def _tri_comment(mesh: TriMesh) -> str:
+    box = " ".join(f"{v:.17g}" for v in (*mesh.lower, *mesh.upper))
+    return (f"morphogen plane box {box} periodic {int(mesh.periodic)} z {mesh.z:.17g} "
+            f"thickness {mesh.thickness:.17g}")  # fmt: skip
+
+
+def _plane_materials(mesh: TriMesh, materials: dict, plane: str):
+    """The materials of a triangular mesh for Abaqus: the lines of their definitions and
+    the sections, (element set, material): one per phase, or one per grain of the oriented
+    phases (``CELL_<id>``: their stiffness turned into the axes of the box, as plane
+    elements take no orientation out of their plane)."""
+    from morphogen.homogenization.materials import material_table
+
+    lines: list[str] = []
+    sections: list[tuple[str, str]] = []
+    for p, m in sorted(materials.items()):
+        p = int(p)
+        if isinstance(m, str):
+            sections.append((f"PHASE_{p}", m))
+            continue
+        if m.void:
+            lines.append(f"** phase {p}: void, no material and no section\n")
+            continue
+        if m.nonlinear or m.mfront is not None:
+            raise ValueError(f"phase {p}: the plane elements are written with elastic "
+                             "materials (nonlinear ones: an extruded mesh in space)")  # fmt: skip
+        if not m.elastic:
+            raise ValueError(f"phase {p}: the material has no elastic parameters")
+        if m.stiffness is None:
+            lines += [f"*MATERIAL, NAME=PHASE_{p}\n", "*ELASTIC\n", _numbers((m.young, m.poisson))]
+            if m.expands:
+                if isinstance(m.expansion, tuple):
+                    raise ValueError(f"phase {p}: an isotropic material expands alike")
+                lines += ["*EXPANSION\n", _numbers([m.expansion])]
+            if m.density:
+                lines += ["*DENSITY\n", _numbers([m.density])]
+            sections.append((f"PHASE_{p}", f"PHASE_{p}"))
+            continue
+        if plane == "stress":
+            raise ValueError(f"phase {p}: Abaqus's plane stress elements take no anisotropic "
+                             "elasticity; plane strain, or an extruded mesh")  # fmt: skip
+        if m.expands:
+            raise ValueError(f"phase {p}: the expansion of crystals in the plane elements "
+                             "(their axes turned); an extruded mesh in space")  # fmt: skip
+        sel = np.flatnonzero(mesh.phase == p)
+        grains = None if mesh.cell is None else mesh.cell[sel]
+        table = material_table(np.full(len(sel), p), {p: m}, "elastic", grains=grains,
+                               orientations=mesh.orientations)  # fmt: skip
+        for k, matrix in enumerate(table.matrices):
+            name = f"PHASE_{p}"
+            if len(table.matrices) > 1:  # one per grain
+                name = f"CELL_{int(grains[table.mat == k][0])}"
+            lines += [f"*MATERIAL, NAME={name}\n", "*ELASTIC, TYPE=ANISOTROPIC\n",
+                      _numbers(abaqus_anisotropic(matrix))]  # fmt: skip
+            if m.density:
+                lines += ["*DENSITY\n", _numbers([m.density])]
+            sections.append((name, name))
+    return lines, sections
+
+
+def write_inp_tri(path, mesh: TriMesh, *, materials: dict | None = None,
+                  plane: str = "strain") -> Path:  # fmt: skip
+    """Abaqus / CalculiX input file of a triangular mesh of the plane: elements CPE3 or
+    CPE6 in plane strain (``plane``), CPS3 or CPS6 in plane stress, the nodes in the plane.
+
+    Element sets ``PHASE_<p>`` (and ``CELL_<id>`` for the grains of polycrystals), node
+    sets ``X0, X1, Y0, Y1`` (the sides). ``materials`` writes the solid sections, of the
+    thickness of the mesh: phase -> the name of a material defined elsewhere, or phase ->
+    an elastic :class:`~morphogen.homogenization.Material` defined in the file
+    (``*ELASTIC``, ``*EXPANSION``, ``*DENSITY``; the crystals of a polycrystal one per
+    grain, their stiffness turned into the axes of the box, ``TYPE=ANISOTROPIC``, in plane
+    strain).
+    """
+    path = Path(path)
+    if plane not in ("strain", "stress"):
+        raise ValueError("plane: 'strain' or 'stress'")
+    etype = {("strain", 1): "CPE3", ("strain", 2): "CPE6", ("stress", 1): "CPS3",
+             ("stress", 2): "CPS6"}[(plane, mesh.order)]  # fmt: skip
+    nn = mesh.elements.shape[1]
+    phases = np.unique(mesh.phase)
+    lines, sections = _plane_materials(mesh, _present(materials, phases), plane)
+    order = np.concatenate([np.flatnonzero(mesh.phase == p) for p in phases])
+    numbers = np.empty(mesh.n_elements, dtype=np.int64)
+    numbers[order] = np.arange(1, mesh.n_elements + 1)
+    with open(path, "w", encoding="ascii", newline="\n") as f:
+        f.write("*HEADING\n")
+        f.write(f"morphoGen {__version__} mesh of the plane: {mesh.n_elements} {etype} "
+                f"elements, thickness {mesh.thickness:.12g}\n")  # fmt: skip
+        f.write("*NODE\n")
+        ids = np.arange(1, mesh.n_nodes + 1)
+        _write_rows(f, np.column_stack([ids, mesh.nodes]), "%d, %.12g, %.12g")
+        for p in phases:
+            sel = np.flatnonzero(mesh.phase == p)
+            f.write(f"*ELEMENT, TYPE={etype}, ELSET=PHASE_{p}\n")
+            rows = np.column_stack([numbers[sel], mesh.elements[sel] + 1])
+            _write_rows(f, rows, ", ".join(["%d"] * (nn + 1)))
+        if mesh.cell is not None:
+            for c in np.unique(mesh.cell):
+                f.write(f"*ELSET, ELSET=CELL_{c}\n")
+                _write_id_list(f, np.sort(numbers[mesh.cell == c]))
+        for name, edges in _tri_sides(mesh).items():
+            nodes = np.unique(edges)
+            if len(nodes):
+                f.write(f"*NSET, NSET={name.upper()}\n")
+                _write_id_list(f, nodes + 1)
+        f.writelines(lines)
+        for elset, material in sections:
+            f.write(f"*SOLID SECTION, ELSET={elset}, MATERIAL={material}\n"
+                    f"{mesh.thickness:.12g},\n")  # fmt: skip
+    return path
+
+
+def write_msh_tri(path, mesh: TriMesh, *, boundary: bool = True) -> Path:
+    """Gmsh 2.2 ASCII file of a triangular mesh (element types 2 and 9), the nodes at the
+    height ``z`` of its plane.
+
+    Physical surfaces ``phase_<p>`` have tag p + 1; the elementary tag is the grain + 1 for
+    polycrystals; physical lines ``x0, x1, y0, y1`` (tags 101-104) hold the edges (2- or
+    3-node lines) of the sides.
+    """
+    path = Path(path)
+    tri_type, line_type = (2, 1) if mesh.order == 1 else (9, 8)
+    sides = {k: v for k, v in _tri_sides(mesh).items() if len(v)} if boundary else {}
+    phases = np.unique(mesh.phase)
+    with open(path, "w", encoding="ascii", newline="\n") as f:
+        f.write("$MeshFormat\n2.2 0 8\n$EndMeshFormat\n$PhysicalNames\n")
+        f.write(f"{len(phases) + len(sides)}\n")
+        for p in phases:
+            f.write(f'2 {p + 1} "phase_{p}"\n')
+        for name in sides:
+            f.write(f'1 {SIDE_TAGS[name]} "{name}"\n')
+        f.write("$EndPhysicalNames\n$Nodes\n")
+        f.write(f"{mesh.n_nodes}\n")
+        rows = np.column_stack([np.arange(1, mesh.n_nodes + 1), mesh.nodes,
+                                np.full(mesh.n_nodes, mesh.z)])  # fmt: skip
+        _write_rows(f, rows, "%d %.12g %.12g %.12g")
+        f.write("$EndNodes\n$Elements\n")
+        f.write(f"{mesh.n_elements + sum(len(v) for v in sides.values())}\n")
+        eid = 1
+        for name, edges in sides.items():
+            tag = SIDE_TAGS[name]
+            rows = np.column_stack([np.arange(eid, eid + len(edges)),
+                                    np.full((len(edges), 4), [line_type, 2, tag, tag]),
+                                    edges + 1])  # fmt: skip
+            _write_rows(f, rows, " ".join(["%d"] * rows.shape[1]))
+            eid += len(edges)
+        geom = (mesh.cell if mesh.cell is not None else mesh.phase) + 1
+        rows = np.column_stack([np.arange(eid, eid + mesh.n_elements),
+                                np.full(mesh.n_elements, tri_type), np.full(mesh.n_elements, 2),
+                                mesh.phase + 1, geom, mesh.elements + 1])  # fmt: skip
+        _write_rows(f, rows, " ".join(["%d"] * rows.shape[1]))
+        f.write("$EndElements\n")
+    return path
+
+
+def write_vtu_tri(path, mesh: TriMesh, cell_data: dict | None = None,
+                  point_data: dict | None = None, *, compress: bool = True) -> Path:  # fmt: skip
+    """VTK unstructured grid of a triangular mesh (cell types 5 and 22), the nodes at the
+    height ``z`` of its plane, with its phases, the grains of polycrystals (``cell``) and
+    their orientations (``euler``: Bunge angles in degrees), and optional fields."""
+    data = {"phase": mesh.phase.astype(np.int32)}
+    if mesh.cell is not None:
+        data["cell"] = mesh.cell.astype(np.int32)
+        if mesh.orientations is not None:
+            data["euler"] = mesh.orientations[mesh.cell]
+    data.update(cell_data or {})
+    points = np.column_stack([mesh.nodes, np.full(mesh.n_nodes, mesh.z)])
+    return write_vtu(path, points, mesh.elements, 5 if mesh.order == 1 else 22, data,
+                     point_data=point_data, field_data=_tri_box_fields(mesh),
+                     compress=compress)  # fmt: skip
+
+
+def write_medit_tri(path, mesh: TriMesh) -> Path:
+    """Medit file of the plane (``Dimension 2``, MMG): triangles with reference phase + 1,
+    or grain + 1 for polycrystals (the phase of each grain then given in a comment),
+    corners only for 6-node meshes; the edges of the sides with references 1-4 (x0, x1,
+    y0, y1)."""
+    lin = mesh.linear()
+    sides = _tri_sides(lin)
+    edges = np.concatenate([e[:, :2] for e in sides.values()])
+    refs = np.concatenate([np.full(len(e), 1 + k) for k, e in enumerate(sides.values())])
+    comments = [_tri_comment(mesh)]
+    if lin.cell is not None:
+        cell_phase = np.full(int(lin.cell.max(initial=-1)) + 1, -1, dtype=np.int64)
+        cell_phase[lin.cell] = lin.phase
+        comments.append("morphogen references cell phases " + " ".join(map(str, cell_phase)))
+    return medit.write_mesh(path, lin.nodes, None, lin.elements, edges=edges,
+                            tri_refs=(lin.cell if lin.cell is not None else lin.phase) + 1,
+                            edge_refs=refs, comments=comments)  # fmt: skip
+
+
+def read_tri_mesh(path, *, box=None, periodic: bool | None = None) -> TriMesh:
+    """Triangular mesh written by morphoGen: ``.vtu`` (cell types 5 or 22 and a ``phase``
+    cell array; ``cell`` and ``euler`` for polycrystals) or Medit ``.mesh`` of dimension 2
+    (triangle references = phase + 1, or grain + 1 for polycrystals). The rectangle
+    (``(lower, upper)``), the periodicity, the height of the plane and the thickness are
+    read from the file when it records them (files written by morphoGen do); otherwise the
+    rectangle is the bounding box of the nodes."""
+    from morphogen.io.vtk import read_vtu
+
+    path = Path(path)
+    ext = path.suffix.lower()
+    stored_box, stored_periodic, z, thickness = None, False, 0.0, 1.0
+    cell = orientations = None
+    if ext == ".vtu":
+        data = read_vtu(path)
+        types = np.unique(data["types"])
+        if not set(types.tolist()) <= {5, 22} or len(types) != 1:
+            raise ValueError(f"{path}: expected only 3-node or only 6-node triangles")
+        points, elements = np.asarray(data["points"], dtype=float), data["cells"]
+        nodes = points[:, :2]
+        phase = data["cell_data"].get("phase", np.zeros(len(elements)))
+        if "cell" in data["cell_data"]:
+            cell = np.asarray(data["cell_data"]["cell"], dtype=np.int64)
+            euler = data["cell_data"].get("euler")
+            if euler is not None and cell.size:
+                orientations = np.zeros((int(cell.max()) + 1, 3))
+                orientations[cell] = np.asarray(euler, dtype=float).reshape(-1, 3)
+        fields = data.get("field_data", {})
+        if "box_lower" in fields and "box_upper" in fields:
+            stored_box = (fields["box_lower"][:2], fields["box_upper"][:2])
+        stored_periodic = bool(fields.get("periodic", [0])[0])
+        z = float(fields.get("plane_z", [points[:, 2].mean() if len(points) else 0.0])[0])
+        thickness = float(fields.get("thickness", [1.0])[0])
+    elif ext == ".mesh":
+        data = medit.read_mesh(path)
+        if "Triangles" not in data or data["Vertices"].shape[1] != 2:
+            raise ValueError(f"{path}: no triangles of the plane (Dimension 2)")
+        nodes, elements = data["Vertices"], data["Triangles"]
+        phase = data["Triangles_refs"] - 1
+        for line in data.get("comments", []):
+            words = line.split()
+            if words[:3] == ["morphogen", "plane", "box"] and len(words) >= 13:
+                values = [float(w) for w in words[3:7]]
+                stored_box = (values[:2], values[2:])
+                stored_periodic = bool(int(words[8]))
+                z, thickness = float(words[10]), float(words[12])
+            elif words[:4] == ["morphogen", "references", "cell", "phases"]:
+                cell_phase = np.array([int(w) for w in words[4:]], dtype=np.int64)
+                cell = phase
+                phase = cell_phase[cell]
+    else:
+        raise ValueError(f"{path}: triangular meshes are read from .vtu or .mesh files")
+    used, inverse = np.unique(elements, return_inverse=True)
+    nodes = np.asarray(nodes, dtype=float)[used]
+    if box is None:
+        box = stored_box if stored_box is not None else (nodes.min(axis=0), nodes.max(axis=0))
+    return TriMesh(nodes, inverse.reshape(np.shape(elements)), np.asarray(phase, dtype=np.int64),
+                   np.asarray(box[0], dtype=float), np.asarray(box[1], dtype=float),
+                   stored_periodic if periodic is None else bool(periodic),
+                   {"source": str(path)}, cell=cell, orientations=orientations, z=z,
+                   thickness=thickness)  # fmt: skip
+
+
 def write_stl(path, surface: SurfaceMesh, *, name: str = "morphogen") -> Path:
     """Binary STL."""
     path = Path(path)
@@ -815,7 +1093,7 @@ def read_stl(path) -> SurfaceMesh:
     return SurfaceMesh(verts, np.arange(3 * n).reshape(n, 3))
 
 
-def write_meshio(path, mesh: VoxelMesh | TetMesh | SurfaceMesh) -> Path:
+def write_meshio(path, mesh: VoxelMesh | TetMesh | TriMesh | SurfaceMesh) -> Path:
     """Any other format supported by the optional ``meshio`` package."""
     try:
         import meshio
@@ -825,6 +1103,15 @@ def write_meshio(path, mesh: VoxelMesh | TetMesh | SurfaceMesh) -> Path:
         ) from None
     if isinstance(mesh, SurfaceMesh):
         m = meshio.Mesh(mesh.vertices, [("triangle", mesh.faces)])
+    elif isinstance(mesh, TriMesh):
+        kind = "triangle" if mesh.order == 1 else "triangle6"
+        data = {"phase": [mesh.phase]}
+        if mesh.cell is not None:
+            data["cell"] = [mesh.cell]
+            if mesh.orientations is not None:
+                data["euler"] = [mesh.orientations[mesh.cell]]
+        points = np.column_stack([mesh.nodes, np.full(mesh.n_nodes, mesh.z)])
+        m = meshio.Mesh(points, [(kind, mesh.elements)], cell_data=data)
     elif isinstance(mesh, TetMesh):
         kind = "tetra" if mesh.order == 1 else "tetra10"
         data = {"phase": [mesh.phase]}

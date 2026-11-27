@@ -5,9 +5,11 @@ Images         ``.vti`` (VTK XML), ``.vtk`` (legacy VTK), ``.mhd`` (MetaImage),
                ``.xdmf`` (XDMF with raw binary data), ``.npz`` (NumPy, round-trips
                metadata), ``.npy``, ``.tif`` (tifffile)
 Meshes         ``.inp`` (Abaqus/CalculiX), ``.msh`` (Gmsh 2.2), ``.vtu``, ``.stl``,
-               ``.mesh`` (Medit, tetrahedra), ``.xdmf`` (tetrahedra with their cell
-               and facet tags for FEniCSx), ``.mail`` (Code_Aster, tetrahedra with
-               their groups), other extensions through meshio
+               ``.mesh`` (Medit, tetrahedra and triangles of the plane), ``.xdmf``
+               (tetrahedra with their cell and facet tags for FEniCSx), ``.mail``
+               (Code_Aster, tetrahedra with their groups), other extensions through
+               meshio; the triangles of the plane as plane elements (CPE3, CPE6,
+               CPS3, CPS6 in Abaqus)
 Geometries     ``.json`` (full description), ``.csv`` (tables), ``.geo`` (Gmsh script)
 Solvers        periodic equations (Abaqus/CalculiX), DAMASK grids and materials, Neper
                seeds (:mod:`morphogen.io.solvers`); the runs of AMITEX_FFTP and their
@@ -63,16 +65,21 @@ from morphogen.io.meshes import (
     read_msh,
     read_stl,
     read_tet_mesh,
+    read_tri_mesh,
     write_inp,
     write_inp_tet,
+    write_inp_tri,
     write_medit_tet,
+    write_medit_tri,
     write_meshio,
     write_msh,
     write_msh_tet,
+    write_msh_tri,
     write_periodic_pairs,
     write_stl,
     write_vtu_mesh,
     write_vtu_tet,
+    write_vtu_tri,
 )
 from morphogen.io.metaimage import read_mhd, write_mhd
 from morphogen.io.mfront import mfront_source, write_mfront
@@ -107,6 +114,7 @@ from morphogen.io.vtk import (
 from morphogen.io.xdmf import read_xdmf, voxelize_to_file, write_xdmf
 from morphogen.mesh.surface import SurfaceMesh
 from morphogen.mesh.tetra import TetMesh
+from morphogen.mesh.triangles import TriMesh
 from morphogen.mesh.voxel import VoxelMesh
 from morphogen.models.base import Microstructure
 
@@ -161,12 +169,19 @@ def load_image(path, name: str | None = None) -> VoxelImage:
 
 def save_mesh(mesh, path, **options) -> Path:
     """A mesh written to a file whose extension gives the format: a surface mesh as .stl, a
-    tetrahedral mesh as .inp, .msh, .vtu, .mesh, .xdmf (FEniCSx) or .mail (Code_Aster), a voxel
-    mesh as .inp, .msh or .vtu, and any of them in the other formats of meshio."""
+    tetrahedral mesh as .inp, .msh, .vtu, .mesh, .xdmf (FEniCSx) or .mail (Code_Aster), a
+    triangular mesh of the plane as .inp, .msh, .vtu or .mesh, a voxel mesh as .inp, .msh or
+    .vtu, and any of them in the other formats of meshio."""
     ext = _ext(path)
     if isinstance(mesh, SurfaceMesh):
         if ext == "stl":
             return write_stl(path, mesh, **options)
+        return write_meshio(path, mesh)
+    if isinstance(mesh, TriMesh):
+        writers = {"inp": write_inp_tri, "msh": write_msh_tri, "vtu": write_vtu_tri,
+                   "mesh": write_medit_tri}  # fmt: skip
+        if ext in writers:
+            return writers[ext](path, mesh, **options)
         return write_meshio(path, mesh)
     if isinstance(mesh, TetMesh):
         writers = {
@@ -181,7 +196,7 @@ def save_mesh(mesh, path, **options) -> Path:
             return writers[ext](path, mesh, **options)
         return write_meshio(path, mesh)
     if not isinstance(mesh, VoxelMesh):
-        raise TypeError("save_mesh expects a VoxelMesh, a TetMesh or a SurfaceMesh")
+        raise TypeError("save_mesh expects a VoxelMesh, a TetMesh, a TriMesh or a SurfaceMesh")
     writers = {"inp": write_inp, "msh": write_msh, "vtu": write_vtu_mesh}
     if ext in writers:
         return writers[ext](path, mesh, **options)
@@ -241,6 +256,7 @@ __all__ = [
     "read_table",
     "read_tet_mesh",
     "read_tiff",
+    "read_tri_mesh",
     "read_vti",
     "read_vtk",
     "read_vtk_grid",
@@ -264,12 +280,15 @@ __all__ = [
     "write_geo",
     "write_inp",
     "write_inp_tet",
+    "write_inp_tri",
     "write_json",
     "write_medit_tet",
+    "write_medit_tri",
     "write_mfront",
     "write_mhd",
     "write_msh",
     "write_msh_tet",
+    "write_msh_tri",
     "write_neper",
     "write_npy",
     "write_npz",
@@ -287,5 +306,6 @@ __all__ = [
     "write_vtk",
     "write_vtu",
     "write_vtu_tet",
+    "write_vtu_tri",
     "write_xdmf",
 ]

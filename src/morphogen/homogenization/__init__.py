@@ -7,7 +7,9 @@ Two solvers, chosen by the representation of the sample:
   mixed, periodic or static (``subc``) boundary conditions;
 * an FFT-preconditioned solver on voxel images, with periodic conditions;
 * extended finite elements on a regular grid cut by the level set of the morphology
-  (:mod:`morphogen.homogenization.xfem`), with periodic conditions: no mesher, no stairs.
+  (:mod:`morphogen.homogenization.xfem`), with periodic conditions: no mesher, no stairs;
+* finite elements of the plane on triangular meshes of the structures invariant across it
+  (:mod:`morphogen.homogenization.plane`), with kinematic, periodic or static conditions.
 
 All solve linear elasticity (with thermal expansion) and the transport phenomena of a
 scalar potential: heat and electrical conduction, dielectrics, magnetostatics and
@@ -119,6 +121,7 @@ from morphogen.homogenization.nonlinear import KINEMATICS, NonlinearFEProblem, s
 from morphogen.homogenization.ntfa import NTFAModel, train_ntfa
 from morphogen.homogenization.paths import LoadingPath, PathResult
 from morphogen.homogenization.photonic import electromagnetic_band_structure
+from morphogen.homogenization.plane import PlaneElasticProblem, PlaneThermalProblem
 from morphogen.homogenization.poroelastic import poroelastic_tensors, swelling_tensor
 from morphogen.homogenization.xfem import (
     LevelSetSample,
@@ -162,6 +165,8 @@ __all__ = [
     "PathBifurcation",
     "PathResult",
     "PhaseStatistics",
+    "PlaneElasticProblem",
+    "PlaneThermalProblem",
     "Plasticity",
     "Response",
     "Sines",
