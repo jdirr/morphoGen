@@ -15,5 +15,8 @@
 :mod:`.alloys`           the phases of an alloy from a tool of alloy design (CALPHAD, KWN:
                          Leil-Mat, Thermo-Calc, pycalphad) as the microstructures of its scales,
                          their effective elasticity against the moduli it predicts
+:mod:`.vimseo`           the computations of morphoGen as models of VIMSEO (IRT Saint Exupéry):
+                         the verification of the code against closed forms and of the solutions
+                         against their discretization, validation, uncertainties, calibration
 =======================  ===========================================================================
 """

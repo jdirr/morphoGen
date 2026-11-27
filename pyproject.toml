@@ -69,6 +69,10 @@ desktop = ["pywebview>=5.0", "pywebview[qt]>=5.0; sys_platform == 'linux'"]
 # The FFT solvers on NVIDIA GPUs (morphogen.gpu): CuPy, the CUDA runtime, NVRTC and cuFFT
 # (no CUDA toolkit needed; drivers of CUDA 13 or later, cupy-cuda12x otherwise).
 gpu = ["cupy-cuda13x>=14", "cuda-toolkit[cudart,nvrtc,cufft]==13.*"]
+# VIMSEO (IRT Saint Exupéry): the demonstration of the credibility of the simulations,
+# their verification, validation and uncertainties (morphogen.interop.vimseo); VIMSEO runs
+# on Python 3.10 to 3.12.
+vimseo = ["vimseo>=0.1.7; python_version < '3.13'"]
 # scikit-fem: independent finite element reference in the tests; pytest-xdist runs them
 # in parallel (`-n auto`).
 test = ["pytest>=8.0", "pytest-xdist>=3.6", "scikit-fem>=10"]

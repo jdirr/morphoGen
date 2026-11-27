@@ -50,6 +50,7 @@ requirements:
     - imageio-ffmpeg >=0.4  # video
     - pywebview >=5.0  # desktop (the stand-alone application)
     - cupy >=14  # gpu (cupy-cuda13x on PyPI; conda-forge's brings its CUDA libraries)
+    - vimseo >=0.1.7  # vimseo (Python 3.10 to 3.12; from PyPI)
 
 tests:
   - python:
@@ -71,6 +72,7 @@ tests:
         - morphogen.mesh
         - morphogen.micromorphic
         - morphogen.models
+        - morphogen.morphology
         - morphogen.optimization
         - morphogen.rve
         - morphogen.viz

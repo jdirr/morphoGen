@@ -2038,6 +2038,20 @@ morphogen.interop.microgen.from_microgen(shape, domain, *, description=None)
 morphogen.interop.microgen.from_pyvista(grid, *, phase='phase', periodic=False)
 morphogen.interop.microgen.to_microgen(micro, phase=1, *, reach=None, shape=64)
 morphogen.interop.microgen.to_pyvista(mesh)
+morphogen.interop.vimseo.DENSITIES
+morphogen.interop.vimseo.PREFIX
+morphogen.interop.vimseo.SCALARS
+morphogen.interop.vimseo.Simulation(name, function, inputs, outputs, integers=(), bounds=<factory>)
+morphogen.interop.vimseo.code_verification(vimseo_model, references, *, output_names=None, metric_names=None, working_directory=None)
+morphogen.interop.vimseo.configuration(config, inputs, outputs=None, *, name='morphogen', base_dir=None)
+morphogen.interop.vimseo.dataset(inputs, outputs)
+morphogen.interop.vimseo.discipline(simulation)
+morphogen.interop.vimseo.exact_morphology(model_config, size, *, inputs=None, name='exact_morphology')
+morphogen.interop.vimseo.get_entry(data, path)
+morphogen.interop.vimseo.model(simulation, **options)
+morphogen.interop.vimseo.set_entry(data, path, value)
+morphogen.interop.vimseo.solution_verification(vimseo_model, size, sizes, output, *, working_directory=None)
+morphogen.interop.vimseo.theory_of(model_config, points)
 morphogen.io: GEOMETRY_FORMATS
 morphogen.io: IMAGE_FORMATS
 morphogen.io: MESH_FORMATS
