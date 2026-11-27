@@ -46,7 +46,7 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | `cross_linked_fibers` | Entangled cross-linked fibres (Mezeix et al. 2009; Chatti et al. 2018, 2020): straight fibres, infinite on Poisson lines or finite, isotropic or in the Gaussian girdle of moulded fibres, bonded by cross-links (phase 2) at a fraction of their contacts, with the exact mean spacing of the contacts and cross-links |
 | `delaunay_network` | Fibre networks on the edges of the periodic Delaunay triangulation of Poisson or hard-core points (Ban et al. 2016), in space or in a plane, cross-linked at every node (15.5 fibres per node in space, 6 in a plane), with the stiffness of their frame of beams |
 | `random_laminate` | Layers of random thicknesses with holes through the thin layers (nanolayered films, Bironeau et al. 2016) |
-| `woven_textile` | Woven composites: warp and weft tows of elliptic, lenticular or power-ellipse sections along crimped paths, 2D weaves (plain, twill, satin, basket) in plies and 3D weaves (orthogonal, layer-to-layer and through-thickness angle interlocks); the tows a partition of their union, each segment with the orientation of its material for anisotropic tows, meshed from their exact geometry for the finite elements, each element turned with its tow; nominal fractions, crimps and thickness in closed form |
+| `woven_textile` | Woven composites: warp and weft tows of elliptic, lenticular or power-ellipse sections along crimped paths, 2D weaves (plain, twill, satin, basket) in plies and 3D weaves (orthogonal, layer-to-layer and through-thickness angle interlocks) of any binding depth, with or without stuffer warps; the variability of the tows along their paths (their centrelines, widths and thicknesses, as measured by tomography), periodic, correlated between neighbours; the tows a partition of their union, each segment with the orientation of its material for anisotropic tows, the tows from their fibres and matrix (composite cylinders), meshed from their exact geometry for the finite elements, each element turned with its tow; nominal fractions, crimps and thickness in closed form |
 
 ### Tessellations and polycrystals
 
@@ -230,6 +230,63 @@ bone = mg.models.OpenFoam(n_cells=64, volume_fraction=0.15, relaxation=10, aniso
 cortical = mg.models.Osteons(radius=100.0, coverage=0.65, cement_thickness=4.0)
 tree = mg.models.BranchingNetwork(n_attractors=3000, step=0.02, murray_exponent=3.0)
 print(cortical.theory())  # exact fractions of the four phases (dead leaves)
+```
+
+## Woven textiles
+
+`woven_textile` sweeps the sections of the tows along the crimped paths of their weave
+([theory notes](theory.md) §96, §110): 2D weaves (`plain`, `twill`, `satin`, `basket`) in
+plies, and 3D weaves of straight warp layers between straight weft layers tied by binders.
+The binding depth of a 3D weave, `binder_depth`, is the number of weft layers that a binder
+ties together (Boussu, Cristian & Nauman 2015): through the thickness by default for
+`orthogonal` (`layers + 1`), 2 for `layer_to_layer`; an orthogonal weave of shallower
+binders sends the binders of the columns in turn between the layers, an angle interlock of
+depth `D` has `layers + 2 - D` binders per column. `stuffers: false` leaves out the
+straight warps of the angle interlocks: the binders, of the sizes of the warps by default,
+are then the only warp yarns.
+
+The tows of real fabrics wander about their idealized paths, and their sections change
+along them (Vanaerschot et al. 2013, from the tomography of a twill laminate):
+
+```python
+import morphogen as mg
+
+model = mg.models.WovenTextile(
+    weave="twill", warp_spacing=2.0, yarn_width=1.6, yarn_thickness=0.3,
+    deviation_in_plane=0.05,      # mm, the standard deviation of the centrelines across the tows
+    deviation_through=0.02,       # through the thickness
+    width_variation=0.08,         # coefficients of variation of the widths and thicknesses
+    thickness_variation=0.1,
+    size_correlation=-0.5,        # a tow pressed flatter is wider
+    correlation_length=[3.0, 2.0],  # mm, along the tows: the centrelines, the sections
+    neighbour_correlation=0.6,    # neighbouring tows of a ply wander together
+)
+micro = model.generate(mg.Domain(size=(16.0, 16.0, 1.0), periodic=True), seed=1)
+print(micro.summary()["deviation_in_plane"], micro.summary()["interpenetration"])
+```
+
+Each quantity is a stationary Gaussian process along the direction of the tows (the
+position of the slices of a tomography), of a gaussian covariance (smooth paths) or an
+exponential one (`variation_covariance`), periodic over the box so that the tows close on
+themselves across its faces; the sizes are lognormal, of the mean of their tow. The
+deviations move the nodes of the centrelines, the frames of the sections turn with them,
+and the half sizes vary linearly between the nodes, in the point-wise functions of the
+phases from which the textile is meshed. The summary gives the deviations, the
+coefficients of variation and the correlation realized; the theory, the fractions of the
+mean varying sections along the lengthened paths. A tow, aligned fibres in the matrix,
+can be given by its constituents and the fibre fraction in the tows, the transversely
+isotropic material of the composite cylinder assemblage, turned along the paths like any
+tow (`morphogen.homogenization.unidirectional`):
+
+```yaml
+homogenization:
+  materials:
+    0: {young: 3.5, poisson: 0.35}            # epoxy (GPa)
+    1:
+      unidirectional:
+        fibre: {hexagonal: [18.08, 6.54, 4.97, 232.05, 15.0]}  # carbon: E_L 230, E_T 16 GPa
+        matrix: {young: 3.5, poisson: 0.35}
+        fibre_fraction: 0.6
 ```
 
 ## Scale-rich networks

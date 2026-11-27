@@ -814,9 +814,42 @@ class Material:
         material file of Z-mat (its path, or a
         mapping ``file``, ``behaviour``, ``name``, ``native``, ``porosity``:
         :func:`~morphogen.homogenization.zmat.zmat_material`), with a ``conductivity`` and a
-        ``density``."""
+        ``density``; or ``unidirectional``, aligned fibres in a matrix (the tows of woven
+        textiles): a mapping ``fibre``, ``matrix`` (two materials), ``fibre_fraction`` and
+        ``transverse_shear`` (``gscs``, ``lower`` or ``upper``), the transversely
+        isotropic material of the composite cylinder assemblage, its axis 3 along the
+        fibres (:func:`~morphogen.homogenization.unidirectional.composite_cylinders`), with
+        a ``density``."""
         if isinstance(spec, Material):
             return spec
+        if isinstance(spec, dict) and "unidirectional" in spec:
+            import dataclasses
+
+            from morphogen.homogenization.unidirectional import composite_cylinders
+
+            extra = sorted(set(spec) - {"unidirectional", "density"})
+            if extra:
+                raise ValueError(
+                    f"unidirectional: the other keys of the material are {extra}; allowed "
+                    "beside it: density"
+                )
+            options = spec["unidirectional"]
+            needed = {"fibre", "matrix", "fibre_fraction"}
+            if (not isinstance(options, dict) or not needed <= set(options)
+                    or set(options) - needed - {"transverse_shear"}):  # fmt: skip
+                raise ValueError(
+                    "unidirectional: a mapping of fibre, matrix, fibre_fraction (and "
+                    "transverse_shear: gscs, lower or upper)"
+                )
+            tow = composite_cylinders(
+                cls.from_config(options["fibre"]),
+                cls.from_config(options["matrix"]),
+                float(options["fibre_fraction"]),
+                transverse_shear=str(options.get("transverse_shear", "gscs")),
+            ).material()
+            if "density" in spec:
+                tow = dataclasses.replace(tow, density=float(spec["density"]))
+            return tow
         if isinstance(spec, dict) and "zmat" in spec:
             import dataclasses
 

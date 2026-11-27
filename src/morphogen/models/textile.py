@@ -31,7 +31,22 @@ weft yarns.
   the gaps between the wefts; ``layer_to_layer`` angle interlock, a binder for each warp
   layer, over a weft of its layer and under one of the layer below; ``through_thickness``
   angle interlock, a binder that goes down one layer at each weft column, from the top to
-  the bottom and back.
+  the bottom and back. The binding depth (``binder_depth``; Boussu, Cristian & Nauman
+  2015) is the number of weft layers that a binder ties together: all of them in the
+  orthogonal weave and 2 in the layer-to-layer one by default; shallower orthogonal
+  binders tie the layers in turn from one column to the next. Without stuffers
+  (``stuffers``), the angle interlocks have no straight warps.
+
+The tows of real fabrics depart from their idealized paths, and their sections change along
+them, as the tomography of textile composites measures (Blacklock et al. 2012; Vanaerschot,
+Cox, Lomov & Vandepitte 2013, 2014): the deviations of the centrelines across the yarns in
+the plane of the fabric and through its thickness, and the widths and thicknesses of their
+sections (lognormal, of the mean of their yarn), are stationary Gaussian processes along
+the direction of the yarns (:func:`process_spectrum`), of a gaussian or exponential
+covariance, periodic over the box, correlated between neighbouring yarns of a ply or layer
+(:func:`neighbour_correlations`). The nodes of a yarn that varies move by its deviations,
+its frames turn with them, and the half sizes of its section vary linearly between its
+nodes.
 
 The yarns are a partition of their union: a point inside two yarns (the idealized paths
 and sections may interpenetrate, near the crossings of wide yarns) belongs to the yarn
@@ -280,7 +295,8 @@ def path_length(pieces) -> float:
 class _Path:
     """A yarn before its sampling: its phase, the canonical axis along which it runs (0:
     the warp direction, 1: the weft direction), its transverse coordinate, its pieces,
-    whether it closes on itself over the period of the box, its half sizes."""
+    whether it closes on itself over the period of the box, its half sizes, and its group
+    (its family and its ply or layer: the yarns side by side whose variations correlate)."""
 
     phase: int
     travel: int
@@ -290,6 +306,7 @@ class _Path:
     period: float
     half_width: float
     half_thickness: float
+    group: tuple = ()
 
     @property
     def straight(self) -> float:
@@ -298,6 +315,115 @@ class _Path:
     @property
     def crimp(self) -> float:
         return path_length(self.pieces) / self.straight - 1.0
+
+
+# -- the variability of the yarns -------------------------------------------------------------
+
+COVARIANCES = ("gaussian", "exponential")
+#: The quantities that vary along the yarns: the deviations of the centrelines across the
+#: yarns in the plane of the fabric and through its thickness, the widths, the thicknesses
+VARIATIONS = ("in_plane", "through", "width", "thickness")
+#: Segments of a varying yarn per correlation length (at least)
+_PER_LENGTH = 6
+
+
+def process_spectrum(period: float, length: float, covariance: str = "gaussian",
+                     modes: int | None = None) -> tuple[np.ndarray, np.ndarray]:  # fmt: skip
+    """The angular frequencies ``omega_k = 2 pi k / period`` (``k = 0, ..., K``) and the
+    weights ``w_k`` of a stationary Gaussian process of unit variance on a circle of
+    perimeter ``period`` whose covariance is the periodization of ``exp(-d^2 / 2 length^2)``
+    (``gaussian``) or of ``exp(-|d| / length)`` (``exponential``): ``w_0 = c_0`` and ``w_k =
+    2 c_k``, ``c_k = C^(omega_k) / period`` the Fourier coefficients of the periodized
+    covariance (``C^`` the Fourier transform of the covariance: ``length sqrt(2 pi)
+    exp(-(omega length)^2 / 2)``, ``2 length / (1 + (omega length)^2)``), truncated to ``K``
+    modes and normalized to sum to 1. By default ``K`` reaches ``omega length = 7.2`` for the
+    gaussian covariance (the weights left out below 10^-11) and three modes per correlation
+    length for the exponential one (the Nyquist frequency of segments of a sixth of it). The
+    process ``G(s) = sum_k sqrt(w_k) (A_k cos(omega_k s) + B_k sin(omega_k s))``, ``A_k``,
+    ``B_k`` independent standard normal variables, has the covariance ``sum_k w_k cos(omega_k
+    d)`` (:func:`process_covariance`)."""
+    if covariance not in COVARIANCES:
+        raise ValueError(f"covariance: one of {', '.join(COVARIANCES)}")
+    period, length = float(period), float(length)
+    if modes is None:
+        if covariance == "gaussian":
+            modes = math.ceil(7.2 * period / (2.0 * math.pi * length))
+        else:
+            modes = math.ceil(0.5 * _PER_LENGTH * period / length)
+    k = np.arange(int(min(max(modes, 1), 4096)) + 1)
+    omega = 2.0 * math.pi * k / period
+    if covariance == "gaussian":
+        spectrum = length * math.sqrt(2.0 * math.pi) * np.exp(-0.5 * (omega * length) ** 2)
+    else:
+        spectrum = 2.0 * length / (1.0 + (omega * length) ** 2)
+    weights = np.where(k == 0, 1.0, 2.0) * spectrum / period
+    return omega, weights / weights.sum()
+
+
+def process_covariance(spectrum, d) -> np.ndarray:
+    """The covariance ``sum_k w_k cos(omega_k d)`` of the process of a spectrum
+    (:func:`process_spectrum`) at the lags ``d``."""
+    omega, weights = spectrum
+    d = np.asarray(d, dtype=float)
+    return np.cos(d[..., None] * omega) @ weights
+
+
+def process_values(spectrum, coefficients, s) -> tuple[np.ndarray, np.ndarray]:
+    """The process ``G(s)`` of a spectrum and its coefficients ``(A_k, B_k)`` (rows), and its
+    derivative, at the coordinates ``s``."""
+    omega, weights = spectrum
+    amplitude = np.sqrt(weights)[:, None] * np.asarray(coefficients, dtype=float)
+    phase = np.asarray(s, dtype=float)[:, None] * omega
+    cos, sin = np.cos(phase), np.sin(phase)
+    values = cos @ amplitude[:, 0] + sin @ amplitude[:, 1]
+    slopes = (cos @ (omega * amplitude[:, 1])) - (sin @ (omega * amplitude[:, 0]))
+    return values, slopes
+
+
+@dataclass
+class _Variation:
+    """The variations of one yarn as functions of its coordinate ``s`` along its direction
+    (from ``origin``): the spectra of the centrelines and of the sections, the coefficients
+    of the processes of :data:`VARIATIONS` (unit variance) and their scales (the standard
+    deviations of the deviations; the standard deviations of the logarithms of the
+    sizes)."""
+
+    origin: float
+    centrelines: tuple
+    sections: tuple
+    coefficients: dict
+    scales: dict
+
+    def at(self, s):
+        """The deviations across the yarn and through the thickness, their derivatives along
+        ``s``, and the factors of the width and of the thickness (lognormal, of mean 1) at
+        the coordinates ``s``."""
+        s = np.asarray(s, dtype=float) - self.origin
+        out = []
+        for name in ("in_plane", "through"):
+            g, dg = process_values(self.centrelines, self.coefficients[name], s)
+            out.append((self.scales[name] * g, self.scales[name] * dg))
+        factors = []
+        for name in ("width", "thickness"):
+            sigma = self.scales[name]
+            g, _ = process_values(self.sections, self.coefficients[name], s)
+            factors.append(np.exp(sigma * g - 0.5 * sigma * sigma))
+        (dn, gn), (dz, gz) = out
+        return dn, dz, gn, gz, factors[0], factors[1]
+
+
+def neighbour_correlations(n: int, rho: float, periodic: bool) -> np.ndarray:
+    """The correlations of the variations of ``n`` yarns side by side, ``rho^d`` for yarns
+    ``d`` apart; in a periodic box, where the last is the neighbour of the first, its
+    periodization ``(rho^d + rho^(n - d)) / (1 + rho^n)`` (``d`` the distance on the ring)."""
+    i = np.arange(int(n))
+    d = np.abs(i[:, None] - i[None, :]).astype(float)
+    if rho <= 0.0:
+        return np.eye(len(i))
+    if periodic and n > 1:
+        d = np.minimum(d, n - d)
+        return (rho**d + rho ** (n - d)) / (1.0 + rho**n)
+    return rho**d
 
 
 # -- the realizations -------------------------------------------------------------------------
@@ -309,7 +435,10 @@ class Yarn:
     when merged) and family, the nodes of its centreline (m x 3, in the axes of the
     sample), the width axis ``normals`` and the thickness axis ``binormals`` at the nodes,
     the translation that closes a periodic yarn on itself (zeros: an open yarn, the
-    polyline of its nodes), its half width and half thickness, and the crimp of its path."""
+    polyline of its nodes), its half width and half thickness, the crimp of its path and,
+    for the sections that vary along the yarn, the half widths ``widths`` and half
+    thicknesses ``thicknesses`` at its nodes (None: the constant half sizes; between two
+    nodes the sizes vary linearly)."""
 
     family: str
     phase: int
@@ -320,6 +449,8 @@ class Yarn:
     half_width: float
     half_thickness: float
     crimp: float = 0.0
+    widths: np.ndarray | None = None
+    thicknesses: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         self.nodes = np.ascontiguousarray(self.nodes, dtype=float).reshape(-1, 3)
@@ -328,6 +459,43 @@ class Yarn:
         self.period = np.asarray(self.period, dtype=float).reshape(3)
         self.half_width = float(self.half_width)
         self.half_thickness = float(self.half_thickness)
+        for name in ("widths", "thicknesses"):
+            value = getattr(self, name)
+            if value is not None:
+                value = np.ascontiguousarray(value, dtype=float).reshape(-1)
+                if len(value) != len(self.nodes) or not np.all(value > 0.0):
+                    raise ValueError(f"{name}: one positive half size per node of the yarn")
+                setattr(self, name, value)
+
+    @property
+    def varies(self) -> bool:
+        """Whether its section varies along the yarn."""
+        return self.widths is not None or self.thicknesses is not None
+
+    @property
+    def half_widths(self) -> np.ndarray:
+        """The half width at each node."""
+        if self.widths is None:
+            return np.full(len(self.nodes), self.half_width)
+        return self.widths
+
+    @property
+    def half_thicknesses(self) -> np.ndarray:
+        """The half thickness at each node."""
+        if self.thicknesses is None:
+            return np.full(len(self.nodes), self.half_thickness)
+        return self.thicknesses
+
+    def segment_sizes(self) -> tuple[np.ndarray, np.ndarray]:
+        """The half widths and half thicknesses at the two ends of each segment (one row per
+        segment: start, end)."""
+        nxt = np.roll(np.arange(len(self.nodes)), -1)
+        a, c = self.half_widths, self.half_thicknesses
+        aw = np.stack([a, a[nxt]], axis=1)
+        ct = np.stack([c, c[nxt]], axis=1)
+        if not self.closed:
+            aw, ct = aw[:-1], ct[:-1]
+        return np.ascontiguousarray(aw), np.ascontiguousarray(ct)
 
     @property
     def closed(self) -> bool:
@@ -357,7 +525,7 @@ class Yarn:
         return float(np.linalg.norm(end - start, axis=1).sum())
 
     def to_dict(self) -> dict:
-        return {
+        out = {
             "family": self.family,
             "phase": self.phase,
             "nodes": self.nodes.tolist(),
@@ -368,13 +536,18 @@ class Yarn:
             "half_thickness": self.half_thickness,
             "crimp": self.crimp,
         }
+        for name in ("widths", "thicknesses"):
+            if getattr(self, name) is not None:
+                out[name] = getattr(self, name).tolist()
+        return out
 
     @classmethod
     def from_dict(cls, data: dict) -> Yarn:
         return cls(**{k: data[k] for k in ("family", "phase", "nodes", "normals",
                                            "binormals", "period", "half_width",
                                            "half_thickness")},
-                   crimp=float(data.get("crimp", 0.0)))  # fmt: skip
+                   crimp=float(data.get("crimp", 0.0)), widths=data.get("widths"),
+                   thicknesses=data.get("thicknesses"))  # fmt: skip
 
 
 class _Accelerator:
@@ -390,13 +563,13 @@ class _Accelerator:
         for k, yarn in enumerate(micro.yarns):
             start, end, n0, n1, b0, b1 = yarn.ends()
             m = len(start)
-            parts.append((start, end, n0, b0, n1, b1, np.full(m, k), np.full(m, yarn.half_width),
-                          np.full(m, yarn.half_thickness), np.arange(label, label + m),
-                          np.full(m, yarn.phase)))  # fmt: skip
+            half_w, half_t = yarn.segment_sizes()
+            parts.append((start, end, n0, b0, n1, b1, np.full(m, k), half_w, half_t,
+                          np.arange(label, label + m), np.full(m, yarn.phase)))  # fmt: skip
             label += m
         arrays = [np.concatenate(a) for a in zip(*parts, strict=True)]
         start, end = arrays[0], arrays[1]
-        reach = np.maximum(arrays[7], arrays[8]) + float(band)
+        reach = np.maximum(arrays[7].max(axis=1), arrays[8].max(axis=1)) + float(band)
         lo = np.minimum(start, end) - reach[:, None]
         hi = np.maximum(start, end) + reach[:, None]
         if domain.periodic:
@@ -433,7 +606,8 @@ class _Accelerator:
         self.reach = reach.astype(float)
         self.band = float(band)
         lengths = np.asarray(box_hi - box_lo, dtype=float)
-        typical = float(np.median(np.maximum(half_w, half_t))) if len(half_w) else 1.0
+        typical = float(np.median(np.maximum(half_w.max(axis=1), half_t.max(axis=1)))
+                        if len(half_w) else 1.0)  # fmt: skip
         n = np.clip(np.floor(lengths / max(typical, 1e-12)), 1, _MAX_CELLS_PER_AXIS)
         n = n.astype(np.int64)
         while np.prod(n) > _MAX_CELLS:
@@ -711,12 +885,32 @@ class TextileStructure(Microstructure):
 
     # -- description -----------------------------------------------------------------------
 
+    def _segment_volumes(self, yarn: Yarn) -> np.ndarray:
+        """The volume of each segment of a yarn of varying section: its length times the
+        mean area of its section, whose half sizes vary linearly along it (Gauss–Legendre,
+        four points)."""
+        start, end = yarn.ends()[:2]
+        lengths = np.linalg.norm(end - start, axis=1)
+        aw, ct = yarn.segment_sizes()
+        x, w = np.polynomial.legendre.leggauss(4)
+        t = 0.5 * (x + 1.0)
+        a = aw[:, :1] * (1.0 - t) + aw[:, 1:] * t
+        c = ct[:, :1] * (1.0 - t) + ct[:, 1:] * t
+        area = section_area(a, c, self.section, self.power)
+        return lengths * (0.5 * area @ w)
+
     def volumes(self) -> np.ndarray:
         """The volume of each yarn: the area of its section times the length of its
-        polyline (one period of a periodic yarn), overlaps counted twice."""
-        areas = [section_area(y.half_width, y.half_thickness, self.section, self.power)
-                 for y in self.yarns]  # fmt: skip
-        return np.array([float(a) * y.length for a, y in zip(areas, self.yarns, strict=True)])
+        polyline (one period of a periodic yarn), overlaps counted twice; segment by
+        segment for the sections that vary along the yarns."""
+        out = []
+        for y in self.yarns:
+            if y.varies:
+                out.append(float(self._segment_volumes(y).sum()))
+            else:
+                area = section_area(y.half_width, y.half_thickness, self.section, self.power)
+                out.append(float(area) * y.length)
+        return np.array(out)
 
     def sampled(self, points: int = 200_000, seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
         """For each yarn, the share of its volume (:meth:`volumes`) in the domain and the
@@ -734,16 +928,20 @@ class TextileStructure(Microstructure):
             m = max(64, round(points * volume / total))
             start, end, n0, n1, b0, b1 = yarn.ends()
             lengths = np.linalg.norm(end - start, axis=1)
-            a, c = yarn.half_width, yarn.half_thickness
-            u = v = np.empty(0)
-            while len(u) < m:
-                du = rng.uniform(-a, a, 2 * m)
-                dv = rng.uniform(-c, c, 2 * m)
-                keep = _inside_section(du, dv, a, c, self.section, self.power)
-                u, v = np.concatenate([u, du[keep]]), np.concatenate([v, dv[keep]])
-            u, v = u[:m], v[:m]
-            s = rng.choice(len(lengths), size=m, p=lengths / lengths.sum())
-            t = rng.random(m)[:, None]
+            if yarn.varies:
+                s, t, u, v = self._draw_varying(yarn, m, rng)
+                t = t[:, None]
+            else:
+                a, c = yarn.half_width, yarn.half_thickness
+                u = v = np.empty(0)
+                while len(u) < m:
+                    du = rng.uniform(-a, a, 2 * m)
+                    dv = rng.uniform(-c, c, 2 * m)
+                    keep = _inside_section(du, dv, a, c, self.section, self.power)
+                    u, v = np.concatenate([u, du[keep]]), np.concatenate([v, dv[keep]])
+                u, v = u[:m], v[:m]
+                s = rng.choice(len(lengths), size=m, p=lengths / lengths.sum())
+                t = rng.random(m)[:, None]
             normal = (1.0 - t) * n0[s] + t * n1[s]
             binormal = (1.0 - t) * b0[s] + t * b1[s]
             normal /= np.linalg.norm(normal, axis=1, keepdims=True)
@@ -756,6 +954,37 @@ class TextileStructure(Microstructure):
             if len(pts):
                 shared[k] = float(np.mean(self.yarns_at(pts) >= 2))
         return inside, shared
+
+    def _draw_varying(self, yarn: Yarn, m: int, rng):
+        """``m`` points uniform in a yarn of varying section: the segment by its volume, the
+        position along it by the area of its section (rejection under the area of its
+        largest sizes), the point in the section there (rejection in its bounding box).
+        Returns the segments, the positions along them and the coordinates in the
+        sections."""
+        volumes = self._segment_volumes(yarn)
+        aw, ct = yarn.segment_sizes()
+        top = section_area(aw.max(axis=1), ct.max(axis=1), self.section, self.power)
+        segments, positions = np.empty(0, dtype=np.int64), np.empty(0)
+        while len(segments) < m:
+            s = rng.choice(len(volumes), size=2 * m, p=volumes / volumes.sum())
+            t = rng.random(2 * m)
+            a = aw[s, 0] * (1.0 - t) + aw[s, 1] * t
+            c = ct[s, 0] * (1.0 - t) + ct[s, 1] * t
+            keep = rng.random(2 * m) * top[s] <= section_area(a, c, self.section, self.power)
+            segments = np.concatenate([segments, s[keep]])
+            positions = np.concatenate([positions, t[keep]])
+        s, t = segments[:m], positions[:m]
+        a = aw[s, 0] * (1.0 - t) + aw[s, 1] * t
+        c = ct[s, 0] * (1.0 - t) + ct[s, 1] * t
+        u, v = np.zeros(m), np.zeros(m)
+        missing = np.arange(m)
+        while len(missing):
+            du = rng.uniform(-1.0, 1.0, len(missing)) * a[missing]
+            dv = rng.uniform(-1.0, 1.0, len(missing)) * c[missing]
+            keep = _inside_section(du, dv, a[missing], c[missing], self.section, self.power)
+            u[missing[keep]], v[missing[keep]] = du[keep], dv[keep]
+            missing = missing[~keep]
+        return s, t, u, v
 
     def interpenetration(self, points: int = 200_000, seed: int = 0) -> float:
         """The share of the volume of the yarns in the domain where two of them overlap,
@@ -801,6 +1030,31 @@ def _mean(d: Distribution | None, default: float) -> float:
     return default if d is None else float(d.moment(1))
 
 
+def _realized(infos: list) -> dict[str, float]:
+    """The statistics of the variations of the yarns at their nodes, each weighted by its
+    share of the length along the direction of its yarn: the RMS deviations, the
+    coefficients of variation of the widths and thicknesses, and the correlation of their
+    logarithms."""
+    infos = [i for i in infos if i is not None]
+    w = np.concatenate([i["weights"] for i in infos])
+    total = float(w.sum())
+
+    def mean(x):
+        return float(np.sum(w * x) / total)
+
+    values = {k: np.concatenate([i[k] for i in infos]) for k in VARIATIONS}
+    out = {f"deviation_{k}": math.sqrt(mean(values[k] ** 2)) for k in ("in_plane", "through")}
+    logs = {}
+    for k in ("width", "thickness"):
+        f = values[k]
+        out[f"{k}_variation"] = math.sqrt(max(mean((f - mean(f)) ** 2), 0.0)) / mean(f)
+        logs[k] = np.log(f) - mean(np.log(f))
+    sw, st = (math.sqrt(mean(logs[k] ** 2)) for k in ("width", "thickness"))
+    if sw > 0.0 and st > 0.0:
+        out["size_correlation"] = mean(logs["width"] * logs["thickness"]) / (sw * st)
+    return out
+
+
 @register
 @dataclass(frozen=True)
 class WovenTextile(Model):
@@ -813,7 +1067,19 @@ class WovenTextile(Model):
     neighbouring warps (along the weft) and wefts (along the warp). The sizes of the yarns
     are numbers (the same yarns) or distributions (one size per yarn); their means set the
     levels of the paths, the thickness of a ply (``t_warp + t_weft``) and of a 3D fabric
-    (``N (t_warp + t_weft) + t_weft + 2 t_binder``)."""
+    (``N (t_warp + t_weft) + t_weft + 2 t_binder``; ``t_binder`` for ``t_warp`` without
+    stuffers). ``binder_depth``: the weft layers that a binder ties together (orthogonal
+    and layer-to-layer weaves; Boussu, Cristian & Nauman 2015); ``stuffers``: the straight
+    warps of the angle interlocks.
+
+    The variability of the yarns along their paths (zero by default): the deviations of
+    their centrelines (``deviation_in_plane``, ``deviation_through``: standard deviations)
+    and the variations of the widths and thicknesses of their sections
+    (``width_variation``, ``thickness_variation``: coefficients of variation, lognormal,
+    of correlation ``size_correlation`` at a point), stationary Gaussian processes along
+    the yarns of correlation length ``correlation_length`` and covariance
+    ``variation_covariance``, periodic over the box, correlated between neighbouring yarns
+    by ``neighbour_correlation``."""
 
     name = "woven_textile"
     phases: ClassVar[dict[int, str]] = {0: "matrix", 1: "warp", 2: "weft", 3: "binder"}
@@ -902,6 +1168,48 @@ class WovenTextile(Model):
         "composite)", kind="fraction",
     )  # fmt: skip
     axis: int = param(2, doc="Stacking direction (0: x, 1: y, 2: z)", kind="int")
+    binder_depth: int | None = param(
+        None, doc="3D weaves: the weft layers that a binder ties together, its binding depth "
+        "(orthogonal: all, layers + 1, by default, fewer: the binders of the columns in turn "
+        "between different layers; layer_to_layer: 2 by default)", kind="int",
+    )  # fmt: skip
+    stuffers: bool = param(
+        True, doc="3D weaves: the straight warp layers (stuffers); false: the angle "
+        "interlocks of binders and wefts only", kind="bool",
+    )  # fmt: skip
+    deviation_in_plane: float = param(
+        0.0, doc="Standard deviation of the centrelines across the yarns, in the plane of "
+        "the fabric (variability of the yarns)", unit="length",
+    )  # fmt: skip
+    deviation_through: float = param(
+        0.0, doc="Standard deviation of the centrelines through the thickness of the fabric",
+        unit="length",
+    )  # fmt: skip
+    width_variation: float = param(
+        0.0, doc="Coefficient of variation of the width along the yarns (lognormal)",
+        kind="fraction",
+    )  # fmt: skip
+    thickness_variation: float = param(
+        0.0, doc="Coefficient of variation of the thickness along the yarns (lognormal)",
+        kind="fraction",
+    )  # fmt: skip
+    size_correlation: float = param(
+        0.0, doc="Correlation of the logarithms of the width and of the thickness at a point "
+        "of a yarn (-1 to 1)",
+    )  # fmt: skip
+    correlation_length: float | tuple | None = param(
+        None, doc="Correlation length of the variations along the yarns: one value, or two "
+        "(the centrelines, the sections); default: twice the warp spacing", kind="vector",
+        unit="length",
+    )  # fmt: skip
+    neighbour_correlation: float = param(
+        0.0, doc="Correlation of the variations of neighbouring yarns of a ply or layer "
+        "(rho^d for yarns d apart; 0 to 1)", kind="fraction",
+    )  # fmt: skip
+    variation_covariance: str = param(
+        "gaussian", doc="Covariance of the variations along the yarns: gaussian (smooth "
+        "paths) or exponential (a Markov process)", kind="str",
+    )  # fmt: skip
 
     # -- parameters --------------------------------------------------------------------------
 
@@ -935,6 +1243,35 @@ class WovenTextile(Model):
         if self.fibre_fraction_in_yarns is not None:
             check_fraction(self.fibre_fraction_in_yarns, "fibre_fraction_in_yarns",
                            open_interval=False)  # fmt: skip
+        if self.binder_depth is not None:
+            if self.weave not in ("orthogonal", "layer_to_layer"):
+                raise ValueError("binder_depth: the orthogonal and layer_to_layer weaves")
+            if not 2 <= self.binder_depth <= self.layers + 1:
+                raise ValueError(
+                    f"binder_depth: the weft layers that a binder ties, from 2 to "
+                    f"layers + 1 = {self.layers + 1}"
+                )
+        if not self.stuffers and self.weave not in ("layer_to_layer", "through_thickness"):
+            raise ValueError(
+                "stuffers: false for the angle interlocks only (layer_to_layer, through_thickness)"
+            )
+        for name in ("deviation_in_plane", "deviation_through"):
+            check_positive(getattr(self, name), name, allow_zero=True)
+        for name in ("width_variation", "thickness_variation"):
+            check_fraction(getattr(self, name), name, open_interval=False)
+        if not -1.0 < self.size_correlation < 1.0:
+            raise ValueError("size_correlation: in (-1, 1)")
+        if not 0.0 <= self.neighbour_correlation < 1.0:
+            raise ValueError("neighbour_correlation: in [0, 1)")
+        if self.variation_covariance not in COVARIANCES:
+            raise ValueError(f"variation_covariance: one of {', '.join(COVARIANCES)}")
+        if self.correlation_length is not None:
+            values = np.atleast_1d(np.asarray(self.correlation_length, dtype=float))
+            if values.shape not in ((1,), (2,)) or not np.all(values > 0.0):
+                raise ValueError(
+                    "correlation_length: one positive length, or two (the centrelines, the "
+                    "sections)"
+                )
         sizes = self.sizes()
         s_w, s_f = self.warp_spacing, self._weft_spacing
         if self.section == "lenticular":
@@ -955,7 +1292,13 @@ class WovenTextile(Model):
                 )
             return
         w_b, t_b = sizes["binder"][0].upper(), sizes["binder"][1].upper()
-        if w_w + w_b > s_w * (1 + 1e-12):
+        if not self.stuffers:
+            if w_b > s_w * (1 + 1e-12):
+                raise ValueError(
+                    f"binder_width: the binders side by side, at most warp_spacing = {s_w:g} "
+                    f"(the widest drawn: {w_b:g})"
+                )
+        elif w_w + w_b > s_w * (1 + 1e-12):
             raise ValueError(
                 f"warp and binder widths: the binders between the warps, their widths at most "
                 f"warp_spacing = {s_w:g} together (the widest drawn: {w_w:g} + {w_b:g})"
@@ -965,7 +1308,7 @@ class WovenTextile(Model):
                 f"weft width and binder thickness: the binders pass between the wefts, their "
                 f"sum below weft_spacing = {s_f:g} (the largest drawn: {w_f:g} + {t_b:g})"
             )
-        pitch = _mean(sizes["warp"][1], 0) + _mean(sizes["weft"][1], 0)
+        pitch = self._warp_level_thickness() + _mean(sizes["weft"][1], 0)
         if t_b > pitch * (1 + 1e-12):
             raise ValueError(
                 f"binder_thickness: at most the thickness of a warp and a weft, {pitch:g} "
@@ -991,7 +1334,8 @@ class WovenTextile(Model):
         return self.merge_yarns
 
     def sizes(self) -> dict[str, tuple[Distribution, Distribution]]:
-        """The width and thickness of the yarns of each family."""
+        """The width and thickness of the yarns of each family (3D weaves without stuffers:
+        the binders take those of the warps by default)."""
         out = {
             "warp": (self.yarn_width, self.yarn_thickness),
             "weft": (
@@ -1000,6 +1344,10 @@ class WovenTextile(Model):
             ),
         }
         if self.is_3d:
+            if not self.stuffers:
+                out["binder"] = (self.binder_width or self.yarn_width,
+                                 self.binder_thickness or self.yarn_thickness)  # fmt: skip
+                return out
             room_w = self.warp_spacing - self.yarn_width.moment(1)
             room_f = self._weft_spacing - out["weft"][0].moment(1)
             width = self.binder_width or Constant(max(0.8 * room_w, 1e-6))
@@ -1008,21 +1356,64 @@ class WovenTextile(Model):
             out["binder"] = (width, thick)
         return out
 
+    def _warp_level_thickness(self) -> float:
+        """The mean thickness of the layers between the weft layers of a 3D weave (and of
+        the warps of a 2D weave): that of the warps, or of the binders without stuffers."""
+        family = "warp" if self.stuffers or not self.is_3d else "binder"
+        return _mean(self.sizes()[family][1], 0)
+
     def active_phases(self) -> dict[int, str]:
         if self.merge_yarns:
             return {0: "matrix", 1: "yarns"}
         if self.is_3d:
+            if not self.stuffers:
+                return {0: "matrix", 2: "weft", 3: "binder"}
             return dict(self.phases)
         return {0: "matrix", 1: "warp", 2: "weft"}
+
+    @property
+    def varies(self) -> bool:
+        """Whether the yarns vary along their paths."""
+        names = ("deviation_in_plane", "deviation_through", "width_variation",
+                 "thickness_variation")  # fmt: skip
+        return any(getattr(self, name) > 0.0 for name in names)
+
+    def correlation_lengths(self) -> tuple[float, float]:
+        """The correlation lengths of the variations of the centrelines and of the sections
+        (by default twice the warp spacing)."""
+        if self.correlation_length is None:
+            return 2.0 * self.warp_spacing, 2.0 * self.warp_spacing
+        values = np.atleast_1d(np.asarray(self.correlation_length, dtype=float))
+        return float(values[0]), float(values[-1])
+
+    def _scales(self) -> dict[str, float]:
+        """The scales of the processes of :data:`VARIATIONS`: the standard deviations of the
+        deviations, and of the logarithms of the lognormal factors of the sizes,
+        ``sqrt(ln(1 + cv^2))``."""
+        return {
+            "in_plane": float(self.deviation_in_plane),
+            "through": float(self.deviation_through),
+            "width": math.sqrt(math.log1p(float(self.width_variation) ** 2)),
+            "thickness": math.sqrt(math.log1p(float(self.thickness_variation) ** 2)),
+        }
+
+    def _depth(self) -> int:
+        """The warp layers that a binder crosses: its binding depth minus 1."""
+        if self.binder_depth is not None:
+            return int(self.binder_depth) - 1
+        return self.layers if self.weave == "orthogonal" else 1
 
     # -- the weave -------------------------------------------------------------------------
 
     def repeat(self) -> tuple[int, int]:
         """The repeat of the weave in its plane: weft columns along the warp, warp rows
-        along the weft."""
+        along the weft (an orthogonal weave of binders shallower than the fabric: the
+        least common multiple of 2 and of the ``N + 2 - D`` levels of its binders)."""
         if not self.is_3d:
             w = interlacing(self.weave, self.pattern)
             return int(w.shape[1]), int(w.shape[0])
+        if self.weave == "orthogonal":  # the columns in turn between N + 2 - D pairs of slots
+            return self._binder_period(), math.lcm(2, self.layers - self._depth() + 1)
         return self._binder_period(), 2
 
     def _binder_period(self) -> int:
@@ -1030,9 +1421,10 @@ class WovenTextile(Model):
 
     def thickness(self) -> float:
         """Thickness of the fabric (by the mean sizes): ``layers (t_w + t_f)`` plus the
-        resin between the plies (2D), ``N (t_w + t_f) + t_f + 2 t_b`` (3D)."""
+        resin between the plies (2D), ``N (t_w + t_f) + t_f + 2 t_b`` (3D; ``t_b`` for
+        ``t_w`` without stuffers)."""
         sizes = self.sizes()
-        t_w, t_f = (_mean(sizes[k][1], 0) for k in ("warp", "weft"))
+        t_w, t_f = self._warp_level_thickness(), _mean(sizes["weft"][1], 0)
         if not self.is_3d:
             return self.layers * (t_w + t_f) + (self.layers - 1) * self.ply_gap
         t_b = _mean(sizes["binder"][1], 0)
@@ -1042,7 +1434,7 @@ class WovenTextile(Model):
         """The heights (from the bottom of the fabric) of the plies (2D) or of the weft
         layers, the warp layers and the slots of the binders (3D)."""
         sizes = self.sizes()
-        c_w, c_f = (0.5 * _mean(sizes[k][1], 0) for k in ("warp", "weft"))
+        c_w, c_f = 0.5 * self._warp_level_thickness(), 0.5 * _mean(sizes["weft"][1], 0)
         if not self.is_3d:
             ply = 2.0 * (c_w + c_f)
             middles = [k * (ply + self.ply_gap) + 0.5 * ply for k in range(self.layers)]
@@ -1055,14 +1447,27 @@ class WovenTextile(Model):
         slots = [c_b, *warps, wefts[-1] + c_f + c_b]
         return {"wefts": wefts, "warps": warps, "slots": slots}
 
-    def _slot(self, i: int, j: int, level: int) -> int:
-        """The slot of the binder of the column ``i`` (and of the ``level`` of a
-        layer-to-layer weave) at the weft column ``j``."""
-        n = self.layers
+    def _binder_levels(self, i: int) -> list[int]:
+        """The levels (the lowest slots) of the binders of the column ``i``: one binder in an
+        orthogonal weave, the columns in turn between the ``N + 2 - D`` pairs of slots ``D``
+        apart (``D`` the binding depth); one per pair in a layer-to-layer weave; one through
+        the thickness."""
+        n, k = self.layers, self._depth()
         if self.weave == "orthogonal":
-            return n + 1 if (i + j) % 2 == 0 else 0
+            return [i % (n - k + 1)]
         if self.weave == "layer_to_layer":
-            return level + 2 if (i + j) % 2 == 0 else level
+            return list(range(n - k + 1))
+        return [0]
+
+    def _slot(self, i: int, j: int, level: int) -> int:
+        """The slot of the binder of the column ``i`` and of the ``level`` at the weft
+        column ``j``: the slots ``level`` and ``level + D`` in turn (orthogonal and
+        layer-to-layer weaves of binding depth ``D``, adjacent columns out of phase), or down
+        one slot at each weft column from the top to the bottom and back (through the
+        thickness)."""
+        n = self.layers
+        if self.weave in ("orthogonal", "layer_to_layer"):
+            return level + self._depth() + 1 if (i + j) % 2 == 0 else level
         period = 2 * (n + 1)
         jj = (j + (n + 1) * i) % period
         return n + 1 - jj if jj <= n + 1 else jj - (n + 1)
@@ -1110,32 +1515,33 @@ class WovenTextile(Model):
                     zs = [z0 + (h if w[i % ry, j % rx] else -h) for j in js]
                     pieces = profile(zs, (js[0] + 0.5) * s_f + dx, s_f, tau)
                     a, c = size("warp")
-                    out.append(_Path(1, 0, (i + 0.5) * s_w + dy, pieces, periodic, lx, a, c))
+                    out.append(_Path(1, 0, (i + 0.5) * s_w + dy, pieces, periodic, lx, a, c,
+                                     (1, k)))  # fmt: skip
                 for j in indices(lx, s_f, dx):
                     iis = stations(ly, s_w, dy)
                     zs = [z0 - (h if w[i % ry, j % rx] else -h) for i in iis]
                     pieces = profile(zs, (iis[0] + 0.5) * s_w + dy, s_w, tau)
                     a, c = size("weft")
-                    out.append(_Path(2, 1, (j + 0.5) * s_f + dx, pieces, periodic, ly, a, c))
+                    out.append(_Path(2, 1, (j + 0.5) * s_f + dx, pieces, periodic, ly, a, c,
+                                     (2, k)))  # fmt: skip
             return out
-        for z in levels["warps"]:
+        for m, z in enumerate(levels["warps"] if self.stuffers else []):
             for i in indices(ly, s_w, 0.0):
                 js = stations(lx, s_f, 0.0)
                 pieces = profile([base + z] * len(js), (js[0] + 0.5) * s_f, s_f)
                 a, c = size("warp")
-                out.append(_Path(1, 0, (i + 0.5) * s_w, pieces, periodic, lx, a, c))
-        for z in levels["wefts"]:
+                out.append(_Path(1, 0, (i + 0.5) * s_w, pieces, periodic, lx, a, c, (1, m)))
+        for m, z in enumerate(levels["wefts"]):
             for j in indices(lx, s_f, 0.0):
                 iis = stations(ly, s_w, 0.0)
                 pieces = profile([base + z] * len(iis), (iis[0] + 0.5) * s_w, s_w)
                 a, c = size("weft")
-                out.append(_Path(2, 1, (j + 0.5) * s_f, pieces, periodic, ly, a, c))
+                out.append(_Path(2, 1, (j + 0.5) * s_f, pieces, periodic, ly, a, c, (2, m)))
         slots = levels["slots"]
         a_f = 0.5 * _mean(sizes["weft"][0], 0)
         gap = s_f - 2.0 * a_f
-        binder_levels = range(self.layers) if self.weave == "layer_to_layer" else [0]
         for i in indices(ly, s_w, 0.0):
-            for level in binder_levels:
+            for level in self._binder_levels(i):
                 js = stations(lx, s_f, 0.0)
                 zs = [base + slots[self._slot(i, j, level)] for j in js]
                 if self.weave == "orthogonal":
@@ -1143,7 +1549,8 @@ class WovenTextile(Model):
                 else:
                     pieces = profile(zs, (js[0] + 0.5) * s_f, s_f, tau)
                 a, c = size("binder")
-                out.append(_Path(3, 0, (i + 1.0) * s_w, pieces, periodic, lx, a, c))
+                group = (3, level if self.weave == "layer_to_layer" else 0)
+                out.append(_Path(3, 0, (i + 1.0) * s_w, pieces, periodic, lx, a, c, group))
         return out
 
     def _shift(self, k: int, rng, rx: int, ry: int) -> tuple[float, float]:
@@ -1191,12 +1598,16 @@ class WovenTextile(Model):
         if domain.periodic:
             self._check_box(lengths)
         paths = self._paths(lengths, domain.periodic, rng)
-        yarns = [self._yarn(p, order, domain) for p in paths]
+        variations = self._variations(paths, lengths, domain.periodic, rng)
+        made = [self._yarn(p, order, domain, v) for p, v in zip(paths, variations, strict=True)]
+        yarns = [yarn for yarn, _ in made]
         micro = TextileStructure(domain, yarns, self.section, self.section_power, model=self,
                                  seed=seed_info)  # fmt: skip
         inside, shared = micro.sampled()
         volumes = micro.volumes() * inside  # the parts in the domain
         summary = {"thickness": self.thickness()}
+        if self.varies:
+            summary.update(_realized([info for _, info in made]))
         for phase, family in FAMILIES.items():
             chosen = [k for k, p in enumerate(paths) if p.phase == phase]
             if chosen:
@@ -1209,9 +1620,61 @@ class WovenTextile(Model):
         micro.metadata["summary"] = summary
         return micro
 
-    def _yarn(self, path: _Path, order, domain: Domain) -> Yarn:
-        """A path sampled into the nodes of a yarn, in the axes of the sample."""
+    def _variations(self, paths: list[_Path], lengths, periodic: bool, rng) -> list:
+        """The variations of each yarn (None for all when the yarns do not vary): for each
+        group of yarns side by side (a family in a ply or a layer), in increasing order, the
+        coefficients of the four processes of :data:`VARIATIONS` of its yarns (in the order
+        of their transverse coordinates), independent standard normal variables mixed
+        between the yarns by the Cholesky factor of :func:`neighbour_correlations`; the
+        thickness correlated with the width at a point by ``size_correlation``. The
+        processes are functions of the coordinate along the direction of the yarns,
+        periodic over the box (or over the window and six correlation lengths, ten for the
+        exponential covariance)."""
+        out: list = [None] * len(paths)
+        if not self.varies:
+            return out
+        l_c, l_s = self.correlation_lengths()
+        kind = self.variation_covariance
+        scales = self._scales()
+        rho = float(self.size_correlation)
+        groups: dict[tuple, list[int]] = {}
+        for k, path in enumerate(paths):
+            groups.setdefault(path.group, []).append(k)
+        for key in sorted(groups):
+            members = sorted(groups[key], key=lambda k: paths[k].fixed)
+            first = paths[members[0]]
+            if periodic:
+                origin, period = 0.0, float(lengths[first.travel])
+            else:
+                origin = first.pieces[0].s0
+                extent = first.pieces[-1].s1 - origin
+                period = extent + (6.0 if kind == "gaussian" else 10.0) * max(l_c, l_s)
+            spectra = (process_spectrum(period, l_c, kind), process_spectrum(period, l_s, kind))
+            mixing = np.linalg.cholesky(
+                neighbour_correlations(len(members), self.neighbour_correlation, periodic)
+            )
+            white = {}
+            for name, spectrum in zip(VARIATIONS, (spectra[0],) * 2 + (spectra[1],) * 2,
+                                      strict=True):  # fmt: skip
+                draws = rng.standard_normal((len(members), len(spectrum[0]), 2))
+                white[name] = np.einsum("ij,jkl->ikl", mixing, draws)
+            white["thickness"] = (
+                rho * white["width"] + math.sqrt(1.0 - rho * rho) * white["thickness"]
+            )
+            for row, k in enumerate(members):
+                coefficients = {name: white[name][row] for name in VARIATIONS}
+                out[k] = _Variation(origin, spectra[0], spectra[1], coefficients, scales)
+        return out
+
+    def _yarn(self, path: _Path, order, domain: Domain, variation=None):
+        """A path sampled into the nodes of a yarn, in the axes of the sample, and its
+        variations at the nodes (None without). A yarn that varies has segments of a sixth
+        of the correlation lengths at most along its direction; its nodes move by its
+        deviations (across the yarn along the width axis, through the thickness along the
+        stacking axis), its tangents turn with them, its width axes stay normal to them,
+        and its half sizes are those of its path times the factors of its sizes."""
         s, z, ts, tz = [], [], [], []
+        step = min(self.correlation_lengths()) / _PER_LENGTH if variation is not None else None
         for piece in path.pieces:
             if piece.kind == "line":
                 n = 1
@@ -1219,6 +1682,8 @@ class WovenTextile(Model):
                 n = self.samples
             else:
                 n = max(2, math.ceil(self.samples * abs(piece.a1 - piece.a0) / math.pi))
+            if step is not None:
+                n = max(n, math.ceil(abs(piece.s1 - piece.s0) / step))
             ps, pz, pts, ptz = piece.sample(n)
             keep = slice(0 if not s else 1, None)  # the shared node once
             s.append(ps[keep])
@@ -1239,6 +1704,29 @@ class WovenTextile(Model):
         tangent[:, 2] = tz
         width = np.zeros(3)
         width[1 - path.travel] = 1.0 if path.travel == 0 else -1.0  # e_z x (the travel)
+        normal = np.broadcast_to(width, (m, 3))
+        info = widths = thicknesses = None
+        if variation is not None:
+            up = np.array([0.0, 0.0, 1.0])
+            dn, dz, gn, gz, fw, ft = variation.at(s)
+            canonical += dn[:, None] * width + dz[:, None] * up
+            # d/d(arc length) of the deviations: their slopes along s times ds/d(arc) = ts
+            tangent += ts[:, None] * (gn[:, None] * width + gz[:, None] * up)
+            tangent /= np.linalg.norm(tangent, axis=1, keepdims=True)
+            normal = width - (tangent @ width)[:, None] * tangent
+            normal = normal / np.linalg.norm(normal, axis=1, keepdims=True)
+            if self.width_variation > 0.0:
+                widths = path.half_width * fw
+            if self.thickness_variation > 0.0:
+                thicknesses = path.half_thickness * ft
+            if path.periodic:  # the share of each node of the length along s
+                ds = np.diff(np.append(s, s[0] + path.period))
+                weights = 0.5 * (ds + np.roll(ds, 1))
+            else:
+                ds = np.diff(s)
+                weights = 0.5 * (np.append(ds, 0.0) + np.insert(ds, 0, 0.0))
+            info = {"in_plane": dn, "through": dz, "width": fw, "thickness": ft,
+                    "weights": weights}  # fmt: skip
         period = np.zeros(3)
         if path.periodic:
             period[path.travel] = path.period
@@ -1249,13 +1737,14 @@ class WovenTextile(Model):
         for k, a in enumerate(order):
             nodes[:, a] = canonical[:, k]
             t[:, a] = tangent[:, k]
-            n[:, a] = width[k]
+            n[:, a] = normal[:, k]
             p[a] = period[k]
         nodes += domain.lower
         binormals = np.cross(t, n)
         phase = 1 if self.merge_yarns else path.phase
-        return Yarn(FAMILIES[path.phase], phase, nodes, n, binormals, p, path.half_width,
-                    path.half_thickness, path.crimp)  # fmt: skip
+        yarn = Yarn(FAMILIES[path.phase], phase, nodes, n, binormals, p, path.half_width,
+                    path.half_thickness, path.crimp, widths, thicknesses)  # fmt: skip
+        return yarn, info
 
     # -- theory ----------------------------------------------------------------------------
 
@@ -1266,24 +1755,96 @@ class WovenTextile(Model):
         rows, cols = ly / self.warp_spacing, lx / self._weft_spacing
         if not self.is_3d:
             return self.layers * (rows + cols)
-        binders = rows * (self.layers if self.weave == "layer_to_layer" else 1)
-        return self.layers * rows + (self.layers + 1) * cols + binders
+        per_column = self.layers - self._depth() + 1 if self.weave == "layer_to_layer" else 1
+        warps = self.layers * rows if self.stuffers else 0.0
+        return warps + (self.layers + 1) * cols + rows * per_column
+
+    def _section_factors(self, n: int = 16) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """The lognormal factors of the width and the thickness of the sections at the nodes
+        of a Gauss–Hermite quadrature of their correlated logarithms, and its weights."""
+        scales = self._scales()
+        s_w, s_t, rho = scales["width"], scales["thickness"], float(self.size_correlation)
+        x, w = np.polynomial.hermite_e.hermegauss(n)
+        w = w / w.sum()
+        g1, g2 = (a.ravel() for a in np.meshgrid(x, x, indexing="ij"))
+        width = np.exp(s_w * g1 - 0.5 * s_w * s_w)
+        thick = np.exp(s_t * (rho * g1 + math.sqrt(1.0 - rho * rho) * g2) - 0.5 * s_t * s_t)
+        return width, thick, np.outer(w, w).ravel()
 
     def _mean_area(self, family: str) -> float:
+        """The mean area of the sections of a family: over the laws of the sizes of the
+        yarns and the lognormal factors of their variations (``exp(rho s_w s_t)`` times the
+        area at the mean sizes for the ellipse and the power ellipse, whose areas are
+        proportional to ``a c``; quadratures for the lens)."""
         width, thick = self.sizes()[family]
+        scales = self._scales()
         if self.section in ("ellipse", "power"):
-            return float(section_area(0.5 * width.moment(1), 0.5 * thick.moment(1),
-                                      self.section, self.section_power))  # fmt: skip
+            factor = math.exp(float(self.size_correlation) * scales["width"] * scales["thickness"])
+            return factor * float(section_area(0.5 * width.moment(1), 0.5 * thick.moment(1),
+                                               self.section, self.section_power))  # fmt: skip
         xa, wa = width.quadrature(64)
         xc, wc = thick.quadrature(64)
-        area = section_area(0.5 * xa[:, None], 0.5 * xc[None, :], self.section)
-        return float(np.sum(wa[:, None] * wc[None, :] * area))
+        if scales["width"] == 0.0 and scales["thickness"] == 0.0:
+            area = section_area(0.5 * xa[:, None], 0.5 * xc[None, :], self.section)
+            return float(np.sum(wa[:, None] * wc[None, :] * area))
+        fw, ft, wf = self._section_factors()
+        area = section_area(0.5 * xa[:, None, None] * fw, 0.5 * xc[None, :, None] * ft,
+                            self.section)  # fmt: skip
+        return float(np.einsum("i,j,k,ijk->", wa, wc, wf, area))
+
+    def _lengthening(self, path: _Path, lam2: float) -> float:
+        """The mean lengthening of a path by the deviations of its centreline, to the second
+        order: ``(lambda_2 / 2) int (t_s^2 s_n^2 + t_s^4 s_z^2) d(arc)``, ``t_s`` the component
+        of its tangent along its direction, ``lambda_2`` the second spectral moment of the
+        process of the centrelines (``1 / l^2`` for the gaussian covariance)."""
+        s_n, s_z = float(self.deviation_in_plane), float(self.deviation_through)
+        if s_n == 0.0 and s_z == 0.0:
+            return 0.0
+        x, w = np.polynomial.legendre.leggauss(32)
+        u, w = 0.5 * (x + 1.0), 0.5 * w
+        total = 0.0
+        for piece in path.pieces:
+            if piece.kind == "line":
+                ts = abs(piece.s1 - piece.s0) / piece.length if piece.length > 0 else 0.0
+                total += piece.length * (ts**2 * s_n**2 + ts**4 * s_z**2)
+            elif piece.kind == "cosine":  # d(arc) = span / t_s dw
+                span = piece.s1 - piece.s0
+                slope = (piece.z1 - piece.z0) * math.pi / (2.0 * span) * np.sin(math.pi * u)
+                ts = 1.0 / np.sqrt(1.0 + slope * slope)
+                total += span * float(w @ (ts * s_n**2 + ts**3 * s_z**2))
+            else:  # an arc: t_s = |sin a|, d(arc) = r da
+                a = piece.a0 + u * (piece.a1 - piece.a0)
+                ts = np.abs(np.sin(a))
+                total += (
+                    piece.r
+                    * abs(piece.a1 - piece.a0)
+                    * float(w @ (ts**2 * s_n**2 + ts**4 * s_z**2))
+                )
+        return 0.5 * lam2 * total
+
+    def tow_material(self, fibre, matrix, *, transverse_shear: str = "gscs"):
+        """The material of the tows, aligned ``fibre`` in ``matrix`` at the fraction
+        ``fibre_fraction_in_yarns`` (:func:`~morphogen.homogenization.unidirectional.
+        composite_cylinders`): transversely isotropic, its axis 3 along the fibres, as the
+        orientations of the segments of the yarns turn it."""
+        from morphogen.homogenization.materials import Material
+        from morphogen.homogenization.unidirectional import composite_cylinders
+
+        if self.fibre_fraction_in_yarns is None:
+            raise ValueError("tow_material: give the fibre_fraction_in_yarns of the model")
+        return composite_cylinders(
+            Material.from_config(fibre), Material.from_config(matrix),
+            self.fibre_fraction_in_yarns, transverse_shear=transverse_shear,
+        ).material()  # fmt: skip
 
     def theory(self, domain: Domain | None = None) -> dict[str, float]:
         """The nominal fractions of the yarns of each family (the mean area of their
         sections times their arc length per unit volume, overlaps counted twice), their
         crimps (arc length over straight length, minus 1), the thickness of the fabric and,
-        given the fraction of the fibres in the yarns, the fibre volume fraction."""
+        given the fraction of the fibres in the yarns, the fibre volume fraction. Yarns that
+        vary: the mean area of their varying sections, and their arc lengths lengthened by
+        the deviations of their centrelines (:meth:`_lengthening`, the processes periodic
+        over the box of ``domain`` when it is periodic, over one repeat otherwise)."""
         rx, ry = self.repeat()
         lx, ly = rx * self._weft_spacing, ry * self.warp_spacing
         thickness = self.thickness()
@@ -1293,19 +1854,30 @@ class WovenTextile(Model):
         lengths = np.array([lx, ly, height])
         paths = self._paths(lengths, True, np.random.default_rng(0))
         volume = lx * ly * height
+        lam2 = (0.0, 0.0)
+        if self.varies:
+            periods = (lx, ly)
+            if domain is not None and domain.periodic:
+                b, c = plane_axes(self.axis)
+                periods = (float(domain.lengths[b]), float(domain.lengths[c]))
+            length = self.correlation_lengths()[0]
+            lam2 = tuple(float(np.sum(w * om**2)) for om, w in
+                         (process_spectrum(p, length, self.variation_covariance)
+                          for p in periods))  # fmt: skip
         out: dict[str, float] = {"thickness": thickness}
         total = 0.0
         for phase, family in FAMILIES.items():
             chosen = [p for p in paths if p.phase == phase]
             if not chosen:
                 continue
-            arc = sum(path_length(p.pieces) for p in chosen)
+            arc = sum(path_length(p.pieces) + self._lengthening(p, lam2[p.travel])
+                      for p in chosen)  # fmt: skip
             fraction = self._mean_area(family) * arc / volume
             out[f"{family}_fraction"] = fraction
             out[f"{family}_crimp"] = float(np.mean([p.crimp for p in chosen]))
             total += fraction
         out["yarn_fraction"] = total
-        out["volume_fraction"] = total if self.merge_yarns else out["warp_fraction"]
+        out["volume_fraction"] = total if self.merge_yarns else out.get("warp_fraction", 0.0)
         if self.fibre_fraction_in_yarns is not None:
             out["fibre_volume_fraction"] = total * self.fibre_fraction_in_yarns
         return out

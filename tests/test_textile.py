@@ -6,7 +6,11 @@ the labels and orientations of the segments (straight tows exactly along their a
 FFT stiffness with orientations equal to that of the tows given in the axes of the
 sample), the conforming meshes of the exact geometry with a label and an orientation per
 element (the finite elements of oriented tows against the same tows given in the axes of
-the sample, and against the FFT solver), and the round trips."""
+the sample, and against the FFT solver), and the round trips; the variability of the yarns
+(the processes along them against their prescribed standard deviations and correlations,
+neighbouring yarns, varying sections against points, the mean areas and lengths of the
+theory), the binders of any depth and the angle interlocks without stuffers, the tows as
+composite cylinders."""
 
 from __future__ import annotations
 
@@ -21,15 +25,22 @@ from scipy.integrate import quad
 
 import morphogen as mg
 from morphogen.homogenization import Material, homogenize
+from morphogen.homogenization.unidirectional import composite_cylinders
 from morphogen.mesh.conforming import conforming_mesh, has_mmg
 from morphogen.mesh.exact import exact_route
 from morphogen.mesh.tetra import TET_FACES
 from morphogen.models.base import Microstructure
 from morphogen.models.textile import (
     Piece,
+    TextileStructure,
     WovenTextile,
+    Yarn,
     interlacing,
+    neighbour_correlations,
     path_length,
+    process_covariance,
+    process_spectrum,
+    process_values,
     profile,
     section_area,
 )
@@ -477,3 +488,304 @@ def test_finite_elements_of_oriented_tows(round_mesh):
                      grains=labels, orientations=micro.orientations)  # fmt: skip
     c = fft["stiffness.periodic"]["tensor"]
     assert np.diag(a)[:3] == pytest.approx(np.diag(c)[:3], rel=0.06)
+
+
+# -- the variability of the yarns, the binders, the stuffers, the tows -----------------------
+
+#: An orthogonal weave of straight warps and wefts, whose yarns vary along their paths
+VARYING = dict(ORTHOGONAL, deviation_in_plane=0.06, deviation_through=0.03,
+               width_variation=0.1, thickness_variation=0.12, size_correlation=-0.5,
+               correlation_length=[4.0, 3.0])  # fmt: skip
+
+
+def test_processes_of_the_variations():
+    """The spectra of the processes: unit variance, the gaussian covariance exact on a
+    circle much longer than it, the exponential one smoothed at its cusp by the
+    truncation; the sample variance, covariances and slopes of drawn processes; the
+    correlations of yarns side by side, positive definite and periodized on a ring."""
+    period, length = 40.0, 4.0
+    d = np.array([0.0, 0.5, 1.0, 2.0, 4.0, 8.0, 12.0])
+    gauss = process_spectrum(period, length)
+    assert gauss[1].sum() == pytest.approx(1.0)
+    assert process_covariance(gauss, d) == pytest.approx(np.exp(-(d**2) / (2 * length**2)),
+                                                         abs=1e-9)  # fmt: skip
+    assert float(np.sum(gauss[1] * gauss[0] ** 2)) == pytest.approx(1 / length**2, rel=1e-9)
+    expo = process_spectrum(period, length, "exponential")
+    assert process_covariance(expo, d) == pytest.approx(np.exp(-d / length), abs=0.045)
+    assert process_covariance(expo, d[3:]) == pytest.approx(np.exp(-d[3:] / length), abs=0.025)
+    rng = np.random.default_rng(0)
+    s = np.linspace(0.0, period, 400, endpoint=False)
+    draws = [process_values(gauss, rng.standard_normal((len(gauss[0]), 2)), s)
+             for _ in range(2000)]  # fmt: skip
+    values = np.array([v for v, _ in draws])
+    slopes = np.array([g for _, g in draws])
+    assert values.var() == pytest.approx(1.0, abs=0.03)
+    for lag in (20, 40, 80):  # 2, 4 and 8 along s
+        assert np.mean(values[:, :-lag] * values[:, lag:]) == pytest.approx(
+            float(process_covariance(gauss, lag * 0.1)), abs=0.03
+        )
+    assert slopes.var() == pytest.approx(1 / length**2, rel=0.05)
+    with pytest.raises(ValueError, match="covariance"):
+        process_spectrum(period, length, "matern")
+    r = neighbour_correlations(6, 0.5, periodic=True)
+    assert r[0, 1] == r[0, 5] == pytest.approx((0.5 + 0.5**5) / (1 + 0.5**6))
+    assert r[0, 3] == pytest.approx(2 * 0.5**3 / (1 + 0.5**6))
+    assert np.all(np.linalg.eigvalsh(r) > 0)
+    assert np.allclose(neighbour_correlations(4, 0.5, periodic=False)[0], 0.5 ** np.arange(4))
+    assert np.array_equal(neighbour_correlations(3, 0.0, periodic=True), np.eye(3))
+
+
+def straight_deviations(micro, nominal, family="warp"):
+    """The deviations across and through the thickness of the straight yarns of a family
+    (their nodes against the same weave without variability, the same seed) and the factors
+    of their widths and thicknesses, one row per yarn in the order of the realization."""
+    pairs = [(y, y0) for y, y0 in zip(micro.yarns, nominal.yarns, strict=True)
+             if y.family == family]  # fmt: skip
+    across = 1 if family == "warp" else 0
+    da = np.array([y.nodes[:, across] - y0.nodes[0, across] for y, y0 in pairs])
+    dz = np.array([y.nodes[:, 2] - y0.nodes[0, 2] for y, y0 in pairs])
+    fw = np.array([y.half_widths / y.half_width for y, _ in pairs])
+    ft = np.array([y.half_thicknesses / y.half_thickness for y, _ in pairs])
+    return da, dz, fw, ft, [y0 for _, y0 in pairs]
+
+
+def test_variability_of_the_yarns():
+    """Deviations of the centrelines and lognormal variations of the sections along the
+    yarns: the standard deviations and correlations along the straight warps of an
+    orthogonal weave (their nodes against the same weave without variability) against those
+    prescribed, the coefficients of variation and the correlation of the sizes, their
+    statistics in the summary, the yarns closed across the period without a jump and their
+    frames orthonormal, the fractions against the theory and against Monte Carlo, the
+    seeds."""
+    domain = mg.Domain(size=(40.0, 40.0, 2.4), periodic=True)
+    model = WovenTextile(**VARYING)
+    micro = model.generate(domain, seed=5)
+    nominal = WovenTextile(**ORTHOGONAL).generate(domain, seed=5)
+    assert [y.family for y in micro.yarns] == [y.family for y in nominal.yarns]
+    dy, dz, fw, ft, _ = straight_deviations(micro, nominal)
+    step = 40.0 / dy.shape[1]
+    assert step <= 3.0 / 6 + 1e-12  # a sixth of the shorter correlation length
+    assert dy.std() == pytest.approx(0.06, rel=0.08) and abs(dy.mean()) < 0.01
+    assert dz.std() == pytest.approx(0.03, rel=0.08)
+    centre = process_spectrum(40.0, 4.0)
+    for lag in (4, 8, 16):
+        rho = np.mean(dy[:, :-lag] * dy[:, lag:]) / dy.var()
+        assert rho == pytest.approx(float(process_covariance(centre, lag * step)), abs=0.08)
+    assert np.std(fw) / np.mean(fw) == pytest.approx(0.1, rel=0.1)
+    assert np.std(ft) / np.mean(ft) == pytest.approx(0.12, rel=0.1)
+    assert np.mean(fw) == pytest.approx(1.0, abs=0.01)
+    logs = np.corrcoef(np.log(fw).ravel(), np.log(ft).ravel())[0, 1]
+    assert logs == pytest.approx(-0.5, abs=0.06)
+    s = micro.summary()
+    assert s["deviation_in_plane"] == pytest.approx(0.06, rel=0.08)
+    assert s["width_variation"] == pytest.approx(0.1, rel=0.1)
+    assert s["size_correlation"] == pytest.approx(-0.5, abs=0.06)
+    for yarn in micro.yarns:  # closed across the period: no segment longer than the others
+        start, end = yarn.ends()[:2]
+        lengths = np.linalg.norm(end - start, axis=1)
+        if yarn.family != "binder":
+            assert lengths.max() < 1.02 * np.median(lengths)
+        chords = (end - start) / lengths[:, None]
+        assert np.abs(np.einsum("ij,ij->i", yarn.normals, yarn.binormals)).max() < 1e-12
+        assert np.abs(np.einsum("ij,ij->i", chords, yarn.normals[: len(chords)])).max() < 0.05
+    theory = model.theory(domain)
+    volumes = micro.volumes()
+    for name in ("warp", "weft"):
+        chosen = [k for k, y in enumerate(micro.yarns) if y.family == name]
+        assert volumes[chosen].sum() / domain.volume == pytest.approx(
+            theory[f"{name}_fraction"], rel=0.02
+        )
+    p, se = monte_carlo(micro, n=600_000)
+    union = 1.0 - p[0]
+    assert union == pytest.approx(s["yarn_fraction"] * (1 - s["interpenetration"]),
+                                  abs=4 * se[0] + 1e-3)  # fmt: skip
+    again = model.generate(domain, seed=5)
+    assert all(np.array_equal(a.nodes, b.nodes) for a, b in zip(again.yarns, micro.yarns,
+                                                                 strict=True))  # fmt: skip
+    other = model.generate(domain, seed=6)
+    assert not np.array_equal(other.yarns[0].nodes, micro.yarns[0].nodes)
+
+
+def test_neighbouring_yarns_vary_together():
+    """The deviations of the warps of a layer correlate as ``rho^d`` between yarns ``d``
+    apart, periodized over the ring of the yarns of a periodic box; those of the two warp
+    layers stay independent."""
+    domain = mg.Domain(size=(40.0, 40.0, 2.4), periodic=True)
+    params = dict(ORTHOGONAL, deviation_in_plane=0.06, correlation_length=4.0,
+                  neighbour_correlation=0.7)  # fmt: skip
+    model = WovenTextile(**params)
+    layers = {"lower": [], "upper": []}
+    for seed in range(4):
+        micro = model.generate(domain, seed=seed)
+        nominal = WovenTextile(**ORTHOGONAL).generate(domain, seed=seed)
+        dy, _, _, _, yarns = straight_deviations(micro, nominal)
+        height = np.array([y.nodes[0, 2] for y in yarns])
+        across = np.array([y.nodes[0, 1] for y in yarns])
+        for name, chosen in (("lower", height < 1.2), ("upper", height > 1.2)):
+            order = np.argsort(across[chosen])
+            layers[name].append(dy[chosen][order])
+    lower, upper = np.array(layers["lower"]), np.array(layers["upper"])  # seeds x yarns x nodes
+    expected = neighbour_correlations(lower.shape[1], 0.7, periodic=True)
+    for gap in (1, 2, 5):
+        pairs = lower * np.roll(lower, -gap, axis=1)
+        assert pairs.mean() / lower.var() == pytest.approx(expected[0, gap], abs=0.12)
+    assert abs(np.mean(lower * upper) / lower.std() / upper.std()) < 0.15
+
+
+def test_varying_sections_against_points():
+    """A straight yarn whose half width grows linearly from 0.4 to 0.8 along it: the points
+    across it just inside and just outside the half width there, its function there; its
+    volume (four Gauss points per segment) against the closed form; the round trip of its
+    sizes."""
+    domain = mg.Domain(size=(4.0, 2.0, 1.0), periodic=False)
+    x = np.linspace(0.5, 3.5, 7)
+    nodes = np.stack([x, np.full(7, 1.0), np.full(7, 0.5)], axis=1)
+    widths = 0.4 + 0.4 * (x - 0.5) / 3.0
+    yarn = Yarn("warp", 1, nodes, np.tile([0.0, 1.0, 0.0], (7, 1)),
+                np.tile([0.0, 0.0, 1.0], (7, 1)), np.zeros(3), 0.6, 0.2, widths=widths)  # fmt: skip
+    micro = TextileStructure(domain, [yarn])
+    xs = np.linspace(0.6, 3.4, 15)
+    half = 0.4 + 0.4 * (xs - 0.5) / 3.0
+    inside = np.stack([xs, 1.0 + 0.999 * half, np.full(15, 0.5)], axis=1)
+    outside = np.stack([xs, 1.0 + 1.001 * half, np.full(15, 0.5)], axis=1)
+    assert np.all(micro.phase_of(inside) == 1) and np.all(micro.phase_of(outside) == 0)
+    assert micro.phase_level_sets_at(inside, 0.3)[1] == pytest.approx(-0.001 * half, rel=1e-6)
+    exact = math.pi * 0.2 * 3.0 * 0.6  # pi c times the integral of a(x) along the yarn
+    assert micro.volumes()[0] == pytest.approx(exact, rel=1e-12)
+    back = Microstructure.from_dict(json.loads(json.dumps(micro.to_dict())))
+    assert np.array_equal(back.yarns[0].widths, widths) and back.yarns[0].thicknesses is None
+    inside_share, shared = micro.sampled(points=20_000)
+    assert inside_share[0] == 1.0 and shared[0] == 0.0
+    with pytest.raises(ValueError, match="one positive half size per node"):
+        Yarn("warp", 1, nodes, yarn.normals, yarn.binormals, np.zeros(3), 0.6, 0.2,
+             widths=widths[:3])  # fmt: skip
+
+
+def test_mean_areas_and_lengths_of_varying_yarns():
+    """The mean area of varying sections: ``exp(rho s_w s_t)`` times the area at the mean
+    sizes for the ellipse, the Gauss–Hermite quadrature for the lens against Monte Carlo;
+    straight yarns lengthened by the deviations of their centrelines, ``1 + lambda_2 (s_n^2
+    + s_z^2) / 2``, in the theory and in their realizations."""
+    lens = WovenTextile(weave="plain", warp_spacing=2.0, yarn_width=1.6, yarn_thickness=0.4,
+                        section="lenticular", width_variation=0.2, thickness_variation=0.25,
+                        size_correlation=0.4)  # fmt: skip
+    rng = np.random.default_rng(1)
+    g1, g2 = rng.standard_normal((2, 1_000_000))
+    sw, st = math.sqrt(math.log(1 + 0.2**2)), math.sqrt(math.log(1 + 0.25**2))
+    a = 0.8 * np.exp(sw * g1 - sw**2 / 2)
+    c = 0.2 * np.exp(st * (0.4 * g1 + math.sqrt(1 - 0.16) * g2) - st**2 / 2)
+    areas = section_area(a, c, "lenticular")
+    assert lens._mean_area("warp") == pytest.approx(areas.mean(), abs=4 * areas.std() / 1000)
+    ellipse = WovenTextile(weave="plain", warp_spacing=2.0, yarn_width=1.6, yarn_thickness=0.4,
+                           width_variation=0.2, thickness_variation=0.25,
+                           size_correlation=0.4)  # fmt: skip
+    assert ellipse._mean_area("warp") == pytest.approx(
+        math.pi * 0.8 * 0.2 * math.exp(0.4 * sw * st), rel=1e-12
+    )
+    straight = WovenTextile(**dict(ORTHOGONAL, deviation_in_plane=0.3, deviation_through=0.2,
+                                   correlation_length=2.0))  # fmt: skip
+    domain = mg.Domain(size=(16.0, 16.0, 2.4), periodic=True)
+    plain = WovenTextile(**ORTHOGONAL).theory(domain)
+    longer = straight.theory(domain)
+    assert longer["warp_fraction"] / plain["warp_fraction"] == pytest.approx(
+        1 + (0.3**2 + 0.2**2) / (2 * 2.0**2), rel=1e-9
+    )
+    ratios = []
+    for seed in range(3):
+        m = straight.generate(domain, seed=seed)
+        warps = sum(v for v, y in zip(m.volumes(), m.yarns, strict=True) if y.family == "warp")
+        ratios.append(warps / domain.volume / longer["warp_fraction"])
+    assert np.mean(ratios) == pytest.approx(1.0, abs=0.004)
+
+
+def test_binder_depths_and_stuffers():
+    """Layer-to-layer binders tying three weft layers (two per column, each across two
+    warp layers) and all four; orthogonal binders tying two, the columns in turn between
+    the layers (a repeat of six rows); an angle interlock without stuffers: the crimps in
+    closed form, the fractions against Monte Carlo, the overlaps, the errors."""
+    common = dict(layers=3, warp_spacing=2.0, yarn_width=1.4, yarn_thickness=0.3,
+                  binder_width=0.5, binder_thickness=0.2)  # fmt: skip
+    deep = WovenTextile(weave="layer_to_layer", binder_depth=3, **common)
+    domain = mg.Domain(size=(4.0, 4.0, 2.6), periodic=True)
+    micro = deep.generate(domain, seed=1)
+    slots = np.array(deep._levels()["slots"])  # 0.1, 0.65, 1.25, 1.85 and 2.4
+    binders = [y for y in micro.yarns if y.family == "binder"]
+    assert len(binders) == 2 * 2
+    assert deep.expected_count(domain) == pytest.approx(len(micro.yarns))
+    spans = sorted(round(float(np.ptp(y.nodes[:, 2])), 9) for y in binders)
+    assert spans == pytest.approx(sorted([slots[3] - slots[0]] * 2 + [slots[4] - slots[1]] * 2))
+
+    def half_cosine_crimp(rise, span=2.0):
+        k = math.pi * rise / (2 * span)
+        arc = quad(lambda x: math.sqrt(1 + (k * math.sin(math.pi * x / span)) ** 2), 0, span)[0]
+        return arc / span - 1.0
+
+    crimp = 0.5 * (half_cosine_crimp(slots[3] - slots[0]) + half_cosine_crimp(slots[4] - slots[1]))
+    theory = deep.theory(domain)
+    assert theory["binder_crimp"] == pytest.approx(crimp, rel=1e-9)
+    s = micro.summary()  # the steep half cosines graze the wefts they pass between
+    assert 0.0 < s["interpenetration"] < 0.03
+    assert s["yarn_fraction"] == pytest.approx(theory["yarn_fraction"], rel=1e-3)
+    p, se = monte_carlo(micro)
+    assert 1.0 - p[0] == pytest.approx(s["yarn_fraction"] * (1 - s["interpenetration"]),
+                                       abs=4 * se[0] + 1e-3)  # fmt: skip
+    full = WovenTextile(weave="layer_to_layer", binder_depth=4, **common)
+    binders = [y for y in full.generate(domain, seed=1).yarns if y.family == "binder"]
+    assert len(binders) == 2
+    assert np.ptp(binders[0].nodes[:, 2]) == pytest.approx(slots[4] - slots[0])
+    default = WovenTextile(weave="layer_to_layer", **common)
+    assert default.theory(domain) == WovenTextile(weave="layer_to_layer", binder_depth=2,
+                                                  **common).theory(domain)  # fmt: skip
+    shallow = WovenTextile(weave="orthogonal", binder_depth=2, **common)
+    assert shallow.repeat() == (2, 6)
+    box = mg.Domain(size=(4.0, 12.0, 2.6), periodic=True)
+    micro = shallow.generate(box, seed=1)
+    binders = sorted((y for y in micro.yarns if y.family == "binder"),
+                     key=lambda y: y.nodes[0, 1])  # fmt: skip
+    base = 0.5 * (2.6 - shallow.thickness())
+    lows = [float(y.nodes[:, 2].min()) for y in binders]
+    assert lows == pytest.approx([base + slots[i % 3] for i in range(6)])
+    assert micro.summary()["interpenetration"] == 0.0
+    p, se = monte_carlo(micro)
+    assert p[3] == pytest.approx(shallow.theory(box)["binder_fraction"], abs=4 * se[3])
+    bare = WovenTextile(weave="through_thickness", stuffers=False, layers=3, warp_spacing=2.0,
+                        yarn_width=1.4, yarn_thickness=0.3)  # fmt: skip
+    assert bare.active_phases() == {0: "matrix", 2: "weft", 3: "binder"}
+    assert bare.thickness() == pytest.approx(3 * (0.3 + 0.3) + 0.3 + 2 * 0.3)
+    micro = bare.generate(mg.Domain(size=(16.0, 4.0, 2.7), periodic=True), seed=1)
+    assert "n_warp" not in micro.summary() and micro.implicit_phases() == [0, 2, 3]
+    assert all(2 * y.half_width == pytest.approx(1.4) for y in micro.yarns)
+    theory = bare.theory(micro.domain)
+    assert theory["volume_fraction"] == 0.0 and "warp_fraction" not in theory
+    p, se = monte_carlo(micro)
+    assert p[1] == 0.0
+    union = 1.0 - p[0]
+    s = micro.summary()
+    assert union == pytest.approx(s["yarn_fraction"] * (1 - s["interpenetration"]),
+                                  abs=4 * se[0] + 1e-3)  # fmt: skip
+    for bad, match in (
+        (dict(weave="through_thickness", binder_depth=2, **common), "binder_depth"),
+        (dict(weave="layer_to_layer", binder_depth=5, **common), "from 2 to layers"),
+        (dict(weave="orthogonal", binder_depth=1, **common), "from 2 to layers"),
+        (dict(weave="orthogonal", stuffers=False, **common), "angle interlocks only"),
+        (dict(weave="plain", deviation_in_plane=-0.1), "deviation_in_plane"),
+        (dict(weave="plain", size_correlation=1.0), "size_correlation"),
+        (dict(weave="plain", neighbour_correlation=1.0), "neighbour_correlation"),
+        (dict(weave="plain", correlation_length=[1.0, 2.0, 3.0]), "correlation_length"),
+        (dict(weave="plain", variation_covariance="matern"), "variation_covariance"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            WovenTextile(**bad)
+
+
+def test_tows_of_the_model():
+    """The tows as the composite cylinders of their fibres in the matrix, at the fibre
+    fraction of the model."""
+    model = WovenTextile(**dict(ORTHOGONAL, fibre_fraction_in_yarns=0.6))
+    fibre = {"hexagonal": [18.08, 6.54, 4.97, 232.05, 15.0]}
+    tow = model.tow_material(fibre, {"young": 3.5, "poisson": 0.35})
+    expected = composite_cylinders(Material.from_config(fibre),
+                                   Material(young=3.5, poisson=0.35), 0.6).stiffness  # fmt: skip
+    assert np.allclose(tow.stiffness, expected) and tow.symmetry == "hexagonal"
+    with pytest.raises(ValueError, match="fibre_fraction_in_yarns"):
+        WovenTextile(**ORTHOGONAL).tow_material(fibre, {"young": 3.5, "poisson": 0.35})

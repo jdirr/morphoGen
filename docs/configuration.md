@@ -69,7 +69,8 @@ homogenization:        # apparent properties of every realization
   materials:           # one per phase: void, {young, poisson, conductivity}, {bulk, shear}
     0: void            # or crystals: {cubic: [C11, C12, C44]}, {hexagonal: [C11, C12,
     1: {young: 210000.0, poisson: 0.3, conductivity: 100.0}   # C13, C33, C44]},
-                       # {stiffness: 6 x 6}, conductivity: k | [k_a, k_c] | 3 x 3
+                       # {stiffness: 6 x 6}, conductivity: k | [k_a, k_c] | 3 x 3;
+                       # tows: {unidirectional: {fibre, matrix, fibre_fraction}}
                        # paths: plasticity: {...}, crystal_plasticity: {families,
                        # tau0, Q, b, C, D, K, n, interaction; c_over_a (hexagonal
                        # families); twins: {twin1012: {tau0: ..}}, twin_saturation,

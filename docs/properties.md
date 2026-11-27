@@ -315,7 +315,12 @@ for the FFT solver, on an NVIDIA GPU with `device: gpu`. Crystals are given as
 `{cubic: [C11, C12, C44]}`, `{hexagonal: [C11, C12, C13, C33, C44]}` or
 `{stiffness: <6 x 6>}`; tessellations with `crystal_orientations: true` are meshed grain
 by grain (`mesh: {size: 0.08, min_feature: 0.02}`) and their crystals turned by the
-orientations of the grains.
+orientations of the grains. Aligned fibres in a matrix — the tows of woven textiles, the
+plies of laminates — are given by their constituents, `{unidirectional: {fibre: {...},
+matrix: {...}, fibre_fraction: 0.6}}`: the transversely isotropic material of the
+composite cylinder assemblage (Hashin & Rosen 1964), its axis 3 along the fibres, with its
+conductivities and expansions (`morphogen.homogenization.unidirectional`, theory notes
+§110).
 
 Templates to start from: `homogenization_spheres` (the four conditions on a composite),
 `homogenization_gyroid` (stiffness tensor of a lattice, local fields),

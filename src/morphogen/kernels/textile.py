@@ -2,14 +2,17 @@
 
 A yarn is a polyline of segments; each segment carries the frame of its two ends (the
 width axis ``n`` and the thickness axis ``b``, in the plane normal to the centreline), the
-half sizes of its section, its label and its phase. The segments are registered in the
+half sizes of its section at its two ends (``half_w`` and ``half_t``, one row per segment:
+the start and the end; equal for the yarns of constant sections), its label and its
+phase. The segments are registered in the
 uniform grid of cells of :mod:`morphogen.kernels.raster` as capsules whose radius is the
 larger half size plus the band of the functions. The segments of a yarn are consecutive,
 and the candidates of a cell are listed in increasing order: they come in runs, one per
 yarn. At a point, the segment of each run closest to it gives the closest point of the
-centreline; the coordinates ``(u, v)`` of the point in the frame there (interpolated
-between the ends of the segment) give the function of the section, about the signed
-distance to its boundary (:func:`section_function`). The deepest yarn (the smallest
+centreline; the coordinates ``(u, v)`` of the point in the frame there and the half sizes
+of the section there (both interpolated between the ends of the segment) give the
+function of the section, about the signed distance to its boundary
+(:func:`section_function`). The deepest yarn (the smallest
 function) takes the point; the matrix takes the points that no yarn holds.
 
 Loops over voxels are parallel over x-slices; each voxel is written by a single thread.
@@ -139,7 +142,9 @@ def _evaluate(
         nbb = math.sqrt(b0 * b0 + b1 * b1 + b2 * b2)
         u = (rx * n0 + ry * n1 + rz * n2) / nn
         v = (rx * b0 + ry * b1 + rz * b2) / nbb
-        f = section_function(u, v, half_w[chosen], half_t[chosen], shape, q)
+        a = half_w[chosen, 0] + t * (half_w[chosen, 1] - half_w[chosen, 0])
+        c = half_t[chosen, 0] + t * (half_t[chosen, 1] - half_t[chosen, 0])
+        f = section_function(u, v, a, c, shape, q)
         p = phase[chosen]
         if f < depth[p - 1]:
             depth[p - 1] = f

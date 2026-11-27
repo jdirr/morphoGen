@@ -1812,6 +1812,17 @@ morphogen.homogenization.solvers.gmres(apply, precondition, rhs, tol, maxiter, r
 morphogen.homogenization.solvers.minres(apply, precondition, rhs, tol, maxiter)
 morphogen.homogenization.solvers.norm(a)
 morphogen.homogenization.solvers.times(a, b)
+morphogen.homogenization.unidirectional.Hill(k, l, n, m, p)
+morphogen.homogenization.unidirectional.Hill.stiffness
+morphogen.homogenization.unidirectional.TRANSVERSE_SHEAR
+morphogen.homogenization.unidirectional.Unidirectional(fibre_fraction, moduli, conductivity=None, expansion=None, transverse_shear='gscs')
+morphogen.homogenization.unidirectional.Unidirectional.constants(self)
+morphogen.homogenization.unidirectional.Unidirectional.material(self)
+morphogen.homogenization.unidirectional.Unidirectional.stiffness
+morphogen.homogenization.unidirectional.composite_cylinders(fibre, matrix, fibre_fraction, *, transverse_shear='gscs')
+morphogen.homogenization.unidirectional.hill_moduli(material)
+morphogen.homogenization.unidirectional.hill_relations(fibre, matrix, fibre_fraction, k)
+morphogen.homogenization.unidirectional.transverse_shear_bounds(fibre, matrix, fibre_fraction)
 morphogen.homogenization.voxel_fe.CYCLE
 morphogen.homogenization.voxel_fe.SHIFT
 morphogen.homogenization.voxel_fe.VoxelFEElasticProblem(image, materials, bc='periodic', *, tol=1e-08, maxiter=None, grains=None, orientations=None, shift=1e-12)
@@ -3768,6 +3779,7 @@ morphogen.models.tessellation.Tessellation.voxelize(self, shape=None, *, voxel_s
 morphogen.models.tessellation.Voronoi(n_cells=None, intensity=None, phase_fractions=None, crystal_orientations=False, boundary_thickness=0.0, boundary_phase=None, germs='poisson', stealthiness=0.3, *, texture=None, anisotropy=None)
 morphogen.models.tessellation.Voronoi.generate(self, domain, seed=None)
 morphogen.models.tessellation.Voronoi.theory(self, domain=None)
+morphogen.models.textile.COVARIANCES
 morphogen.models.textile.FAMILIES
 morphogen.models.textile.PATTERNS
 morphogen.models.textile.Piece(kind, s0, z0, s1, z1, sc=0.0, zc=0.0, r=0.0, a0=0.0, a1=0.0)
@@ -3798,11 +3810,13 @@ morphogen.models.textile.TextileStructure.volumes(self)
 morphogen.models.textile.TextileStructure.voxelize(self, shape=None, *, voxel_size=None, grid=None, supersampling=1)
 morphogen.models.textile.TextileStructure.yarn_count(self, shape=None, *, voxel_size=None, grid=None)
 morphogen.models.textile.TextileStructure.yarns_at(self, points)
+morphogen.models.textile.VARIATIONS
 morphogen.models.textile.WEAVES
 morphogen.models.textile.WEAVES_2D
 morphogen.models.textile.WEAVES_3D
-morphogen.models.textile.WovenTextile(weave='plain', pattern=None, layers=1, warp_spacing=2.0, weft_spacing=None, yarn_width=Constant(value=1.6), yarn_thickness=Constant(value=0.3), weft_width=None, weft_thickness=None, binder_width=None, binder_thickness=None, section='ellipse', section_power=3.0, transition=1.0, ply_shift=None, random_shift=False, ply_gap=0.0, merge_yarns=False, samples=16, fibre_fraction_in_yarns=None, axis=2)
+morphogen.models.textile.WovenTextile(weave='plain', pattern=None, layers=1, warp_spacing=2.0, weft_spacing=None, yarn_width=Constant(value=1.6), yarn_thickness=Constant(value=0.3), weft_width=None, weft_thickness=None, binder_width=None, binder_thickness=None, section='ellipse', section_power=3.0, transition=1.0, ply_shift=None, random_shift=False, ply_gap=0.0, merge_yarns=False, samples=16, fibre_fraction_in_yarns=None, axis=2, binder_depth=None, stuffers=True, deviation_in_plane=0.0, deviation_through=0.0, width_variation=0.0, thickness_variation=0.0, size_correlation=0.0, correlation_length=None, neighbour_correlation=0.0, variation_covariance='gaussian')
 morphogen.models.textile.WovenTextile.active_phases(self)
+morphogen.models.textile.WovenTextile.correlation_lengths(self)
 morphogen.models.textile.WovenTextile.expected_count(self, domain)
 morphogen.models.textile.WovenTextile.generate(self, domain, seed=None)
 morphogen.models.textile.WovenTextile.has_level_set
@@ -3812,15 +3826,25 @@ morphogen.models.textile.WovenTextile.sizes(self)
 morphogen.models.textile.WovenTextile.spacings
 morphogen.models.textile.WovenTextile.theory(self, domain=None)
 morphogen.models.textile.WovenTextile.thickness(self)
-morphogen.models.textile.Yarn(family, phase, nodes, normals, binormals, period, half_width, half_thickness, crimp=0.0)
+morphogen.models.textile.WovenTextile.tow_material(self, fibre, matrix, *, transverse_shear='gscs')
+morphogen.models.textile.WovenTextile.varies
+morphogen.models.textile.Yarn(family, phase, nodes, normals, binormals, period, half_width, half_thickness, crimp=0.0, widths=None, thicknesses=None)
 morphogen.models.textile.Yarn.closed
 morphogen.models.textile.Yarn.ends(self)
 morphogen.models.textile.Yarn.from_dict(cls, data)
+morphogen.models.textile.Yarn.half_thicknesses
+morphogen.models.textile.Yarn.half_widths
 morphogen.models.textile.Yarn.length
 morphogen.models.textile.Yarn.n_segments
+morphogen.models.textile.Yarn.segment_sizes(self)
 morphogen.models.textile.Yarn.to_dict(self)
+morphogen.models.textile.Yarn.varies
 morphogen.models.textile.interlacing(weave, pattern=None)
+morphogen.models.textile.neighbour_correlations(n, rho, periodic)
 morphogen.models.textile.path_length(pieces)
+morphogen.models.textile.process_covariance(spectrum, d)
+morphogen.models.textile.process_spectrum(period, length, covariance='gaussian', modes=None)
+morphogen.models.textile.process_values(spectrum, coefficients, s)
 morphogen.models.textile.profile(levels, first, spacing, transition=1.0, radius=None)
 morphogen.models.textile.section_area(a, c, section='ellipse', power=2.0)
 morphogen.models.tiling_field.TilingField(domain, tiling, phases, *, cells=None, attributes=None, **kwargs)
