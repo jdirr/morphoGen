@@ -2,8 +2,9 @@
 
 What morphoGen generates and computes goes to the codes of the field, and comes back:
 images and meshes for ParaView, Abaqus, CalculiX, Gmsh, FEniCSx, DAMASK and Neper, runs of
-AMITEX_FFTP prepared and read back, behaviours written as MFront sources and Z-set
-material files, and Z-set files run as they are; the particles of a phase go to the
+AMITEX_FFTP and studies of Code_Aster prepared and read back, cases of OpenFOAM (the flow
+through the pores, the diffusion through a phase) and their results, behaviours written
+as MFront sources and Z-set material files, and Z-set files run as they are; the particles of a phase go to the
 codes of discrete elements (LMGC90, LAMMPS, LIGGGHTS, YADE), microstructures to the arrays
 of JAX, PyTorch and CuPy, to Microgen and to Blender. `morphogen.export(obj, path)` picks the
 writer from the object and the suffix of the file.
@@ -16,6 +17,16 @@ writer from the object and the suffix of the file.
   the phases: elastic, the nonlinear ones as MFront laws), Gmsh `.msh`,
   `.vtu`, Medit `.mesh`, FEniCSx XDMF with tags, and more through meshio; periodic
   node pairs and periodic constraint equations (`*EQUATION`).
+* Code_Aster's meshes (`.mail`, its native format, with the groups of the phases, of
+  the grains, of the faces of the box and of their nodes; MED with h5py) and its studies
+  of the apparent stiffness and conductivity of a conforming mesh, read back
+  (`morphogen code-aster export|read`, `outputs.code_aster`;
+  [Code_Aster](#code-aster)).
+* OpenFOAM's meshes (`constant/polyMesh` of the voxels of some phases or of the
+  tetrahedra of a conforming mesh, with the patches of the faces of the box, cyclic
+  pairs and the walls) and its cases of the flow through the pores and of the diffusion
+  through a phase, read back (`morphogen openfoam export|read`, `outputs.openfoam`;
+  [OpenFOAM](#openfoam)).
 * Polycrystals for other codes: DAMASK grids and material files, Neper seeds,
   weights and orientations.
 * Runs of AMITEX_FFTP (the FFT solver of the CEA, MPI-parallel): material and zone
@@ -121,6 +132,78 @@ cd laws && mfront --obuild --interface=abaqus alloyPhase0.mfront
 
 Behaviours written in MFront also take the place of morphoGen's own along loading paths
 ([MFront behaviours](behaviours.md#mfront-behaviours)).
+
+## Code_Aster
+
+`morphogen.io.write_code_aster` writes the study of Code_Aster (EDF's finite element
+code, [code-aster.org](https://code-aster.org)) of the apparent properties of a
+conforming mesh: the mesh in Code_Aster's own format (`.mail`, read by
+`LIRE_MAILLAGE(FORMAT='ASTER')`; or MED), with the groups of elements of its phases
+(`PHASE_<p>`), of the grains of its crystals (`GRAIN_<c>`) and of the triangles of the
+faces of the box (`XMIN`... `ZMAX`), and the groups of nodes that the conditions need;
+the command file (`.comm`): the materials of the phases (`ELAS` and `THER`; the crystals
+`ELAS_ORTH` and `THER_ORTH` in the frames of their grains, `AFFE_CARA_ELEM` with their
+Bunge angles), the six unit strains and three unit gradients of the apparent stiffness
+and conductivity, solved by `MECA_STATIQUE` and `THER_LINEAIRE`, the integrals of the
+stresses and fluxes over the volume (`POST_ELEM`, `INTEGRALE`) and their tables; the export
+file of `run_aster`. The periodic conditions tie each node of an upper face to its image
+on the lower faces (`LIAISON_GROUP`, the nodes grouped by the translation that brings
+them there, a corner fixed): without a redundant equation at the edges and corners, they
+are those of morphoGen's own finite elements on the same mesh; kinematic conditions
+impose the affine displacement on the faces (functions of the coordinates). The
+voids are left out of the mesh, the nonlinear materials written by their elasticity
+([theory notes](theory.md), §111).
+
+```bash
+# a geometry meshed (or a .vtu mesh) with its materials: the study, run by Code_Aster
+morphogen code-aster export composite.json --size 0.1 --materials composite.yaml -o aster/
+cd aster && run_aster aster.export && cd ..   # where Code_Aster is installed
+morphogen code-aster read aster/              # the apparent stiffness and conductivity
+morphogen code-aster read aster/ -o properties.csv   # a row of a table of properties
+```
+
+In a configuration, `outputs.code_aster: true` (or its options `physics`,
+`conditions`, `mesh_format`, `fields`) writes the study of the conforming mesh of each
+realization (`<name>_<index>_aster/`; the `mesh` section and the materials of the
+`homogenization` section); `outputs.conforming_mesh: [mail]` the mesh alone. The tab
+Solvers & formats of the interface writes it too (*Code_Aster study*).
+
+## OpenFOAM
+
+`morphogen.io.write_openfoam` writes a case of OpenFOAM (the finite volume code of the
+OpenFOAM Foundation, [openfoam.org](https://openfoam.org), and of OpenCFD,
+[openfoam.com](https://www.openfoam.com)) of a voxel image or a conforming mesh: its
+`constant/polyMesh` (a hexahedral cell per voxel of the phases chosen, or a cell per
+tetrahedron; the internal faces in the order OpenFOAM requires, the patches of the six
+faces of the box, cyclic in pairs along the periodic axes, and the walls of the phase,
+a cell zone per phase), the dictionaries of `system/`, the properties of the fluid in
+the files of both lines of OpenFOAM, the fields of `0/` and `Allrun`. The flow
+(`kind="flow"`, `simpleFoam`; `foamRun` with the solver `incompressibleFluid` in the
+versions of the Foundation that have it) runs through the pores from the face
+`XMIN` to `XMAX` (along `axis`) under a pressure drop, without slip on the walls, the
+other faces symmetry planes or cyclic pairs; the flow rate through the outlet gives
+Darcy's permeability (`read_openfoam`). The diffusion (`kind="diffusion"`,
+`laplacianFoam`) gives the effective diffusivity of a phase (the conductivity of a phase
+in an insulating matrix, the inverse of its formation factor). The pores that join the
+inlet to no outlet are left out (`connected`), where the pressure would be undetermined
+([theory notes](theory.md), §111).
+
+```bash
+# the pores of an image (phase 0) along x: the case, run by OpenFOAM, read back
+morphogen openfoam export foam.vti --periodic --viscosity 1e-6 --pressure-drop 1e-3 -o foam/
+cd foam && ./Allrun && cd ..     # in the environment of OpenFOAM
+morphogen openfoam read foam/    # the flow rate, the mean velocity, the permeability
+# the diffusion through the pores of a geometry voxelized
+morphogen openfoam export spheres.json --voxels 96 --kind diffusion -o diffusion/
+```
+
+In a configuration, `outputs.openfoam: true` (or its options `kind`, `phases`, `axis`,
+`lateral`, `viscosity`, `pressure_drop`, `diffusivity`, `difference`, `iterations`,
+`connected`, and `sample: mesh` for the conforming mesh rather than the image) writes the
+case of each realization (`<name>_<index>_openfoam/`); the tab Solvers & formats of the
+interface writes it too (*OpenFOAM case*). ParaView opens a case by its empty
+`<case>.foam` file. morphoGen's own Stokes solver gives the permeability tensor of
+periodic pores on the voxels ([Flow through the pores](physics.md#flow-through-the-pores-and-the-sound-absorbed-by-a-porous-layer)).
 
 ## Z-set
 

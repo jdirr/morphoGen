@@ -193,6 +193,159 @@ def cmd_amitex(args) -> int:
     return _amitex_export(args) if args.action == "export" else _amitex_read(args)
 
 
+def _properties_table(path, row: dict) -> None:
+    """A row appended to a CSV table (its header written with the first)."""
+    target = Path(path)
+    new = not target.exists()
+    with open(target, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(row))
+        if new:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def cmd_code_aster(args) -> int:
+    from morphogen.homogenization import materials_from_config
+    from morphogen.homogenization.postprocess import NOTATION, compliance, matrix_entries
+    from morphogen.mesh.tetra import TetMesh
+
+    if args.action == "export":
+        materials = materials_from_config(_material_spec(args))
+        path = Path(args.sample)
+        if path.suffix.lower() not in (".json", ".vtu", ".mesh"):
+            raise ValueError(
+                "a geometry (.json, meshed with --size) or a tetrahedral mesh (.vtu, .mesh): "
+                "Code_Aster's studies are of conforming meshes"
+            )
+        mesh, _ = _homogenization_sample(args, materials)
+        if not isinstance(mesh, TetMesh):  # pragma: no cover - the suffixes above
+            raise ValueError("a tetrahedral mesh")
+        study = io.write_code_aster(
+            args.output or f"{path.stem}_aster",
+            mesh,
+            materials,
+            physics=args.physics,
+            conditions=args.conditions,
+            name=args.name or "aster",
+            mesh_format=args.mesh_format,
+            fields=args.fields,
+        )
+        if args.json:
+            info = {"directory": str(study.directory), "name": study.name, "cases": study.cases}
+            print(json.dumps(info, indent=2))
+        else:
+            print(
+                f"Code_Aster study of {path.name} ({mesh.n_elements} tetrahedra) in "
+                f"{study.directory}: loadings {', '.join(study.cases)}; run "
+                f"run_aster {study.name}.export there"
+            )
+        return 0
+    run = io.read_code_aster(args.sample, args.name)
+    out = {
+        "name": run.manifest["name"],
+        "volume": run.manifest["volume"],
+        "conditions": run.manifest["conditions"],
+        "averages": {k: v.tolist() for k, v in run.averages.items()},
+    }
+    if run.stiffness is not None:
+        out["stiffness"] = run.stiffness.tolist()
+        out["compliance"] = compliance(run.stiffness).tolist()
+        out["notation"] = NOTATION
+    if run.conductivity is not None:
+        out["conductivity"] = run.conductivity.tolist()
+    out["properties"] = run.properties
+    missing = sorted(set(run.manifest["cases"]) - set(run.averages))
+    if missing:
+        out["missing"] = missing
+    if args.output:
+        if run.stiffness is None and run.conductivity is None:
+            raise ValueError("-o: a table of the apparent properties, which needs their tables")
+        row = {"name": out["name"], "volume": out["volume"], **run.properties}
+        if run.stiffness is not None:
+            row.update(matrix_entries(run.stiffness, "C"))
+            row.update(matrix_entries(out["compliance"], "S"))
+        _properties_table(args.output, row)
+    if args.json:
+        print(json.dumps(to_jsonable(out), indent=2))
+        return 0
+    with_results = sorted(run.averages) or "none"
+    print(f"{out['name']}: loadings with results {with_results}"
+          + (f", without {missing}" if missing else ""))  # fmt: skip
+    if run.stiffness is not None:
+        print("apparent", end=" ")
+        _print_elastic(run.stiffness, out["compliance"])
+    if run.conductivity is not None:
+        print("apparent conductivity:")
+        print(_matrix_text(run.conductivity))
+    for key, value in run.properties.items():
+        print(f"{key:>16s}: {value:.6g}")
+    return 0
+
+
+def _openfoam_sample(args):
+    """The sample of a case of OpenFOAM: an image, a geometry (.json) voxelized
+    (``--voxels``) or meshed (``--size``), or a tetrahedral mesh (.vtu, .mesh)."""
+    from morphogen.mesh.conforming import conforming_mesh
+
+    path = Path(args.sample)
+    ext = path.suffix.lower()
+    if ext == ".json":
+        micro = io.load_microstructure(path)
+        if args.voxels is not None:
+            return micro.voxelize(args.voxels)
+        if args.size is None:
+            raise ValueError("a geometry: --voxels N (an image) or --size h (a conforming mesh)")
+        return conforming_mesh(micro, size=args.size, hausdorff=args.hausdorff, cells="box")
+    if ext in (".vtu", ".mesh"):
+        return io.read_tet_mesh(path, periodic=True if args.periodic else None)
+    image = io.load_image(path, name=args.array)
+    if args.periodic:
+        image.periodic = True
+    return image
+
+
+def cmd_openfoam(args) -> int:
+    if args.action == "export":
+        sample = _openfoam_sample(args)
+        export = io.write_openfoam(
+            args.output or f"{Path(args.sample).stem}_openfoam",
+            sample,
+            kind=args.kind,
+            phases=tuple(args.phases),
+            axis=args.axis,
+            lateral=args.lateral,
+            viscosity=args.viscosity,
+            pressure_drop=args.pressure_drop,
+            diffusivity=args.diffusivity,
+            difference=args.difference,
+            iterations=args.iterations,
+            connected=not args.all_cells,
+        )
+        if args.json:
+            print(json.dumps({"directory": str(export.directory), **export.manifest}, indent=2))
+        else:
+            print(
+                f"OpenFOAM case ({export.kind}) of {Path(args.sample).name} in "
+                f"{export.directory}: {export.mesh.n_cells} cells; run ./Allrun there"
+            )
+        return 0
+    run = io.read_openfoam(args.sample)
+    out = {**run.manifest, "values": run.values, "properties": run.properties}
+    if args.output:
+        if not run.properties:
+            raise ValueError("-o: a table of the results, which needs the outputs of the run")
+        _properties_table(args.output, {"case": str(args.sample), **run.properties})
+    if args.json:
+        print(json.dumps(to_jsonable(out), indent=2))
+        return 0
+    if not run.properties:
+        print(f"{args.sample}: no outputs of the function objects (postProcessing/)")
+        return 0
+    for key, value in run.properties.items():
+        print(f"{key:>22s}: {value:.6g}")
+    return 0
+
+
 def cmd_db(args) -> int:
     from morphogen.results import ResultsDatabase, write_records
 
@@ -2535,6 +2688,130 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--output", help="export: directory; read: CSV table to append to")
     p.add_argument("--json", action="store_true", help="JSON output")
     p.set_defaults(func=cmd_amitex)
+
+    p = sub.add_parser(
+        "code-aster",
+        help="studies of Code_Aster of the apparent properties of a conforming mesh (export), "
+        "and their results (read)",
+    )
+    p.add_argument("action", choices=("export", "read"), help="write the study, or read results")
+    p.add_argument(
+        "sample",
+        help="export: a geometry (.json, meshed with --size) or a tetrahedral mesh (.vtu, "
+        ".mesh); read: the directory of a study",
+    )
+    p.add_argument("--material", nargs="+", help="materials, as for morphogen homogenize")
+    p.add_argument("--materials", help="YAML/JSON file of the materials of the phases")
+    p.add_argument("--size", type=float, help="element size of the conforming mesh (.json)")
+    p.add_argument("--hausdorff", type=float, help="Hausdorff distance of the interface mesh")
+    p.add_argument(
+        "--order",
+        type=int,
+        choices=(1, 2),
+        default=2,
+        help="10-node tetrahedra (2, default) or 4-node ones (1)",
+    )
+    p.add_argument(
+        "--mesh-phases",
+        choices=("auto", "all", "solid"),
+        default="auto",
+        help="mesh both phases, or phase 1 only (auto: solid when a phase is a void)",
+    )
+    p.add_argument("--periodic", action="store_true", help="a periodic mesh (.vtu, .mesh)")
+    p.add_argument(
+        "--physics",
+        nargs="+",
+        choices=("elastic", "thermal"),
+        help="the properties (default: those that the materials have)",
+    )
+    p.add_argument(
+        "--conditions",
+        choices=("periodic", "kinematic"),
+        help="boundary conditions (default: periodic for a periodic mesh)",
+    )
+    p.add_argument(
+        "--format",
+        dest="mesh_format",
+        choices=("aster", "med"),
+        default="aster",
+        help="the mesh in Code_Aster's format (.mail) or in MED (needs h5py)",
+    )
+    p.add_argument("--fields", action="store_true", help="the results in MED as well")
+    p.add_argument(
+        "--name", help="export: the name of the files (default aster); read: the study to read"
+    )
+    p.add_argument("-o", "--output", help="export: directory; read: CSV table to append to")
+    p.add_argument("--json", action="store_true", help="JSON output")
+    p.set_defaults(
+        func=cmd_code_aster,
+        voxels=None,
+        cells="box",
+        min_feature=None,
+        array=None,
+        mesh_method="auto",
+    )
+
+    p = sub.add_parser(
+        "openfoam",
+        help="cases of OpenFOAM of an image or a conforming mesh (export): the flow through the "
+        "pores or the diffusion through a phase, and their results (read)",
+    )
+    p.add_argument("action", choices=("export", "read"), help="write the case, or read results")
+    p.add_argument(
+        "sample",
+        help="export: an image, a geometry (.json, with --voxels or --size) or a tetrahedral "
+        "mesh (.vtu, .mesh); read: the directory of a case",
+    )
+    p.add_argument(
+        "--kind",
+        choices=("flow", "diffusion"),
+        default="flow",
+        help="flow through the pores (simpleFoam) or diffusion (laplacianFoam)",
+    )
+    p.add_argument(
+        "--phases",
+        type=int,
+        nargs="+",
+        default=[0],
+        help="the phases of the cells (default 0: the pores)",
+    )
+    p.add_argument(
+        "--axis",
+        type=int,
+        choices=(0, 1, 2),
+        default=0,
+        help="from the face <axis>MIN to <axis>MAX (default 0: x)",
+    )
+    p.add_argument(
+        "--lateral",
+        choices=("symmetryPlane", "cyclic"),
+        help="the other faces (default: cyclic for a periodic sample)",
+    )
+    p.add_argument("--viscosity", type=float, default=1.0, help="kinematic viscosity (flow)")
+    p.add_argument(
+        "--pressure-drop",
+        type=float,
+        default=1.0,
+        help="kinematic pressure drop from the inlet to the outlet (flow)",
+    )
+    p.add_argument("--diffusivity", type=float, default=1.0, help="DT (diffusion)")
+    p.add_argument(
+        "--difference", type=float, default=1.0, help="T at the inlet, 0 at the outlet (diffusion)"
+    )
+    p.add_argument("--iterations", type=int, default=2000, help="largest number of iterations")
+    p.add_argument(
+        "--all-cells",
+        action="store_true",
+        help="keep the closed pores (default: only what joins the inlet to the outlet)",
+    )
+    p.add_argument("--voxels", type=int, help="voxels along the longest edge of a geometry")
+    p.add_argument("--size", type=float, help="element size of a conforming mesh of a geometry")
+    p.add_argument("--hausdorff", type=float, help="Hausdorff distance of the interface mesh")
+    p.add_argument("--periodic", action="store_true", help="a periodic sample (image or mesh)")
+    p.add_argument("--array", help="array of the image file")
+    p.add_argument("-o", "--output", help="export: directory; read: CSV table to append to")
+    p.add_argument("--json", action="store_true", help="JSON output")
+    p.set_defaults(func=cmd_openfoam)
 
     p = sub.add_parser(
         "mfront", help="MFront sources of the materials (von Mises, porous plasticity, "

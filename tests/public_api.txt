@@ -324,6 +324,7 @@ morphogen.automata.tilings.tile_edge(name, cell_size=1.0)
 morphogen.automata.tilings.window_stars(samples=1048576, rng=None)
 morphogen.config.AMITEX_OPTIONS
 morphogen.config.BITMAP_FORMATS
+morphogen.config.CODE_ASTER_OPTIONS
 morphogen.config.ConfigError(...)
 morphogen.config.DEFAULT_ELEMENTS_PER_EDGE
 morphogen.config.DEFAULT_HAUSDORFF
@@ -343,7 +344,8 @@ morphogen.config.MESH_FORMATS
 morphogen.config.MeshSpec(size, min_size=None, hausdorff=None, gradation=2.0, background=None, order=None, curved=None, sharp_edges=None, phases='auto', grains=None, min_feature=None, cells='whole', method='auto')
 morphogen.config.MeshSpec.kwargs(self, porous=False)
 morphogen.config.NONLINEAR_OPTIONS
-morphogen.config.OutputSpec(directory=Path('morphogen_output'), name='sample', geometry=<factory>, image=<factory>, labels=<factory>, level_set=<factory>, mesh=<factory>, mesh_phases=None, conforming_mesh=<factory>, periodic_pairs=False, periodic_equations=False, surface=<factory>, damask=False, neper=False, database=None, amitex=None, tables=<factory>)
+morphogen.config.OPENFOAM_OPTIONS
+morphogen.config.OutputSpec(directory=Path('morphogen_output'), name='sample', geometry=<factory>, image=<factory>, labels=<factory>, level_set=<factory>, mesh=<factory>, mesh_phases=None, conforming_mesh=<factory>, periodic_pairs=False, periodic_equations=False, surface=<factory>, damask=False, neper=False, database=None, amitex=None, code_aster=None, openfoam=None, tables=<factory>)
 morphogen.config.OutputSpec.needs_voxels
 morphogen.config.RVESpec(method='ensemble', sizes=<factory>, realizations=<factory>, size=None, window_sizes=<factory>, properties=<factory>, relative_errors=<factory>, n_realizations=<factory>, gamma=None, min_volume=None, max_volume=None, bootstrap=1000, weights='none', shifts=1)
 morphogen.config.RunConfig(model, domain, seed=None, realizations=1, voxels=None, mesh=None, outputs=<factory>, analysis=<factory>, rve=None, homogenization=None, diffusion=None, visualization=None, threads=None, source=<factory>)
@@ -2114,16 +2116,21 @@ morphogen.io: load_image
 morphogen.io: load_microstructure
 morphogen.io: mfront_source
 morphogen.io: particles
+morphogen.io: polymesh
 morphogen.io: read_amitex
 morphogen.io: read_amitex_materials
 morphogen.io: read_amitex_run
 morphogen.io: read_amitex_zones
+morphogen.io: read_aster_mesh
+morphogen.io: read_code_aster
 morphogen.io: read_ebsd
 morphogen.io: read_json
 morphogen.io: read_mhd
 morphogen.io: read_msh
 morphogen.io: read_npy
 morphogen.io: read_npz
+morphogen.io: read_openfoam
+morphogen.io: read_polymesh
 morphogen.io: read_radioss_listing
 morphogen.io: read_radioss_th
 morphogen.io: read_stl
@@ -2142,6 +2149,8 @@ morphogen.io: voxelize_to_file
 morphogen.io: write_amitex
 morphogen.io: write_amitex_field
 morphogen.io: write_amitex_loading
+morphogen.io: write_aster_mesh
+morphogen.io: write_code_aster
 morphogen.io: write_csv
 morphogen.io: write_damask
 morphogen.io: write_ebsd
@@ -2158,9 +2167,11 @@ morphogen.io: write_msh_tet
 morphogen.io: write_neper
 morphogen.io: write_npy
 morphogen.io: write_npz
+morphogen.io: write_openfoam
 morphogen.io: write_particles
 morphogen.io: write_periodic_equations
 morphogen.io: write_periodic_pairs
+morphogen.io: write_polymesh
 morphogen.io: write_radioss
 morphogen.io: write_stl
 morphogen.io: write_table
@@ -2194,6 +2205,25 @@ morphogen.io.amitex.read_amitex_zones(prefix, material, *, kinematics=None)
 morphogen.io.amitex.write_amitex(directory, image, materials, *, grains=None, orientations=None, loadings=None, paths=None, stiffness=None, name='amitex', fields=False, tolerance=None, library='', processes=4, elastic_only=False, kinematics='small')
 morphogen.io.amitex.write_amitex_field(path, values, spacing, origin=(0.0, 0.0, 0.0), name='MaterialId')
 morphogen.io.amitex.write_amitex_loading(path, segments, *, kinematics='small', fields=False)
+morphogen.io.code_aster.AsterGroups(faces, elements, nodes, links=<factory>, origin=0)
+morphogen.io.code_aster.CONDITIONS
+morphogen.io.code_aster.CodeAsterExport(directory, name, files, cases)
+morphogen.io.code_aster.CodeAsterRun(manifest, averages=<factory>, stiffness=None, conductivity=None, properties=<factory>)
+morphogen.io.code_aster.FACES
+morphogen.io.code_aster.FLUXES
+morphogen.io.code_aster.GRADIENT_CASES
+morphogen.io.code_aster.MED_TETRA10
+morphogen.io.code_aster.MED_TETRA4
+morphogen.io.code_aster.MESH_FORMATS
+morphogen.io.code_aster.PHYSICS
+morphogen.io.code_aster.STRAIN_CASES
+morphogen.io.code_aster.STRESSES
+morphogen.io.code_aster.aster_groups(mesh, *, periodic=False, grains=())
+morphogen.io.code_aster.read_aster_mesh(path)
+morphogen.io.code_aster.read_aster_table(path)
+morphogen.io.code_aster.read_code_aster(directory, name=None)
+morphogen.io.code_aster.write_aster_mesh(path, mesh, *, groups=None)
+morphogen.io.code_aster.write_code_aster(directory, mesh, materials, *, physics=None, conditions=None, name='aster', mesh_format='aster', fields=False, memory=4096.0, time_limit=3600.0, threads=1)
 morphogen.io.dem.Particle(surface, voxels, whole)
 morphogen.io.dem.Particle.area
 morphogen.io.dem.Particle.centroid
@@ -2289,6 +2319,25 @@ morphogen.io.native.read_npy(path)
 morphogen.io.native.read_npz(path)
 morphogen.io.native.write_npy(path, image)
 morphogen.io.native.write_npz(path, image, *, compress=True)
+morphogen.io.openfoam.FACES
+morphogen.io.openfoam.KINDS
+morphogen.io.openfoam.LATERAL
+morphogen.io.openfoam.OpenFoamExport(directory, kind, mesh, files, manifest)
+morphogen.io.openfoam.OpenFoamRun(manifest, values=<factory>, properties=<factory>)
+morphogen.io.openfoam.Patch(name, type, start, size, entries=<factory>)
+morphogen.io.openfoam.PolyMesh(points, faces, owner, neighbour, patches, zones=<factory>)
+morphogen.io.openfoam.PolyMesh.cell_volumes(self)
+morphogen.io.openfoam.PolyMesh.face_areas(self)
+morphogen.io.openfoam.PolyMesh.face_centres(self)
+morphogen.io.openfoam.PolyMesh.n_cells
+morphogen.io.openfoam.PolyMesh.n_internal
+morphogen.io.openfoam.PolyMesh.patch(self, name)
+morphogen.io.openfoam.WALLS
+morphogen.io.openfoam.polymesh(sample, phases=(0,), *, cyclic=(), symmetry=(), connected_axis=None)
+morphogen.io.openfoam.read_openfoam(directory)
+morphogen.io.openfoam.read_polymesh(directory)
+morphogen.io.openfoam.write_openfoam(directory, sample, *, kind='flow', phases=(0,), axis=0, lateral=None, viscosity=1.0, pressure_drop=1.0, diffusivity=1.0, difference=1.0, iterations=2000, tolerance=1e-07, connected=True)
+morphogen.io.openfoam.write_polymesh(directory, mesh)
 morphogen.io.radioss.ANIM_ELEMENTS
 morphogen.io.radioss.ANIM_VECTORS
 morphogen.io.radioss.ELEMENTS

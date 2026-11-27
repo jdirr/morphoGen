@@ -25,7 +25,7 @@ the steps of a study:
 | | [`morphogen.optimization`](api/morphogen.optimization.rst) | topology optimization of periodic cells by inverse homogenization, and the inverse design of active structures |
 | | [`morphogen.iga`](api/morphogen.iga.rst) | isogeometric analysis of NURBS geometries and their shape optimization |
 | Describe | [`morphogen.mesh`](api/morphogen.mesh.rst) | conforming, exact and voxel meshes |
-| | [`morphogen.io`](api/morphogen.io.rst) | images, meshes, geometries and the inputs of other codes, read and written |
+| | [`morphogen.io`](api/morphogen.io.rst) | images, meshes, geometries and the inputs of other codes (Abaqus, AMITEX_FFTP, Code_Aster, OpenFOAM...), read and written |
 | | [`morphogen.interop`](api/morphogen.interop.rst) | other libraries and programs: the arrays of JAX, PyTorch and CuPy, Microgen (3MAH), Blender, the tools of alloy design, VIMSEO (the credibility of the simulations) |
 | | [`morphogen.viz`](api/morphogen.viz.rst) | sections, figures, 3D views and videos |
 | Measure | [`morphogen.morphology`](api/morphogen.morphology.rst) | mathematical morphology on the implicit geometry: the probes of the realizations, the exact Minkowski functionals of unions of spheres and of their sections, the segmentation of images, the model of an image |

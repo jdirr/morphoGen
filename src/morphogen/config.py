@@ -36,7 +36,7 @@ from morphogen.models.base import Model, get_model, model_from_config
 from morphogen.rve.study import TENSOR_PROPERTIES
 
 SURFACE_FORMATS = ("stl",)
-MESH_FORMATS = ("inp", "msh", "vtu", "xdmf", "med", "mesh")
+MESH_FORMATS = ("inp", "msh", "vtu", "xdmf", "med", "mesh", "mail")
 HOMOGENIZATION_METHODS = ("auto", "fe", "fft", "xfem")
 #: Formats of the tables of a run besides .csv (outputs.tables), of the figures and the
 #: videos of the visualization section (the 3D views of VTK are bitmaps)
@@ -175,6 +175,12 @@ class OutputSpec:
     database: Path | None = None
     #: AMITEX_FFTP runs of the image (the options of morphogen.io.write_amitex), or None
     amitex: dict | None = None
+    #: the study of Code_Aster of the conforming mesh (the options of
+    #: morphogen.io.write_code_aster), or None
+    code_aster: dict | None = None
+    #: the case of OpenFOAM of the image or of the conforming mesh (the options of
+    #: morphogen.io.write_openfoam, and ``sample``: "voxels" or "mesh"), or None
+    openfoam: dict | None = None
     #: the tables of the run (results, homogenization, curves of the loading paths) in
     #: these formats too, besides .csv
     tables: list[str] = field(default_factory=list)
@@ -189,6 +195,7 @@ class OutputSpec:
             or self.level_set
             or self.damask
             or self.amitex is not None
+            or (self.openfoam is not None and self.openfoam.get("sample") != "mesh")
         )
 
 
@@ -221,6 +228,103 @@ def _amitex(value) -> dict | None:
         out["processes"] = n
     if "library" in value:
         out["library"] = str(value["library"])
+    return out
+
+
+#: Options of outputs.code_aster (those of morphogen.io.write_code_aster)
+CODE_ASTER_OPTIONS = (
+    "physics",
+    "conditions",
+    "mesh_format",
+    "fields",
+    "memory",
+    "time_limit",
+    "threads",
+)
+#: Options of outputs.openfoam (those of morphogen.io.write_openfoam, and the sample)
+OPENFOAM_OPTIONS = (
+    "sample",
+    "kind",
+    "phases",
+    "axis",
+    "lateral",
+    "viscosity",
+    "pressure_drop",
+    "diffusivity",
+    "difference",
+    "iterations",
+    "tolerance",
+    "connected",
+)
+
+
+def _code_aster(value) -> dict | None:
+    """``outputs.code_aster``: true (the default options), false, or a mapping of options."""
+    from morphogen.io.code_aster import CONDITIONS, MESH_FORMATS, PHYSICS
+
+    if value is None or value is False:
+        return None
+    if value is True:
+        return {}
+    if not isinstance(value, dict):
+        raise ConfigError(
+            f"outputs.code_aster: true, or a mapping of options {list(CODE_ASTER_OPTIONS)}"
+        )
+    _check_keys("outputs.code_aster", value, set(CODE_ASTER_OPTIONS))
+    out = dict(value)
+    if "physics" in out:
+        physics = [out["physics"]] if isinstance(out["physics"], str) else list(out["physics"])
+        if not physics or any(k not in PHYSICS for k in physics):
+            raise ConfigError(f"outputs.code_aster.physics: some of {list(PHYSICS)}")
+        out["physics"] = physics
+    if out.get("conditions") is not None and out["conditions"] not in CONDITIONS:
+        raise ConfigError(f"outputs.code_aster.conditions: one of {list(CONDITIONS)}")
+    if out.get("mesh_format", "aster") not in MESH_FORMATS:
+        raise ConfigError(f"outputs.code_aster.mesh_format: one of {list(MESH_FORMATS)}")
+    if "fields" in out:
+        out["fields"] = bool(out["fields"])
+    for key in ("memory", "time_limit"):
+        if key in out:
+            out[key] = _positive_float(f"outputs.code_aster.{key}", out[key])
+    if "threads" in out:
+        out["threads"] = _positive_int("outputs.code_aster.threads", out["threads"])
+    return out
+
+
+def _openfoam(value) -> dict | None:
+    """``outputs.openfoam``: true (the default options), false, or a mapping of options."""
+    from morphogen.io.openfoam import KINDS, LATERAL
+
+    if value is None or value is False:
+        return None
+    if value is True:
+        return {}
+    if not isinstance(value, dict):
+        raise ConfigError(
+            f"outputs.openfoam: true, or a mapping of options {list(OPENFOAM_OPTIONS)}"
+        )
+    _check_keys("outputs.openfoam", value, set(OPENFOAM_OPTIONS))
+    out = dict(value)
+    if out.get("sample", "voxels") not in ("voxels", "mesh"):
+        raise ConfigError("outputs.openfoam.sample: 'voxels' (the image) or 'mesh' (conforming)")
+    if out.get("kind", "flow") not in KINDS:
+        raise ConfigError(f"outputs.openfoam.kind: one of {list(KINDS)}")
+    if out.get("lateral") is not None and out["lateral"] not in LATERAL:
+        raise ConfigError(f"outputs.openfoam.lateral: one of {list(LATERAL)}")
+    if "axis" in out and out["axis"] not in (0, 1, 2):
+        raise ConfigError("outputs.openfoam.axis: 0, 1 or 2")
+    if "phases" in out:
+        phases = [out["phases"]] if isinstance(out["phases"], int) else out["phases"]
+        if not phases:
+            raise ConfigError("outputs.openfoam.phases: the phases of the cells")
+        out["phases"] = [int(p) for p in phases]
+    for key in ("viscosity", "pressure_drop", "diffusivity", "difference", "tolerance"):
+        if key in out:
+            out[key] = _positive_float(f"outputs.openfoam.{key}", out[key])
+    if "iterations" in out:
+        out["iterations"] = _positive_int("outputs.openfoam.iterations", out["iterations"])
+    if "connected" in out:
+        out["connected"] = bool(out["connected"])
     return out
 
 
@@ -627,6 +731,8 @@ def _outputs(data, base: Path) -> OutputSpec:
         "neper",
         "database",
         "amitex",
+        "code_aster",
+        "openfoam",
         "tables",
     }
     _check_keys("outputs", data, allowed)
@@ -645,6 +751,8 @@ def _outputs(data, base: Path) -> OutputSpec:
         database = database if database.is_absolute() else base / database
     return OutputSpec(
         amitex=_amitex(data.get("amitex")),
+        code_aster=_code_aster(data.get("code_aster")),
+        openfoam=_openfoam(data.get("openfoam")),
         directory=directory,
         name=str(data.get("name", "sample")),
         geometry=_list_of("outputs.geometry", data.get("geometry"), GEOMETRY_FORMATS),
@@ -2176,6 +2284,16 @@ def load_config(source, *, base_dir=None) -> RunConfig:
                 "outputs.amitex in finite strains: the runs of AMITEX are the loading paths "
                 "(homogenization.paths)"
             )
+    if outputs.code_aster is not None:
+        if mesh is None:
+            raise ConfigError("outputs.code_aster: give the 'mesh' section (element size...)")
+        if homog is None:
+            raise ConfigError("outputs.code_aster: give the materials (homogenization section)")
+    if outputs.openfoam is not None:
+        if outputs.openfoam.get("sample") == "mesh" and mesh is None:
+            raise ConfigError("outputs.openfoam.sample mesh: give the 'mesh' section")
+        if outputs.openfoam.get("sample") != "mesh" and voxels is None:
+            raise ConfigError("outputs.openfoam: give the 'voxels' section (or sample: mesh)")
     if outputs.periodic_equations and not domain.periodic:
         raise ConfigError("outputs.periodic_equations: a periodic domain")
     if outputs.periodic_equations and not (outputs.conforming_mesh or outputs.mesh):

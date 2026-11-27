@@ -147,7 +147,8 @@ def test_catalog():
     assert tab["title"] == "Solvers & formats" and tab["order"] == 85
     names = [t["name"] for t in catalog["tools"] if t["tab"] == "interop"]
     assert names == ["amitex_inputs", "amitex_results", "abaqus_input", "mesh_formats",
-                     "mfront_sources", "zmat_import", "zmat_export"]  # fmt: skip
+                     "code_aster_study", "openfoam_case", "mfront_sources", "zmat_import",
+                     "zmat_export"]  # fmt: skip
     amitex = {f["name"]: f for f in tools.TOOLS["amitex_inputs"].to_dict()["fields"]}
     assert amitex["materials"]["of"] == "source" and amitex["behaviours"]["kind"] == "json"
     assert amitex["components"]["when"] == {"loading": ["path", "both"]}
@@ -657,3 +658,72 @@ def test_through_the_server(tmp_path):
         assert {"boolean_spheres.inp", law} <= set(archive.namelist())
     finally:
         server.shutdown()
+
+
+def test_code_aster_study(tmp_path):
+    """The study of Code_Aster of a morphology (the polycrystal, meshed by its grains): its
+    files, periodic conditions for the periodic morphology, kinematic ones when asked, run
+    by the stand-in of Code_Aster (tests/fake_code_aster.py) and read back: the stiffness of
+    the homogeneous material of the grains under both."""
+    import fake_code_aster
+    from morphogen.homogenization.materials import isotropic_matrix, lame
+
+    session, keys = _session(tmp_path)
+    params = {
+        "source": keys["grains"],
+        "element_size": 0.25,
+        "order": "1",
+        "materials": ELASTIC,
+        "physics": "auto",
+        "conditions": "auto",
+        "mesh_format": "aster",
+        "name": "cell",
+    }
+    exact = isotropic_matrix(*lame(400e3, 0.2))
+    for conditions, expected in (("auto", "periodic"), ("kinematic", "kinematic")):
+        params.update(conditions=conditions, name=f"cell_{expected}")
+        result, folder = _run(session, "code_aster_study", params)
+        name = f"cell_{expected}"
+        files = _files(result)
+        assert files[f"{name}.comm"] == "configuration"
+        assert files[f"{name}.export"] == "configuration"
+        assert f"{name}.mail" in files and "README.md" in files
+        assert f"{name}_code_aster.zip" in files
+        assert result["values"]["boundary conditions"] == expected
+        assert result["values"]["loadings"] == 6  # the materials are elastic only
+        assert f"run_aster {name}.export" in result["text"]
+        fake_code_aster.run(folder / f"{name}.export")
+        run = io.read_code_aster(folder, name)
+        np.testing.assert_allclose(run.stiffness, exact, atol=1e-6 * exact.max())
+
+
+def test_openfoam_case(tmp_path):
+    """The case of OpenFOAM of the pores of a morphology: the polyMesh of its voxels, the
+    patches (cyclic for the periodic morphology, symmetry planes for its window) and the
+    files of the case."""
+    session, keys = _session(tmp_path)
+    params = {
+        "source": keys["spheres"],
+        "resolution": 8,
+        "kind": "flow",
+        "phase": 0,
+        "axis": "0",
+        "lateral": "auto",
+        "viscosity": 1e-3,
+        "pressure_drop": 2.0,
+        "diffusivity": 1.0,
+        "name": "pores",
+    }
+    result, folder = _run(session, "openfoam_case", params)
+    files = _files(result)
+    for name in ("pores/constant/polyMesh/owner", "pores/0/U", "pores/0/p",
+                 "pores/system/controlDict", "pores/Allrun", "README.md"):  # fmt: skip
+        assert name in files
+    mesh = io.read_polymesh(folder / "pores")
+    assert mesh.n_cells == result["values"]["cells"]
+    assert mesh.patch("YMIN").type == "cyclic" and mesh.patch("WALLS").type == "wall"
+    assert "./Allrun" in result["text"] and "morphogen openfoam read pores" in result["text"]
+    params.update(source=keys["window"], kind="diffusion", name="window")
+    result, folder = _run(session, "openfoam_case", params)
+    assert io.read_polymesh(folder / "window").patch("ZMAX").type == "symmetryPlane"
+    assert "laplacianFoam" in (folder / "window" / "system" / "controlDict").read_text()

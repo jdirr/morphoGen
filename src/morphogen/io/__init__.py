@@ -6,14 +6,21 @@ Images         ``.vti`` (VTK XML), ``.vtk`` (legacy VTK), ``.mhd`` (MetaImage),
                metadata), ``.npy``, ``.tif`` (tifffile)
 Meshes         ``.inp`` (Abaqus/CalculiX), ``.msh`` (Gmsh 2.2), ``.vtu``, ``.stl``,
                ``.mesh`` (Medit, tetrahedra), ``.xdmf`` (tetrahedra with their cell
-               and facet tags for FEniCSx), other extensions through meshio
+               and facet tags for FEniCSx), ``.mail`` (Code_Aster, tetrahedra with
+               their groups), other extensions through meshio
 Geometries     ``.json`` (full description), ``.csv`` (tables), ``.geo`` (Gmsh script)
 Solvers        periodic equations (Abaqus/CalculiX), DAMASK grids and materials, Neper
                seeds (:mod:`morphogen.io.solvers`); the runs of AMITEX_FFTP and their
                results (:mod:`morphogen.io.amitex`); MFront sources of the nonlinear
                materials (:mod:`morphogen.io.mfront`); the inputs of OpenRadioss, the
                explicit solver, and its listings and time histories
-               (:mod:`morphogen.io.radioss`, run by :mod:`morphogen.dynamics`)
+               (:mod:`morphogen.io.radioss`, run by :mod:`morphogen.dynamics`); the
+               studies of Code_Aster of the apparent properties of a conforming mesh
+               (``.mail``, MED, the command and export files) and their tables
+               (:mod:`morphogen.io.code_aster`); the meshes and cases of OpenFOAM
+               (``constant/polyMesh`` of voxels or tetrahedra, the flow through the
+               pores and the diffusion through a phase) and their results
+               (:mod:`morphogen.io.openfoam`)
 Orientations   ``.ang`` (EDAX/TSL) and ``.ctf`` (Oxford Instruments/HKL) orientation
                maps of EBSD, and their grains (:mod:`morphogen.io.ebsd`)
 Particles      one phase without its matrix, for the discrete element method: a closed
@@ -40,6 +47,12 @@ from morphogen.io.amitex import (
     write_amitex_field,
     write_amitex_loading,
 )
+from morphogen.io.code_aster import (
+    read_aster_mesh,
+    read_code_aster,
+    write_aster_mesh,
+    write_code_aster,
+)
 from morphogen.io.dem import particles, write_particles
 from morphogen.io.ebsd import EBSDMap, read_ebsd, write_ebsd
 from morphogen.io.export import export
@@ -62,6 +75,13 @@ from morphogen.io.meshes import (
 from morphogen.io.metaimage import read_mhd, write_mhd
 from morphogen.io.mfront import mfront_source, write_mfront
 from morphogen.io.native import read_npy, read_npz, write_npy, write_npz
+from morphogen.io.openfoam import (
+    polymesh,
+    read_openfoam,
+    read_polymesh,
+    write_openfoam,
+    write_polymesh,
+)
 from morphogen.io.radioss import read_radioss_listing, read_radioss_th, write_radioss
 from morphogen.io.solvers import (
     write_damask,
@@ -137,8 +157,8 @@ def load_image(path, name: str | None = None) -> VoxelImage:
 
 def save_mesh(mesh, path, **options) -> Path:
     """A mesh written to a file whose extension gives the format: a surface mesh as .stl, a
-    tetrahedral mesh as .inp, .msh, .vtu, .mesh or .xdmf (FEniCSx), a voxel mesh as .inp, .msh or
-    .vtu, and any of them in the other formats of meshio."""
+    tetrahedral mesh as .inp, .msh, .vtu, .mesh, .xdmf (FEniCSx) or .mail (Code_Aster), a voxel
+    mesh as .inp, .msh or .vtu, and any of them in the other formats of meshio."""
     ext = _ext(path)
     if isinstance(mesh, SurfaceMesh):
         if ext == "stl":
@@ -151,6 +171,7 @@ def save_mesh(mesh, path, **options) -> Path:
             "vtu": write_vtu_tet,
             "mesh": write_medit_tet,
             "xdmf": write_fenicsx,
+            "mail": write_aster_mesh,
         }
         if ext in writers:
             return writers[ext](path, mesh, **options)
@@ -193,16 +214,21 @@ __all__ = [
     "load_microstructure",
     "mfront_source",
     "particles",
+    "polymesh",
     "read_amitex",
     "read_amitex_materials",
     "read_amitex_run",
     "read_amitex_zones",
+    "read_aster_mesh",
+    "read_code_aster",
     "read_ebsd",
     "read_json",
     "read_mhd",
     "read_msh",
     "read_npy",
     "read_npz",
+    "read_openfoam",
+    "read_polymesh",
     "read_radioss_listing",
     "read_radioss_th",
     "read_stl",
@@ -221,6 +247,8 @@ __all__ = [
     "write_amitex",
     "write_amitex_field",
     "write_amitex_loading",
+    "write_aster_mesh",
+    "write_code_aster",
     "write_csv",
     "write_damask",
     "write_ebsd",
@@ -237,9 +265,11 @@ __all__ = [
     "write_neper",
     "write_npy",
     "write_npz",
+    "write_openfoam",
     "write_particles",
     "write_periodic_equations",
     "write_periodic_pairs",
+    "write_polymesh",
     "write_radioss",
     "write_stl",
     "write_table",

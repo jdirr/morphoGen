@@ -23,6 +23,10 @@ Outputs of a run (in ``outputs.directory``):
 * with a ``visualization`` section, the figures and videos of the first realizations
   (``<name>_<index>_<view>.<format>``, see :mod:`morphogen.viz.workflow`): sections and
   orthoslices of the image, views of the mesh, fields on the deformed mesh, curves;
+* with ``outputs.code_aster``, the study of Code_Aster of the conforming mesh of each
+  realization (``<name>_<index>_aster/``: its mesh, command and export files,
+  :mod:`morphogen.io.code_aster`); with ``outputs.openfoam``, the case of OpenFOAM of its
+  image or of its conforming mesh (``<name>_<index>_openfoam/``, :mod:`morphogen.io.openfoam`);
 * ``run.json``: configuration, theoretical values, versions and timing (and the notation
   of the stiffness and compliance, ``stiffness_notation``, when they are computed);
 * with ``outputs.database``, the run is added to that database of the configurations
@@ -403,8 +407,14 @@ def _process(
     values: dict = {}
     mesh = None
     shown = viz is not None and viz.shows("mesh")
+    foam = out.openfoam is not None and out.openfoam.get("sample") == "mesh"
     if cfg.mesh is not None and (
-        fe or out.conforming_mesh or "volume_fraction" in measures or shown
+        fe
+        or out.conforming_mesh
+        or "volume_fraction" in measures
+        or shown
+        or out.code_aster is not None
+        or foam
     ):
         mesh, info = _conforming_mesh(micro, cfg)
         checkpoint()  # a stop after the mesh (morphogen.stopping)
@@ -420,6 +430,12 @@ def _process(
             io.write_periodic_pairs(outdir / f"{stem}_tet_periodic.csv", mesh)
         if out.periodic_equations and mesh.periodic:
             io.write_periodic_equations(outdir / f"{stem}_tet_equations.inp", mesh)
+        if out.code_aster is not None:  # the study of the apparent properties of the mesh
+            io.write_code_aster(outdir / f"{stem}_aster", mesh, homog.materials, name=stem,
+                                **out.code_aster)  # fmt: skip
+        if foam:
+            options = {k: v for k, v in out.openfoam.items() if k != "sample"}
+            io.write_openfoam(outdir / f"{stem}_openfoam", mesh, **options)
     if out.neper:
         io.write_neper(outdir / stem, micro)
     morph = [m for m in measures if m in _measure_names()]
@@ -574,6 +590,9 @@ def _voxel_outputs(
                         loadings={} if finite else homog.loadings, paths=homog.paths,
                         stiffness=stiffness, name=stem, kinematics=_kinematics(homog), **grains,
                         **out.amitex)  # fmt: skip
+    if out.openfoam is not None and out.openfoam.get("sample") != "mesh":
+        options = {k: v for k, v in out.openfoam.items() if k != "sample"}
+        io.write_openfoam(outdir / f"{stem}_openfoam", image, **options)
     exported = (
         vox.layer(micro.voxelize(grid=grid, supersampling=vox.supersampling))
         if (out.image and vox.supersampling > 1)

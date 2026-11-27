@@ -15,6 +15,14 @@ sections, VTK images, STL surface and conforming mesh .vtu, are those of the tab
   three reference nodes (:func:`morphogen.io.write_periodic_equations`; uniform strains on
   the faces of the box, KUBC, when the morphology is not periodic) and a step per segment
   of a loading path;
+* Code_Aster (:func:`morphogen.io.write_code_aster`): the conforming mesh of a morphology
+  in Code_Aster's format with the groups of its phases, grains and faces, the materials
+  of its phases, the six unit strains and three unit gradients of its apparent stiffness
+  and conductivity under periodic conditions (kinematic ones when the morphology is not
+  periodic), the command and export files of ``run_aster``;
+* OpenFOAM (:func:`morphogen.io.write_openfoam`): the polyMesh of the voxels of a phase of
+  a morphology and the case of the flow through it (Darcy's permeability, ``simpleFoam``)
+  or of the diffusion through it (``laplacianFoam``);
 * meshes and images in other formats: Gmsh, Medit, FEniCSx, the periodic node pairs, Neper
   and DAMASK for tessellations, TIFF stacks and MetaImage;
 * the MFront sources of morphoGen's behaviours (:func:`morphogen.io.mfront_source`), and
@@ -47,8 +55,10 @@ tab(
     "Solvers & formats",
     "The inputs of other solvers for a morphology of the workspace: AMITEX_FFTP (its voxel "
     "image, the materials of its phases and the loadings; the results of the runs read "
-    "back) and Abaqus (its conforming or voxel mesh, materials, crystal orientations, "
-    "periodic equations and loading steps); its meshes and images in other formats (Gmsh, "
+    "back), Abaqus (its conforming or voxel mesh, materials, crystal orientations, "
+    "periodic equations and loading steps), Code_Aster (its conforming mesh and groups, "
+    "materials and the loadings of its apparent properties) and OpenFOAM (the flow through "
+    "its pores, the diffusion through a phase); its meshes and images in other formats (Gmsh, "
     "Medit, FEniCSx, Neper, DAMASK, TIFF, MetaImage); the MFront sources of morphoGen's "
     "behaviours and the material files of Z-set. Each result has a README of the commands "
     "to run and an archive of its files.",
@@ -95,6 +105,9 @@ FILE_KINDS = {
     ".yaml": "configuration",
     ".json": "configuration",
     ".mat": "configuration",
+    ".comm": "configuration",
+    ".export": "configuration",
+    ".mail": "data",
 }
 #: Voxels per edge of the voxel meshes (8-node hexahedra, written as text)
 MAX_VOXEL_MESH = 128
@@ -1127,6 +1140,222 @@ def mesh_formats(p: dict, ctx) -> dict:
     readme = "\n".join(lines) + "\n"
     ctx.path("README.md").write_text(readme, encoding="utf-8")
     return _finish(ctx, f"{name}_formats", {"values": values, "text": readme})
+
+
+# -- Code_Aster and OpenFOAM ----------------------------------------------------------------
+
+
+@tool(
+    "code_aster_study",
+    "interop",
+    "Code_Aster study",
+    "The study of Code_Aster of the apparent properties of a morphology: its conforming mesh "
+    "in Code_Aster's format (its voids left out; the groups of its phases, of the grains of "
+    "its crystals, of the faces of the box and of the periodic nodes), the materials of its "
+    "phases (ELAS, ELAS_ORTH of crystals turned by their grains; THER, THER_ORTH), the six "
+    "unit strains and the three unit gradients of the apparent stiffness and conductivity "
+    "under periodic conditions (LIAISON_GROUP of the nodes of the upper faces and their "
+    "images; kinematic conditions when the morphology is not periodic), the tables of the "
+    "integrals of the stresses and fluxes, and the export file of run_aster; read back by "
+    "morphogen code-aster read.",
+    [
+        Field("source", "item", label="morphology", required=True),
+        Field(
+            "element_size",
+            "float",
+            unit="length",
+            doc="the largest element (blank: 1/12 of the longest edge)",
+        ),
+        Field(
+            "order",
+            "choice",
+            "1",
+            choices=(("1", "linear: TETRA4"), ("2", "quadratic: TETRA10")),
+        ),
+        Field("materials", "materials", of="source"),
+        Field(
+            "physics",
+            "choice",
+            "auto",
+            choices=(
+                ("auto", "those that the materials have"),
+                ("elastic", "the stiffness"),
+                ("thermal", "the conductivity"),
+            ),
+        ),
+        Field(
+            "conditions",
+            "choice",
+            "auto",
+            label="boundary conditions",
+            choices=(
+                ("auto", "periodic for a periodic morphology, kinematic otherwise"),
+                ("periodic", "periodic (LIAISON_GROUP)"),
+                ("kinematic", "kinematic: affine on the faces"),
+            ),
+        ),
+        Field(
+            "mesh_format",
+            "choice",
+            "aster",
+            label="mesh",
+            choices=(("aster", "Code_Aster's format (.mail)"), ("med", "MED (needs h5py)")),
+        ),
+        Field("name", "str", "", doc="of the files (blank: the model of the morphology)"),
+    ],
+    order=4,
+    menu="Code_Aster and OpenFOAM",
+)
+def code_aster_study(p: dict, ctx) -> dict:
+    from morphogen import io
+
+    item = p["source"]
+    micro = item["micro"]
+    name = _name(p["name"], item)
+    ctx.progress(0.05, "mesh")
+    candidates = {int(k) for k in (item.get("phases") or {})} | {0, 1}
+    candidates |= {int(k) for k in (p.get("materials") or {})}
+    materials = _materials(p, candidates, required=False)
+    mesh = _conforming(micro, p, materials)
+    present = sorted(set(np.unique(mesh.phase).tolist()))
+    missing = [q for q in present if q not in materials]
+    if missing:
+        raise ValueError(f"phases {missing}: no material (give their elastic constants)")
+    materials = {q: materials[q] for q in present}
+    ctx.progress(0.5, "Code_Aster study")
+    study = io.write_code_aster(
+        ctx.folder,
+        mesh,
+        materials,
+        physics=None if p["physics"] == "auto" else p["physics"],
+        conditions=None if p["conditions"] == "auto" else p["conditions"],
+        name=name,
+        mesh_format=p["mesh_format"],
+    )
+    import json
+
+    manifest = json.loads((ctx.folder / f"{name}_aster.json").read_text(encoding="utf-8"))
+    conditions = manifest["conditions"]
+    rows = [{"loading": case, "physics": spec["physics"], "table": spec["table"],
+             "unit": spec["unit"]} for case, spec in study.cases.items()]  # fmt: skip
+    ctx.table(rows, "loadings", "the loadings of the study and the tables of their results")
+    readme = (
+        f"# Code_Aster study of {name}\n\n"
+        f"The conforming mesh of the morphology ({mesh.n_elements} tetrahedra of "
+        f"{mesh.order * 6 - 2} nodes, in {name}.{'mail' if p['mesh_format'] == 'aster' else 'med'}"
+        f"), the materials of its phases and the {len(study.cases)} loadings of its apparent "
+        f"properties under {conditions} conditions ({name}.comm). Run it with\n\n"
+        f"    run_aster {name}.export\n\n"
+        "and read the apparent stiffness and conductivity from the tables it writes with\n\n"
+        "    morphogen code-aster read .\n"
+    )
+    ctx.path("README.md").write_text(readme, encoding="utf-8")
+    values = {
+        "nodes": int(mesh.n_nodes),
+        "elements": int(mesh.n_elements),
+        "boundary conditions": conditions,
+        "loadings": len(study.cases),
+    }
+    return _finish(ctx, f"{name}_code_aster", {"values": values, "text": readme})
+
+
+@tool(
+    "openfoam_case",
+    "interop",
+    "OpenFOAM case",
+    "The case of OpenFOAM of a phase of a morphology: the polyMesh of its voxels (a hexahedral "
+    "cell per voxel; the faces of the box, the walls of the phase, cyclic pairs of a periodic "
+    "morphology), and the steady flow through it under a pressure drop (simpleFoam: Darcy's "
+    "permeability from the flow rate through the outlet) or the steady diffusion through it "
+    "(laplacianFoam: its effective diffusivity); read back by morphogen openfoam read.",
+    [
+        Field("source", "item", label="morphology", required=True),
+        Field(
+            "resolution", "int", 32, label="voxels per edge", doc="of the image (its longest edge)"
+        ),
+        Field(
+            "kind",
+            "choice",
+            "flow",
+            choices=(
+                ("flow", "flow through the phase: the permeability"),
+                ("diffusion", "diffusion through the phase: the effective diffusivity"),
+            ),
+        ),
+        Field("phase", "int", 0, doc="the phase of the cells (0: the pores)"),
+        Field("axis", "choice", "0", choices=(("0", "x"), ("1", "y"), ("2", "z"))),
+        Field(
+            "lateral",
+            "choice",
+            "auto",
+            label="other faces",
+            choices=(
+                ("auto", "cyclic for a periodic morphology, symmetry planes otherwise"),
+                ("symmetryPlane", "symmetry planes"),
+                ("cyclic", "cyclic pairs"),
+            ),
+        ),
+        Field("viscosity", "float", 1.0, when={"kind": "flow"}, doc="kinematic viscosity"),
+        Field(
+            "pressure_drop",
+            "float",
+            1.0,
+            when={"kind": "flow"},
+            doc="kinematic pressure (p / rho) at the inlet, 0 at the outlet",
+        ),
+        Field("diffusivity", "float", 1.0, when={"kind": "diffusion"}, doc="DT"),
+        Field("name", "str", "", doc="of the case (blank: the model of the morphology)"),
+    ],
+    order=5,
+    menu="Code_Aster and OpenFOAM",
+)
+def openfoam_case(p: dict, ctx) -> dict:
+    from morphogen import io
+
+    item = p["source"]
+    micro = item["micro"]
+    name = _name(p["name"], item)
+    image = _image(micro, p["resolution"], "OpenFOAM case", MAX_VOXEL_MESH)
+    ctx.progress(0.3, "OpenFOAM case")
+    options = {}
+    if p["kind"] == "flow":
+        options.update(viscosity=float(p["viscosity"]), pressure_drop=float(p["pressure_drop"]))
+    else:
+        options["diffusivity"] = float(p["diffusivity"])
+    export = io.write_openfoam(
+        ctx.folder / name,
+        image,
+        kind=p["kind"],
+        phases=(int(p["phase"]),),
+        axis=int(p["axis"]),
+        lateral=None if p["lateral"] == "auto" else p["lateral"],
+        **options,
+    )
+    m = export.manifest
+    ctx.table(
+        [{"patch": q.name, "type": q.type, "faces": q.size} for q in export.mesh.patches],
+        "patches",
+        "the patches of the mesh",
+    )
+    solver = "simpleFoam" if p["kind"] == "flow" else "laplacianFoam"
+    readme = (
+        f"# OpenFOAM case of {name}\n\n"
+        f"The {p['kind']} through the phase {p['phase']} of the morphology "
+        f"({_count(export.mesh.n_cells, 'cell')}, {m['connected_fraction']:.4g} of the box: what "
+        f"joins {m['inlet']} to {m['outlet']}), from {m['inlet']} to {m['outlet']}, the other "
+        f"faces {m['lateral']}. Run it ({solver}) in {name}/, with the environment of OpenFOAM, "
+        "by\n\n    ./Allrun\n\nand read the "
+        f"{'permeability' if p['kind'] == 'flow' else 'effective diffusivity'} with\n\n"
+        f"    morphogen openfoam read {name}\n"
+    )
+    ctx.path("README.md").write_text(readme, encoding="utf-8")
+    values = {
+        "cells": export.mesh.n_cells,
+        "faces": len(export.mesh.faces),
+        "fraction of the phase": m["fraction"],
+        "fraction meshed": m["connected_fraction"],
+    }
+    return _finish(ctx, f"{name}_openfoam", {"values": values, "text": readme})
 
 
 def _images_of(micro, image, labels, kind: str) -> list[tuple[str, object]]:

@@ -32,8 +32,8 @@ on its left, under the headings of what they do: in Mechanics, *Loading paths* (
 morphology, its macroscopic law, the NTFA), *Behaviours of materials* (material point,
 identification) and *Linear elasticity* (tensors, frames of beams); in Statistics,
 *Morphology*, *Representative volume* and *Reconstruction*; in Fracture, *Cracks*, *Cohesive
-zones* and *Phase field*; in Solvers & formats, *AMITEX_FFTP*, *Abaqus and meshes* and
-*Behaviours of materials*. Generate lists its models by family, with a filter.
+zones* and *Phase field*; in Solvers & formats, *AMITEX_FFTP*, *Abaqus and meshes*,
+*Code_Aster and OpenFOAM* and *Behaviours of materials*. Generate lists its models by family, with a filter.
 
 The **search** of the header (`/`) finds a tool, a model or an option of their forms (a
 behaviour, a strain energy, a file format) and opens it with the option set: "arruda"
@@ -223,7 +223,8 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
    to simulate on a conforming mesh or to export;
 * **Solvers & formats**: the inputs of AMITEX_FFTP (and the reading of its results) and
   of Abaqus (materials, orientations, MFront laws, periodic equations, loading steps) of
-  a morphology; its meshes and images in the formats of other codes (Gmsh, Medit,
+  a morphology, the study of Code_Aster of its apparent properties and the case of
+  OpenFOAM of the flow through its pores or the diffusion through a phase; its meshes and images in the formats of other codes (Gmsh, Medit,
   FEniCSx, Neper, DAMASK, TIFF, MetaImage; the level set as an image of floats, one per
   phase when it has several); the MFront sources of morphoGen's laws; the
   import of a Z-set material file, and the behaviours of the workspace written as such

@@ -128,7 +128,11 @@ phase fields of `morphogen.interop.arrays` (`python -m pip install jax exponax`)
 of morphoGen (`python -m pip install --pre microgen`; its mesher gmsh needs the system's
 GLU library, e.g. `apt install libglu1-mesa`). Blender, a separate
 program, runs the scenes of `morphogen.interop.blender` (`blender` on the path, or
-`MORPHOGEN_BLENDER`; or a Python with the module `bpy`). morphoGen never requires them.
+`MORPHOGEN_BLENDER`; or a Python with the module `bpy`). Code_Aster (`run_aster`) and
+OpenFOAM, separate programs, run the studies and cases that `morphogen.io.code_aster` and
+`morphogen.io.openfoam` write: morphoGen writes their files and reads their results
+without them; the MED meshes of Code_Aster need h5py (`python -m pip install h5py`), its
+own format does not. morphoGen never requires them.
 
 **MFront behaviours.** MGIS and MFront are not on PyPI: install them from
 conda-forge in morphoGen's environment, with a C++ compiler for the behaviours:

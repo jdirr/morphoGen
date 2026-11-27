@@ -49,7 +49,7 @@ outputs:
   labels: [vti]        # tessellations: cell labels
   level_set: [vti]
   mesh: {formats: [inp, msh, vtu], phases: [1]}   # voxel hexahedra
-  conforming_mesh: [vtu, inp, msh, mesh, xdmf]    # tetrahedra (needs the mesh section)
+  conforming_mesh: [vtu, inp, msh, mesh, xdmf, mail]   # tetrahedra (needs the mesh section)
   periodic_pairs: true
   periodic_equations: true   # *EQUATION files for the meshes written (periodic domains)
   damask: true         # tessellations with orientations: DAMASK grid and material file
@@ -57,6 +57,14 @@ outputs:
   amitex: true         # AMITEX_FFTP runs of the image (needs homogenization), or options:
                        # {fields, tolerance, elastic_only, processes, library}; the
                        # nonlinear materials as MFront laws, along the paths
+  code_aster: true     # the study of Code_Aster of the conforming mesh (needs the mesh
+                       # section and the materials of homogenization), or options:
+                       # {physics: [elastic, thermal], conditions: periodic | kinematic,
+                       # mesh_format: aster | med, fields, memory, time_limit, threads}
+  openfoam: true       # the case of OpenFOAM of the image (or sample: mesh, the conforming
+                       # mesh), or options: {kind: flow | diffusion, phases: [0], axis,
+                       # lateral: symmetryPlane | cyclic, viscosity, pressure_drop,
+                       # diffusivity, difference, iterations, tolerance, connected}
   surface: [stl]
   database: null       # SQLite file recording the run and its results (results.py)
   tables: [txt, xlsx]  # the tables of the run in these formats too (besides .csv)
@@ -304,6 +312,10 @@ template `laser_corrugated` is the reference case of the thesis with its optimiz
 | `morphogen homogenize ... [--cells whole\|box] [--loading [NAME:]COMPONENTS ...]` | whole periodic grains; macroscopic loadings such as `tension: S11=100`, `E11=0.001 S22=0 dT=10` (strain `E`, stress `S`, gradient `G`, flux `Q`; components not given are free) |
 | `morphogen frame-stiffness FILE [--seed S] [--realization R] [--beams euler-bernoulli\|timoshenko] [--shear-coefficient K] [--rigid-joints C] [--young E] [--poisson NU] [--softening axial\|bending\|modulus\|area ...] [--axis x\|y\|z] [--replicas N] [--cv CV ...] [--distribution normal\|lognormal\|bimodal] [--replica-seed S] [--table CSV] [--figure FILE] [--json]` | the stiffness of the frame of beams of a realization of `delaunay_network`, `open_foam` or `random_lattice` (a configuration, realized as the realization R of its batch run, or a geometry `.json`; its framework kept in its metadata): Euler–Bernoulli or Timoshenko beams (Cowper's coefficient, or K), rigid over C radii at the joints, fibres of modulus E and Poisson's ratio NU; the Voigt stiffness (per unit area for a planar network) and its compliance S = C^-1 with their notation (JSON: `stiffness`, `compliance`, `notation`), its engineering constants, along each axis the Young's modulus, Poisson's ratio, ratio to the affine estimate, energy split (stretching, bending, torsion, shear) and non-affinity of a uniaxial stress, their means (the summary of the models), and Ban et al.'s softening coefficients s and v of the modes given along an axis; with `--replicas`, N replicas per CV of the stiffness of the beams of each mode (the law of `--distribution`, seed S) against them: the plain and corrected means of E/E0 with their standard errors, 1 - s CV^2, the scatter against v CV^2 (`--table`: CSV; `--figure`: the means against CV and the scatter against v CV^2) |
 | `morphogen amitex export SAMPLE --material P=...\|--materials FILE [--voxels N] [--loading ...] [--path ...] [--stiffness] [--fields] [--tol T] [--elastic-only] [--name NAME] [-o DIR]` | AMITEX_FFTP runs of an image (or of a geometry with `--voxels`): the six unit strains of the stiffness by default, named loadings and paths; the files and `<name>_run.sh` in DIR |
+| `morphogen code-aster export SAMPLE --material P=...\|--materials FILE [--size H] [--order 1\|2] [--periodic] [--physics elastic thermal] [--conditions periodic\|kinematic] [--format aster\|med] [--fields] [--name NAME] [-o DIR]` | the study of Code_Aster of the apparent properties of a conforming mesh (a geometry meshed with `--size`, or a mesh `.vtu`, `.mesh`): the mesh and its groups, the command file of the six unit strains and three unit gradients, the export file of `run_aster`, in DIR |
+| `morphogen code-aster read DIR [--name NAME] [--json] [-o CSV]` | the results of a study: the mean stress or flux of each loading, the apparent stiffness and its compliance (JSON: `stiffness`, `compliance`, `notation`), the conductivity and the moduli (a row appended to a CSV table: `C11` ... `C66`, `S11` ... `S66`) |
+| `morphogen openfoam export SAMPLE [--kind flow\|diffusion] [--phases P...] [--axis 0\|1\|2] [--lateral symmetryPlane\|cyclic] [--viscosity NU] [--pressure-drop DP] [--diffusivity D] [--difference DT] [--iterations N] [--all-cells] [--voxels N\|--size H] [--periodic] [-o DIR]` | the case of OpenFOAM of an image, a geometry (voxelized, or meshed) or a tetrahedral mesh: its polyMesh, the flow through the pores (`simpleFoam`) or the diffusion through the phases (`laplacianFoam`), `Allrun` |
+| `morphogen openfoam read DIR [--json] [-o CSV]` | the results of a case run by OpenFOAM: the flow rate, the mean velocity and Darcy's permeability, or the effective diffusivity and its ratio to that of the phase |
 | `morphogen mfront --material P=...\|--materials FILE [--kinematics small\|finite] [--name NAME] [-o DIR]` | the MFront sources of the nonlinear materials (`<name>Phase<p>.mfront`; no underscore, for Abaqus; the learned laws too), with the command that compiles them for an interface |
 | `morphogen amitex read DIR [--name NAME] [--json] [-o CSV]` | the results of the runs of an export: averages, apparent stiffness and its compliance (JSON: `stiffness`, `compliance`, `notation`) and moduli (a row appended to a CSV table, for `morphogen fit`: `C11` ... `C66`, `S11` ... `S66`) |
 | `morphogen db add\|list\|keys\|export\|remove [ITEMS] [--db FILE] [--where COND...] [-o CSV]` | database of the runs: add run directories, list them, the keys of their records, export the records, remove runs |
