@@ -124,13 +124,40 @@
   grains of their centroids (`Tessellation.grain_of`); the export to Neper refuses these
   grains, which its tessellations do not describe. Against MicroStructPy 1.6.1 on the same
   seeds: spheres alike (cv of the grain volumes 0.147 and 0.150); seeds of aspect ratio 3, all
-  413 placed in 4 s and grains of their volume, where MicroStructPy keeps 276 of them in
+  413 placed in 2 s and grains of their volume, where MicroStructPy keeps 276 of them in
   375 s, its grains 1.5 times larger; the grains elongated as their seeds (a/b 3.08) along
   their axes. Tested (`tests/test_seeded_grains.py`), the template `seeded_laguerre` and its
   card in the gallery. Public interface: `SeededLaguerre`, `SeededTessellation`,
   `ellipsoid_spheres`, `overlap_tolerance`, `Tessellation.n_grains`,
   `Tessellation.cell_grains`, `Tessellation.grain_of`, `CellComplex.merged`
   (`tests/public_api.txt`).
+* Seeds of several phases and the verification of their grains, as MicroStructPy
+  (`seeded_laguerre`, §116): the seeds of each phase of their own laws (`phase_diameter`,
+  `phase_aspect_ratio`, `phase_flatness`, `phase_orientation`), of the phase i with the
+  probability p_i ∝ q_i / E[V_i] so that each phase fills its fraction of the volume;
+  amorphous phases (`amorphous_phases`: a matrix, a glass), their seeds merged into one region
+  without grain boundaries, no seed of its own and the identity orientation (`null` in the
+  files), a void being an amorphous phase that the meshes leave out (`polycrystal_mesh` keeps
+  the phases it is given). The exact shapes of the grains of any tessellation
+  (`Tessellation.grain_shapes`): the volumes, centroids and second moments of the cells
+  exactly (`CellComplex.piece_moments`, the tetrahedra of the fans of their facets), the
+  ellipsoids of the same second moments; the grains against their seeds
+  (`SeededTessellation.seed_comparison`, the verification of MicroStructPy on the exact
+  cells): the diameters, the ratios a/b and b/c and the axes of the seeds and of the
+  ellipsoids of their grains, their errors (bias, mean absolute, RMS, largest, R²), the
+  Kolmogorov–Smirnov distance of the grains of each phase to the laws of its seeds
+  (`Distribution.cdf` in closed form for every law, `ks_statistic`), the fractions of the
+  phases; the named measure `exact_grains` gives them as columns of a run, of the command
+  `analyze` and of the tool *Morphological measures*. The placement of seeds of very different
+  sizes by grids by levels of sizes, the likeliest overlaps searched first: the same
+  placements, 6 times faster for a glass of small seeds about crystals (31.6 s and 5.3 s),
+  twice for elongated seeds. The template `seeded_matrix` (laths and equiaxed crystals in a
+  glass) and its card in the gallery. Tested (`tests/test_seeded_phases.py`, the distribution
+  functions in `tests/test_polydispersity.py`). Public interface: `SeededLaguerre`
+  (`phase_diameter`, `phase_aspect_ratio`, `phase_flatness`, `phase_orientation`,
+  `amorphous_phases`, `families`), `SeedFamily`, `SeededTessellation.amorphous`,
+  `SeededTessellation.seed_comparison`, `Tessellation.grain_shapes`,
+  `CellComplex.piece_moments`, `Distribution.cdf`, `ks_statistic` (`tests/public_api.txt`).
 * The computations of morphoGen as models of VIMSEO (`morphogen.interop.vimseo`, §112; the
   extra `vimseo`, Python 3.10 to 3.12), for the demonstration of the credibility of the
   simulations: a configuration of `morphogen run` with its entries as inputs and its results

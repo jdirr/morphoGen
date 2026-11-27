@@ -73,6 +73,16 @@ class Distribution(ABC):
         x, w = self.quadrature(n)
         return float(np.sum(w * f(x)))
 
+    def cdf(self, x) -> np.ndarray:
+        """The distribution function ``P(X <= x)`` (here from the quadrature of the law; in
+        closed form for the laws of this module)."""
+        nodes, w = self.quadrature(257)
+        order = np.argsort(nodes)
+        c = np.cumsum(np.asarray(w, dtype=float)[order])
+        k = np.searchsorted(np.asarray(nodes, dtype=float)[order], np.asarray(x, dtype=float),
+                            side="right")  # fmt: skip
+        return np.where(k > 0, c[np.maximum(k - 1, 0)] / c[-1], 0.0)
+
     def scaled(self, factor: float) -> Distribution:
         """The law of ``factor X`` (``factor > 0``): the same shape at another scale, its
         moments ``factor^k E[X^k]`` (the law of the sizes of a model whose scale is solved
@@ -104,6 +114,9 @@ class Constant(Distribution):
 
     def quadrature(self, n=128):
         return np.array([self.value]), np.array([1.0])
+
+    def cdf(self, x):
+        return (np.asarray(x, dtype=float) >= self.value).astype(float)
 
     @property
     def is_constant(self):
@@ -146,6 +159,10 @@ class Uniform(Distribution):
     def quadrature(self, n=128):
         x, w = np.polynomial.legendre.leggauss(n)
         return self.low + (x + 1) * 0.5 * (self.high - self.low), 0.5 * w
+
+    def cdf(self, x):
+        u = (np.asarray(x, dtype=float) - self.low) / (self.high - self.low)
+        return np.clip(u, 0.0, 1.0)
 
     def _scaled(self, factor):
         return Uniform(factor * self.low, factor * self.high)
@@ -193,6 +210,9 @@ class LogNormal(Distribution):
     def quadrature(self, n=128):
         u = (np.arange(n) + 0.5) / n
         return self._frozen.ppf(u), np.full(n, 1.0 / n)
+
+    def cdf(self, x):
+        return np.asarray(self._frozen.cdf(np.asarray(x, dtype=float)), dtype=float)
 
     def _scaled(self, factor):
         return LogNormal(factor * self.mean_value, factor * self.std_value)
@@ -243,6 +263,9 @@ class TruncatedNormal(Distribution):
         u = (np.arange(n) + 0.5) / n
         return self._frozen.ppf(u), np.full(n, 1.0 / n)
 
+    def cdf(self, x):
+        return np.asarray(self._frozen.cdf(np.asarray(x, dtype=float)), dtype=float)
+
     def _scaled(self, factor):
         return TruncatedNormal(
             factor * self.loc, factor * self.scale, factor * self.low, factor * self.high
@@ -285,11 +308,33 @@ class Discrete(Distribution):
     def quadrature(self, n=128):
         return np.array(self.values), np.array(self.weights)
 
+    def cdf(self, x):
+        v = np.asarray(self.values, dtype=float)
+        w = np.asarray(self.weights, dtype=float)
+        x = np.asarray(x, dtype=float)
+        return np.sum(w * (x[..., None] >= v), axis=-1)
+
     def _scaled(self, factor):
         return Discrete(tuple(factor * v for v in self.values), self.weights)
 
     def to_config(self):
         return {"type": "discrete", "values": list(self.values), "weights": list(self.weights)}
+
+
+def ks_statistic(values, law: Distribution) -> float:
+    """The Kolmogorov–Smirnov distance ``sup |F_n - F|`` between the empirical distribution
+    of ``values`` and a continuous law (NaN for a constant or a discrete law, whose steps it
+    does not measure)."""
+    if isinstance(law, (Constant, Discrete)):
+        return math.nan
+    x = np.sort(np.asarray(values, dtype=float).ravel())
+    x = x[np.isfinite(x)]
+    n = len(x)
+    if not n:
+        return math.nan
+    f = law.cdf(x)
+    k = np.arange(1, n + 1)
+    return float(max(np.max(k / n - f), np.max(f - (k - 1) / n)))
 
 
 def distribution_from_config(value, name: str = "distribution") -> Distribution:

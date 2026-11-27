@@ -106,6 +106,51 @@ class Tessellation(Microstructure):
         """The grain of each point: that of its cell, the cell of least power distance."""
         return self.cell_grains()[self.cell_of(points)]
 
+    def grain_shapes(self) -> dict[str, np.ndarray]:
+        """The exact shapes of the grains (the cells; for the grains of seeds the unions of
+        the cells of their spheres), from the moments of the exact cells
+        (:meth:`~morphogen.mesh.polyhedra.CellComplex.piece_moments`): their ``volume``,
+        ``centroid``, equivalent ``diameter`` ``(6 V / π)^(1/3)`` and the ellipsoid of the
+        same second moments, ``C = R diag(a², b², c²) Rᵀ / 5`` (``semi_axes`` a >= b >= c,
+        ``axes`` the columns of ``R``). In a periodic box the whole cells of a grain are
+        gathered about its first one (grains smaller than half the box); in a box that is
+        not periodic, ``inside`` tells the grains that its faces do not cut (NaN shapes for
+        those outside it)."""
+        periodic = bool(self.domain.periodic)
+        cx = self.cell_complex(whole=periodic)
+        volumes, centres, second = cx.piece_moments()
+        n = self.n_grains
+        g = np.asarray(self.cell_grains(), dtype=np.int64)[np.asarray(cx.piece_cell)]
+        lengths = self.domain.lengths
+        if periodic and len(g):  # each grain about the centroid of its first piece
+            order = np.argsort(g, kind="stable")
+            heads = order[np.r_[0, np.flatnonzero(np.diff(g[order])) + 1]]
+            ref = np.zeros((n, 3))
+            ref[g[heads]] = centres[heads]
+            centres = centres - lengths * np.round((centres - ref[g]) / lengths)
+        volume = np.bincount(g, volumes, minlength=n)
+        filled = volume > 0
+        safe = np.where(filled, volume, 1.0)
+        centroid = np.stack([np.bincount(g, volumes * centres[:, i], minlength=n)
+                             for i in range(3)], axis=1) / safe[:, None]  # fmt: skip
+        d = centres - centroid[g]
+        moments = np.zeros((n, 3, 3))
+        np.add.at(moments, g, second + volumes[:, None, None] * np.einsum("ni,nj->nij", d, d))
+        w, v = np.linalg.eigh(moments / safe[:, None, None])
+        semi_axes = np.sqrt(5.0 * np.clip(w[:, ::-1], 0.0, None))
+        axes = v[:, :, ::-1]
+        inside = filled.copy()
+        if periodic:
+            centroid = self.domain.lower + np.mod(centroid - self.domain.lower, lengths)
+        else:  # the grains cut by the faces of the box
+            cut = np.zeros(cx.n_pieces, dtype=bool)
+            cut[np.asarray(cx.facet_pieces)[np.asarray(cx.facet_box) > 0, 0]] = True
+            inside &= np.bincount(g, cut.astype(float), minlength=n) == 0
+        centroid[~filled] = semi_axes[~filled] = np.nan
+        axes[~filled] = np.nan
+        return {"volume": volume, "centroid": centroid, "diameter": np.cbrt(6.0 * volume / math.pi),
+                "semi_axes": semi_axes, "axes": axes, "inside": inside}  # fmt: skip
+
     # -- cell assignment -------------------------------------------------------------
 
     def _lift(self, points: np.ndarray) -> np.ndarray:

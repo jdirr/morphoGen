@@ -107,6 +107,54 @@ class CellComplex:
         np.add.at(vol, self.facet_pieces[inner, 1], -flux[inner])
         return vol
 
+    def piece_moments(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """The volumes, the centroids and the central second moments
+        ``∫ (x - c)(x - c)ᵀ dV`` (3×3) of the pieces, exactly: the tetrahedra of the fans of
+        their facets from a vertex of each piece, ``V = det[a, b, c] / 6``,
+        ``∫ x dV = V (a + b + c) / 4`` and ``∫ x xᵀ dV = V/20 (a aᵀ + b bᵀ + c cᵀ + s sᵀ)``,
+        ``s = a + b + c`` (coordinates from that vertex), signed by the orientation of the
+        facets."""
+        n = self.n_pieces
+        ref = np.zeros((n, 3))
+        for p, facets in enumerate(self.piece_facets):
+            ref[p] = self.vertices[self.facets[int(facets[0])][0]]
+        fans, owners, signs = [], [], []
+        for f, loop in enumerate(self.facets):
+            loop = np.asarray(loop, dtype=np.int64)
+            k = len(loop)
+            if k < 3:
+                continue
+            fan = np.column_stack([np.full(k - 2, loop[0]), loop[1:-1], loop[2:]])
+            inner, outer = int(self.facet_pieces[f, 0]), int(self.facet_pieces[f, 1])
+            for piece, sign in ((inner, 1.0), (outer, -1.0)):
+                if piece >= 0:
+                    fans.append(fan)
+                    owners.append(np.full(k - 2, piece))
+                    signs.append(np.full(k - 2, sign))
+        if not fans:
+            return np.zeros(n), ref, np.zeros((n, 3, 3))
+        fan = np.concatenate(fans)
+        owner = np.concatenate(owners)
+        r = ref[owner]
+        a = self.vertices[fan[:, 0]] - r
+        b = self.vertices[fan[:, 1]] - r
+        c = self.vertices[fan[:, 2]] - r
+        vol = np.concatenate(signs) * np.einsum("ij,ij->i", a, np.cross(b, c)) / 6.0
+        sides = a + b + c
+        outer = sum(np.einsum("ni,nj->nij", v, v) for v in (a, b, c, sides))
+        volumes = np.bincount(owner, vol, minlength=n)
+        first = np.stack([np.bincount(owner, vol * sides[:, i] / 4.0, minlength=n)
+                          for i in range(3)], axis=1)  # fmt: skip
+        second = np.zeros((n, 3, 3))
+        for i in range(3):
+            for j in range(i, 3):
+                second[:, i, j] = second[:, j, i] = np.bincount(
+                    owner, vol * outer[:, i, j] / 20.0, minlength=n
+                )
+        shift = first / np.where(volumes > 0, volumes, 1.0)[:, None]  # centroids - ref
+        second -= volumes[:, None, None] * np.einsum("ni,nj->nij", shift, shift)
+        return volumes, ref + shift, second
+
     def cell_volumes(self, n_cells: int | None = None) -> np.ndarray:
         """Volume of each cell inside the box (summed over its pieces)."""
         n = int(self.piece_cell.max()) + 1 if n_cells is None else int(n_cells)

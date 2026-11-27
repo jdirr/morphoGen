@@ -1,0 +1,23 @@
+# Crystals grown from seeds in an amorphous matrix (the amorphous phases of MicroStructPy):
+# laths and equiaxed crystals of their own sizes, the seeds of the glass merged into one
+# region without grain boundaries; the grains checked against their seeds (exact_grains).
+model:
+  type: seeded_laguerre
+  phase_fractions: [0.4, 0.4, 0.2]   # glass, laths, equiaxed crystals
+  phase_diameter: [0.08, {type: lognormal, mean: 0.22, std: 0.04}, 0.16]
+  phase_aspect_ratio: [1.0, 3.0, 1.0]  # prolate laths (flatness: 1 by default)
+  phase_orientation: [random, random, random]
+  amorphous_phases: [0]
+  crystal_orientations: true
+domain:
+  size: 1.0
+  periodic: true
+seed: 2
+voxels:
+  shape: 96
+outputs:
+  directory: out/seeded_matrix
+  name: rock
+  image: [vti]
+  labels: [vti]
+analysis: [phase_fractions, exact_grains]

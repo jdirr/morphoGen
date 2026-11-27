@@ -19,6 +19,7 @@ from morphogen.distributions import (
     TruncatedNormal,
     Uniform,
     distribution_from_config,
+    ks_statistic,
 )
 from morphogen.homogenization.networks import network_frame, network_stiffness
 from morphogen.kernels.rsa import segment_distance2
@@ -58,6 +59,36 @@ def test_laws_scaled(law):
     assert distribution_from_config(scaled.to_config()) == scaled
     with pytest.raises(ValueError, match="scale factor"):
         law.scaled(0.0)
+
+
+@pytest.mark.parametrize(
+    "law",
+    [
+        Constant(2.0),
+        Uniform(0.5, 1.5),
+        LogNormal(1.0, 0.3),
+        TruncatedNormal(1.0, 0.4, 0.2, 2.0),
+        Discrete((1.0, 2.0), (0.3, 0.7)),
+    ],
+    ids=lambda law: f"{type(law).__name__}",
+)
+def test_distribution_functions(law):
+    """The distribution function of each law against the empirical one of 40 000 draws
+    (within 0.01) and against that of its quadrature; the Kolmogorov–Smirnov distance of the
+    draws, that of SciPy for a continuous law, NaN for a constant or a discrete one."""
+    x = law.sample(np.random.default_rng(2), 40000)
+    points = np.quantile(x, [0.05, 0.3, 0.5, 0.7, 0.95])
+    empirical = np.array([(x <= q).mean() for q in points])
+    np.testing.assert_allclose(law.cdf(points), empirical, atol=0.01)
+    base = mg.distributions.Distribution.cdf(law, points)
+    np.testing.assert_allclose(base, law.cdf(points), atol=0.01)
+    if isinstance(law, (Constant, Discrete)):
+        assert math.isnan(ks_statistic(x, law))
+    else:
+        assert ks_statistic(x[:500], law) == pytest.approx(
+            stats.kstest(x[:500], law.cdf).statistic, rel=1e-12
+        )
+        assert ks_statistic(x, law) < 0.01
 
 
 def test_sizes_of_two_fibres_in_contact():

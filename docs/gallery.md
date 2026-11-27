@@ -704,6 +704,30 @@ morphogen run seeded_laguerre.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-seeded-matrix
+
+```{image} _static/gallery/seeded_matrix.png
+:alt: seeded_matrix
+:loading: lazy
+```
+
+**`seeded_matrix`** — Crystals grown from seeds in an amorphous matrix: laths and equiaxed crystals of their own sizes, the seeds of the glass merged into one region; the grains checked against their seeds on their exact cells.
+
+```bash
+morphogen template seeded_matrix -o seeded_matrix.yaml
+morphogen run seeded_matrix.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/seeded_matrix.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-nested-grains
 
 ```{image} _static/gallery/nested_grains.png

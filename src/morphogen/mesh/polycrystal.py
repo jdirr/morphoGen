@@ -902,7 +902,8 @@ def polycrystal_mesh(
         smoothing moves the nodes of the surfaces within that distance). Not with a
         positive ``min_feature``: the cells are then regularized, their facets bent.
     phases
-        ``"all"``, or ``"solid"``: the cells of phase 1 only.
+        ``"all"``, ``"solid"`` (the cells of phase 1 only) or the phases to keep (a void
+        phase left out).
     periodic
         Periodic mesh (default: when the tessellation is periodic).
     cells
@@ -916,8 +917,13 @@ def polycrystal_mesh(
 
     if not isinstance(micro, Tessellation):
         raise TypeError("polycrystal_mesh: a Voronoi or Laguerre tessellation")
-    if phases not in ("all", "solid"):
-        raise ValueError("phases: 'all' or 'solid'")
+    listed = not isinstance(phases, str)
+    if listed:
+        phases = tuple(int(k) for k in phases)
+        if not phases:
+            raise ValueError("phases: at least one phase to keep")
+    elif phases not in ("all", "solid"):
+        raise ValueError("phases: 'all', 'solid' or the phases to keep")
     if order not in (1, 2):
         raise ValueError("order: 1 or 2")
     size = float(size)
@@ -1048,6 +1054,8 @@ def polycrystal_mesh(
     )
     if phases == "solid":
         mesh = mesh.subset([1])
+    elif listed:
+        mesh = mesh.subset(list(phases))
     if order == 2:
         mesh = mesh.quadratic()
     log.info(

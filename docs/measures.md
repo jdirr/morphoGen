@@ -57,11 +57,14 @@ by step with these measures: the Choquet capacity and Matheron's tests of a Bool
 the morphological operations, the Minkowski functionals, stereology.
 
 The same measures run by name from a configuration (`analysis: [exact_fraction,
-exact_surface, exact_chords, exact_minkowski]`, which need no voxels: their columns join
-`results.csv`), from the command line on a geometry (`morphogen analyze spheres_0000.json
---measure exact_minkowski`, beside the theory of its model), and in the tool *Morphological
-measures* of the interface, whose table of the theory then gives the exact densities beside
-the closed forms.
+exact_surface, exact_chords, exact_minkowski, exact_grains]`, which need no voxels: their
+columns join `results.csv`), from the command line on a geometry (`morphogen analyze
+spheres_0000.json --measure exact_minkowski`, beside the theory of its model), and in the
+tool *Morphological measures* of the interface, whose table of the theory then gives the
+exact densities beside the closed forms. `exact_grains` measures the grains of a
+tessellation on its exact cells — their number, equivalent diameters, the ratios of the
+ellipsoids of their second moments, the fractions of the phases — and the grains of seeds
+against their seeds ([theory notes](theory.md) §116).
 
 ## The model of an image
 

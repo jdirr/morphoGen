@@ -218,6 +218,9 @@ FAMILIES = [
             ("seeded_laguerre", "Grains grown from ellipsoidal seeds (MicroStructPy; Hart & "
              "Rimoli 2020): the Laguerre cells of the spheres that fill each seed gathered "
              "into its grain, elongated along x as the seeds."),
+            ("seeded_matrix", "Crystals grown from seeds in an amorphous matrix: laths and "
+             "equiaxed crystals of their own sizes, the seeds of the glass merged into one "
+             "region; the grains checked against their seeds on their exact cells."),
             ("nested_grains", "Grains with subgrains: each grain of a polycrystal divided by "
              "the germs of a finer tessellation, its subgrains turned by 1 to 3° from its "
              "crystal (low-angle boundaries)."),

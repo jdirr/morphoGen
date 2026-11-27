@@ -589,16 +589,65 @@ def _exact_minkowski(micro, seed) -> dict[str, float]:
     }
 
 
+def _exact_grains(micro, seed) -> dict[str, float]:
+    """The grains of a tessellation from its exact cells: their number, the mean and the
+    coefficient of variation of their equivalent diameters, the medians of the ratios a/b
+    and b/c of their ellipsoids (over the grains that the faces of the box do not cut), the
+    fractions of the volume of the phases; for the grains of seeds, the gaps to their seeds
+    (the relative RMS error of the diameters, the RMS errors of the ratios, the mean angle
+    between their axes, the largest Kolmogorov–Smirnov distance to the laws of the
+    seeds)."""
+    from morphogen.models.seeded import SeededTessellation
+    from morphogen.models.tessellation import Tessellation
+
+    if not isinstance(micro, Tessellation):
+        raise ValueError("exact_grains: the grains of a tessellation (voronoi, laguerre, "
+                         "seeded_laguerre)")  # fmt: skip
+    shapes = micro.grain_shapes()
+    use = shapes["inside"].copy()
+    if isinstance(micro, SeededTessellation):
+        use &= ~micro.amorphous
+    d = shapes["diameter"][use]
+    semi = shapes["semi_axes"][use]
+    out = {"grains": float(use.sum())}
+    if d.size:
+        out["grain_diameter_mean"] = float(d.mean())
+        out["grain_diameter_cv"] = float(d.std() / d.mean())
+        out["grain_aspect_ratio_median"] = float(np.median(semi[:, 0] / semi[:, 1]))
+        out["grain_flatness_median"] = float(np.median(semi[:, 1] / semi[:, 2]))
+    phases = np.asarray(getattr(micro, "grain_phases", micro.cell_phases), dtype=np.int64)
+    volume = np.bincount(phases, shapes["volume"])
+    for k in np.flatnonzero(volume):
+        out[f"grain_fraction_{k}"] = float(volume[k] / volume.sum())
+    if isinstance(micro, SeededTessellation):
+        cmp = micro.seed_comparison(shapes)
+        errors = cmp["errors"]
+        fit = cmp["inside"]
+        rel = (cmp["grain_diameter"] - cmp["seed_diameter"]) / cmp["seed_diameter"]
+        if fit.any():
+            out["seed_diameter_error"] = float(np.sqrt(np.mean(rel[fit] ** 2)))
+        out["seed_aspect_ratio_error"] = errors["aspect_ratio"]["rmse"]
+        out["seed_flatness_error"] = errors["flatness"]["rmse"]
+        out["seed_axis_angle"] = errors["axis_angle"]["mean"]
+        for name in ("diameter", "aspect_ratio", "flatness"):
+            ks = [v for v in errors[name]["ks"].values() if np.isfinite(v)]
+            if ks:
+                out[f"seed_{name}_ks"] = float(max(ks))
+    return {k: v for k, v in out.items() if np.isfinite(v)}
+
+
 #: The named measures of the implicit geometry of a realization, each a function of the
 #: realization and a seed to its columns: the fraction of the phase 1 by points and its
 #: specific surface by lines (Crofton), with the standard deviations of their estimators,
-#: the mean chords of the two phases, and the four Minkowski densities of a union of spheres
-#: exactly (:mod:`morphogen.morphology.balls`)
+#: the mean chords of the two phases, the four Minkowski densities of a union of spheres
+#: exactly (:mod:`morphogen.morphology.balls`), and the grains of a tessellation from its
+#: exact cells, against their seeds for the grains of seeds
 EXACT_MEASURES = {
     "exact_fraction": _exact_fraction,
     "exact_surface": _exact_surface,
     "exact_chords": _exact_chords,
     "exact_minkowski": _exact_minkowski,
+    "exact_grains": _exact_grains,
 }
 
 
