@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* The models as editors show them: the decorators `register` and `register_kind` typed as
+  returning the class they are given, where the type of `Model` made editors that follow
+  it (Spyder 6, through Jedi 0.20) show `Model()` and its documentation for every model,
+  and guess a signature from the first parenthesis of its docstring; the messages of two
+  alternative parameters (`n_points` and `intensity`, `radius` and `volume_fraction`...)
+  say whether both or neither were given, with the values given; the docstring of
+  `DelaunayNetwork` names its two pairs.
 * Microgen credited as the work of its authors: the link to its repository, its team and the
   DOI of its record in the pages on the models, the other codes, the installation, the
   citation and the theory notes, and Microgen among the references to cite; the model

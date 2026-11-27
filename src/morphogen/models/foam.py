@@ -497,6 +497,9 @@ class DelaunayNetwork(Model):
     (:class:`morphogen.design.frames.Framework`) is kept in the metadata, its coordination
     and fibre lengths in the summary, and with ``frame_stiffness`` the stiffness of its
     frame of beams (:mod:`morphogen.homogenization.networks`).
+
+    One parameter of each pair is given: the number of points ``n_points`` or their
+    ``intensity``, and the ``radius`` of the fibres or their ``volume_fraction``.
     """
 
     name = "delaunay_network"

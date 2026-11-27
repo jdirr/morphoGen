@@ -50,9 +50,15 @@ def check_positive(value: float, name: str, *, allow_zero: bool = False) -> floa
 
 
 def exactly_one(name_a: str, a, name_b: str, b) -> None:
-    """Raise unless exactly one of two alternative parameters is given."""
-    if (a is None) == (b is None):
-        raise ValueError(f"give exactly one of '{name_a}' and '{name_b}'")
+    """Raise unless exactly one of two alternative parameters is given (two ways of setting
+    the same quantity); the message says whether both or neither were given."""
+    if a is not None and b is not None:
+        raise ValueError(
+            f"give exactly one of '{name_a}' and '{name_b}', not both: they set the same "
+            f"quantity in two ways (got {name_a}={a!r} and {name_b}={b!r})"
+        )
+    if a is None and b is None:
+        raise ValueError(f"give exactly one of '{name_a}' and '{name_b}' (neither is given)")
 
 
 def unit_vector(v: Iterable[float], name: str) -> np.ndarray:
