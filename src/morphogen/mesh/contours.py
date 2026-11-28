@@ -376,6 +376,22 @@ def _corner(body: Body, a: int, b: int, x: np.ndarray, tol: float):
     return x[0], float(np.degrees(np.arccos(np.clip(ga[0] @ gb[0], -1.0, 1.0))))
 
 
+def _joined(body: Body, a: int, b: int) -> bool:
+    """Whether the capsules ``a`` and ``b`` of a body share an end (a joint of a chain: its
+    surface passes smoothly from one to the other)."""
+    ends_a = np.array([body.start[a], body.end[a]])
+    ends_b = np.array([body.start[b], body.end[b]])
+    gap = np.linalg.norm(ends_a[:, None] - ends_b[None], axis=-1).min()
+    return bool(gap <= 1e-9 * float(max(body.radii[a], body.radii[b])))
+
+
+def _shared(body: Body, a: int, b: int, points: np.ndarray, h: float) -> bool:
+    """Whether points lie on the surfaces of both capsules ``a`` and ``b`` (within a
+    thousandth of a cell: surfaces that coincide there)."""
+    return bool(max(np.abs(body.capsule(a, points)[0]).max(),
+                    np.abs(body.capsule(b, points)[0]).max()) <= 1e-3 * h)  # fmt: skip
+
+
 def _section_polygon(body: Body, k: int, n: int = 64) -> np.ndarray:
     """Points of the boundary of the section of the capsule ``k`` of a body, convex: along
     ``n`` rays from the point of its axis nearest to the plane, by bisection."""
@@ -499,6 +515,8 @@ def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[f
             if found is None:
                 if body.distance(middle)[0] > 0.0:
                     return None  # a gap between the capsules bridged by the chord
+                if not (_joined(body, a, b) or _shared(body, a, b, loop[[k, (k + 1) % n]], h)):
+                    return None  # a corner that the grid did not resolve
                 continue
             x, angle = found
             if any(np.linalg.norm(x - y) < 1e-6 * h for *_, y, _ in found_at):

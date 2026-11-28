@@ -14087,7 +14087,9 @@ to another changes its sign, by Newton's method on the two distances. A corner t
 contours do not take is a feature smaller than a cell, which the finer grids follow; a
 corner far from the contour, at the tip of a narrow wedge of matrix that the grid cut, is
 inserted where the contour passes from one capsule to the other, sixteen cells away at
-most.
+most; and a contour may pass from a capsule to another without a corner only where the two
+share an end (a joint of a chain) or where its two vertices lie on both surfaces: elsewhere
+it is a corner that the grid did not resolve, and the body is traced again.
 
 A ply of fibres of radius 0.05 misaligned by 3° filling half of a periodic cube, 74
 sections in its middle plane with gaps down to 4·10⁻⁴: the level sets close its gaps — 7

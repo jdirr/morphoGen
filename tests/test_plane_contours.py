@@ -14,8 +14,10 @@ from morphogen.mesh.conforming import mmg_executable
 from morphogen.mesh.contours import (
     TRACE_CELLS,
     _crossing,
+    _joined,
     _pair_corners,
     _segment_distances,
+    _shared,
     _simple,
     _traced,
     _traced_at,
@@ -386,3 +388,25 @@ def test_sections_of_many_realizations(seed):
             assert mesh.min_jacobian() > 0.25 and mesh.matching_sides()
             meshers.add(mesh.metadata["mesher"])
     assert "exact contours (mmg2d)" in meshers and "exact discs (mmg2d)" in meshers
+
+
+def test_owners_that_change_without_a_corner():
+    """Along a contour, the surface may pass from a capsule to another without a corner only
+    where the two share an end (a joint of a chain) or coincide (both vertices on both
+    surfaces): elsewhere a corner that the grid did not resolve."""
+    joint = [0.32, 0.3, 0.5]
+    chain = Segments(np.array([[0.3, 0.3, 0.0], joint]), np.array([joint, [0.3, 0.3, 1.0]]),
+                     np.array([0.1, 0.1]))  # fmt: skip
+    (body,) = section_bodies(PrimitiveUnion(BOX, None, chain))
+    assert _joined(body, 0, 1)
+    pair = _straight([[0.3, 0.5], [0.6, 0.5]], [0.2, 0.2])
+    (body,) = section_bodies(pair)
+    low = np.minimum(body.start[:, 2], body.end[:, 2])
+    high = np.maximum(body.start[:, 2], body.end[:, 2])
+    across = np.flatnonzero((low <= 0.1) & (high >= 0.1)).tolist()  # (axes through the plane)
+    a = next(k for k in across if np.allclose(body.start[k, :2], [0.3, 0.5]))
+    b = next(k for k in across if np.allclose(body.start[k, :2], [0.6, 0.5]))
+    on_both = np.array([[0.45, 0.5 + np.sqrt(0.0175)]])  # a corner of the two circles
+    on_one = np.array([[0.1, 0.5]])  # on the first circle only
+    assert not _joined(body, a, b) and _shared(body, a, b, on_both, 0.01)
+    assert not _shared(body, a, b, on_one, 0.01)
