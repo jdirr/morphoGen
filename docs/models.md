@@ -39,9 +39,9 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 |---|---|
 | `boolean_cylinders` | Boolean model of finite fibres (cylinders or spherocylinders) of any law of the axes, with its exact covariance along any direction (Peyrega et al. 2009) and integral range; their sections meshed in the plane by their exact contours, flat caps, coatings and shells included |
 | `poisson_fibers` | Infinite fibres on Poisson lines (Dirrenberger et al. 2014), isotropic or of any law of directions, with their exact covariance along any direction |
-| `curved_fibers` | Curved fibres: worm-like chains whose tangents decorrelate along the contour (nonwovens, entangled networks), circular arcs of distributed radii of curvature (as in PuMA) or helices (crimp); a Boolean model or fibres without overlap; hollow (lumens) |
-| `hardcore_fibers` | Non-overlapping fibres (spherocylinders) by random sequential addition, isotropic, aligned or planar, with a minimal gap |
-| `random_walk_fibers` | Bending fibres without overlap at high volume fractions (Altendorf & Jeulin 2011): random walks whose steps follow a von Mises–Fisher law between the main direction of their fibre (isotropic, aligned, planar, Schladitz's beta law, or mixtures of laws, as the orthotropic glass fibres of the 2014 paper) and the previous step, packed by repulsions against springs on the segments and the joints after an initial placement of least overlap (Altendorf, Jeulin & Willot 2014), then drawn into contact by the contact forces of Keilmann, Redenbach & Willot (2026) |
+| `curved_fibers` | Curved fibres: worm-like chains whose tangents decorrelate along the contour (nonwovens, entangled networks), circular arcs of distributed radii of curvature (as in PuMA) or helices (crimp); a Boolean model or fibres without overlap; hollow (lumens); their sections meshed in the plane by their exact contours |
+| `hardcore_fibers` | Non-overlapping fibres (spherocylinders) by random sequential addition, isotropic, aligned or planar, with a minimal gap; hollow (lumens); their sections meshed in the plane by their exact contours |
+| `random_walk_fibers` | Bending fibres without overlap at high volume fractions (Altendorf & Jeulin 2011): random walks whose steps follow a von Mises–Fisher law between the main direction of their fibre (isotropic, aligned, planar, Schladitz's beta law, or mixtures of laws, as the orthotropic glass fibres of the 2014 paper) and the previous step, packed by repulsions against springs on the segments and the joints after an initial placement of least overlap (Altendorf, Jeulin & Willot 2014), then drawn into contact by the contact forces of Keilmann, Redenbach & Willot (2026); their sections meshed in the plane by their exact contours |
 | `long_fibers` | Long fibres along an axis, the unidirectional composites: their sections a random packing (to 0.8) or a hexagonal or square array with a disorder, the fibres parallel or misaligned by an RMS angle (waving together over correlation lengths along and across them, or each on its own), monodisperse or polydisperse; their sections meshed by their exact contours, the ply's stiffness, conductivities and expansion estimated from them (`homogenization.misaligned`) |
 | `cross_linked_fibers` | Entangled cross-linked fibres (Mezeix et al. 2009; Chatti et al. 2018, 2020): straight fibres, infinite on Poisson lines or finite, isotropic or in the Gaussian girdle of moulded fibres, bonded by cross-links (phase 2) at a fraction of their contacts, with the exact mean spacing of the contacts and cross-links |
 | `delaunay_network` | Fibre networks on the edges of the periodic Delaunay triangulation of Poisson or hard-core points (Ban et al. 2016), in space or in a plane, cross-linked at every node (15.5 fibres per node in space, 6 in a plane), with the stiffness of their frame of beams |
@@ -72,9 +72,9 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 | Model | Description |
 |---|---|
 | `tpms` | Gyroid, Schwarz P, Schwarz D and Neovius, sheet or network |
-| `strut_lattice` | Cubic, BCC, FCC, octet, Kelvin, diamond and pyrochlore lattices, with solid or hollow struts; rotated and functionally graded lattices (non-periodic samples) |
-| `random_lattice` | Strut lattices with missing struts and displaced nodes, with their rigidity (Maxwell–Calladine) |
-| `hierarchical_lattice` | Hierarchical lattices of (hollow) tubes: frames of generation G of regular octahedra (Rayneau-Kirkhope, Mao & Farr 2012) |
+| `strut_lattice` | Cubic, BCC, FCC, octet, Kelvin, diamond and pyrochlore lattices, with solid or hollow struts; rotated and functionally graded lattices (non-periodic samples); their sections meshed in the plane by their exact contours |
+| `random_lattice` | Strut lattices with missing struts and displaced nodes, with their rigidity (Maxwell–Calladine); their sections meshed in the plane by their exact contours |
+| `hierarchical_lattice` | Hierarchical lattices of (hollow) tubes: frames of generation G of regular octahedra (Rayneau-Kirkhope, Mao & Farr 2012); their sections meshed in the plane by their exact contours |
 | `fractal_sponge` | Menger sponge, Vicsek fractal, Cantor dust and any iterated function system on a cubic grid |
 | `open_foam` | Open-cell foams and trabecular bone: struts on the edges of relaxed, elongated Voronoi cells, at a given relative density, with their framework and the stiffness of its frame of beams |
 | `level_set_foam` | Open- or closed-cell foams as level sets of the distance fields of packed aligned ellipsoids: Plateau-border struts of controlled curvature thickening towards the nodes, at a given thickness or solid fraction (Degdeg & Dirrenberger); `calibrate_seeds` fits the seeds to measured section radii |
@@ -106,7 +106,7 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 
 | Model | Description |
 |---|---|
-| `combination` | Union, intersection, difference and complement of models; inclusions in a matrix, e.g. a polycrystal; nested models (each fills the phase 1 of the previous one) |
+| `combination` | Union, intersection, difference and complement of models; inclusions in a matrix, e.g. a polycrystal; nested models (each fills the phase 1 of the previous one); the unions of unions of spheres and segments, and their differences where those removed lie within the first, meshed in the plane by their exact contours |
 | `cox_spheres` | Spheres clustered in the phase 1 of another model: Cox models of nanocomposites (particles in aggregates), hard-core or not |
 | `coating` | A coating (interphase) around the phase 1 of any model, or a shell inside it: hollow spheres, fibres and struts, core–shell particles |
 
