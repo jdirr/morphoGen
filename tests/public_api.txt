@@ -2997,7 +2997,7 @@ morphogen.mesh.conforming.mirrored_mesh(micro, *, size, mirrors=(0, 1, 2), diago
 morphogen.mesh.conforming.mmg_executable(path=None, program='mmg3d')
 morphogen.mesh.conforming.node_level_set(micro, spacing, phase=None)
 morphogen.mesh.conforming.point_group(mirrors, diagonals=())
-morphogen.mesh.contours.Body(start, end, radii, z, flat=None)
+morphogen.mesh.contours.Body(start, end, radii, z, flat=None, offset=0.0)
 morphogen.mesh.contours.Body.bounds
 morphogen.mesh.contours.Body.capped
 morphogen.mesh.contours.Body.capsule(self, k, xy)
@@ -3014,7 +3014,7 @@ morphogen.mesh.contours.TRACE_CELLS
 morphogen.mesh.contours.TRACE_POINTS
 morphogen.mesh.contours.TRACE_REFINEMENTS
 morphogen.mesh.contours.contour_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, z=None, phases='all', order=1, curved=None, periodic=None, executable=None, workdir=None, timeout=None)
-morphogen.mesh.contours.section_bodies(micro, z=None, *, lower=None, upper=None, margin=0.0, periodic=None)
+morphogen.mesh.contours.section_bodies(micro, z=None, *, lower=None, upper=None, margin=0.0, periodic=None, offset=0.0)
 morphogen.mesh.contours.section_capsules(micro, z=None)
 morphogen.mesh.contours.section_contours(body)
 morphogen.mesh.contours.section_layers(micro)

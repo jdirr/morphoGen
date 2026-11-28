@@ -19,6 +19,7 @@ from morphogen.mesh.contours import (
     _crossing,
     _grid_distances,
     _joined,
+    _layer_offsets,
     _line_root,
     _marching_loops,
     _pair_corners,
@@ -81,6 +82,20 @@ def _counted(micro, n: int) -> float:
     centres of the cells of an ``n`` x ``n`` grid, body by body."""
     inside = np.zeros((n, n), dtype=bool)
     for body in section_bodies(micro):
+        lo, hi = body.bounds
+        i = np.arange(max(int(lo[0] * n), 0), min(int(np.ceil(hi[0] * n)) + 1, n))
+        j = np.arange(max(int(lo[1] * n), 0), min(int(np.ceil(hi[1] * n)) + 1, n))
+        if len(i) and len(j):
+            gx, gy = np.meshgrid((i + 0.5) / n, (j + 0.5) / n, indexing="ij")
+            d = body.distance(np.column_stack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
+            inside[np.ix_(i, j)] |= d < 0.0
+    return float(inside.mean())
+
+
+def _counted_bodies(bodies, n: int) -> float:
+    """The fraction of the box in bodies (:func:`_counted`), given."""
+    inside = np.zeros((n, n), dtype=bool)
+    for body in bodies:
         lo, hi = body.bounds
         i = np.arange(max(int(lo[0] * n), 0), min(int(np.ceil(hi[0] * n)) + 1, n))
         j = np.arange(max(int(lo[1] * n), 0), min(int(np.ceil(hi[1] * n)) + 1, n))
@@ -216,13 +231,12 @@ def test_contours_keep_the_gaps_of_misaligned_fibres():
 
 @needs_mmg2d
 def test_what_the_contours_leave_to_the_level_sets():
-    """The coatings of flat caps in the plane (coated Boolean cylinders turned at random,
-    whose offset rounds the rims) are left to the level sets; a box not periodic, its
-    sides free, keeps the contours, the part of the ellipse in the box within 2e-5."""
-    flat = mg.models.BooleanCylinders(radius=0.05, length=0.3, volume_fraction=0.1)
-    micro = Coating(model=flat, thickness=0.01).generate(BOX, seed=2)
-    assert contour_mesh(micro, size=0.1) is None
-    assert plane_mesh(micro, size=0.1).metadata["mesher"].startswith("section")
+    """A structure that is no union of capsules (a gyroid) is left to the level sets; a
+    box not periodic, its sides free, keeps the contours, the part of the ellipse in the
+    box within 2e-5."""
+    gyroid = mg.models.TPMS(surface="gyroid", volume_fraction=0.3).generate(BOX, seed=1)
+    assert contour_mesh(gyroid, size=0.1) is None
+    assert plane_mesh(gyroid, size=0.1).metadata["mesher"].startswith("section")
     free = plane_mesh(_oblique(30.0), size=0.05, order=2, periodic=False)
     assert free.metadata["mesher"] == "exact contours (mmg2d)" and not free.periodic
     a, b = 0.2 / np.cos(np.radians(30.0)), 0.2  # cut at half its semi-axis b
@@ -489,6 +503,30 @@ def test_contours_of_flat_caps():
     assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
     assert mesh.min_jacobian() > 0.3
     assert mesh.phase_fractions()[1] == pytest.approx(_counted(network, 3000), abs=1e-5)
+
+
+def test_contours_of_coated_and_hollow_flat_caps():
+    """The coatings and the shells of cylinders with flat caps: a coating is the union grown
+    by its thickness, its caps moved out and its rims round (no corner: the middle nodes
+    on its distance, not on round caps); the cores of shells the union shrunk, the caps
+    moved in and the rims sharp. Boolean cylinders coated and hollowed, the fractions
+    inside each union within 1e-5 of counts on grids of 3000 x 3000 points."""
+    flat = mg.models.BooleanCylinders(radius=0.04, length=0.4, volume_fraction=0.1)
+    for side, phases in (("outside", (1, 2)), ("inside", (2, 1))):
+        coating = Coating(model=flat, thickness=0.012, side=side, core_phase=2)
+        micro = coating.generate(BOX, seed=1)
+        unions, _ = section_layers(micro)
+        offsets = _layer_offsets(micro)
+        bodies = [section_bodies(u, offset=o) for u, o in zip(unions, offsets, strict=True)]
+        assert all(b.offset == o for found, o in zip(bodies, offsets, strict=True) for b in found)
+        assert any(b.flat is not None for found in bodies for b in found)
+        mesh = plane_mesh(micro, size=0.05, order=2)
+        assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+        assert mesh.min_jacobian() > 0.5
+        f = mesh.phase_fractions()
+        inner, outer = f[phases[0]], f[phases[0]] + f[phases[1]]
+        assert inner == pytest.approx(_counted_bodies(bodies[0], 3000), abs=1e-5)
+        assert outer == pytest.approx(_counted_bodies(bodies[1], 3000), abs=1e-5)
 
 
 def test_contours_at_the_corners_and_along_the_sides():

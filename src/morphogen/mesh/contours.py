@@ -96,10 +96,11 @@ def section_capsules(micro, z: float | None = None):
     return axes[:3]
 
 
-def _section_axes(micro, z: float | None = None):
+def _section_axes(micro, z: float | None = None, beyond: float = 0.0):
     """The axes of :func:`section_capsules` and, for each, whether its start and its end
     are flat caps that reach the plane (n x 2), kept where they are: ``(start, end, radii,
-    flat)``; the ends clipped to the slab are round, which keeps the sections. None for
+    flat)``; the ends clipped to the slab are round, which keeps the sections. ``beyond``:
+    the slab wider by it (the union grown or shrunk by it: its caps moved). None for
     another structure."""
     from morphogen.models.union import PrimitiveUnion
 
@@ -126,21 +127,22 @@ def _section_axes(micro, z: float | None = None):
             b = segments.end + np.array([0.0, 0.0, k * lz])
             r = segments.radii
             lo, hi = np.minimum(a[:, 2], b[:, 2]), np.maximum(a[:, 2], b[:, 2])
-            cut = (lo - r < z) & (hi + r > z) & (r > 0.0)
+            cut = (lo - r - beyond < z) & (hi + r + beyond > z) & (r > 0.0)
             a, b, r = a[cut], b[cut], r[cut]
+            slab = r + beyond
             dz = b[:, 2] - a[:, 2]
             level = np.abs(dz) <= 1e-15 * max(lz, 1.0)
             safe = np.where(level, 1.0, dz)
-            t0 = np.where(level, 0.0, (z - r - a[:, 2]) / safe)
-            t1 = np.where(level, 1.0, (z + r - a[:, 2]) / safe)
+            t0 = np.where(level, 0.0, (z - slab - a[:, 2]) / safe)
+            t1 = np.where(level, 1.0, (z + slab - a[:, 2]) / safe)
             t0, t1 = np.clip(np.minimum(t0, t1), 0.0, 1.0), np.clip(np.maximum(t0, t1), 0.0, 1.0)
             d = b - a
             starts.append(a + t0[:, None] * d)
             ends.append(a + t1[:, None] * d)
             radii.append(r)
             capped = not segments.round_caps  # (the ends kept, those in the slab)
-            first = capped & (t0 == 0.0) & (np.abs(a[:, 2] - z) < r)
-            last = capped & (t1 == 1.0) & (np.abs(b[:, 2] - z) < r)
+            first = capped & (t0 == 0.0) & (np.abs(a[:, 2] - z) < slab)
+            last = capped & (t1 == 1.0) & (np.abs(b[:, 2] - z) < slab)
             flats.append(np.column_stack([first, last]))
     return (np.concatenate(starts), np.concatenate(ends), np.concatenate(radii),
             np.concatenate(flats))  # fmt: skip
@@ -165,6 +167,17 @@ def section_layers(micro):
     if micro.side == "outside":
         return [inner, _grown(inner, t)], [1, micro.phase, 0]
     return [_grown(inner, -t), inner], [micro.core_phase, 1, 0]
+
+
+def _layer_offsets(micro) -> list[float]:
+    """The offsets of the unions of :func:`section_layers` from the union coated: the
+    coating grown by its thickness, the cores of shells shrunk by it."""
+    from morphogen.models.nested import CoatedStructure
+
+    if not isinstance(micro, CoatedStructure):
+        return [0.0]
+    t = float(micro.thickness)
+    return [0.0, t] if micro.side == "outside" else [-t, 0.0]
 
 
 def _segment_distances(p1, q1, p2, q2) -> np.ndarray:
@@ -195,13 +208,17 @@ class Body:
     ``end`` (clipped to the slab of the plane, translated to an image across a periodic box)
     and ``radii``, in the plane ``z``; ``flat``: whether their starts and ends are flat
     caps (n x 2; none by default), a capsule then a cylinder between the planes of its
-    flat ends and its round ends balls."""
+    flat ends and its round ends balls; ``offset``: the distance by which the body is that
+    of a union grown (a coating: its flat caps then moved out by it, their rims round) or
+    shrunk (the cores of shells: the caps moved in, the rims sharp), its radii those grown
+    or shrunk."""
 
     start: np.ndarray
     end: np.ndarray
     radii: np.ndarray
     z: float
     flat: np.ndarray | None = None
+    offset: float = 0.0
 
     def _flat(self, k: int) -> tuple[bool, bool]:
         """Whether the start and the end of the capsule ``k`` are flat caps."""
@@ -211,8 +228,9 @@ class Body:
 
     @property
     def capped(self) -> bool:
-        """Whether some capsule of the body has a flat cap."""
-        return self.flat is not None and bool(np.any(self.flat))
+        """Whether some capsule of the body has a flat cap with a rim (none grown: its
+        rims are round)."""
+        return self.flat is not None and bool(np.any(self.flat)) and self.offset <= 0.0
 
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
@@ -286,7 +304,7 @@ class Body:
         flat cap: to its cylinder between the planes of its ends, exact (the radial and the
         axial excesses, their hypotenuse beyond the rim), and to the balls of its round
         ends, the least; its gradient in the plane."""
-        r = float(self.radii[k])
+        r = float(self.radii[k]) - self.offset  # (the radius of the union not grown)
         axis, length, t, v, rho = self._axial(k, p)
         u, s = rho - r, np.maximum(-t, t - length)
         radial = v / np.maximum(rho, 1e-300)[:, None]
@@ -304,7 +322,7 @@ class Body:
                 closer = n - r < value
                 value = np.where(closer, n - r, value)
                 grad[closer] = w[closer] / np.maximum(n[closer], 1e-300)[:, None]
-        return value, grad[:, :2]
+        return value - self.offset, grad[:, :2]
 
     def faces(self, xy: np.ndarray) -> np.ndarray:
         """The face of the surface of the body nearest each point: ``3 k`` the lateral
@@ -321,11 +339,12 @@ class Body:
             p = np.column_stack([xy[at], np.full(int(at.sum()), self.z)])
             _, length, t, _, rho = self._axial(k, p)
             u = rho - float(self.radii[k])
+            first, last = -t - self.offset, t - length - self.offset  # (the planes moved)
             face = np.zeros(len(p), dtype=int)
             if start:
-                face[(-t >= u) & (-t >= t - length)] = 1
+                face[(first >= u) & (first >= last)] = 1
             if end:
-                face[(t - length >= u) & (t - length > -t)] = 2
+                face[(last >= u) & (last > first)] = 2
             out[at] = 3 * k + face
         return out
 
@@ -339,8 +358,8 @@ class Body:
         if face == 0:
             return rho - float(self.radii[k]), (v / np.maximum(rho, 1e-300)[:, None])[:, :2]
         if face == 1:
-            return -t, np.tile(-axis[:2], (len(p), 1))
-        return t - length, np.tile(axis[:2], (len(p), 1))
+            return -t - self.offset, np.tile(-axis[:2], (len(p), 1))
+        return t - length - self.offset, np.tile(axis[:2], (len(p), 1))
 
     def owners(self, xy: np.ndarray) -> np.ndarray:
         """The capsule nearest to each point (whose surface bounds the body there)."""
@@ -370,13 +389,16 @@ class Body:
 
 
 def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
-                   margin: float = 0.0, periodic: bool | None = None):  # fmt: skip
+                   margin: float = 0.0, periodic: bool | None = None,
+                   offset: float = 0.0):  # fmt: skip
     """The bodies of the section of a union in the plane ``z`` (:func:`section_capsules`):
     the capsules that meet (their axes nearer than the sum of their radii) grouped, the
     images across a periodic box taken where they come within ``margin`` of the rectangle
     ``lower``, ``upper`` (by default the box's); None as :func:`section_capsules`, or for
-    capsules that touch, whose bodies would meet at a point."""
-    capsules = _section_axes(micro, z)
+    capsules that touch, whose bodies would meet at a point. ``offset``: the union is that
+    of a union grown by it (or shrunk), its radii grown, whose flat caps move with it
+    (:class:`Body`)."""
+    capsules = _section_axes(micro, z, abs(float(offset)))
     if capsules is None:
         return None
     domain = micro.domain
@@ -422,8 +444,8 @@ def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
     groups: dict[int, list[int]] = {}
     for i in range(n):
         groups.setdefault(root(i), []).append(i)
-    return [Body(start[k], end[k], radii[k], z, flat[k] if flat[k].any() else None)
-            for k in groups.values()]  # fmt: skip
+    return [Body(start[k], end[k], radii[k], z, flat[k] if flat[k].any() else None,
+                 float(offset)) for k in groups.values()]  # fmt: skip
 
 
 @dataclass
@@ -1105,8 +1127,7 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                  periodic: bool | None = None, executable: str | None = None, workdir=None,
                  timeout: float | None = None) -> TriMesh | None:  # fmt: skip
     """The triangular mesh of the section of a union of spheres and segments with round
-    or flat caps, coated or hollow (:func:`section_layers`; the coatings of flat caps
-    left to the level sets), in the plane ``z`` (default: the
+    or flat caps, coated or hollow (:func:`section_layers`), in the plane ``z`` (default: the
     middle of its box) by the exact contours of its bodies (see the module) and of those
     of its coatings or bores, the phases between them: their nodes on the surfaces, at
     sizes graded from the gaps
@@ -1146,14 +1167,12 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     unions, bands = layers
     bodies: list[Body] = []
     level: list[int] = []
-    for k, union in enumerate(unions):
-        found = section_bodies(union, z, margin=margin, periodic=periodic)
+    for k, (union, offset) in enumerate(zip(unions, _layer_offsets(micro), strict=True)):
+        found = section_bodies(union, z, margin=margin, periodic=periodic, offset=offset)
         if found is None:
             return None
         bodies += found
         level += [k] * len(found)
-    if len(unions) > 1 and any(body.capped for body in bodies):
-        return None  # (a coating of a flat cap rounds its rim)
     floor = size / 64.0 if min_size is None else float(min_size)
     # 1. the contours of the bodies, their corners, the lines of the sides that they cross,
     #    and the pieces of them inside the box between these marks: ("side", (axis, side,
@@ -1456,7 +1475,7 @@ def _curved(mesh: TriMesh, bodies: list[Body]) -> TriMesh:
             take = near[better]
             best[take] = off[better]
             target[take] = body.onto(middle[take], np.full(len(take), k))
-            if any(body._flat(k)):  # the face of both ends: a flat cap (straight) or not
+            if body.capped and any(body._flat(k)):  # the face of both ends: a cap or not
                 face = np.zeros(len(take), dtype=int)
                 for f in (1, 2):
                     if body._flat(k)[f - 1]:

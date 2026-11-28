@@ -14194,9 +14194,8 @@ their curves for non-manifold); two coated discs whose coatings cross, within 7�
 them barely meet, the grid of 0.016 cut the tips of the wedges of matrix between them
 (2.5·10⁻⁵ of the box), which the corners found on their own restore: their cores and
 coatings within 1.4·10⁻⁶ and 4.5·10⁻⁶ of counts on grids of 4000² points at the sizes 0.05,
-0.025 and 0.0125 alike. The coatings of flat caps in the plane (their offsets round the
-rims), capsules that touch, features too small for the finest grid and contours tangent to
-a side are left to the level sets.
+0.025 and 0.0125 alike. Capsules that touch, features too small for the finest grid and
+contours tangent to a side are left to the level sets.
 
 **Flat caps.** A cylinder whose flat cap reaches the slab of the plane keeps that end (the
 ends clipped to the slab are round, which keeps the section): its distance is that of the
@@ -14220,7 +14219,14 @@ of the mesh. Boolean networks of cylinders with flat caps (radius 0.03, length 0
 all fell to the level sets: filling a tenth and a fourth, the twelve meshes of six
 realizations at the sizes 0.05 and 0.025 of each by their contours, within 1.6·10⁻⁶ and 7·10⁻⁶ of counts
 on grids of 8000² points (those of 4000² points are off by up to 6·10⁻⁶ along the straight
-edges of the caps).
+edges of the caps). The coating of flat caps is the union grown by its thickness $t$, the
+points within $t$ of it: its distance that of the union less $t$, its caps moved out by
+$t$ and its rims round, a surface without corners whose nodes and middle nodes go onto that
+distance (not onto round caps of the radius grown, which bulge into the matrix); the cores
+of shells are the union shrunk, the caps moved in and the rims sharp, their faces moved
+with them. Boolean cylinders (radius 0.04, filling a tenth) coated and hollowed by 0.012:
+the fractions inside each union within 4.6·10⁻⁶ of counts on grids of 4000² points, at the
+sizes 0.05 and 0.025.
 
 **Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
 $z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -

@@ -262,6 +262,11 @@
   conductivities and the tensors of the other transport phenomena (`turned_conductivity`,
   `misaligned_conductivity`: `conductivity_tensor_voigt.<bc>.C33`..., their means), verified
   against the axial conductivities of fibres turned in a plane.
+* The exact contours of the coatings and the shells of flat caps: a body grown by the
+  thickness of a coating (`Body.offset`, `section_bodies(..., offset=)`) has the distance
+  of the union less it, its caps moved out and its rims round; the cores of shells, shrunk,
+  the caps moved in and the rims sharp. Boolean cylinders coated and hollowed within
+  4.6·10⁻⁶ of counts.
 * Fixed: the contour mesher failed ("a crossing off the nodes of its side") where a contour
   leaves the box near a corner of it: its crossings of the lines of the two sides were in
   the order of the chord, which near a corner may be the other; they are now in that of
@@ -282,8 +287,7 @@
   elements on the face of their edges; the corners of two capsules on a cap with those of
   its rim, the corners of one change inserted in turn. An oblique cylinder whose flat end
   cuts its ellipse within 7.4·10⁻⁷ of the segment at the size 0.025; the networks filling a
-  tenth and a fourth meshed by their contours. The coatings of flat caps stay with the
-  level sets. `mesh.contours.Body` takes the flat ends of its capsules (`flat`), gives its
+  tenth and a fourth meshed by their contours. `mesh.contours.Body` takes the flat ends of its capsules (`flat`), gives its
   faces (`faces`, `face`, `round`, `capped`) and moves points onto a face (`onto`,
   `faces`).
 * Fixed: the size field of the meshes of the plane (exact discs and contours) took the
