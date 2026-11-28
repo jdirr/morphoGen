@@ -230,6 +230,29 @@ flow = plane_permeability(bed_mesh, dry)
 print(flow["k11"], flow["k22"], flow["k33"])  # across the fibres, and along them
 ```
 
+### ... estimate the properties of a ply of misaligned fibres?
+
+The section of a ply, meshed in its plane by the exact contours of its fibres, is solved as
+that of straight fibres along z: its transverse moduli are the ply's where the fibres wave
+little, its axial ones are not. Turned along the segments of the fibres, its tensors give
+those of the ply: the bounds of Voigt and Reuss, and the layers of fibres that wave
+together (`misaligned: true` among the keys of `homogenization` records them in a run, for
+the stiffness, the conductivities and the thermal expansion; [theory](theory.md) §119):
+
+```python
+from morphogen.homogenization.postprocess import engineering_constants
+from morphogen.homogenization.unidirectional import fibre_directions, misaligned_stiffness
+
+wavy = LongFibers(radius=0.1, volume_fraction=0.5, min_gap=0.01, misalignment=4.0).generate(
+    mg.Domain(size=(1.0, 1.0, 3.0), periodic=True), seed=1
+)
+ply_mesh = mg.mesh.plane_mesh(wavy, size=0.1, order=2)  # the exact contours of the fibres
+epoxy_carbon = {0: Material(young=3.5, poisson=0.35), 1: Material(young=230.0, poisson=0.2)}
+straight = homogenize(ply_mesh, epoxy_carbon, properties=["stiffness"])["stiffness.periodic"]
+ply = misaligned_stiffness(straight["tensor"], *fibre_directions(wavy))
+print(straight["E3"], [engineering_constants(ply[k])["E3"] for k in ("voigt", "layers", "reuss")])
+```
+
 ### ... choose between voxels, a conforming mesh and extended finite elements?
 
 The FFT solver on voxels for speed and large volumes (periodic conditions; on an NVIDIA

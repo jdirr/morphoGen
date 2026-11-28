@@ -66,6 +66,10 @@ def test_recipes_run(tmp_path, monkeypatch):
         assert (tmp_path / name).is_file(), name
     assert (tmp_path / "settle" / "morphogen_blender.py").is_file()
     assert ns["stream"].objects == ["phase_1"] and (tmp_path / "tunnel" / "scene.json").is_file()
+    # the ply of misaligned fibres: its axial modulus below that of its section, in order
+    e3 = {k: ns["engineering_constants"](c)["E3"] for k, c in ns["ply"].items()}
+    assert ns["ply_mesh"].metadata["mesher"] == "exact contours (mmg2d)"
+    assert ns["straight"]["E3"] > e3["voigt"] > e3["layers"] >= e3["reuss"] * (1 - 1e-9)
     assert ns["scene"].kinds == {"sphere": len(ns["micro"].spheres)}
     # the clusters of the spheres, whole but the one that winds around the periodic box
     assert len(ns["bodies"]) == 4 and [p.whole for p in ns["bodies"]].count(False) == 1
