@@ -4,7 +4,8 @@ A structure of the plane — the columnar grains of seeds of the plane (``seeded
 with ``dimension: 2``) or of any tessellation whose germs lie in one plane, the section of a
 structure of space at a height ``z``, an orientation map — is meshed in that plane by
 triangles (:class:`TriMesh`: three- or six-node triangles, a phase each, a grain each for
-polycrystals with their crystal orientations), conforming to its interfaces and, for a
+polycrystals with their crystal orientations; the six-node ones isoparametric, curved
+along the interfaces of sections), conforming to its interfaces and, for a
 periodic structure, with matching nodes on opposite sides, so that periodic conditions are
 exact (:func:`plane_mesh`):
 
@@ -27,7 +28,9 @@ exact (:func:`plane_mesh`):
   function is the least, the phase of the largest index the rest), without remeshing;
   ``mmg2d`` then remeshes the triangulation within the Hausdorff distance of the
   interfaces, keeping the edges of the sides of a periodic structure, which the cut left
-  matching (the same values on opposite sides).
+  matching (the same values on opposite sides); six-node elements have their nodes of
+  the interfaces on the curves of the section (:func:`~morphogen.mesh.curved.
+  curved_triangles`).
 
 :meth:`TriMesh.extruded` makes layers of tetrahedra of it (prisms cut into three), whose
 periodic finite elements in space are those of the plane (:meth:`TriMesh.layer`: the
@@ -64,12 +67,62 @@ SNAP = 0.2
 GRADE = 0.25
 #: The middles of the edges of a six-node triangle: nodes 3, 4, 5 on the edges 01, 12, 20
 TRI6_EDGES = ((0, 1), (1, 2), (2, 0))
+#: The six nodes of the reference triangle (barycentric coordinates: the corners, then the
+#: middles of the edges 01, 12, 20), and its three integration points (exact to the second
+#: degree, that of the area element of a curved six-node triangle)
+TRI6_NODES = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],
+                       [0.5, 0.5, 0.0], [0.0, 0.5, 0.5], [0.5, 0.0, 0.5]])  # fmt: skip
+TRI_GAUSS = np.array([[4.0, 1.0, 1.0], [1.0, 4.0, 1.0], [1.0, 1.0, 4.0]]) / 6.0
 
 
 def _signed_areas(nodes: np.ndarray, corners: np.ndarray) -> np.ndarray:
     a = nodes[corners[:, 1]] - nodes[corners[:, 0]]
     b = nodes[corners[:, 2]] - nodes[corners[:, 0]]
     return 0.5 * (a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0])
+
+
+def corner_gradients(nodes: np.ndarray, corners: np.ndarray) -> np.ndarray:
+    """The gradients of the barycentric coordinates of the straight triangles ``corners``
+    (``(m, 3, 2)``)."""
+    p = nodes[corners[:, :3]]
+    e1, e2 = p[:, 1] - p[:, 0], p[:, 2] - p[:, 0]
+    det = (e1[:, 0] * e2[:, 1] - e1[:, 1] * e2[:, 0])[:, None]
+    g1 = np.column_stack([e2[:, 1], -e2[:, 0]]) / det
+    g2 = np.column_stack([-e1[:, 1], e1[:, 0]]) / det
+    return np.stack([-g1 - g2, g1, g2], axis=1)
+
+
+def edge_deviations(nodes: np.ndarray, elements: np.ndarray) -> np.ndarray:
+    """The departures (``(m, 3, 2)``) of the middle nodes of six-node triangles from the
+    middles of their straight edges (zero where the elements are straight)."""
+    ends = elements[:, np.array(TRI6_EDGES)]
+    return nodes[elements[:, 3:]] - 0.5 * (nodes[ends[..., 0]] + nodes[ends[..., 1]])
+
+
+def curved_maps(gradients: np.ndarray, deviations: np.ndarray, point) -> np.ndarray:
+    """The gradients ``F = I + sum_k d_k (x) grad N_k`` (``(m, 2, 2)``) of the maps of the
+    straight triangles onto their curved six-node elements at a point (barycentric
+    coordinates): ``d_k`` the departures of their middle nodes, ``N_k`` the functions of
+    these nodes on the straight triangles (``gradients``: those of the barycentric
+    coordinates)."""
+    lam = np.asarray(point, dtype=float)
+    f = np.zeros((len(gradients), 2, 2))
+    f[:, 0, 0] = f[:, 1, 1] = 1.0
+    for k, (a, b) in enumerate(TRI6_EDGES):
+        g = 4.0 * (lam[a] * gradients[:, b] + lam[b] * gradients[:, a])
+        f += deviations[:, k, :, None] * g[:, None, :]
+    return f
+
+
+def jacobian_ratios(gradients: np.ndarray, deviations: np.ndarray, points) -> np.ndarray:
+    """``det F`` (:func:`curved_maps`) at the points (rows of barycentric coordinates) of
+    six-node triangles: the ratios of the area elements of the curved elements to those of
+    their straight triangles (``(m, p)``)."""
+    out = np.empty((len(gradients), len(points)))
+    for q, point in enumerate(points):
+        f = curved_maps(gradients, deviations, point)
+        out[:, q] = f[:, 0, 0] * f[:, 1, 1] - f[:, 0, 1] * f[:, 1, 0]
+    return out
 
 
 @dataclass
@@ -145,15 +198,25 @@ class TriMesh:
         return 1e-9 * float(self.size.max())
 
     def areas(self) -> np.ndarray:
-        """The areas of the elements (of their straight corners)."""
-        return _signed_areas(self.nodes, self.elements[:, :3])
+        """The areas of the elements: those of their straight corners, of the curved
+        six-node elements exactly (their area elements, :func:`jacobian_ratios`,
+        integrated)."""
+        a = _signed_areas(self.nodes, self.elements[:, :3])
+        if self.order == 2 and self.n_elements:
+            dev = self.deviations()
+            bent = np.flatnonzero(np.abs(dev).max(axis=(1, 2)) > 0.0)
+            if len(bent):
+                grads = corner_gradients(self.nodes, self.elements[bent])
+                a[bent] *= jacobian_ratios(grads, dev[bent], TRI_GAUSS).mean(axis=1)
+        return a
 
     def quality(self) -> np.ndarray:
-        """``4 √3 A / Σ ℓ²`` of each element: 1 for an equilateral triangle, 0 for a flat
-        one."""
+        """``4 √3 A / Σ ℓ²`` of each element (of its straight corners): 1 for an equilateral
+        triangle, 0 for a flat one."""
         p = self.nodes[self.elements[:, :3]]
         lengths = sum(np.sum((p[:, (k + 1) % 3] - p[:, k]) ** 2, axis=1) for k in range(3))
-        return 4.0 * np.sqrt(3.0) * self.areas() / np.maximum(lengths, 1e-300)
+        area = _signed_areas(self.nodes, self.elements[:, :3])
+        return 4.0 * np.sqrt(3.0) * area / np.maximum(lengths, 1e-300)
 
     def min_angles(self) -> np.ndarray:
         """The smallest angle of each element (degrees)."""
@@ -171,6 +234,56 @@ class TriMesh:
     def phase_fractions(self) -> dict[int, float]:
         a = self.areas()
         return {int(p): float(a[self.phase == p].sum() / a.sum()) for p in np.unique(self.phase)}
+
+    # -- curved edges --------------------------------------------------------------------
+
+    def deviations(self) -> np.ndarray | None:
+        """The departures (elements x 3 x 2) of the middle nodes of a six-node mesh from the
+        middles of their straight edges (zero where the elements are straight); None for a
+        three-node mesh."""
+        if self.order == 1:
+            return None
+        return edge_deviations(self.nodes, self.elements)
+
+    @property
+    def curved(self) -> bool:
+        """Whether some six-node elements have curved edges (middle nodes off the middles
+        of their edges, beyond the round-off of coordinates read from a file):
+        isoparametric elements, each edge the parabola through its three nodes."""
+        if self.order == 1 or not self.n_elements:
+            return False
+        dev = np.abs(self.deviations()).max(axis=(1, 2))
+        scale = np.sqrt(np.abs(_signed_areas(self.nodes, self.elements[:, :3])))
+        return bool(np.any(dev > 1e-10 * scale))
+
+    def min_jacobian(self) -> float:
+        """The smallest ratio of the area element of the six-node elements to that of their
+        straight triangles, over their six nodes and their three integration points (1 for
+        a straight mesh; positive for valid elements)."""
+        if not self.curved:
+            return 1.0
+        dev = self.deviations()
+        bent = np.flatnonzero(np.abs(dev).max(axis=(1, 2)) > 0.0)
+        grads = corner_gradients(self.nodes, self.elements[bent])
+        return float(jacobian_ratios(grads, dev[bent], np.vstack([TRI6_NODES, TRI_GAUSS])).min())
+
+    def straight(self) -> TriMesh:
+        """The same six-node mesh with straight edges (its middle nodes at the middles of
+        their edges); the mesh itself if it has no curved edge."""
+        if not self.curved:
+            return self
+        nodes = self.nodes.copy()
+        ends = self.elements[:, np.array(TRI6_EDGES)]
+        nodes[self.elements[:, 3:]] = 0.5 * (self.nodes[ends[..., 0]] + self.nodes[ends[..., 1]])
+        out = self._with_nodes(nodes)
+        out.metadata.pop("curved", None)
+        return out
+
+    def _with_nodes(self, nodes: np.ndarray) -> TriMesh:
+        """The same mesh with its nodes at ``nodes``."""
+        return TriMesh(nodes, self.elements, self.phase, self.lower, self.upper, self.periodic,
+                       dict(self.metadata), self.cell, self.orientations, self.z,
+                       self.thickness)  # fmt: skip
 
     # -- edges and sides -----------------------------------------------------------------
 
@@ -314,7 +427,35 @@ class TriMesh:
         edges = lin.edges()
         mean = float(np.linalg.norm(lin.nodes[edges[:, 1]] - lin.nodes[edges[:, 0]], axis=1).mean())
         mesh = lin.extruded(thickness=mean, z0=self.z - 0.5 * mean)
-        return mesh.quadratic() if self.order == 2 else mesh
+        if self.order == 1:
+            return mesh
+        mesh = mesh.quadratic()
+        if self.curved:  # the edges of the prisms over the curved edges, curved as they are
+            mesh = self._curved_layer(mesh, lin.n_nodes)
+        return mesh
+
+    def _curved_layer(self, mesh, n: int):
+        """The ten-node tetrahedra of the prisms over the triangles (:meth:`extruded`, the
+        corners of each layer of nodes numbered as those of :meth:`linear`) whose edges over
+        the curved edges of the triangles are curved as they are: the middle node of an
+        edge between the corners ``i`` and ``j`` of a triangle, at whatever heights, at the
+        place of the middle node of that edge in the plane (the faces of the prisms then
+        the curved edges extruded, exactly)."""
+        from morphogen.mesh.tetra import TET_EDGES
+
+        _, inverse = np.unique(self.elements[:, :3], return_inverse=True)
+        corners = inverse.reshape(-1, 3)
+        pairs = np.concatenate([corners[:, [a, b]] for a, b in TRI6_EDGES])
+        middles = np.concatenate([self.elements[:, 3 + k] for k in range(3)])
+        pairs = np.sort(pairs, axis=1)
+        codes, first = np.unique(pairs[:, 0] * n + pairs[:, 1], return_index=True)
+        ends = mesh.elements[:, TET_EDGES] % n  # the corners of the triangles
+        across = ends[..., 0] != ends[..., 1]  # not along the thickness
+        lo, hi = np.minimum(ends[..., 0], ends[..., 1]), np.maximum(ends[..., 0], ends[..., 1])
+        where = np.searchsorted(codes, (lo * n + hi)[across])
+        nodes = mesh.nodes.copy()
+        nodes[mesh.elements[:, 4:][across], :2] = self.nodes[middles[first[where]]]
+        return mesh._derived(nodes, mesh.elements)
 
     def summary(self) -> dict:
         q = self.quality()
@@ -447,15 +588,18 @@ def _run(exe, mesh_in, sol_in, mesh_out, args, timeout) -> dict:
 def section_mesh(micro, *, size: float, min_size: float | None = None,
                  hausdorff: float | None = None, gradation: float = 2.0,
                  background: float | None = None, z: float | None = None,
-                 phases="all", order: int = 1, periodic: bool | None = None,
-                 executable: str | None = None, workdir=None,
+                 phases="all", order: int = 1, curved: bool | None = None,
+                 periodic: bool | None = None, executable: str | None = None, workdir=None,
                  timeout: float | None = None) -> TriMesh:  # fmt: skip
     """The conforming triangular mesh of the section of a structure in the plane ``z``
     (default: the middle of its box) from the implicit functions of its phases (see the
     module): ``size`` the largest edge, ``hausdorff`` (default ``size / 20``) the distance
     within which the edges follow the interfaces, ``background`` the spacing of the grid of
     the sampled functions (default ``size / 2``); ``phases``: ``"all"``, ``"solid"`` (phase
-    1), or the phases to keep; ``order`` 1 or 2 (the middles of the straight edges)."""
+    1), or the phases to keep; ``order`` 1 or 2. Six-node elements have curved edges along
+    the interfaces, their nodes on the curves of the section
+    (:func:`~morphogen.mesh.curved.curved_triangles`), by default; ``curved`` false keeps
+    the straight edges of the mesher, their middle nodes at their middles."""
     from morphogen.mesh.conforming import mmg_executable
 
     domain: Domain = micro.domain
@@ -464,6 +608,8 @@ def section_mesh(micro, *, size: float, min_size: float | None = None,
         raise ValueError("size: must be positive")
     if order not in (1, 2):
         raise ValueError("order: 1 or 2")
+    if curved and order == 1:
+        raise ValueError("curved: the edges of six-node elements (order 2)")
     z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
     periodic = bool(domain.periodic) if periodic is None else bool(periodic)
     if periodic and not domain.periodic:
@@ -531,7 +677,13 @@ def section_mesh(micro, *, size: float, min_size: float | None = None,
                    {"mesher": "section (mmg2d level sets)", "size": size, "z": z},
                    z=z, thickness=float(domain.lengths[2]))  # fmt: skip
     mesh = _kept(mesh, phases)
-    return mesh.quadratic() if order == 2 else mesh
+    if order == 1:
+        return mesh
+    if curved is False:
+        return mesh.quadratic()
+    from morphogen.mesh.curved import curved_triangles
+
+    return curved_triangles(mesh, micro)
 
 
 def _side_vertices(vertices: np.ndarray, lower, upper) -> np.ndarray:
@@ -1309,13 +1461,19 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     (:func:`tessellation_mesh`), the exact section of a tessellation in space in the plane
     ``z`` (by default the middle of its box), the section of any other structure in that
     plane (:func:`section_mesh`), a map of grains by its pixels (:func:`lattice_mesh`).
-    ``min_feature``: that of the polygons of tessellations."""
+    ``min_feature``: that of the polygons of tessellations; ``curved``: the six-node
+    elements of the sections with curved edges along their interfaces (by default; the
+    edges of polygons and pixels are straight)."""
+    curved = options.get("curved")
+    if curved and options.get("order", 1) == 1:
+        raise ValueError("curved: the edges of six-node elements (order 2)")
     if lattice_map(micro):
         return lattice_mesh(micro, order=options.get("order", 1),
                             phases=options.get("phases", "all"),
                             periodic=options.get("periodic"))  # fmt: skip
     if planar_tessellation(micro) or exact_section(micro):
         options.pop("background", None)
+        options.pop("curved", None)
         z = options.pop("z", None)
         if not planar_tessellation(micro):
             domain = micro.domain
@@ -1325,7 +1483,8 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     return section_mesh(micro, size=size, **options)
 
 
-__all__ = ["REF_PHASE", "SIDE_REFS", "TRI6_EDGES", "TriMesh", "background_triangulation",
-           "exact_section", "lattice_map", "lattice_mesh", "planar_pieces",
-           "planar_tessellation", "plane_level_set", "plane_mesh", "section_mesh",
-           "section_weights", "tessellation_mesh"]  # fmt: skip
+__all__ = ["REF_PHASE", "SIDE_REFS", "TRI6_EDGES", "TRI6_NODES", "TRI_GAUSS", "TriMesh",
+           "background_triangulation", "corner_gradients", "curved_maps", "edge_deviations",
+           "exact_section", "jacobian_ratios", "lattice_map", "lattice_mesh",
+           "planar_pieces", "planar_tessellation", "plane_level_set", "plane_mesh",
+           "section_mesh", "section_weights", "tessellation_mesh"]  # fmt: skip

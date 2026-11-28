@@ -63,7 +63,7 @@ from morphogen.homogenization.solvers import (
     choose_method,
     norm,
 )
-from morphogen.mesh.triangles import TriMesh
+from morphogen.mesh.triangles import TriMesh, curved_maps, edge_deviations
 
 log = logging.getLogger("morphogen")
 
@@ -89,8 +89,10 @@ PLANE_DIRECT_LIMIT = 1_500_000
 def _gradients(mesh: TriMesh) -> tuple[np.ndarray, np.ndarray]:
     """The gradients of the shape functions at the Gauss points of the elements,
     ``(m, q, n, 2)``, and the weights of the points (their share of the areas), ``(m, q)``.
-    The 6-node elements are those of their straight corners (mid-edge nodes at the middles
-    of their edges)."""
+    The 6-node elements are isoparametric: one whose middle nodes leave the middles of its
+    edges is its straight triangle moved by ``sum_k N_k d_k`` (:func:`~morphogen.mesh.
+    triangles.curved_maps`), its gradients those of the straight one times ``F^-1`` and its
+    weights times ``det F``."""
     p = mesh.nodes[mesh.elements[:, :3]]
     j = np.stack([p[:, 1] - p[:, 0], p[:, 2] - p[:, 0]], axis=2)  # columns: the edges
     det = j[:, 0, 0] * j[:, 1, 1] - j[:, 0, 1] * j[:, 1, 0]
@@ -110,7 +112,20 @@ def _gradients(mesh: TriMesh) -> tuple[np.ndarray, np.ndarray]:
         for a, b in ((0, 1), (1, 2), (2, 0)):
             g.append(4.0 * (lam[a] * dl[:, b] + lam[b] * dl[:, a]))
         grads.append(np.stack(g, axis=1))
-    return np.stack(grads, axis=1), area[:, None] * weights[None]
+    grads = np.stack(grads, axis=1)
+    weights = area[:, None] * weights[None]
+    dev = edge_deviations(mesh.nodes, mesh.elements)
+    bent = np.flatnonzero(np.abs(dev).max(axis=(1, 2)) > 0.0)
+    for q, lam in enumerate(points if len(bent) else ()):
+        f = curved_maps(dl[bent], dev[bent], lam)
+        det = f[:, 0, 0] * f[:, 1, 1] - f[:, 0, 1] * f[:, 1, 0]
+        inv = np.empty_like(f)
+        inv[:, 0, 0], inv[:, 0, 1] = f[:, 1, 1], -f[:, 0, 1]
+        inv[:, 1, 0], inv[:, 1, 1] = -f[:, 1, 0], f[:, 0, 0]
+        inv /= det[:, None, None]
+        grads[bent, q] = np.einsum("bnj,bji->bni", grads[bent, q], inv)
+        weights[bent, q] *= det
+    return grads, weights
 
 
 def _strain_operator(grads: np.ndarray, nd: int) -> np.ndarray:

@@ -219,6 +219,15 @@
   `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
   plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
   `write_medit_tri` (`tests/public_api.txt`).
+* Curved six-node triangles: the nodes of the interfaces of the sections of the plane on the
+  curves of the functions of their phases (`curved_triangles`; `section_mesh`, `plane_mesh`
+  and `mesh.curved` at order 2, by default), isoparametric elements in the finite elements of
+  the plane (`TriMesh.curved`, `deviations`, `min_jacobian`, `straight`; their areas exact)
+  and in their layer in space, whose edges over the curved edges are curved as they are. The
+  area of fibres within 10⁻⁶ at the size 0.1 (4·10⁻³ with straight edges); the conductivity
+  of square arrays of cylinders against Perrins, McKenzie & McPhedran (1979) within 3·10⁻⁵,
+  the reciprocal theorem of Keller within 7·10⁻⁷, the neutral coated cylinder of Hashin in
+  conduction and plane strain within 2·10⁻⁵ under every condition.
 * The tutorial *Polycrystals of the plane, meshed and solved in their plane*
   (`docs/tutorial_plane.md`, run by the tests): the grains of a rolled sheet grown from
   seeds of the plane, their exact polygons and their small features removed, the stiffness

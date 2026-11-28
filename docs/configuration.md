@@ -28,8 +28,9 @@ mesh:                  # conforming tetrahedral meshes (MMG), FE solver
   size: 0.5            # largest edge (required)
   order: 2             # 10-node tetrahedra, the default of a mesh analysed by finite
                        # elements; 1: 4-node tetrahedra, the default of a mesh only written
-  curved: true         # 10-node elements: their nodes on the interfaces of the phases
-                       # (curved edges); false: the flat faces of the mesher
+  curved: true         # 10-node elements (6-node triangles of the plane): their nodes on
+                       # the interfaces of the phases (curved edges); false: the flat
+                       # faces (straight edges) of the mesher
   phases: auto         # all | solid (pores not meshed); auto: solid if a phase is a void
   hausdorff: null      # interface accuracy (default size / 20)
   min_size: null       # default size / 10

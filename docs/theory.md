@@ -13921,6 +13921,46 @@ before left whole), then remeshed within the Hausdorff distance of the interface
 of a periodic structure kept as the cut left them — matching, the functions taking the same
 values on opposite sides.
 
+**Curved edges.** The six-node triangles of a section have their nodes of the interfaces on
+the curves of the section (`curved_triangles`, by default; `curved: false` keeps the straight
+edges of the mesher), as the ten-node tetrahedra in space (§76). The nodes of an edge between
+the phases $a$ and $b$ go to the zero of $\varphi_a - \varphi_b$ (of $\varphi_a$ for the wall
+of a pore left out of the mesh) along its gradient in the plane, by Newton's method; those of
+the sides of the box along the sides, those of opposite sides of a periodic mesh alike; the
+nodes where three phases meet stay. The corners move first, by at most 0.3 of their shortest
+edge and as far as their straight triangles keep half of their areas and of their qualities,
+in three steps; then the middle nodes, by at most 0.3 of their edges and as far as the area
+element of each curved triangle keeps 0.3 of that of its straight triangle at its six nodes
+and its three integration points. An element is its straight triangle moved by
+$\sum_k N_k d_k$, $d_k$ the departures of its middle nodes from the middles of its edges:
+its gradients are those of the straight triangle times $F^{-1}$,
+$F = I + \sum_k d_k \otimes \nabla N_k$, and its weights times $\det F$ — a polynomial of
+the second degree, so that the three integration points give its area exactly. The
+structures that give their functions at any point (the unions of spheres and segments, their
+coatings, the long fibres) have their nodes put on their curves exactly, the others on the
+cubic splines of their functions sampled on a grid of the plane at an eighth of the size of
+the elements. The layer in space of curved triangles (`TriMesh.layer`) has the middle nodes
+of its edges over the curved edges where those of the triangles are, at their heights: its
+faces are the curved edges extruded, the volumes of its phases their areas times its
+thickness exactly, its fields independent of $z$ those of the triangles, and its tensors those
+of the plane but for the integration points, which differ on curved elements (5·10⁻⁷ for a
+coated cylinder meshed at the size 0.15). Checked: the fibres of a square array filling 0.4 of
+the plane have their area within 9.5·10⁻⁷ at the size 0.1 and 7.3·10⁻⁸ at 0.05 (4·10⁻³ and
+2·10⁻³ off with straight edges), the fourth power of the size, and within 3·10⁻⁶ on the
+splines of their sampled functions; their conductivity against the series of Perrins,
+McKenzie & McPhedran (1979), ten times as conducting as the matrix, within 3.1·10⁻⁵ at the
+size 0.1 and 1.2·10⁻⁵ at 0.05 (1.4·10⁻³ off with straight edges), insulating, their walls
+curved, within 4.0·10⁻⁵ and 4·10⁻⁶; at the fraction 0.6, where the series is 5·10⁻⁴ off, the
+reciprocal theorem of Keller (1964), $\sigma(1, t)\,\sigma(1, 1/t) = 1$ for the ratio $t = 10$,
+holds within 6.9·10⁻⁵, 6.2·10⁻⁶ and 6.8·10⁻⁷ at the sizes 0.1, 0.05 and 0.025. A coated
+cylinder is neutral (Hashin & Rosen 1964) in a matrix of the conductivity
+$\sigma_s\,((1+c)\,\sigma_c + (1-c)\,\sigma_s)/((1-c)\,\sigma_c + (1+c)\,\sigma_s)$ and of the
+plane bulk modulus $k_s + c/(1/(k_c - k_s) + (1-c)/(k_s + \mu_s))$ ($c$ the share of the core
+in the coated cylinder, $k = \lambda + \mu$): the field about it stays uniform, and the cell
+has them under any condition — within 1.5·10⁻⁵ and 6·10⁻⁶ at the size 0.1 and 5·10⁻⁷ and
+2·10⁻⁷ at 0.025, under the kinematic, periodic and static conditions alike (10⁻³ and 3·10⁻⁴
+off with straight edges).
+
 **Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
 $z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -
 z_k)^2)$: the section of a Laguerre (or Voronoi) tessellation in space by the plane is the
@@ -15055,3 +15095,5 @@ See [specification.md](specification.md#14-references). In addition:
 * Weller, H. G., Tabor, G., Jasak, H., Fureby, C. (1998). A tensorial approach to
   computational continuum mechanics using object-oriented techniques. *Comput. Phys.* 12,
   620–631.
+* Keller, J. B. (1964). A theorem on the conductivity of a composite medium. *J. Math.
+  Phys.* 5, 548–549.

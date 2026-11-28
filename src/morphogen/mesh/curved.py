@@ -1,4 +1,4 @@
-"""Quadratic tetrahedra whose nodes lie on the interfaces of the phases.
+"""Quadratic tetrahedra and triangles whose nodes lie on the interfaces of the phases.
 
 A conforming mesh (:func:`morphogen.mesh.conforming.conforming_mesh`) follows the
 interfaces with flat triangles, whose corners lie on the level set as the background
@@ -51,6 +51,17 @@ of the structures that do not give their smooth pieces are rounded over about an
 element, as in the mesh of 4-node elements, and the gaps and layers thinner than the
 grid of the mesher (``background``) are bridged or pinched. The nodes there stay off
 their surfaces (``mesh.metadata["curved"]`` counts those that lie on them).
+
+The plane. :func:`curved_triangles` does the same for the six-node triangles of a section
+(:class:`~morphogen.mesh.triangles.TriMesh` of the plane ``z``): the nodes of the edges
+between two phases, and of the walls of the pores left out, go to the curves where the
+functions of the phases meet in that plane, the nodes of the sides of the box along the
+sides; the corners first, as far as the straight triangles keep their shape, then the
+middle nodes, as far as the area elements of the curved triangles keep a share of those of
+their straight triangles. The structures that do not give their functions at any point
+have them sampled on a grid of the plane and interpolated by cubic splines. The distance of
+the mesh to the interfaces falls as the cube of the size of the elements, the areas of the
+phases as its fourth power.
 """
 
 from __future__ import annotations
@@ -62,6 +73,7 @@ from functools import partial
 import numpy as np
 from scipy import ndimage
 
+from morphogen.mesh import triangles as _tri
 from morphogen.mesh.tetra import (
     TET10_NODES,
     TET_EDGES,
@@ -82,6 +94,8 @@ log = logging.getLogger("morphogen")
 SAMPLES_PER_ELEMENT = 8
 _PAD = 6
 MAX_SAMPLES = 256
+#: The largest number of nodes of the grid of a plane along an axis
+MAX_PLANE_SAMPLES = 4096
 #: The steps of the corner nodes towards their surfaces, and the rounds of each way of
 #: reducing the moves that an element does not bear (see :func:`_give_way`)
 _STEPS = 3
@@ -593,6 +607,303 @@ def curved_mesh(
     }
     log.info(
         "curved mesh: %d of %d nodes of the interfaces on their surfaces (%.1f s)",
+        reached,
+        int(np.count_nonzero(highest >= 0)),
+        time.perf_counter() - t0,
+    )
+    return out
+
+
+# ------------------------------------------------------------------------------------------
+# The six-node triangles of the plane
+
+
+class _PlaneImplicit(_Implicit):
+    """The implicit functions of the phases in the plane ``z`` of a section, at points of
+    space in that plane: those of the structure itself where it gives them at any point,
+    exact; otherwise the functions sampled at the nodes of a grid of the rectangle
+    (:func:`~morphogen.mesh.triangles.plane_level_set`) and interpolated by cubic splines
+    (periodic along the ``axes`` where the mesh has matching sides)."""
+
+    def __init__(self, micro, spacing: float, axes, phases, reach: float, z: float):
+        from morphogen.models.implicit import functions_at, implicit_phases_of, point_functions
+
+        present = implicit_phases_of(micro)
+        domain = micro.domain
+        lengths = np.asarray(domain.lengths, dtype=float)
+        self.lower = np.asarray(domain.lower, dtype=float)
+        self.coefficients: dict[int, np.ndarray] = {}
+        self.exact = None
+        two = present == [0, 1]
+        for k in phases:
+            if k not in present:
+                raise ValueError(f"phase {k}: the phases of this structure are {present}")
+        at = getattr(micro, "implicit_at", None)
+        centre = np.array([[*(self.lower[:2] + 0.5 * lengths[:2]), z]])
+        if at is not None:
+            exact = all(at(k, centre, 2.0 * reach) is not None for k in phases)
+        else:
+            exact = not hasattr(micro, "level_set") and point_functions(micro)
+        if exact:
+            self.exact = partial(functions_at, micro, reach=reach)
+            self.band = reach
+            self.spacing = np.full(3, 1e-3 * reach)
+            self.sampling = 0.0
+            return
+        h = lengths[:2]
+        for k in sorted(phases):
+            if two and (1 - k) in self.coefficients:
+                self.coefficients[k] = -self.coefficients[1 - k]
+                continue
+            values, shape = _tri.plane_level_set(micro, spacing, z, None if two else k)
+            if two and k == 0:
+                values = -values
+            h = lengths[:2] / np.array(shape)
+            for d in range(2):
+                width = [(0, 0)] * 2
+                width[d] = (_PAD, _PAD)
+                if axes[d]:
+                    values = np.pad(np.take(values, range(shape[d]), axis=d), width, mode="wrap")
+                else:
+                    values = np.pad(values, width, mode="reflect", reflect_type="odd")
+            self.coefficients[k] = ndimage.spline_filter(values, order=3, mode="nearest")
+        self.spacing = np.array([h[0], h[1], min(h)])
+        self.sampling = float(max(h))
+
+    def _values(self, phases, points: np.ndarray) -> dict[int, np.ndarray]:
+        if self.exact is not None:
+            return super()._values(phases, points)
+        index = ((points[:, :2] - self.lower[:2]) / self.spacing[:2] + _PAD).T
+        return {
+            k: ndimage.map_coordinates(
+                self.coefficients[k], index, order=3, mode="nearest", prefilter=False
+            )
+            for k in phases
+        }
+
+    def gap(self, a: int, b: int, points: np.ndarray):
+        """The function whose zero is the interface of the phases ``a`` and ``b`` (``b``
+        negative: the boundary of ``a``) at ``points`` of the plane, and its gradient in the
+        plane (central differences; the points and their four neighbours at once)."""
+        shifts = np.zeros((5, 3))
+        for d in range(2):
+            shifts[1 + 2 * d, d] = 0.5 * self.spacing[d]
+            shifts[2 + 2 * d, d] = -0.5 * self.spacing[d]
+        where = (points[None, :, :] + shifts[:, None, :]).reshape(-1, 3)
+        if b < 0:
+            values = self._values((a,), where)[a]
+        else:
+            out = self._values((a, b), where)
+            values = out[a] - out[b]
+        values = np.asarray(values, dtype=float).reshape(5, len(points))
+        gradient = np.zeros_like(points)
+        for d in range(2):
+            gradient[:, d] = (values[1 + 2 * d] - values[2 + 2 * d]) / self.spacing[d]
+        return values[0], gradient
+
+
+def _plane_interfaces(mesh) -> tuple[np.ndarray, np.ndarray]:
+    """The edges of a six-node mesh of the plane between two phases, or between a phase and
+    a pore left out of the mesh (the free edges inside the box): their three nodes (the
+    corners, then the middle node) and their two phases, the second -1 for a pore."""
+    c = mesh.elements
+    m = len(c)
+    ends = np.concatenate([c[:, [a, b]] for a, b in _tri.TRI6_EDGES])
+    middle = np.concatenate([c[:, 3 + k] for k in range(3)])
+    owner = np.tile(np.arange(m), 3)
+    key = np.sort(ends, axis=1)
+    _, inverse, counts = np.unique(key, axis=0, return_inverse=True, return_counts=True)
+    order = np.argsort(inverse.ravel(), kind="stable")
+    start = np.concatenate([[0], np.cumsum(counts)[:-1]])
+    first = order[start]  # one (element, edge) of each edge of the mesh
+    shared = counts == 2
+    p1 = mesh.phase[owner[first]]
+    p2 = np.full(len(counts), -1, dtype=np.int64)
+    p2[shared] = mesh.phase[owner[order[start[shared] + 1]]]
+    x = mesh.nodes[ends[first]]  # (edges, 2 corners, 2)
+    tol = mesh.tolerance
+    on_box = np.zeros(len(counts), dtype=bool)
+    for d in range(2):
+        for target in (mesh.lower[d], mesh.upper[d]):
+            on_box |= np.all(np.abs(x[:, :, d] - target) <= tol, axis=1)
+    keep = (shared & (p1 != p2)) | (~shared & ~on_box)
+    first, p1, p2 = first[keep], p1[keep], p2[keep]
+    edges = np.column_stack([ends[first], middle[first]])
+    low, high = np.minimum(p1, p2), np.maximum(p1, p2)
+    pairs = np.where((p2 < 0)[:, None], np.stack([p1, p2], 1), np.stack([low, high], 1))
+    return edges, pairs
+
+
+def curved_triangles(
+    mesh,
+    micro,
+    *,
+    sampling: float | None = None,
+    corners: bool = True,
+    max_move: float = 0.3,
+    min_jacobian: float = 0.3,
+):
+    """The six-node mesh of ``mesh`` (a :class:`~morphogen.mesh.triangles.TriMesh` of three
+    or six nodes, in the plane ``mesh.z`` of the structure ``micro``) whose nodes on the
+    interfaces of the phases lie on the curves of the section of their implicit functions:
+    isoparametric triangles with curved edges along the interfaces (see the module; the
+    parameters are those of :func:`curved_mesh`, the nodes of the sides of the box moving
+    along them, those of opposite sides of a periodic mesh alike).
+
+    A mesh without interfaces comes back with straight edges. ``mesh.metadata["curved"]``
+    counts the nodes of the interfaces and those that lie on their curves in the end
+    (``nodes``), and gives the largest departure of a middle node from the middle of its
+    edge; the nodes where three phases meet stay where they are."""
+    quad = mesh.straight() if mesh.order == 2 else mesh.quadratic()
+    if quad.n_elements == 0:
+        return quad
+    t0 = time.perf_counter()
+    edges, pairs = _plane_interfaces(quad)
+    if not len(edges):
+        return quad
+    n = quad.n_nodes
+    images = [
+        quad.periodic_pairs(d) if quad.periodic else np.zeros((0, 2), dtype=np.int64)
+        for d in range(2)
+    ]
+    rep = _representatives(n, images)
+    width = int(pairs.max()) + 2
+    code = pairs[:, 0] * width + (pairs[:, 1] + 1)
+    lowest = np.full(n, np.iinfo(np.int64).max)
+    highest = np.full(n, -1)
+    np.minimum.at(lowest, rep[edges.ravel()], np.repeat(code, 3))
+    np.maximum.at(highest, rep[edges.ravel()], np.repeat(code, 3))
+    lowest, highest = lowest[rep], highest[rep]
+    single = (highest >= 0) & (lowest == highest)
+    tol = quad.tolerance
+    free = np.ones((n, 3))
+    free[:, 2] = 0.0  # in the plane
+    for d in range(2):
+        on_side = (np.abs(quad.nodes[:, d] - quad.lower[d]) <= tol) | (
+            np.abs(quad.nodes[:, d] - quad.upper[d]) <= tol
+        )
+        free[on_side, d] = 0.0
+    movable = single & free.any(axis=1)
+    is_corner = np.zeros(n, dtype=bool)
+    is_corner[quad.elements[:, :3]] = True
+    triangles = quad.elements[:, :3]
+    ends = quad.elements[:, np.array(_tri.TRI6_EDGES)]  # (m, 3, 2)
+    mids = quad.elements[:, 3:]
+    size = float(quad.metadata.get("size", 0.0)) or float(
+        np.median(np.linalg.norm(np.diff(quad.nodes[ends], axis=2), axis=-1))
+    )
+    lengths = np.asarray(micro.domain.lengths, dtype=float)
+    spacing = float(sampling) if sampling else size / SAMPLES_PER_ELEMENT
+    spacing = max(spacing, float(lengths[:2].max()) / MAX_PLANE_SAMPLES)
+    used = np.unique(pairs[np.isin(edges, np.flatnonzero(movable)).any(axis=1)])
+    axes = (bool(quad.periodic), bool(quad.periodic))
+    implicit = _PlaneImplicit(micro, spacing, axes, [int(k) for k in used if k >= 0], size,
+                              quad.z)  # fmt: skip
+    nodes = np.column_stack([quad.nodes, np.full(n, quad.z)])
+    all_edges = ends.reshape(-1, 2)
+
+    def groups(chosen: np.ndarray):
+        for value in np.unique(lowest[chosen]):
+            yield lowest[chosen] == value, int(value // width), int(value % width) - 1
+
+    def project(chosen: np.ndarray, cap: np.ndarray) -> np.ndarray:
+        target = nodes[chosen].copy()
+        for sel, a, b in groups(chosen):
+            target[sel], _ = _project(
+                implicit, nodes[chosen[sel]], a, b, free[chosen[sel]], cap[sel]
+            )
+        return target
+
+    def shapes(where: np.ndarray, part: np.ndarray):
+        area = _tri._signed_areas(where[:, :2], part)
+        p = where[part][..., :2]
+        sides = sum(np.sum((p[:, (k + 1) % 3] - p[:, k]) ** 2, axis=1) for k in range(3))
+        return area, area / np.maximum(sides, 1e-300)
+
+    # 1. the corner nodes, as far as the straight triangles keep their shape
+    own = rep == np.arange(n)
+    chosen = np.flatnonzero(movable & is_corner & own)
+    if corners and chosen.size:
+        area0, quality0 = shapes(nodes, triangles)
+        for _ in range(_STEPS):
+            edge_length = np.linalg.norm(nodes[all_edges[:, 0]] - nodes[all_edges[:, 1]], axis=1)
+            shortest = np.full(n, np.inf)
+            np.minimum.at(shortest, all_edges[:, 0], edge_length)
+            np.minimum.at(shortest, all_edges[:, 1], edge_length)
+            move = np.zeros((n, 3))
+            move[chosen] = project(chosen, max_move * shortest[chosen]) - nodes[chosen]
+            move = move[rep]  # the images of a node across the box move as it does
+            far = np.linalg.norm(move, axis=1)
+            if far.max() <= 1e-9 * size:
+                break
+            scale = np.ones(n)
+            bad = np.zeros(quad.n_elements, dtype=bool)
+            check = np.flatnonzero((far[triangles] > 0.0).any(axis=1))
+            for round_ in range(3 * _ROUNDS):
+                trial = nodes + scale[:, None] * move
+                area, quality = shapes(trial, triangles[check])
+                bad[check] = (area < 0.5 * area0[check]) | (quality < 0.5 * quality0[check])
+                if not bad.any():
+                    break
+                before = scale.copy()
+                _give_way(scale, triangles[bad], far, round_)
+                _share(scale, images)
+                check = np.flatnonzero((scale != before)[triangles].any(axis=1))
+            else:  # a triangle still does not hold: no node moves in this step
+                break
+            nodes += scale[:, None] * move
+            _copy_images(nodes, images)
+    # 2. the middle nodes: the middles of the straight edges, then those of the interfaces
+    #    on their curves
+    nodes[mids] = 0.5 * (nodes[ends[..., 0]] + nodes[ends[..., 1]])
+    middles = nodes.copy()
+    chosen = np.flatnonzero(movable & ~is_corner & own)
+    if chosen.size:
+        length = np.ones(n)
+        length[mids.ravel()] = np.linalg.norm(
+            nodes[ends[..., 0]] - nodes[ends[..., 1]], axis=-1
+        ).ravel()
+        move = np.zeros((n, 3))
+        move[chosen] = project(chosen, max_move * length[chosen]) - nodes[chosen]
+        move = move[rep]
+        scale = np.ones(n)
+        points = np.vstack([_tri.TRI6_NODES, _tri.TRI_GAUSS])
+        gradients = np.zeros((quad.n_elements, 3, 2))
+        bent = np.flatnonzero((np.abs(move[mids]).max(axis=2) > 0.0).any(axis=1))
+        gradients[bent] = _tri.corner_gradients(nodes[:, :2], triangles[bent])
+        far = np.linalg.norm(move, axis=1) / length
+        bad = np.zeros(quad.n_elements, dtype=bool)
+        check = bent
+        for round_ in range(3 * _ROUNDS):
+            deviation = scale[mids[check], None] * move[mids[check]][..., :2]
+            ratio = _tri.jacobian_ratios(gradients[check], deviation, points).min(axis=1)
+            bad[check] = ratio < min_jacobian
+            if not bad.any():
+                break
+            before = scale.copy()
+            _give_way(scale, mids[bad], far, round_)
+            _share(scale, images)
+            check = np.flatnonzero((scale != before)[mids].any(axis=1))
+        else:  # an element still does not hold: straight edges everywhere
+            scale[:] = 0.0
+        nodes = middles + scale[:, None] * move
+        _copy_images(nodes, images)
+    out = quad._with_nodes(nodes[:, :2])
+    chosen = np.flatnonzero(movable)
+    reached = 0
+    for sel, a, b in groups(chosen):
+        value, gradient = implicit.gap(a, b, nodes[chosen[sel]])
+        slope = np.sqrt(np.maximum(((gradient * free[chosen[sel]]) ** 2).sum(axis=1), 1e-300))
+        reached += int(np.count_nonzero(np.abs(value) <= 1e-6 * size * slope))
+    out.metadata["curved"] = {
+        "nodes": reached,
+        "interface_nodes": int(np.count_nonzero(highest >= 0)),
+        "max_deviation": float(np.linalg.norm(nodes - middles, axis=1).max()),
+        "sampling": implicit.sampling,  # 0: the functions of the model itself
+        "time_s": round(time.perf_counter() - t0, 3),
+    }
+    log.info(
+        "curved triangles: %d of %d nodes of the interfaces on their curves (%.1f s)",
         reached,
         int(np.count_nonzero(highest >= 0)),
         time.perf_counter() - t0,

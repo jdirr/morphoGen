@@ -2957,6 +2957,7 @@ morphogen.mesh: VoxelMesh
 morphogen.mesh: adaptive_mesh
 morphogen.mesh: conforming_mesh
 morphogen.mesh: curved_mesh
+morphogen.mesh: curved_triangles
 morphogen.mesh: exact_mesh
 morphogen.mesh: exact_route
 morphogen.mesh: mirrored_mesh
@@ -2983,9 +2984,11 @@ morphogen.mesh.conforming.mirrored_mesh(micro, *, size, mirrors=(0, 1, 2), diago
 morphogen.mesh.conforming.mmg_executable(path=None, program='mmg3d')
 morphogen.mesh.conforming.node_level_set(micro, spacing, phase=None)
 morphogen.mesh.conforming.point_group(mirrors, diagonals=())
+morphogen.mesh.curved.MAX_PLANE_SAMPLES
 morphogen.mesh.curved.MAX_SAMPLES
 morphogen.mesh.curved.SAMPLES_PER_ELEMENT
 morphogen.mesh.curved.curved_mesh(mesh, micro, *, sampling=None, corners=True, max_move=0.3, min_jacobian=0.3)
+morphogen.mesh.curved.curved_triangles(mesh, micro, *, sampling=None, corners=True, max_move=0.3, min_jacobian=0.3)
 morphogen.mesh.exact.TOLERANCE
 morphogen.mesh.exact.adaptive_mesh(micro, *, size, hausdorff=None, min_size=None, gradation=1.8, phases='all', order=1, periodic=None, lipschitz=None, project=True, remove_islands=None, ridges=False, sharp_edges=None, retries=2, executable=None, workdir=None, timeout=None)
 morphogen.mesh.exact.exact_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=None, phases='all', order=1, periodic=None, grains=None, sharp_edges=None, executable=None, workdir=None, timeout=None, **options)
@@ -3078,12 +3081,15 @@ morphogen.mesh.triangles.TriMesh(nodes, elements, phase, lower, upper, periodic=
 morphogen.mesh.triangles.TriMesh.areas(self)
 morphogen.mesh.triangles.TriMesh.boundary_edges(self)
 morphogen.mesh.triangles.TriMesh.box_area(self)
+morphogen.mesh.triangles.TriMesh.curved
+morphogen.mesh.triangles.TriMesh.deviations(self)
 morphogen.mesh.triangles.TriMesh.edges(self)
 morphogen.mesh.triangles.TriMesh.extruded(self, thickness=None, z0=None, layers=1)
 morphogen.mesh.triangles.TriMesh.layer(self)
 morphogen.mesh.triangles.TriMesh.linear(self)
 morphogen.mesh.triangles.TriMesh.matching_sides(self)
 morphogen.mesh.triangles.TriMesh.min_angles(self)
+morphogen.mesh.triangles.TriMesh.min_jacobian(self)
 morphogen.mesh.triangles.TriMesh.n_elements
 morphogen.mesh.triangles.TriMesh.n_nodes
 morphogen.mesh.triangles.TriMesh.order
@@ -3095,18 +3101,23 @@ morphogen.mesh.triangles.TriMesh.select(self, keep)
 morphogen.mesh.triangles.TriMesh.side_edges(self, axis, side)
 morphogen.mesh.triangles.TriMesh.side_nodes(self, axis, side)
 morphogen.mesh.triangles.TriMesh.size
+morphogen.mesh.triangles.TriMesh.straight(self)
 morphogen.mesh.triangles.TriMesh.subset(self, phases)
 morphogen.mesh.triangles.TriMesh.summary(self)
 morphogen.mesh.triangles.TriMesh.tolerance
 morphogen.mesh.triangles.background_triangulation(shape, lower, upper)
+morphogen.mesh.triangles.corner_gradients(nodes, corners)
+morphogen.mesh.triangles.curved_maps(gradients, deviations, point)
+morphogen.mesh.triangles.edge_deviations(nodes, elements)
 morphogen.mesh.triangles.exact_section(micro)
+morphogen.mesh.triangles.jacobian_ratios(gradients, deviations, points)
 morphogen.mesh.triangles.lattice_map(micro)
 morphogen.mesh.triangles.lattice_mesh(micro, *, order=1, phases='all', periodic=None)
 morphogen.mesh.triangles.planar_pieces(micro, z=None)
 morphogen.mesh.triangles.planar_tessellation(micro)
 morphogen.mesh.triangles.plane_level_set(micro, spacing, z, phase=None)
 morphogen.mesh.triangles.plane_mesh(micro, *, size, **options)
-morphogen.mesh.triangles.section_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, background=None, z=None, phases='all', order=1, periodic=None, executable=None, workdir=None, timeout=None)
+morphogen.mesh.triangles.section_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, background=None, z=None, phases='all', order=1, curved=None, periodic=None, executable=None, workdir=None, timeout=None)
 morphogen.mesh.triangles.section_weights(micro, z)
 morphogen.mesh.triangles.tessellation_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, phases='all', order=1, periodic=None, z=None, min_feature=None, executable=None, workdir=None, timeout=None)
 morphogen.mesh.voxel.FACE_NAMES

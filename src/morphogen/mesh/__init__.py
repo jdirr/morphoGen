@@ -5,7 +5,7 @@ tessellations of coplanar germs, the sections of any structure), voxel hexahedra
 surface meshes (marching cubes)."""
 
 from morphogen.mesh.conforming import ImplicitBody, conforming_mesh, mirrored_mesh, mmg_executable
-from morphogen.mesh.curved import curved_mesh
+from morphogen.mesh.curved import curved_mesh, curved_triangles
 from morphogen.mesh.exact import adaptive_mesh, exact_mesh, exact_route, polyhedral_mesh
 from morphogen.mesh.surface import SurfaceMesh, surface_mesh
 from morphogen.mesh.tetra import TetMesh
@@ -23,6 +23,7 @@ __all__ = [
     "adaptive_mesh",
     "conforming_mesh",
     "curved_mesh",
+    "curved_triangles",
     "exact_mesh",
     "exact_route",
     "mirrored_mesh",

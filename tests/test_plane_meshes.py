@@ -3,7 +3,9 @@
 small features, the sections of the implicit structures, the matching sides of the periodic
 ones, the layers of tetrahedra extruded from them, their files; the problems of the plane
 checked against the uniform fields, the laminates, the checkerboard of Dykhne and the same
-problems in space on the extruded layers."""
+problems in space on the extruded layers; the curved six-node triangles of the sections
+(mesh.curved) against the areas of discs, the conductivity of square arrays of cylinders
+(Perrins et al., Keller) and the neutral coated cylinder of Hashin."""
 
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ from morphogen.homogenization.materials import isotropic_matrix, rotate_stiffnes
 from morphogen.homogenization.plane import PlaneElasticProblem, PlaneThermalProblem
 from morphogen.io import read_tri_mesh, save_mesh, write_periodic_pairs
 from morphogen.mesh.conforming import mmg_executable
+from morphogen.mesh.curved import curved_triangles
 from morphogen.mesh.triangles import (
     TriMesh,
     background_triangulation,
@@ -29,8 +32,12 @@ from morphogen.mesh.triangles import (
     section_mesh,
     tessellation_mesh,
 )
+from morphogen.models.long_fibers import LongFibers
+from morphogen.models.nested import CoatedStructure
 from morphogen.models.seeded import SeededLaguerre
 from morphogen.models.tessellation import Tessellation
+from morphogen.models.union import PrimitiveUnion
+from morphogen.primitives import Segments
 
 
 def _has_mmg2d() -> bool:
@@ -430,6 +437,9 @@ def test_configurations_of_the_plane(tmp_path):
                       base_dir=tmp_path)  # fmt: skip
     assert cfg.mesh.plane is True and cfg.mesh.z == 0.05
     assert cfg.mesh.plane_kwargs()["z"] == 0.05
+    straight = {"size": 0.25, "plane": True, "order": 2, "curved": False}
+    cfg = load_config({**base, "mesh": straight}, base_dir=tmp_path)
+    assert cfg.mesh.plane_kwargs()["curved"] is False
     with pytest.raises(ConfigError, match=r"mesh\.plane: true"):
         load_config({**base, "mesh": {"size": 0.25, "plane": "yes"}}, base_dir=tmp_path)
     with pytest.raises(ConfigError, match=r"mesh\.z"):
@@ -641,3 +651,178 @@ def test_small_features_halved_where_they_fold(caplog):
     assert "below half of it instead" in caplog.text
     assert mesh.matching_sides() and mesh.min_angles().min() > 3.0
     assert mesh.n_elements < 0.5 * tessellation_mesh(sheet, size=0.05, min_feature=0).n_elements
+
+
+# -- curved six-node triangles ---------------------------------------------------------------
+
+
+def _fibres(fraction: float):
+    """Long straight fibres in a square array, four in a periodic box of edge 2: the section
+    of a square array of cylinders, one per unit cell."""
+    radius = float(np.sqrt(fraction / np.pi))
+    return LongFibers(radius=radius, volume_fraction=fraction, arrangement="square").generate(
+        mg.Domain(size=(2.0, 2.0, 0.5), periodic=True), seed=0
+    )
+
+
+def _coated(core: float = 0.2, coat: float = 0.3):
+    """A coated cylinder in a periodic unit cell: its core (phase 1) of radius ``core``, its
+    coating (phase 2) to the radius ``coat``, the matrix about them (phase 0)."""
+    domain = mg.Domain(size=(1.0, 1.0, 1.0), periodic=True)
+    axis = Segments(np.array([[0.47, 0.53, 0.0]]), np.array([[0.47, 0.53, 1.0]]), np.array([core]))
+    return CoatedStructure(domain, PrimitiveUnion(domain, None, axis), coat - core, "outside", 2, 0)
+
+
+class _Sampled:
+    """A structure that gives its implicit functions on grids only."""
+
+    def __init__(self, micro):
+        self._micro = micro
+
+    def __getattr__(self, name):
+        if name in ("implicit_at", "phase_level_sets_at", "level_set_at"):
+            raise AttributeError(name)
+        return getattr(self._micro, name)
+
+
+def _perrins(fraction: float, ratio: float) -> float:
+    """The conductivity of a square array of cylinders of conductivity ``ratio`` in a matrix
+    of unit conductivity (Perrins, McKenzie & McPhedran 1979, Proc. R. Soc. A 369, 207)."""
+    f, t = fraction, (1.0 + ratio) / (1.0 - ratio)
+    return 1.0 - 2.0 * f / (t + f - 0.305827 * f**4 * t / (t**2 - 1.402958 * f**8)
+                            - 0.013362 * f**8)  # fmt: skip
+
+
+def _conducting(ratio: float) -> dict:
+    """A matrix of unit conductivity and cylinders of conductivity ``ratio`` (pores for 0)."""
+    cylinders = (Material(void=True) if ratio == 0.0
+                 else Material(young=1.0, poisson=0.3, conductivity=ratio))  # fmt: skip
+    return {0: Material(young=1.0, poisson=0.3, conductivity=1.0), 1: cylinders}
+
+
+@needs_mmg2d
+def test_curved_triangles_of_discs():
+    """The six-node triangles of the section of a square array of fibres (0.4 of the area),
+    their nodes of the interfaces on the circles: the area of the fibres within 1e-6 at the
+    size 0.1 and 1e-7 at 0.05, falling as the fourth power of the size (the straight edges
+    of the mesher 2e-3 off); the box keeps its area, the sides their matching nodes, the
+    elements more than 0.3 of the area elements of their straight triangles. The functions
+    of a structure sampled on a grid of the plane put the nodes on their splines: 1e-5."""
+    micro = _fibres(0.4)
+    errors = []
+    for size in (0.1, 0.05):
+        straight = plane_mesh(micro, size=size, order=2, curved=False)
+        mesh = plane_mesh(micro, size=size, order=2)
+        assert mesh.curved and not straight.curved and not mesh.straight().curved
+        info = mesh.metadata["curved"]
+        assert info["nodes"] == info["interface_nodes"] > 0 and info["sampling"] == 0.0
+        assert mesh.areas().sum() == pytest.approx(4.0, rel=1e-13)
+        assert mesh.matching_sides() and mesh.min_jacobian() > 0.3
+        errors.append(abs(mesh.phase_fractions()[1] / 0.4 - 1.0))
+        assert abs(straight.phase_fractions()[1] / 0.4 - 1.0) > 1000 * errors[-1]
+    assert errors[0] < 1e-6 and errors[1] < 1e-7 and errors[0] > 8 * errors[1]
+    sampled = curved_triangles(plane_mesh(micro, size=0.1), _Sampled(micro))
+    assert sampled.metadata["curved"]["sampling"] > 0.0
+    assert sampled.phase_fractions()[1] == pytest.approx(0.4, rel=1e-5)
+    with pytest.raises(ValueError, match="six-node"):
+        plane_mesh(micro, size=0.1, curved=True)
+
+
+@needs_mmg2d
+@pytest.mark.parametrize("ratio", [10.0, 0.0])
+def test_conductivity_of_a_square_array_of_cylinders(ratio):
+    """Cylinders filling 0.4 of the plane, ten times as conducting as their matrix or
+    insulating (pores left out of the mesh, their walls curved): the curved six-node
+    triangles of size 0.1 give the conductivity of Perrins, McKenzie & McPhedran (1979)
+    within 6e-5, where the straight ones are 1e-3 off."""
+    micro = _fibres(0.4)
+    reference = _perrins(0.4, ratio)
+    assert reference == pytest.approx({10.0: 1.980607, 0.0: 0.425351}[ratio], abs=1e-6)
+    phases = "all" if ratio else "matrix"
+    errors = []
+    for curved in (True, False):
+        mesh = plane_mesh(micro, size=0.1, order=2, curved=curved, phases=phases)
+        out = homogenize(mesh, _conducting(ratio), properties=["conductivity_tensor"])
+        k = out["conductivity_tensor.periodic"]["tensor"]
+        errors.append(abs(k[0, 0] / reference - 1.0))
+        if curved:  # the square symmetry of the array, to the error of the elements
+            assert abs(k[0, 1]) < 1e-5 * k[0, 0] and k[1, 1] == pytest.approx(k[0, 0], rel=1e-4)
+    assert errors[0] < 6e-5 and errors[1] > 5e-4
+
+
+@needs_mmg2d
+def test_reciprocal_theorem_of_keller():
+    """Cylinders filling 0.6 of the plane, where the series of Perrins et al. is 5e-4 off:
+    the conductivities of the ratios 10 and 1/10 obey the reciprocal theorem of Keller
+    (1964), their product 1, within 1e-4 on curved six-node triangles of size 0.1."""
+    micro = _fibres(0.6)
+    mesh = plane_mesh(micro, size=0.1, order=2)
+    k = [homogenize(mesh, _conducting(t), properties=["conductivity_tensor"])
+         ["conductivity_tensor.periodic"]["tensor"][0, 0] for t in (10.0, 0.1)]  # fmt: skip
+    assert k[0] * k[1] == pytest.approx(1.0, abs=1e-4)
+    assert _perrins(0.6, 10.0) * _perrins(0.6, 0.1) == pytest.approx(1.0, abs=1e-3)
+
+
+def _neutral(core: float, coat: float) -> tuple[dict, float, float]:
+    """The materials of a neutral coated cylinder (Hashin & Rosen 1964): its core (phase 1),
+    its coating (phase 2), the matrix (phase 0) of the conductivity and of the plane bulk
+    modulus ``k = lambda + mu`` of the assemblage of coated cylinders, which the coated
+    cylinder then does not disturb; and these two."""
+    c = (core / coat) ** 2
+    sc, ss = 10.0, 1.0
+    sm = ss * ((1 + c) * sc + (1 - c) * ss) / ((1 - c) * sc + (1 + c) * ss)
+    kc, muc, ks, mus = 20.0, 8.0, 3.0, 1.5
+    km = ks + c / (1.0 / (kc - ks) + (1.0 - c) / (ks + mus))
+    out = {}
+    for phase, (k, mu, s) in {1: (kc, muc, sc), 2: (ks, mus, ss), 0: (km, 2.0, sm)}.items():
+        lam = k - mu  # in plane strain, k = lambda + mu
+        young, poisson = mu * (3 * lam + 2 * mu) / (lam + mu), lam / (2 * (lam + mu))
+        out[phase] = Material(young=young, poisson=poisson, conductivity=s)
+    return out, sm, km
+
+
+@needs_mmg2d
+def test_neutral_coated_cylinder():
+    """A coated cylinder whose coating makes it neutral (Hashin & Rosen 1964; Milton 2002): the
+    matrix about it keeps its uniform field, and the cell the conductivity and the plane bulk
+    modulus of the matrix whatever its conditions. The curved six-node triangles of size 0.1
+    give them within 3e-5 under the three conditions, the straight ones 1e-3 off."""
+    materials, sm, km = _neutral(0.2, 0.3)
+    micro = _coated(0.2, 0.3)
+    bcs = ["kubc", "periodic", "subc"]
+    for curved, low, high in ((True, 0.0, 3e-5), (False, 5e-4, 5e-3)):
+        mesh = plane_mesh(micro, size=0.1, order=2, curved=curved)
+        assert set(np.unique(mesh.phase)) == {0, 1, 2}
+        out = homogenize(mesh, materials, bcs=bcs, properties=["conductivity_tensor", "stiffness"])
+        for bc in bcs:
+            k = out[f"conductivity_tensor.{bc}"]["tensor"]
+            c = out[f"stiffness.{bc}"]["tensor"]
+            bulk = (c[0, 0] + c[0, 1]) / (2 * km) - 1.0
+            for error in (k[0, 0] / sm - 1.0, k[1, 1] / sm - 1.0, bulk):
+                assert low <= abs(error) < high
+
+
+@needs_mmg2d
+def test_curved_layer_in_space(tmp_path):
+    """The layer in space of curved six-node triangles: ten-node tetrahedra whose edges over
+    the curved edges are curved as they are, the areas of the phases the volumes of the
+    layer over its thickness exactly; its periodic tensors those of the plane within 1e-5
+    (the integration points of the curved triangles and tetrahedra differ). The files of
+    VTK keep the curved edges."""
+    materials, _, _ = _neutral(0.2, 0.3)
+    mesh = plane_mesh(_coated(0.2, 0.3), size=0.15, order=2)
+    layer = mesh.layer()
+    assert layer.curved and layer.min_jacobian() == pytest.approx(mesh.min_jacobian())
+    thickness = float(layer.upper[2] - layer.lower[2])
+    for p in (0, 1, 2):
+        area = mesh.areas()[mesh.phase == p].sum()
+        assert layer.volumes()[layer.phase == p].sum() / thickness == pytest.approx(area, rel=1e-12)
+    properties = ["stiffness", "conductivity_tensor"]
+    plane = homogenize(mesh, materials, properties=properties)
+    space = homogenize(layer, materials, properties=properties)
+    for key in ("stiffness.periodic", "conductivity_tensor.periodic"):
+        a, b = plane[key]["tensor"], space[key]["tensor"]
+        assert np.abs(a - b).max() < 1e-5 * np.abs(a).max()
+    back = read_tri_mesh(save_mesh(mesh, tmp_path / "curved.vtu"))
+    assert back.curved and back.areas().sum() == pytest.approx(1.0, rel=1e-12)
+    np.testing.assert_allclose(np.sort(back.areas()), np.sort(mesh.areas()), rtol=1e-9)

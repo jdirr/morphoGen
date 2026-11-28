@@ -149,6 +149,8 @@ class MeshSpec:
             out["z"] = self.z
         if self.min_feature is not None:
             out["min_feature"] = self.min_feature
+        if self.curved is not None:
+            out["curved"] = self.curved
         return out
 
     def kwargs(self, porous=False) -> dict:
