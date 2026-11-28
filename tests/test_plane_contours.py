@@ -549,7 +549,10 @@ def test_sections_of_many_realizations(seed):
     caps between the corners of two capsules and their vertices, the contours their corners
     knot traced again) and of Boolean spheres, at two sizes: every one meshed —
     by its exact contours or discs, or else by the level sets —, its six-node elements
-    valid and its periodic sides matching."""
+    valid and its periodic sides matching; dense hollow hardcore fibres, hollow curved ones
+    and random walks of fibres in contact by their contours."""
+    from morphogen.models.base import model_from_config
+
     structures = [
         LongFibers(radius=0.05, volume_fraction=0.3, misalignment=2.0).generate(BOX, seed=seed),
         LongFibers(radius=0.05, volume_fraction=0.55, misalignment=4.0).generate(BOX, seed=seed),
@@ -563,12 +566,21 @@ def test_sections_of_many_realizations(seed):
                                    volume_fraction=0.25).generate(BOX, seed=seed),
         mg.models.BooleanSpheres(radius=0.08, volume_fraction=0.3).generate(BOX, seed=seed),
     ]  # fmt: skip
+    fibres = [model_from_config(config).generate(BOX, seed=seed) for config in (
+        {"type": "hardcore_fibers", "radius": 0.04, "length": 0.3, "volume_fraction": 0.25,
+         "lumen": 0.6},
+        {"type": "curved_fibers", "radius": 0.03, "length": 0.4, "persistence": 0.5,
+         "volume_fraction": 0.1, "lumen": 0.5},
+        {"type": "random_walk_fibers", "radius": 0.03, "volume_fraction": 0.15},
+    )]  # fmt: skip
     meshers = set()
-    for micro in structures:
+    for micro in structures + fibres:
         for size in (0.05, 0.025):
             mesh = plane_mesh(micro, size=size, order=2)
             assert mesh.min_jacobian() > 0.25 and mesh.matching_sides()
             meshers.add(mesh.metadata["mesher"])
+            if any(micro is other for other in fibres):
+                assert mesh.metadata["mesher"] == "exact contours (mmg2d)"
     assert "exact contours (mmg2d)" in meshers and "exact discs (mmg2d)" in meshers
 
 
