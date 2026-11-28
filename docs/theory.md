@@ -13976,8 +13976,15 @@ narrowest gap. The points where the circles cross the sides of the box are those
 images on the opposite sides, the nodes of the upper sides the translates of those of the
 lower sides; `mmg2d` meshes the regions within these edges, which it keeps (`-nosurf`), and
 each triangle takes the phase of its centroid. The six-node elements have only their middle
-nodes to move onto the circles. Discs that meet or touch, and oblique fibres, are left to the
-level sets. The fibres of the square array filling 0.4 of the plane have their area within
+nodes to move onto the circles. Coated fibres and spheres, and hollow ones (the model
+`coating`, outside or inside), are rings: their concentric circles (`disc_layers`; the cuts
+of the members grown by the thickness of the coating, or shrunk by that of the shells), the
+band of each centroid giving its phase, and the coatings graded too — three elements across
+them. Discs that meet or touch, coatings among them, and oblique fibres are left to the level
+sets. The neutral coated cylinder of §119, meshed by its rings, keeps the conductivity and
+the plane bulk modulus of its matrix within 2.9·10⁻⁶ and 1.5·10⁻⁶ at the size 0.1, five times
+closer than its level sets (1.5·10⁻⁵ and 6·10⁻⁶); shells of fibres have their areas to
+10⁻⁶, and coated spheres the coatings of their cuts. The fibres of the square array filling 0.4 of the plane have their area within
 6·10⁻⁶ at the size 0.1, 7.9·10⁻⁷ at 0.05 and 5·10⁻⁸ at 0.025, the fourth power of the size
 (8·10⁻³, 3·10⁻³ and 8·10⁻⁴ off with the straight edges between the nodes of the circles,
 the chords: its square); the cuts of hardcore spheres theirs within 2·10⁻⁶ at the size 0.04;

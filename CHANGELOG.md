@@ -224,7 +224,13 @@
   and the conductivity of the composite across and along its fibres under the three
   conditions, the connections of Hill to round-off (the uniform field that the arrangement
   of the fibres cannot change), the bounds of Hashin and Shtrikman, the permeability of the
-  dry preform, the files of Abaqus; its card among the tutorials.
+  dry preform, the files of Abaqus; its card among the tutorials. The recipe of the
+  permeability of a bed of fibres among the how-tos.
+* The rings of coated and hollow fibres and spheres in the sections of the plane
+  (`disc_layers`; the model `coating`, outside or inside): their concentric circles meshed
+  exactly, the coatings graded, three elements across them; coatings that meet by the level
+  sets. The neutral coated cylinder within 3·10⁻⁶ on its rings at the size 0.1, five times
+  closer than on its level sets.
 * The exact discs of the sections of straight fibres along z and of spheres
   (`disc_sections`, `disc_mesh`; `plane_mesh` by default for them): their circles
   discretized exactly, at sizes graded from the gaps between them, three elements across the

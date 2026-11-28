@@ -6,7 +6,8 @@ checked against the uniform fields, the laminates, the checkerboard of Dykhne an
 problems in space on the extruded layers; the curved six-node triangles of the sections
 (mesh.curved) against the areas of discs, the conductivity of square arrays of cylinders
 (Perrins et al., Keller) and the neutral coated cylinder of Hashin; the exact discs of the
-sections of fibres and spheres, graded from their gaps."""
+sections of fibres and spheres, graded from their gaps, and the rings of coated and hollow
+ones."""
 
 from __future__ import annotations
 
@@ -26,6 +27,7 @@ from morphogen.mesh.curved import curved_triangles
 from morphogen.mesh.triangles import (
     TriMesh,
     background_triangulation,
+    disc_layers,
     disc_mesh,
     disc_sections,
     planar_pieces,
@@ -36,11 +38,11 @@ from morphogen.mesh.triangles import (
     tessellation_mesh,
 )
 from morphogen.models.long_fibers import LongFibers
-from morphogen.models.nested import CoatedStructure
+from morphogen.models.nested import CoatedStructure, Coating
 from morphogen.models.seeded import SeededLaguerre
 from morphogen.models.tessellation import Tessellation
 from morphogen.models.union import PrimitiveUnion
-from morphogen.primitives import Segments
+from morphogen.primitives import Segments, Spheres
 
 
 def _has_mmg2d() -> bool:
@@ -906,5 +908,49 @@ def test_exact_discs_of_spheres_and_what_they_leave():
     axes = Segments(np.array([[0.3, 0.5, 0.0], [0.6, 0.5, 0.0]]),
                     np.array([[0.3, 0.5, 0.2], [0.6, 0.5, 0.2]]), np.array([0.2, 0.2]))  # fmt: skip
     meeting = PrimitiveUnion(domain, None, axes)
+    assert disc_mesh(meeting, size=0.05) is None
+    assert plane_mesh(meeting, size=0.05).metadata["mesher"].startswith("section")
+
+
+@needs_mmg2d
+def test_exact_rings_of_coated_and_hollow_fibres():
+    """The coated cylinder of the neutral inclusion meshed by its exact rings — its core, its
+    coating and the matrix: its conductivity and plane bulk modulus within 5e-6 at the size
+    0.1, five times closer than on its level sets; shells of fibres about a core of a third
+    phase or hollow, by their rings, their areas within 1e-5; two coated spheres cut by the
+    plane, the coating of each cut that of the coated sphere; coatings that meet, by the
+    level sets."""
+    materials, sm, km = _neutral(0.2, 0.3)
+    mesh = plane_mesh(_coated(0.2, 0.3), size=0.1, order=2)
+    assert mesh.metadata["mesher"] == "exact discs (mmg2d)"
+    out = homogenize(mesh, materials, properties=["conductivity_tensor", "stiffness"])
+    k, c = out["conductivity_tensor.periodic"]["tensor"], out["stiffness.periodic"]["tensor"]
+    assert abs(k[0, 0] / sm - 1.0) < 5e-6 and abs((c[0, 0] + c[0, 1]) / (2 * km) - 1.0) < 5e-6
+    fibres = LongFibers(radius=0.1, number=10, arrangement="random", min_gap=0.05)
+    domain = mg.Domain(size=(1.0, 1.0, 0.25), periodic=True)
+    for core in (3, 0):
+        shells = Coating(model=fibres, thickness=0.03, side="inside", core_phase=core)
+        micro = shells.generate(domain, seed=2)
+        _, radii, bands = disc_layers(micro)
+        assert np.allclose(radii, [0.07, 0.1]) and list(bands) == [core, 1, 0]
+        mesh = plane_mesh(micro, size=0.05, order=2)
+        assert mesh.metadata["mesher"] == "exact discs (mmg2d)"
+        fractions = mesh.phase_fractions()
+        assert fractions[1] == pytest.approx(10 * np.pi * (0.1**2 - 0.07**2), rel=1e-5)
+        if core:
+            assert fractions[core] == pytest.approx(10 * np.pi * 0.07**2, rel=1e-5)
+    box = mg.Domain.cube(2.0, periodic=True)
+    centres = np.array([[0.5, 0.5, 1.1], [1.4, 1.3, 0.8]])
+    two = PrimitiveUnion(box, Spheres(centres, np.array([0.3, 0.25])), None)
+    coated = CoatedStructure(box, two, 0.06, "outside", 2, 0)
+    _, radii, bands = disc_layers(coated, 1.0)
+    cut = np.sqrt(np.array([[0.3, 0.36], [0.25, 0.31]]) ** 2 - np.array([[0.01], [0.04]]))
+    np.testing.assert_allclose(np.sort(radii, axis=0), np.sort(cut, axis=0), rtol=1e-12)
+    mesh = plane_mesh(coated, size=0.05, z=1.0, order=2)
+    fractions = mesh.phase_fractions()
+    assert fractions[1] == pytest.approx(np.pi * (cut[:, 0] ** 2).sum() / 4.0, rel=1e-5)
+    assert fractions[2] == pytest.approx(np.pi * np.diff(cut**2, axis=1).sum() / 4.0, rel=1e-5)
+    close = LongFibers(radius=0.1, number=10, arrangement="random", min_gap=0.02)
+    meeting = Coating(model=close, thickness=0.03).generate(domain, seed=2)
     assert disc_mesh(meeting, size=0.05) is None
     assert plane_mesh(meeting, size=0.05).metadata["mesher"].startswith("section")

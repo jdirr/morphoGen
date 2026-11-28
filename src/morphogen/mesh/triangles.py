@@ -19,9 +19,10 @@ exact (:func:`plane_mesh`):
   what small features remain — the upper
   sides of a periodic box the translates of the lower ones —, and ``mmg2d`` remeshes the
   grains within them without moving them (:func:`tessellation_mesh`);
-* the discs of the sections of straight fibres along ``z`` and of spheres that do not meet
-  (:func:`disc_sections`) by their circles, discretized exactly at sizes graded from the
-  gaps between them, ``mmg2d`` meshing the regions within them (:func:`disc_mesh`);
+* the discs of the sections of straight fibres along ``z`` and of spheres that do not meet,
+  coated or hollow (:func:`disc_layers`), by their circles, discretized exactly at sizes
+  graded from the gaps between them, ``mmg2d`` meshing the regions within them
+  (:func:`disc_mesh`);
 * a map of grains (a lattice field of one layer with the label of a grain per cell: the
   orientation maps of EBSD) by its pixels, two triangles each (:func:`lattice_mesh`);
 * any other structure (:func:`section_mesh`): the implicit functions of its phases are
@@ -1454,6 +1455,60 @@ def disc_sections(micro, z: float | None = None):
     return centres[first], largest
 
 
+def _grown(union, by: float):
+    """The union of the same spheres and segments, their radii grown by ``by`` (the
+    coating), or shrunk (the bores of shells)."""
+    from morphogen.models.union import PrimitiveUnion
+    from morphogen.primitives import Segments, Spheres
+
+    spheres, segments = union.spheres, union.segments
+    return PrimitiveUnion(
+        union.domain,
+        Spheres(spheres.centers, np.maximum(spheres.radii + by, 0.0)),
+        Segments(segments.start, segments.end, np.maximum(segments.radii + by, 0.0),
+                 segments.round_caps),
+    )  # fmt: skip
+
+
+def disc_layers(micro, z: float | None = None):
+    """The discs of the section in the plane ``z`` of a union of spheres and of segments
+    along ``z`` (:func:`disc_sections`), or of such a union coated (a coating outside, or
+    the shells of hollowed members: :class:`~morphogen.models.nested.CoatedStructure`):
+    their centres ``(n, 2)``, the radii of their concentric circles ``(n, m)`` from the
+    innermost (0 where a disc has no such circle: the cut of a sphere in its coating
+    alone), and the phases ``(m + 1,)`` inside the innermost circle, between the circles,
+    and outside them; None for another structure."""
+    from morphogen.models.nested import CoatedStructure
+
+    if not isinstance(micro, CoatedStructure):
+        found = disc_sections(micro, z)
+        if found is None:
+            return None
+        centres, radii = found
+        return centres, radii[:, None], np.array([1, 0])
+    inner = micro.inner
+    if disc_sections(inner, z) is None:
+        return None
+    t = float(micro.thickness)
+    if micro.side == "outside":
+        circles = (disc_sections(inner, z), disc_sections(_grown(inner, t), z))
+        phases = np.array([1, micro.phase, 0])
+    else:
+        circles = (disc_sections(_grown(inner, -t), z), disc_sections(inner, z))
+        phases = np.array([micro.core_phase, 1, 0])
+    outer_c, outer_r = circles[1]
+    inner_c, inner_r = circles[0]
+    radii = np.zeros((len(outer_r), 2))
+    radii[:, 1] = outer_r
+    if len(inner_r) and len(outer_r):
+        d, j = cKDTree(outer_c).query(inner_c)
+        tol = 1e-9 * float(micro.domain.lengths.max())
+        if np.any(d > tol):
+            return None  # (concentric circles only)
+        radii[j, 0] = inner_r
+    return outer_c, radii, phases
+
+
 def _crossings(c, r, lower, upper, tol):
     """Where a circle crosses the sides of the rectangle: ``(axis, side, t)``, ``t`` along
     the side; tangent circles do not cross."""
@@ -1494,8 +1549,8 @@ class _DiscSizes:
             p = c + r * np.column_stack([np.cos(a), np.sin(a)])
             gap = np.full(m, np.inf)
             for j in tree.query_ball_point(c, r + reach):
-                if j != i:
-                    gap = np.minimum(gap, np.linalg.norm(p - cs[j], axis=1) - rs[j])
+                if j != i:  # (inside it too: concentric circles)
+                    gap = np.minimum(gap, np.abs(np.linalg.norm(p - cs[j], axis=1) - rs[j]))
             for axis in (0, 1):
                 for value in (lower[axis], upper[axis]):
                     if abs(c[axis] - value) >= r:  # a side that the circle does not cross
@@ -1512,7 +1567,7 @@ class _DiscSizes:
                 gap = np.full(n, np.inf)
                 apart = np.abs(cs[:, axis] - value) >= rs  # the circles that do not cross it
                 for c, r in zip(cs[apart], rs[apart], strict=True):
-                    gap = np.minimum(gap, np.linalg.norm(p - c, axis=1) - r)
+                    gap = np.minimum(gap, np.abs(np.linalg.norm(p - c, axis=1) - r))
                 points.append(p)
                 h.append(gap / GAP_ELEMENTS)
         self.points = np.concatenate(points)
@@ -1560,13 +1615,15 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
               periodic: bool | None = None, executable: str | None = None, workdir=None,
               timeout: float | None = None) -> TriMesh | None:  # fmt: skip
     """The triangular mesh of a section made of discs that do not meet (the straight fibres
-    along ``z`` of a union of segments, the sections of spheres: :func:`disc_sections`, or
-    ``discs``, their centres and radii): their circles discretized exactly, at sizes graded
-    from the gaps between them (:data:`GAP_ELEMENTS` elements across the narrowest; at least
-    ``min_size``, by default a 64th of ``size``), the sides of a periodic box matching;
-    ``mmg2d`` meshes the regions within them, which keep their nodes. Six-node elements have
-    their middle nodes on the circles (:func:`~morphogen.mesh.curved.curved_triangles`), by
-    default. None for discs that meet or touch (the level sets of their union then)."""
+    along ``z`` of a union of segments, the sections of spheres, coated or hollow:
+    :func:`disc_layers`; or ``discs``, their centres and radii, or their centres, the radii
+    of their concentric circles and the phases of the bands between them): their circles
+    discretized exactly, at sizes graded from the gaps between them (:data:`GAP_ELEMENTS`
+    elements across the narrowest, and across the coatings; at least ``min_size``, by
+    default a 64th of ``size``), the sides of a periodic box matching; ``mmg2d`` meshes the
+    regions within them, which keep their nodes. Six-node elements have their middle nodes
+    on the circles (:func:`~morphogen.mesh.curved.curved_triangles`), by default. None for
+    discs that meet or touch (the level sets of their union then)."""
     from morphogen.mesh.conforming import mmg_executable
 
     domain = micro.domain
@@ -1584,30 +1641,38 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
     if periodic and not domain.periodic:
         raise ValueError("matching periodic sides need a periodic structure")
     z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
-    discs = disc_sections(micro, z) if discs is None else discs
+    discs = disc_layers(micro, z) if discs is None else discs
     if discs is None:
         return None
-    centres, radii = (np.asarray(a, dtype=float) for a in discs)
-    centres = centres.reshape(-1, 2)
+    if len(discs) == 2:  # the centres and radii of plain discs
+        centres, layers, bands = discs[0], np.asarray(discs[1])[:, None], [1, 0]
+    else:
+        centres, layers, bands = discs
+    centres = np.asarray(centres, dtype=float).reshape(-1, 2)
+    layers = np.asarray(layers, dtype=float).reshape(len(centres), -1)
+    bands = np.asarray(bands, dtype=np.int64)
     tol = 1e-9 * float(lengths.max())
     # 1. the discs that reach the box, and their images across a periodic box
-    if periodic and len(radii):
+    if periodic and len(centres):
         shifts = np.array([(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)], dtype=float)
-        cs = (centres[None, :, :] + (shifts * lengths)[:, None, :]).reshape(-1, 2)
-        rs = np.tile(radii, len(shifts))
+        ds = (centres[None, :, :] + (shifts * lengths)[:, None, :]).reshape(-1, 2)
+        dl = np.tile(layers, (len(shifts), 1))
     else:
-        cs, rs = centres, radii
+        ds, dl = centres, layers
+    do = dl.max(axis=1) if dl.size else np.zeros(len(ds))
     margin = size * GAP_ELEMENTS
-    near = np.all((cs + rs[:, None] > lower - margin) & (cs - rs[:, None] < upper + margin),
+    near = np.all((ds + do[:, None] > lower - margin) & (ds - do[:, None] < upper + margin),
                   axis=1)  # fmt: skip
-    cs, rs = cs[near], rs[near]
-    if len(rs) > 1:
-        pairs = cKDTree(cs).query_pairs(2.0 * float(rs.max()) + tol, output_type="ndarray")
+    ds, dl, do = ds[near], dl[near], do[near]
+    if len(do) > 1:
+        pairs = cKDTree(ds).query_pairs(2.0 * float(do.max()) + tol, output_type="ndarray")
         if len(pairs):
-            gap = (np.linalg.norm(cs[pairs[:, 0]] - cs[pairs[:, 1]], axis=1)
-                   - rs[pairs[:, 0]] - rs[pairs[:, 1]])  # fmt: skip
+            gap = (np.linalg.norm(ds[pairs[:, 0]] - ds[pairs[:, 1]], axis=1)
+                   - do[pairs[:, 0]] - do[pairs[:, 1]])  # fmt: skip
             if gap.min() <= tol:
                 return None  # discs that meet: the level sets of their union
+    which, layer = np.nonzero(dl > 0.0)  # the circles: the layers of the discs
+    cs, rs = ds[which], dl[which, layer]
     reach = np.all((cs + rs[:, None] > lower + tol) & (cs - rs[:, None] < upper - tol), axis=1)
     floor = size / 64.0 if min_size is None else float(min_size)
     field = _DiscSizes(cs, rs, lower, upper, size, periodic, floor)
@@ -1709,15 +1774,16 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
         args = [*_mmg_args(size, 0.5 * shortest, hausdorff, gradation), "-nr", "-nosurf"]
         out = _run(exe, folder / "discs.mesh", None, folder / "out.mesh", args, timeout)
     nodes, tri = out["Vertices"], out["Triangles"]
-    phase = np.zeros(len(tri), dtype=np.int64)
-    if len(rs):  # the triangles inside a disc: their centroids
+    phase = np.full(len(tri), bands[-1], dtype=np.int64)
+    if len(do):  # the triangles inside a disc: the band of their centroids
         centroids = cKDTree(nodes[tri].mean(axis=1))
-        close = centroids.sparse_distance_matrix(cKDTree(cs), float(rs.max()),
+        close = centroids.sparse_distance_matrix(cKDTree(ds), float(do.max()),
                                                  output_type="ndarray")  # fmt: skip
-        inside = close["v"] < rs[close["j"]]
-        phase[close["i"][inside]] = 1
+        inside = close["v"] < do[close["j"]]
+        i, j, d = close["i"][inside], close["j"][inside], close["v"][inside]
+        phase[i] = bands[(dl[j] < d[:, None]).sum(axis=1)]
     mesh = TriMesh(nodes, tri, phase, lower, upper, periodic,
-                   {"mesher": "exact discs (mmg2d)", "size": size, "discs": len(radii),
+                   {"mesher": "exact discs (mmg2d)", "size": size, "discs": len(centres),
                     "z": z}, z=z, thickness=float(domain.lengths[2]))  # fmt: skip
     mesh = _kept(mesh, phases)
     if order == 1:
@@ -1798,7 +1864,8 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     """The triangular mesh of a planar structure: the exact grains of a planar tessellation
     (:func:`tessellation_mesh`), the exact section of a tessellation in space in the plane
     ``z`` (by default the middle of its box), the exact discs of the section of straight
-    fibres along ``z`` and of spheres that do not meet (:func:`disc_mesh`), the section of
+    fibres along ``z`` and of spheres that do not meet, coated or hollow
+    (:func:`disc_mesh`), the section of
     any other structure in that plane (:func:`section_mesh`), a map of grains by its pixels
     (:func:`lattice_mesh`).
     ``min_feature``: that of the polygons of tessellations; ``curved``: the six-node
@@ -1820,7 +1887,7 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
             z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
         return tessellation_mesh(micro, size=size, z=z, **options)
     options.pop("min_feature", None)  # (the level sets have no features to remove)
-    discs = disc_sections(micro, options.get("z"))
+    discs = disc_layers(micro, options.get("z"))
     if discs is not None:
         exact = {k: v for k, v in options.items() if k != "background"}
         mesh = disc_mesh(micro, discs, size=size, **exact)
@@ -1831,8 +1898,8 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
 
 
 __all__ = ["REF_PHASE", "SIDE_REFS", "TRI6_EDGES", "TRI6_NODES", "TRI_GAUSS", "TriMesh",
-           "background_triangulation", "corner_gradients", "curved_maps", "disc_mesh",
-           "disc_sections", "edge_deviations", "exact_section", "jacobian_ratios",
+           "background_triangulation", "corner_gradients", "curved_maps", "disc_layers",
+           "disc_mesh", "disc_sections", "edge_deviations", "exact_section", "jacobian_ratios",
            "lattice_map", "lattice_mesh",
            "planar_pieces", "planar_tessellation", "plane_level_set", "plane_mesh",
            "section_mesh", "section_weights", "tessellation_mesh"]  # fmt: skip
