@@ -14236,8 +14236,18 @@ level sets — is within 5.5·10⁻⁶ of its area at the size 0.05, relatively 
 from the sides); dense hardcore fibres (radius 0.04, a fourth of the box), twelve
 realizations meshed by their contours where one fell to the level sets, within 3.2·10⁻⁶ of
 counts on grids of 8000² points (1.4·10⁻⁵ before, one crossing at 10° whose lens was a
-single flat triangle). Capsules that touch, features too small for the finest grid and
-contours tangent to a side within round-off are left to the level sets.
+single flat triangle). Capsules that touch in space (the fibres of random walks, rolled
+against each other) have sections apart unless the point of contact is in the plane: they
+are bodies of their own, the narrow gap between their sections graded as any, and only
+those whose point of contact is within a thousandth of their radius of the plane (or that
+touch along a line, parallel) leave the section to the level sets — two oblique capsules
+that touch 0.02 below the plane, within its slab, their sections 0.0029 apart, within
+9·10⁻⁶ of the area of their two ellipses, relatively (1.4·10⁻⁵ for one alone, its contour
+in 24 arcs a circle at both sizes 0.05 and 0.025); random walks of fibres in contact, solid
+and hollow, within 3.2·10⁻⁶ of counts on grids of 8000² points, the bias of the counts (one
+within 5.1·10⁻⁶, 2.9·10⁻⁶ and 1.4·10⁻⁶ of counts on grids of 4000², 8000² and 16000²
+points). Features too small for the finest grid and contours tangent to a side within
+round-off are left to the level sets.
 
 **Flat caps.** A cylinder whose flat cap reaches the slab of the plane keeps that end (the
 ends clipped to the slab are round, which keeps the section): its distance is that of the

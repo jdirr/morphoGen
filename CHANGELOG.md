@@ -297,6 +297,12 @@
   folded and which were then straightened. An oblique fibre whose ellipse dips 10⁻⁵ across a
   side within 5.5·10⁻⁶ of its area, relatively, at the size 0.05; dense hardcore fibres
   within 3.2·10⁻⁶ of counts on grids of 8000² points (1.4·10⁻⁵ before).
+* The exact contours of capsules that touch in space (the fibres of random walks, rolled
+  against each other), which left every section to the level sets: their sections are
+  apart unless the point of contact is in the plane, bodies of their own; only those whose
+  point of contact is within a thousandth of their radius of the plane, or that touch along
+  a line, still leave it to the level sets. Random walks of fibres in contact, solid and
+  hollow, within 3.2·10⁻⁶ of counts on grids of 8000² points, the bias of the counts.
 * Fixed: the contour mesher failed ("a crossing off the nodes of its side") where a contour
   leaves the box near a corner of it: its crossings of the lines of the two sides were in
   the order of the chord, which near a corner may be the other; they are now in that of

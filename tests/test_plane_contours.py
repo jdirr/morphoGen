@@ -418,13 +418,18 @@ def test_contours_of_curved_fibres():
     the side of the next tangent where a chain bends, no corner (the corners of the
     contours checked against those of the pairs of capsules made it one, and left the
     chains to the level sets); the angles of the corners those of the normals of the
-    contours in the plane. Solid and hollow, apart or overlapping, within 1e-5 of counts."""
+    contours in the plane. Solid and hollow, apart or overlapping, and random walks of
+    fibres in contact, within 1e-5 of counts."""
     from morphogen.models.base import model_from_config
 
-    for lumen, overlap in ((0.0, False), (0.5, False), (0.5, True)):
-        model = model_from_config({"type": "curved_fibers", "radius": 0.03, "length": 0.4,
-                                   "persistence": 0.5, "volume_fraction": 0.1,
-                                   "lumen": lumen, "overlap": overlap})  # fmt: skip
+    walks = {"type": "random_walk_fibers", "radius": 0.03, "volume_fraction": 0.15}
+    for lumen, overlap in ((0.0, False), (0.5, False), (0.5, True), (0.5, None)):
+        if overlap is None:  # (random walks, whose fibres touch: away from the plane)
+            model = model_from_config({**walks, "lumen": lumen})
+        else:
+            model = model_from_config({"type": "curved_fibers", "radius": 0.03, "length": 0.4,
+                                       "persistence": 0.5, "volume_fraction": 0.1,
+                                       "lumen": lumen, "overlap": overlap})  # fmt: skip
         micro = model.generate(BOX, seed=1)
         mesh = plane_mesh(micro, size=0.05, order=2)
         assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
@@ -442,6 +447,26 @@ def test_contours_of_curved_fibres():
                 ga, gb = body.capsule(a, loop[k][None])[1][0], body.capsule(b, loop[k][None])[1][0]
                 cosine = ga @ gb / (np.linalg.norm(ga) * np.linalg.norm(gb))
                 assert angle == pytest.approx(np.degrees(np.arccos(cosine)), abs=1e-6)
+
+
+@needs_mmg2d
+def test_capsules_that_touch_away_from_the_plane():
+    """Two oblique capsules that touch at a point 0.02 below the plane, within its slab:
+    their sections apart (a gap of 0.0029), two bodies meshed by their contours, two
+    ellipses (the capsules that touched within the slab left the section to the level
+    sets); in the plane of the point, their sections touch, left to the level sets."""
+    radius, c = 0.05, 0.8  # (the cosine of the capsules to z)
+    centres = np.array([[0.5, 0.5, 0.48], [0.5, 0.6, 0.48]])  # (2 radii apart at z = 0.48)
+    directions = np.array([[0.6, 0.0, c], [-0.6, 0.0, c]])
+    axes = Segments(centres - 0.45 * directions, centres + 0.5 * directions,
+                    np.full(2, radius))  # fmt: skip
+    touching = PrimitiveUnion(BOX, None, axes)
+    assert len(section_bodies(touching)) == 2
+    mesh = contour_mesh(touching, size=0.05, order=2)
+    assert mesh is not None and mesh.metadata["bodies"] == 2
+    assert mesh.phase_fractions()[1] == pytest.approx(2.0 * np.pi * radius**2 / c, rel=2e-5)
+    assert section_bodies(touching, 0.48) is None
+    assert contour_mesh(touching, size=0.05, z=0.48) is None
 
 
 @needs_mmg2d

@@ -195,9 +195,9 @@ def _layer_offsets(micro) -> list[float]:
     return [0.0, t] if micro.side == "outside" else [-t, 0.0]
 
 
-def _segment_distances(p1, q1, p2, q2) -> np.ndarray:
+def _segment_distances(p1, q1, p2, q2, points: bool = False):
     """The distances between pairs of segments ``[p1, q1]`` and ``[p2, q2]`` (Ericson 2005,
-    §5.1.9), points among them."""
+    §5.1.9), points among them; with ``points``, also their nearest points on each."""
     d1, d2, w = q1 - p1, q2 - p2, p1 - p2
     a = np.einsum("ij,ij->i", d1, d1)
     e = np.einsum("ij,ij->i", d2, d2)
@@ -213,8 +213,9 @@ def _segment_distances(p1, q1, p2, q2) -> np.ndarray:
     s = np.where(low, np.clip(-c / np.maximum(a, tiny), 0.0, 1.0), s)
     s = np.where(high, np.clip((b - c) / np.maximum(a, tiny), 0.0, 1.0), s)
     s = np.where(a > tiny, s, 0.0)
-    gap = p1 + s[:, None] * d1 - p2 - t[:, None] * d2
-    return np.linalg.norm(gap, axis=1)
+    first, second = p1 + s[:, None] * d1, p2 + t[:, None] * d2
+    distances = np.linalg.norm(first - second, axis=1)
+    return (distances, first, second) if points else distances
 
 
 @dataclass
@@ -410,7 +411,9 @@ def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
     the capsules that meet (their axes nearer than the sum of their radii) grouped, the
     images across a periodic box taken where they come within ``margin`` of the rectangle
     ``lower``, ``upper`` (by default the box's); None as :func:`section_capsules`, or for
-    capsules that touch, whose bodies would meet at a point. ``offset``: the union is that
+    capsules whose sections touch, whose bodies would meet at a point (:func:`_touching`:
+    those that touch in space have sections apart, bodies of their own, unless they touch
+    in the plane). ``offset``: the union is that
     of a union grown by it (or shrunk), its radii grown, whose flat caps move with it
     (:class:`Body`)."""
     capsules = _section_axes(micro, z, abs(float(offset)))
@@ -451,16 +454,35 @@ def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
         pairs = cKDTree(middle).query_pairs(reach, output_type="ndarray")
         if len(pairs):
             i, j = pairs[:, 0], pairs[:, 1]
-            gap = _segment_distances(start[i], end[i], start[j], end[j]) - radii[i] - radii[j]
-            if np.any(np.abs(gap) <= tol):
-                return None  # capsules that touch
-            for u, v in pairs[gap < 0.0].tolist():
+            meet, first, second = _segment_distances(start[i], end[i], start[j], end[j], True)
+            gap = meet - radii[i] - radii[j]
+            touch = np.flatnonzero(np.abs(gap) <= tol)
+            if len(touch) and _touching(start, end, radii, i[touch], j[touch], first[touch],
+                                        second[touch], z):  # fmt: skip
+                return None  # capsules whose sections touch
+            for u, v in pairs[gap < -tol].tolist():  # (those that touch apart: their bodies)
                 parent[root(u)] = root(v)
     groups: dict[int, list[int]] = {}
     for i in range(n):
         groups.setdefault(root(i), []).append(i)
     return [Body(start[k], end[k], radii[k], z, flat[k] if flat[k].any() else None,
                  float(offset)) for k in groups.values()]  # fmt: skip
+
+
+def _touching(start, end, radii, i, j, first, second, z: float) -> bool:
+    """Whether some pairs of capsules that touch (the nearest points of their axes ``first``
+    and ``second``) have sections that touch in the plane ``z``: along a line (their axes
+    parallel), or at a point within a thousandth of their least radius of the plane. Two
+    capsules that touch at a point farther from it have sections apart, a gap between them
+    that the plane holds."""
+    d1, d2 = end[i] - start[i], end[j] - start[j]
+    across = np.linalg.norm(np.cross(d1, d2), axis=1)
+    lengths = np.linalg.norm(d1, axis=1) * np.linalg.norm(d2, axis=1)
+    if np.any(across <= 1e-9 * np.maximum(lengths, 1e-300)):
+        return True
+    apart = np.maximum(np.linalg.norm(second - first, axis=1), 1e-300)
+    contact = first + (radii[i] / apart)[:, None] * (second - first)
+    return bool(np.any(np.abs(contact[:, 2] - z) <= 1e-3 * np.minimum(radii[i], radii[j])))
 
 
 @dataclass
@@ -1258,7 +1280,7 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     (:data:`~morphogen.mesh.triangles.CORNER_REFINEMENT`), the sides of a periodic box
     matching; ``mmg2d`` meshes the regions within them, which keep their nodes. Six-node
     elements have their middle nodes on the surfaces, by default. None for another
-    structure, capsules that touch, a feature of a body (a gap, a
+    structure, capsules whose sections touch, a feature of a body (a gap, a
     corner) too small for the finest grid, a contour tangent to a side, or edges that
     cross."""
     from morphogen.mesh.conforming import mmg_executable
