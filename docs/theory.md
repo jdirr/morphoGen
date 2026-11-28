@@ -13982,8 +13982,27 @@ nodes to move onto the circles. Coated fibres and spheres, and hollow ones (the 
 `coating`, outside or inside), are rings: their concentric circles (`disc_layers`; the cuts
 of the members grown by the thickness of the coating, or shrunk by that of the shells), the
 band of each centroid giving its phase, and the coatings graded too — three elements across
-them. Discs that meet or touch, coatings among them, and oblique fibres are left to the level
-sets. The neutral coated cylinder of §119, meshed by its rings, keeps the conductivity and
+them. Plain discs that cross each other — the sections of a Boolean model of fibres along
+$z$ or of spheres: a Boolean model of discs — are meshed by the boundary of their union. The
+circles of two discs at the distance $d$ cross at $c_i + a\,u \pm \sqrt{r_i^2 - a^2}\,u^\perp$,
+$u$ the unit vector from $c_i$ to $c_j$ and $a = (r_i^2 - r_j^2 + d^2)/2d$: the corners of the
+union where they lie outside the other discs, nodes of both circles. The arcs between the
+crossings of a circle with the others and with the sides are kept where their middles lie
+outside the other discs, a disc inside another is left out, and the gaps are graded between
+the circles that do not cross. Discs that touch, outside or inside, coatings that meet and
+oblique fibres are left to the level sets. Two fibres of radius 0.2 whose axes are 0.3 apart
+have the area of their union, two discs less their lens $2r^2\arccos(d/2r) -
+\tfrac{d}{2}\sqrt{4r^2 - d^2}$, within 6.4·10⁻⁶, 4.1·10⁻⁷ and 2.7·10⁻⁸ at the sizes 0.05,
+0.025 and 0.0125: the fourth power of the size, the corners of the union nodes (8.3·10⁻³,
+2.1·10⁻³ and 5.5·10⁻⁴ off with the chords). Boolean cylinders of radius 0.06 along $z$
+filling 0.4 of a periodic cube, cut by its middle plane in 50 discs that cross each other or
+their images 107 times, are meshed in 0.3 s at the size 0.04, the area of their union within
+10⁻⁵ of its count on a grid of 4000² points, the precision of the count (2.9·10⁻³ off with
+the chords). The reciprocal theorem of Keller, in the form Mendelson (1975) gave it for the
+tensors of any microstructure of two phases in the plane, $K(t)\,R\,K(1/t)\,R^{\mathsf T} = I$
+with $R$ the quarter turn, holds there within 2·10⁻³ and 1.3·10⁻³ at the sizes 0.04 and
+0.02: slowly, the fields singular at the corners of the union, which the sizes do not grade.
+The neutral coated cylinder of §119, meshed by its rings, keeps the conductivity and
 the plane bulk modulus of its matrix within 2.9·10⁻⁶ and 1.5·10⁻⁶ at the size 0.1, five times
 closer than its level sets (1.5·10⁻⁵ and 6·10⁻⁶); shells of fibres have their areas to
 10⁻⁶, and coated spheres the coatings of their cuts. The fibres of the square array filling 0.4 of the plane have their area within
@@ -15249,6 +15268,8 @@ See [specification.md](specification.md#14-references). In addition:
   620–631.
 * Keller, J. B. (1964). A theorem on the conductivity of a composite medium. *J. Math.
   Phys.* 5, 548–549.
+* Mendelson, K. S. (1975). A theorem on the effective conductivity of a two-dimensional
+  heterogeneous medium. *J. Appl. Phys.* 46, 4740–4741.
 * Taylor, C., Hood, P. (1973). A numerical solution of the Navier-Stokes equations using the
   finite element technique. *Comput. Fluids* 1, 73–100.
 * Brezzi, F., Fortin, M. (1991). *Mixed and Hybrid Finite Element Methods*. Springer.

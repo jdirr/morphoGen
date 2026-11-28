@@ -19,10 +19,11 @@ exact (:func:`plane_mesh`):
   what small features remain — the upper
   sides of a periodic box the translates of the lower ones —, and ``mmg2d`` remeshes the
   grains within them without moving them (:func:`tessellation_mesh`);
-* the discs of the sections of straight fibres along ``z`` and of spheres that do not meet,
-  coated or hollow (:func:`disc_layers`), by their circles, discretized exactly at sizes
-  graded from the gaps between them, ``mmg2d`` meshing the regions within them
-  (:func:`disc_mesh`);
+* the discs of the sections of straight fibres along ``z`` and of spheres, coated or hollow
+  (:func:`disc_layers`), by their circles, discretized exactly at sizes graded from the gaps
+  between them — those of plain discs that cross each other cut where they cross, their
+  arcs inside other discs left out: the boundary of their union —, ``mmg2d`` meshing the
+  regions within them (:func:`disc_mesh`);
 * a map of grains (a lattice field of one layer with the label of a grain per cell: the
   orientation maps of EBSD) by its pixels, two triangles each (:func:`lattice_mesh`);
 * any other structure (:func:`section_mesh`): the implicit functions of its phases are
@@ -1526,15 +1527,70 @@ def _crossings(c, r, lower, upper, tol):
     return out
 
 
+def _point(axis: int, side: int, t: float, lower, upper) -> np.ndarray:
+    """The point at ``t`` along a side of the rectangle."""
+    p = np.empty(2)
+    p[axis], p[1 - axis] = (lower, upper)[side][axis], t
+    return p
+
+
+class _Union:
+    """The points where the circles of discs that meet cross each other (``points``: two per
+    pair, keyed ``(i, j, k)``), whether each lies on the boundary of the union of the discs
+    (``valid``: outside the other discs), the pairs that cross (``crossing``), the discs
+    inside others (``hidden``), and the test of points of the plane."""
+
+    def __init__(self, cs: np.ndarray, rs: np.ndarray, meeting: np.ndarray, tol: float):
+        self.cs, self.rs, self.tol = cs, rs, tol
+        self.tree = cKDTree(cs) if len(cs) else None
+        self.reach = float(rs.max()) if len(rs) else 0.0
+        self.points: dict[tuple[int, int, int], np.ndarray] = {}
+        self.valid: dict[tuple[int, int, int], bool] = {}
+        self.crossing: set[tuple[int, int]] = set()
+        self.hidden = np.zeros(len(cs), dtype=bool)
+        self._by: dict[int, list] = {}
+        for i, j in np.sort(meeting, axis=1).tolist():
+            d = cs[j] - cs[i]
+            dist = float(np.hypot(*d))
+            if dist <= abs(rs[i] - rs[j]):  # a disc inside the other
+                self.hidden[i if rs[i] < rs[j] else j] = True
+                continue
+            self.crossing.add((i, j))
+            a = (rs[i] ** 2 - rs[j] ** 2 + dist**2) / (2.0 * dist)
+            h = np.sqrt(max(rs[i] ** 2 - a * a, 0.0))
+            base, normal = cs[i] + a * d / dist, np.array([-d[1], d[0]]) / dist
+            for k, sign in enumerate((1.0, -1.0)):
+                point = base + sign * h * normal
+                key = (i, j, k)
+                self.points[key] = point
+                self.valid[key] = self.outside(point, (i, j))
+                self._by.setdefault(i, []).append((key, point))
+                self._by.setdefault(j, []).append((key, point))
+
+    def outside(self, point: np.ndarray, own=()) -> bool:
+        """Whether a point lies outside the discs other than ``own``."""
+        if self.tree is None:
+            return True
+        for k in self.tree.query_ball_point(point, self.reach):
+            if k not in own and np.hypot(*(point - self.cs[k])) < self.rs[k] - self.tol:
+                return False
+        return True
+
+    def of(self, i: int):
+        """The points where the circle ``i`` crosses others."""
+        return self._by.get(i, [])
+
+
 class _DiscSizes:
     """The size of the elements along the circles and the sides: the least of the size and
     of ``h_k + GRADE |x - p_k|`` over points ``p_k`` along the circles and the sides, whose
     sizes ``h_k`` are a :data:`GAP_ELEMENTS`-th of their gaps to the nearest other circle
     (and, for the points of a circle, to the sides it does not cross; for those of a side,
     to the circles that do not cross it), at most the share of a circle of
-    :data:`CIRCLE_SEGMENTS`, at least ``floor``."""
+    :data:`CIRCLE_SEGMENTS`, at least ``floor``; two circles that cross each other (the
+    pairs ``crossing``) meet at a point of the boundary, not across a gap."""
 
-    def __init__(self, cs, rs, lower, upper, size, periodic, floor):
+    def __init__(self, cs, rs, lower, upper, size, periodic, floor, crossing=frozenset()):
         self.size = float(size)
         self.lower = np.asarray(lower, dtype=float)
         self.lengths = np.asarray(upper, dtype=float) - self.lower
@@ -1549,7 +1605,7 @@ class _DiscSizes:
             p = c + r * np.column_stack([np.cos(a), np.sin(a)])
             gap = np.full(m, np.inf)
             for j in tree.query_ball_point(c, r + reach):
-                if j != i:  # (inside it too: concentric circles)
+                if j != i and (min(i, j), max(i, j)) not in crossing:  # (concentric too)
                     gap = np.minimum(gap, np.abs(np.linalg.norm(p - cs[j], axis=1) - rs[j]))
             for axis in (0, 1):
                 for value in (lower[axis], upper[axis]):
@@ -1614,16 +1670,20 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
               phases="all", order: int = 1, curved: bool | None = None,
               periodic: bool | None = None, executable: str | None = None, workdir=None,
               timeout: float | None = None) -> TriMesh | None:  # fmt: skip
-    """The triangular mesh of a section made of discs that do not meet (the straight fibres
-    along ``z`` of a union of segments, the sections of spheres, coated or hollow:
-    :func:`disc_layers`; or ``discs``, their centres and radii, or their centres, the radii
-    of their concentric circles and the phases of the bands between them): their circles
-    discretized exactly, at sizes graded from the gaps between them (:data:`GAP_ELEMENTS`
-    elements across the narrowest, and across the coatings; at least ``min_size``, by
-    default a 64th of ``size``), the sides of a periodic box matching; ``mmg2d`` meshes the
-    regions within them, which keep their nodes. Six-node elements have their middle nodes
-    on the circles (:func:`~morphogen.mesh.curved.curved_triangles`), by default. None for
-    discs that meet or touch (the level sets of their union then)."""
+    """The triangular mesh of a section made of discs (the straight fibres along ``z`` of a
+    union of segments, the sections of spheres, coated or hollow: :func:`disc_layers`; or
+    ``discs``, their centres and radii, or their centres, the radii of their concentric
+    circles and the phases of the bands between them): their circles discretized exactly,
+    at sizes graded from the gaps between them (:data:`GAP_ELEMENTS` elements across the
+    narrowest, and across the coatings; at least ``min_size``, by default a 64th of
+    ``size``), the sides of a periodic box matching; ``mmg2d`` meshes the regions within
+    them, which keep their nodes. Plain discs that cross each other (a Boolean model of
+    discs) are meshed by the boundary of their union: their circles cut where they cross,
+    these corners nodes of both, the arcs inside other discs and the discs inside others
+    left out. Six-node elements have their middle nodes on the circles
+    (:func:`~morphogen.mesh.curved.curved_triangles`), by default. None for discs that
+    touch, outside or inside, and for coated ones that meet (the level sets of their union
+    then)."""
     from morphogen.mesh.conforming import mmg_executable
 
     domain = micro.domain
@@ -1664,20 +1724,32 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
     near = np.all((ds + do[:, None] > lower - margin) & (ds - do[:, None] < upper + margin),
                   axis=1)  # fmt: skip
     ds, dl, do = ds[near], dl[near], do[near]
+    meeting = np.zeros((0, 2), dtype=np.int64)
     if len(do) > 1:
         pairs = cKDTree(ds).query_pairs(2.0 * float(do.max()) + tol, output_type="ndarray")
         if len(pairs):
-            gap = (np.linalg.norm(ds[pairs[:, 0]] - ds[pairs[:, 1]], axis=1)
-                   - do[pairs[:, 0]] - do[pairs[:, 1]])  # fmt: skip
-            if gap.min() <= tol:
-                return None  # discs that meet: the level sets of their union
-    which, layer = np.nonzero(dl > 0.0)  # the circles: the layers of the discs
+            distance = np.linalg.norm(ds[pairs[:, 0]] - ds[pairs[:, 1]], axis=1)
+            gap = distance - do[pairs[:, 0]] - do[pairs[:, 1]]
+            meeting = pairs[gap <= tol]
+            nested = np.abs(do[pairs[:, 0]] - do[pairs[:, 1]])
+            if len(meeting) and (layers.shape[1] > 1  # coatings that meet
+                                 or np.any(np.abs(gap) <= tol)  # tangent discs
+                                 or np.any(np.abs(distance - nested) <= tol)):  # fmt: skip
+                return None  # the level sets of their union
+    union = _Union(ds, do, meeting, tol)  # of the discs (one layer each where they meet)
+    # the circles: the layers of the discs, but those of discs inside others
+    which, layer = np.nonzero((dl > 0.0) & ~union.hidden[:, None])
     cs, rs = ds[which], dl[which, layer]
-    reach = np.all((cs + rs[:, None] > lower + tol) & (cs - rs[:, None] < upper - tol), axis=1)
+    reach = np.flatnonzero(np.all((cs + rs[:, None] > lower + tol)
+                                  & (cs - rs[:, None] < upper - tol), axis=1))  # fmt: skip
     floor = size / 64.0 if min_size is None else float(min_size)
-    field = _DiscSizes(cs, rs, lower, upper, size, periodic, floor)
-    cuts = [_crossings(c, r, lower, upper, tol) for c, r in zip(cs[reach], rs[reach],
-                                                                    strict=True)]  # fmt: skip
+    circle = {int(k): n for n, k in enumerate(which)}  # (one each where discs meet)
+    crossing = {(circle[i], circle[j]) for i, j in union.crossing
+                if i in circle and j in circle}  # fmt: skip
+    field = _DiscSizes(cs, rs, lower, upper, size, periodic, floor, crossing)
+    cuts = [[(a, s, t) for a, s, t in _crossings(cs[i], rs[i], lower, upper, tol)
+             if union.outside(_point(a, s, t, lower, upper), (which[i],))]
+            for i in reach]  # fmt: skip
     # 2. the nodes of the sides: their corners, the crossings, the points graded between;
     #    those of the upper sides of a periodic box the translates of the lower ones
     xy: list[np.ndarray] = []
@@ -1725,26 +1797,48 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
             side_nodes[(axis, side)] = (np.asarray(chain), ids)
             edges += list(itertools.pairwise(ids))
             refs += [SIDE_REFS[(axis, side)]] * (len(ids) - 1)
-    # 3. the arcs of the circles inside the box, between their crossings
-    for c, r, found in zip(cs[reach], rs[reach], cuts, strict=True):
-        ends = []
-        for axis, side, t in found:
+    # 3. the points where the circles of discs that meet cross each other: the corners of
+    #    their union, nodes where they are on its boundary within the box
+    cusp: dict[tuple[int, int, int], int] = {}
+    for key, point in union.points.items():
+        if union.valid[key] and np.all(point > lower + tol) and np.all(point < upper - tol):
+            cusp[key] = len(xy)
+            xy.append(point)
+    # 4. the arcs of the circles inside the box and outside the other discs, between their
+    #    crossings of the sides and of the other circles
+    for i, found in zip(reach, cuts, strict=True):
+        c, r = cs[i], rs[i]
+        marks = []  # (angle, node): the nodes of the points on the boundary of the union
+        for axis, side, t in _crossings(c, r, lower, upper, tol):
             chain, ids = side_nodes[(axis, side)]
             k = int(np.argmin(np.abs(chain - t)))
-            ends.append(ids[k])
-        ends = list(dict.fromkeys(ends))  # a crossing at a corner, once
-        if ends:
-            angles = np.array([np.arctan2(*(xy[k] - c)[::-1]) for k in ends])
-            order_ = np.argsort(angles)
-            ends, angles = [ends[k] for k in order_], angles[order_]
-            spans = list(zip(ends, [*ends[1:], ends[0]], angles,
-                             [*angles[1:], angles[0] + 2.0 * np.pi], strict=True))  # fmt: skip
+            on = (axis, side, t) in found and abs(chain[k] - t) <= 1e3 * tol
+            point = _point(axis, side, t, lower, upper)
+            marks.append((float(np.arctan2(*(point - c)[::-1])), ids[k] if on else None))
+        for key, point in union.of(which[i]):
+            marks.append((float(np.arctan2(*(point - c)[::-1])), cusp.get(key)))
+        marks.sort(key=lambda m: m[0])
+        merged: list[tuple[float, int | None]] = []
+        for angle, node in marks:  # a crossing at a corner, or of a side at a corner, once
+            if merged and angle - merged[-1][0] <= 1e3 * tol / r:
+                merged[-1] = (merged[-1][0], merged[-1][1] if merged[-1][1] is not None
+                              else node)  # fmt: skip
+                continue
+            merged.append((angle, node))
+        if merged:
+            spans = [(n0, n1, a0, a1) for (a0, n0), (a1, n1)
+                     in zip(merged, [*merged[1:], (merged[0][0] + 2.0 * np.pi, merged[0][1])],
+                            strict=True)]  # fmt: skip
         else:
             spans = [(None, None, 0.0, 2.0 * np.pi)]
         for start, end, a0, a1 in spans:
             middle = c + r * np.array([np.cos(0.5 * (a0 + a1)), np.sin(0.5 * (a0 + a1))])
             if np.any(middle <= lower + tol) or np.any(middle >= upper - tol):
                 continue  # an arc outside the box
+            if not union.outside(middle, (which[i],)):
+                continue  # an arc inside another disc
+            if merged and (start is None or end is None):  # pragma: no cover - degenerate
+                return None
 
             def on(s, a0=a0, c=c, r=r):
                 angle = a0 + s / r
@@ -1784,7 +1878,8 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
         phase[i] = bands[(dl[j] < d[:, None]).sum(axis=1)]
     mesh = TriMesh(nodes, tri, phase, lower, upper, periodic,
                    {"mesher": "exact discs (mmg2d)", "size": size, "discs": len(centres),
-                    "z": z}, z=z, thickness=float(domain.lengths[2]))  # fmt: skip
+                    "meeting": len(meeting), "z": z}, z=z,
+                   thickness=float(domain.lengths[2]))  # fmt: skip
     mesh = _kept(mesh, phases)
     if order == 1:
         return mesh
@@ -1864,10 +1959,9 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     """The triangular mesh of a planar structure: the exact grains of a planar tessellation
     (:func:`tessellation_mesh`), the exact section of a tessellation in space in the plane
     ``z`` (by default the middle of its box), the exact discs of the section of straight
-    fibres along ``z`` and of spheres that do not meet, coated or hollow
-    (:func:`disc_mesh`), the section of
-    any other structure in that plane (:func:`section_mesh`), a map of grains by its pixels
-    (:func:`lattice_mesh`).
+    fibres along ``z`` and of spheres, coated or hollow, and the union of plain ones that
+    cross (:func:`disc_mesh`), the section of any other structure in that plane
+    (:func:`section_mesh`), a map of grains by its pixels (:func:`lattice_mesh`).
     ``min_feature``: that of the polygons of tessellations; ``curved``: the six-node
     elements of the sections with curved edges along their interfaces (by default; the
     edges of polygons and pixels are straight)."""
@@ -1893,7 +1987,10 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
         mesh = disc_mesh(micro, discs, size=size, **exact)
         if mesh is not None:
             return mesh
-        log.info("plane mesh: discs that meet, meshed by the level sets of their union")
+        log.info(
+            "plane mesh: discs that touch or coatings that meet, meshed by the level "
+            "sets of their union"
+        )
     return section_mesh(micro, size=size, **options)
 
 

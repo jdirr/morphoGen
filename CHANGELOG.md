@@ -244,6 +244,14 @@
 * `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
   the solid, for their flow; the overview pages (README, the landing page, the properties)
   name the finite elements of the plane.
+* The exact union of discs that cross each other in the sections of the plane (`disc_mesh`;
+  `plane_mesh` by default for them): the sections of Boolean models of fibres along z and of
+  spheres, meshed by the boundary of their union — the circles cut where they cross, these
+  corners nodes of both, the arcs inside other discs and the discs inside others left out,
+  the gaps graded between the circles that do not cross —; tangent discs and coatings that
+  meet by the level sets. The area of two fibres that meet as the fourth power of the size
+  (2.7·10⁻⁸ at 0.0125), Boolean cylinders within 10⁻⁵ of a count on a grid, the reciprocal
+  theorem of Keller and Mendelson within 2·10⁻³.
 * The rings of coated and hollow fibres and spheres in the sections of the plane
   (`disc_layers`; the model `coating`, outside or inside): their concentric circles meshed
   exactly, the coatings graded, three elements across them; coatings that meet by the level
@@ -253,7 +261,7 @@
   (`disc_sections`, `disc_mesh`; `plane_mesh` by default for them): their circles
   discretized exactly, at sizes graded from the gaps between them, three elements across the
   narrowest, the sides of a periodic box matching, `mmg2d` meshing the regions within them;
-  the discs that meet and the oblique fibres by the level sets of their union. The areas of
+  the oblique fibres by the level sets of their union. The areas of
   fibres as the fourth power of the size on six-node triangles (8·10⁻⁷ at 0.05), the
   conductivity of square arrays within 1.4·10⁻⁵, every gap of a random bed open in 0.35 s.
   The template `fibre_bed_plane` without its sampling grid.

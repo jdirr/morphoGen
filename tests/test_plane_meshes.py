@@ -889,8 +889,10 @@ def test_exact_discs_of_fibres():
 @needs_mmg2d
 def test_exact_discs_of_spheres_and_what_they_leave():
     """The section of hardcore spheres in a plane: discs of the radii of their cuts, meshed
-    exactly (2e-6 of their area at the size 0.04); oblique fibres and discs that meet, by the
-    level sets of their union."""
+    exactly (2e-6 of their area at the size 0.04); two fibres that meet, by the union of
+    their discs, within 1e-5 of its area at the size 0.05 (the area of the lens, 6e-6;
+    3e-8 at 0.0125, the fourth power of the size), 8e-3 off with the chords; tangent fibres
+    and oblique ones by the level sets."""
     spheres = mg.models.HardcoreSpheres(volume_fraction=0.3, radius=0.3).generate(
         mg.Domain.cube(2.0, periodic=True), seed=4
     )
@@ -905,11 +907,22 @@ def test_exact_discs_of_spheres_and_what_they_leave():
     )
     assert disc_sections(oblique) is None
     domain = mg.Domain(size=(1.0, 1.0, 0.2), periodic=True)
-    axes = Segments(np.array([[0.3, 0.5, 0.0], [0.6, 0.5, 0.0]]),
-                    np.array([[0.3, 0.5, 0.2], [0.6, 0.5, 0.2]]), np.array([0.2, 0.2]))  # fmt: skip
-    meeting = PrimitiveUnion(domain, None, axes)
-    assert disc_mesh(meeting, size=0.05) is None
-    assert plane_mesh(meeting, size=0.05).metadata["mesher"].startswith("section")
+
+    def pair(distance: float):
+        axes = Segments(np.array([[0.3, 0.5, 0.0], [0.3 + distance, 0.5, 0.0]]),
+                        np.array([[0.3, 0.5, 0.2], [0.3 + distance, 0.5, 0.2]]),
+                        np.array([0.2, 0.2]))  # fmt: skip
+        return PrimitiveUnion(domain, None, axes)
+
+    union = plane_mesh(pair(0.3), size=0.05, order=2)
+    assert union.metadata["mesher"] == "exact discs (mmg2d)" and union.metadata["meeting"] == 1
+    lens = 2 * 0.04 * np.arccos(0.3 / 0.4) - 0.15 * np.sqrt(0.16 - 0.09)
+    exact = 2 * np.pi * 0.04 - lens
+    assert union.phase_fractions()[1] == pytest.approx(exact, rel=1e-5)
+    chords = plane_mesh(pair(0.3), size=0.05, order=2, curved=False).phase_fractions()[1]
+    assert abs(chords / exact - 1.0) > 5e-3
+    assert disc_mesh(pair(0.4), size=0.05) is None  # tangent
+    assert plane_mesh(pair(0.4), size=0.05).metadata["mesher"].startswith("section")
 
 
 @needs_mmg2d
@@ -954,3 +967,64 @@ def test_exact_rings_of_coated_and_hollow_fibres():
     meeting = Coating(model=close, thickness=0.03).generate(domain, seed=2)
     assert disc_mesh(meeting, size=0.05) is None
     assert plane_mesh(meeting, size=0.05).metadata["mesher"].startswith("section")
+
+
+def _grid_fraction(centres: np.ndarray, radii: np.ndarray, n: int = 4000) -> float:
+    """The fraction of the periodic unit square in the union of discs, counted at the centres
+    of the cells of an ``n`` x ``n`` grid (within about 1e-5 for ``n`` 4000)."""
+    inside = np.zeros((n, n), dtype=bool)
+    h = 1.0 / n
+    for (x, y), r in zip(centres, radii, strict=True):
+        i = np.arange(int(np.floor((x - r) / h)), int(np.ceil((x + r) / h)) + 1)
+        j = np.arange(int(np.floor((y - r) / h)), int(np.ceil((y + r) / h)) + 1)
+        mask = ((i + 0.5) * h - x)[:, None] ** 2 + ((j + 0.5) * h - y)[None, :] ** 2 < r * r
+        inside[np.ix_(i % n, j % n)] |= mask
+    return float(inside.mean())
+
+
+@needs_mmg2d
+def test_exact_union_of_boolean_discs():
+    """Boolean cylinders along z cut by a plane: discs that meet (a Boolean model of discs),
+    meshed by the arcs of the boundary of their union — the circles cut where they cross,
+    the corners of the union nodes of both, the arcs inside other discs left out: the area
+    of the union within 5e-5 of a count on a grid of 4000 x 4000 points (which is within
+    1e-5), 2e-3 off at least with the chords; the sides matching. The reciprocal theorem of
+    Keller holds for the conductivity tensors of any microstructure of two phases in the
+    plane (Mendelson 1975), ``K(t) R K(1/t) R^T = I`` with ``R`` the quarter turn: within
+    3e-3 on these curved triangles. A disc inside another, which a third crosses, is left
+    out: the mesh of the other two, the area of their union within 1e-5."""
+    from morphogen.models.boolean import BooleanCylinders
+    from morphogen.orientations import Aligned
+
+    model = BooleanCylinders(radius=0.06, length=0.4, volume_fraction=0.4,
+                             orientation=Aligned(direction=(0.0, 0.0, 1.0)))  # fmt: skip
+    micro = model.generate(mg.Domain.cube(1.0, periodic=True), seed=1)
+    centres, radii = disc_sections(micro)
+    mesh = plane_mesh(micro, size=0.04, order=2)
+    assert mesh.metadata["mesher"] == "exact discs (mmg2d)" and mesh.metadata["meeting"] > 20
+    assert mesh.matching_sides() and mesh.min_jacobian() > 0.3
+    counted = _grid_fraction(centres, radii)
+    assert mesh.phase_fractions()[1] == pytest.approx(counted, abs=5e-5)
+    chords = plane_mesh(micro, size=0.04, order=2, curved=False).phase_fractions()[1]
+    assert abs(chords - counted) > 2e-3
+    quarter = np.array([[0.0, -1.0], [1.0, 0.0]])
+    k = [homogenize(mesh, _conducting(t), properties=["conductivity_tensor"])
+         ["conductivity_tensor.periodic"]["tensor"][:2, :2] for t in (10.0, 0.1)]  # fmt: skip
+    assert np.abs(k[0] @ quarter @ k[1] @ quarter.T - np.eye(2)).max() < 3e-3
+    domain = mg.Domain(size=(1.0, 1.0, 0.2), periodic=True)
+
+    def fibres(xy: list, radii: list):
+        xy = np.asarray(xy, dtype=float)
+        ends = [np.column_stack([xy, np.full(len(xy), z)]) for z in (0.0, 0.2)]
+        axes = Segments(ends[0], ends[1], np.asarray(radii))
+        return plane_mesh(PrimitiveUnion(domain, None, axes), size=0.05, order=2)
+
+    two = fibres([[0.5, 0.5], [0.72, 0.5]], [0.25, 0.15])
+    three = fibres([[0.5, 0.5], [0.72, 0.5], [0.55, 0.5]], [0.25, 0.15, 0.05])
+    assert three.metadata["meeting"] == 3 and len(three.elements) == len(two.elements)
+    d, a, b = 0.22, 0.25, 0.15  # the lens of the two
+    lens = (a * a * np.arccos((d * d + a * a - b * b) / (2.0 * d * a))
+            + b * b * np.arccos((d * d + b * b - a * a) / (2.0 * d * b))
+            - 0.5 * np.sqrt((a + b - d) * (d + a - b) * (d - a + b) * (d + a + b)))  # fmt: skip
+    exact = np.pi * (a * a + b * b) - lens
+    assert three.phase_fractions()[1] == pytest.approx(exact, rel=1e-5)
