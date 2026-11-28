@@ -14024,6 +14024,47 @@ passes by one of its corners, leaves a thin cap there, whose sharp tips the elem
 over twenty realizations of the template `fibre_bed_plane` the smallest angles go from 1°
 (a cap 0.002 thick) to 19°, 10° in the median, the elements valid all the same.
 
+**Exact contours.** The sections of oblique and wavy fibres — the chains of spherocylinders
+of `long_fibers` with `misalignment`, oblique segments with round caps, and spheres among
+them — are not discs: their contours are traced (`mesh.contours`). A point of the plane lies
+within a radius of an axis only if the axis comes within a radius of the plane: the axes,
+clipped to the slab $|z' - z| \le r$, keep the section (`section_capsules`; their periodic
+images along $z$ taken). The capsules whose axes come closer than the sum of their radii are
+grouped into bodies (`section_bodies`: the pairs of a k-d tree, the distances of segments by
+their closest points, Ericson 2005, §5.1.9), the images across a periodic box apart: the
+sections of different bodies, those of disjoint sets, do not meet. Each body's contours are
+traced on its own signed distance $d_b(x) = \min_k (\operatorname{dist}(x, a_k) - r_k)$ over
+its axes $a_k$, exact outside it: by the marching squares on a grid of its own, of an eighth
+of its least radius (`TRACE_CELLS`), the saddles resolved by the mean of their corners, the
+vertices then moved onto the surface by the steps of Newton $x \leftarrow x - d_b\,\nabla
+d_b / |\nabla d_b|^2$, to round-off. The level sets of the whole section (above) close the
+gaps narrower than their background; these stay open, however narrow. `contour_mesh` meshes
+them as the discs: the contours cut where they cross the lines of the sides (the crossings
+moved onto the surface along the side by Newton's method), the pieces inside the box kept,
+their nodes on the surfaces at sizes graded from the gaps — the distances $d_b$ of the other
+bodies at the vertices of a contour, exact — and from their curvatures, $2\pi\rho/24$ for the
+radius $\rho$ of the circle through three vertices; the sides match, `mmg2d` meshes the
+regions within the contours, each triangle the phase of its centroid, and the six-node
+elements have their middle nodes on the surfaces. The section of a straight fibre of radius
+0.2 turned by 0, 30 and 50° is an ellipse of area $\pi r^2/\cos\theta$: across a side of
+the periodic box, within 8.4·10⁻⁶, 6.5·10⁻⁶ and 2.1·10⁻⁶ at the size 0.05, 5.2·10⁻⁷,
+3.8·10⁻⁷ and 2.3·10⁻⁷ at 0.025 (2.6·10⁻³ to 1.3·10⁻³ off with the chords). Where the
+capsules of a body cross, its contours have corners, which the vertices of the grid cut
+within a cell: two discs of radius 0.2 whose centres are 0.3 apart are within 1.2·10⁻⁵ of
+the area of their union by their contours, where the union of discs converges as the fourth
+power of the size (2.5·10⁻⁸ at 0.0125); the section of a Boolean network of spherocylinders
+turned at random (radius 0.03, a fourth of the box) is within 1.4·10⁻⁵ of a count on a grid,
+the level sets 3.9·10⁻³, 1.3·10⁻³ and 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and 0.0125. A ply of fibres of radius 0.05 misaligned by 3° filling
+half of a periodic cube, 74 sections in its middle plane with gaps down to 4·10⁻⁴: the level
+sets close its gaps — 7 parts of fibres at the size 0.05 and 15 at 0.025, 2.7·10⁻² and
+8·10⁻³ too much fibre —, its contours keep the 74 apart, their area within 5·10⁻⁶ of a count
+on a grid of 4000² points, by 48 474 triangles in 1.5 s (the level sets: 5 982, the narrow
+gaps not graded), and the reciprocal theorem of Keller and Mendelson holds within 3.7·10⁻⁴ and
+2.7·10⁻⁴ at the sizes 0.05 and 0.025. Its pores stay in one part, which the bridges of the
+level sets split into 25: across the fibres, along $x$, its permeability (§120) is 2.0·10⁻⁶
+on the contours and 2·10⁻⁹ on the level sets. Flat caps in the plane (the Boolean
+cylinders), capsules that touch and contours tangent to a side are left to the level sets.
+
 **Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
 $z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -
 z_k)^2)$: the section of a Laguerre (or Voronoi) tessellation in space by the plane is the

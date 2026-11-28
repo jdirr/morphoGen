@@ -24,6 +24,9 @@ exact (:func:`plane_mesh`):
   between them — those of plain discs that cross each other cut where they cross, their
   arcs inside other discs left out: the boundary of their union —, ``mmg2d`` meshing the
   regions within them (:func:`disc_mesh`);
+* the sections of oblique and wavy fibres (chains of segments with round caps, and
+  spheres) by their exact contours, traced body by body on their own distance functions
+  (:func:`~morphogen.mesh.contours.contour_mesh`);
 * a map of grains (a lattice field of one layer with the label of a grain per cell: the
   orientation maps of EBSD) by its pixels, two triangles each (:func:`lattice_mesh`);
 * any other structure (:func:`section_mesh`): the implicit functions of its phases are
@@ -1978,8 +1981,10 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     (:func:`tessellation_mesh`), the exact section of a tessellation in space in the plane
     ``z`` (by default the middle of its box), the exact discs of the section of straight
     fibres along ``z`` and of spheres, coated or hollow, and the union of plain ones that
-    cross (:func:`disc_mesh`), the section of any other structure in that plane
-    (:func:`section_mesh`), a map of grains by its pixels (:func:`lattice_mesh`).
+    cross (:func:`disc_mesh`), the exact contours of the sections of oblique and wavy
+    fibres (:func:`~morphogen.mesh.contours.contour_mesh`), the section of any other
+    structure in that plane (:func:`section_mesh`), a map of grains by its pixels
+    (:func:`lattice_mesh`).
     ``min_feature``: that of the polygons of tessellations; ``curved``: the six-node
     elements of the sections with curved edges along their interfaces (by default; the
     edges of polygons and pixels are straight)."""
@@ -2009,6 +2014,13 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
             "plane mesh: discs that touch or coatings that meet, meshed by the level "
             "sets of their union"
         )
+    else:  # oblique or wavy fibres: the exact contours of their sections
+        from morphogen.mesh.contours import contour_mesh
+
+        exact = {k: v for k, v in options.items() if k != "background"}
+        mesh = contour_mesh(micro, size=size, **exact)
+        if mesh is not None:
+            return mesh
     return section_mesh(micro, size=size, **options)
 
 

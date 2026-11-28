@@ -212,7 +212,8 @@ cut = mg.mesh.plane_mesh(micro, size=1.0, z=4.0)  # the section of the spheres a
 ### ... compute the permeability of a bed of fibres?
 
 The pores between straight fibres along z are meshed with the fibres in their plane — the
-discs of the fibres exact, the elements graded from the gaps between them — and the Stokes
+discs of the fibres exact (the contours of misaligned ones), the elements graded from the gaps
+between them — and the Stokes
 flows across the fibres and along them give the permeability tensor of Darcy's law (the
 [tutorial of the fibres](tutorial_fibres.md)):
 

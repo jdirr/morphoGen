@@ -244,6 +244,17 @@
 * `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
   the solid, for their flow; the overview pages (README, the landing page, the properties)
   name the finite elements of the plane.
+* The exact contours of the sections of oblique and wavy fibres (`mesh.contours`,
+  `contour_mesh`; `plane_mesh` by default for them): the capsules that reach the plane
+  clipped to its slab and grouped into bodies where they meet, each body's contours traced
+  on its own distance function (the marching squares on a grid of an eighth of its radius,
+  the vertices moved onto the surface by Newton's method), then meshed as the discs, the
+  sizes graded from the exact gaps between the bodies and from their curvatures. Where the
+  level sets close the narrow gaps of misaligned fibres (7 parts of fibres instead of 74, 2.7 %
+  too much fibre, the pores split into 25 parts and the permeability across the fibres a
+  thousandth of its value), the contours keep every fibre apart, their area within 5·10⁻⁶;
+  the ellipses of oblique fibres within 10⁻⁶ at the size 0.025. Flat caps in the plane and
+  capsules that touch by the level sets.
 * The exact union of discs that cross each other in the sections of the plane (`disc_mesh`;
   `plane_mesh` by default for them): the sections of Boolean models of fibres along z and of
   spheres, meshed by the boundary of their union — the circles cut where they cross, these
