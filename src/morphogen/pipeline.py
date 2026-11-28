@@ -392,6 +392,7 @@ def _conforming_mesh(micro: Microstructure, cfg: RunConfig) -> tuple[TetMesh | T
     porous = homog.void_phases if homog is not None else set()
     if homog is not None and "hydraulic_permeability" in homog.properties:
         porous = set()  # the flow through the pores: meshed with the solid
+    started = time.perf_counter()
     if cfg.mesh.on_plane(micro):
         mesh = plane_mesh(micro, **cfg.mesh.plane_kwargs(porous))
     else:
@@ -402,9 +403,8 @@ def _conforming_mesh(micro: Microstructure, cfg: RunConfig) -> tuple[TetMesh | T
         "mesh_elements": mesh.n_elements,
         "mesh_order": mesh.order,
         "mesh_quality_min": float(q.min()) if q.size else float("nan"),
-        "mesh_time_s": sum(  # the background, octree, cells or complex, and MMG
-            float(v) for k, v in mesh.metadata.items() if k.startswith("time_") and k.endswith("_s")
-        ),
+        # the whole of the meshing (the meshes of the plane time none of their steps)
+        "mesh_time_s": round(time.perf_counter() - started, 3),
     }
     return mesh, info
 

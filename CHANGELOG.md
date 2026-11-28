@@ -245,6 +245,9 @@
 * `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
   the solid, for their flow; the overview pages (README, the landing page, the properties)
   name the finite elements of the plane.
+* Fixed: the meshing time of the records (`mesh_time_s`) was 0 for the meshes of the plane,
+  which time none of their steps: it is the time of the whole meshing now, in the plane and
+  in space.
 * The template `misaligned_ply_plane`: the transverse stiffness and conductivity of a ply of
   fibres misaligned by 3 degrees in its plane, the exact contours of their sections meshed
   by curved triangles, under the three conditions; its card in the gallery with the von

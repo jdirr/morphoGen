@@ -426,6 +426,7 @@ def test_runs_of_the_plane(tmp_path):
     values = dict(zip(header, rows[1].split(","), strict=True))
     bulk = float(values["stiffness.periodic.bulk_modulus"])
     assert bulk == pytest.approx((168.0 + 2 * 121.0) / 3.0, rel=1e-9)
+    assert float(values["mesh_time_s"]) > 0.0  # (the meshes of the plane timed too)
     assert float(values["conductivity.kubc"]) == pytest.approx(3.0)
     assert float(values["stiffness.kubc.C11"]) >= float(values["stiffness.periodic.C11"])
     strain = load_config(_plane_config(tmp_path, homogenization__plane="strain"),
