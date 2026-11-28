@@ -890,9 +890,9 @@ def test_exact_discs_of_fibres():
 def test_exact_discs_of_spheres_and_what_they_leave():
     """The section of hardcore spheres in a plane: discs of the radii of their cuts, meshed
     exactly (2e-6 of their area at the size 0.04); two fibres that meet, by the union of
-    their discs, within 1e-5 of its area at the size 0.05 (the area of the lens, 6e-6;
-    3e-8 at 0.0125, the fourth power of the size), 8e-3 off with the chords; tangent fibres
-    and oblique ones by the level sets."""
+    their discs, within 1e-5 of its area, two discs less their lens, at the size 0.05 (4e-6;
+    3e-8 at 0.0125, the fourth power of the size), 5e-3 off at least with the chords;
+    tangent fibres and oblique ones by the level sets."""
     spheres = mg.models.HardcoreSpheres(volume_fraction=0.3, radius=0.3).generate(
         mg.Domain.cube(2.0, periodic=True), seed=4
     )
@@ -988,11 +988,13 @@ def test_exact_union_of_boolean_discs():
     meshed by the arcs of the boundary of their union — the circles cut where they cross,
     the corners of the union nodes of both, the arcs inside other discs left out: the area
     of the union within 5e-5 of a count on a grid of 4000 x 4000 points (which is within
-    1e-5), 2e-3 off at least with the chords; the sides matching. The reciprocal theorem of
+    1e-5), 1e-3 off at least with the chords; the sides matching. The reciprocal theorem of
     Keller holds for the conductivity tensors of any microstructure of two phases in the
     plane (Mendelson 1975), ``K(t) R K(1/t) R^T = I`` with ``R`` the quarter turn: within
-    3e-3 on these curved triangles. A disc inside another, which a third crosses, is left
-    out: the mesh of the other two, the area of their union within 1e-5."""
+    6e-4 on these curved triangles, their sizes graded toward the corners of the union,
+    where the fields are singular — 1.5e-3 off at least without. A disc inside another,
+    which a third crosses, is left out: the mesh of the other two, the area of their union
+    within 1e-5."""
     from morphogen.models.boolean import BooleanCylinders
     from morphogen.orientations import Aligned
 
@@ -1006,11 +1008,19 @@ def test_exact_union_of_boolean_discs():
     counted = _grid_fraction(centres, radii)
     assert mesh.phase_fractions()[1] == pytest.approx(counted, abs=5e-5)
     chords = plane_mesh(micro, size=0.04, order=2, curved=False).phase_fractions()[1]
-    assert abs(chords - counted) > 2e-3
+    assert abs(chords - counted) > 1e-3
     quarter = np.array([[0.0, -1.0], [1.0, 0.0]])
-    k = [homogenize(mesh, _conducting(t), properties=["conductivity_tensor"])
-         ["conductivity_tensor.periodic"]["tensor"][:2, :2] for t in (10.0, 0.1)]  # fmt: skip
-    assert np.abs(k[0] @ quarter @ k[1] @ quarter.T - np.eye(2)).max() < 3e-3
+
+    def keller(mesh: TriMesh) -> float:
+        k = [homogenize(mesh, _conducting(t), properties=["conductivity_tensor"])
+             ["conductivity_tensor.periodic"]["tensor"][:2, :2] for t in (10.0, 0.1)]  # fmt: skip
+        return float(np.abs(k[0] @ quarter @ k[1] @ quarter.T - np.eye(2)).max())
+
+    assert keller(mesh) < 6e-4
+    with pytest.MonkeyPatch.context() as patch:  # the sizes not graded toward the corners
+        patch.setattr("morphogen.mesh.triangles.CORNER_REFINEMENT", 1.0)
+        flat = plane_mesh(micro, size=0.04, order=2)
+        assert len(flat.elements) < 0.6 * len(mesh.elements) and keller(flat) > 1.5e-3
     domain = mg.Domain(size=(1.0, 1.0, 0.2), periodic=True)
 
     def fibres(xy: list, radii: list):

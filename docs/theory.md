@@ -13989,19 +13989,22 @@ $u$ the unit vector from $c_i$ to $c_j$ and $a = (r_i^2 - r_j^2 + d^2)/2d$: the 
 union where they lie outside the other discs, nodes of both circles. The arcs between the
 crossings of a circle with the others and with the sides are kept where their middles lie
 outside the other discs, a disc inside another is left out, and the gaps are graded between
-the circles that do not cross. Discs that touch, outside or inside, coatings that meet and
-oblique fibres are left to the level sets. Two fibres of radius 0.2 whose axes are 0.3 apart
+the circles that do not cross; the sizes at the corners of the union, where the fields are
+singular, are an eighth of what they would be (`CORNER_REFINEMENT`). Discs that touch,
+outside or inside, coatings that meet and oblique fibres are left to the level sets. Two fibres of radius 0.2 whose axes are 0.3 apart
 have the area of their union, two discs less their lens $2r^2\arccos(d/2r) -
-\tfrac{d}{2}\sqrt{4r^2 - d^2}$, within 6.4·10⁻⁶, 4.1·10⁻⁷ and 2.7·10⁻⁸ at the sizes 0.05,
-0.025 and 0.0125: the fourth power of the size, the corners of the union nodes (8.3·10⁻³,
-2.1·10⁻³ and 5.5·10⁻⁴ off with the chords). Boolean cylinders of radius 0.06 along $z$
+\tfrac{d}{2}\sqrt{4r^2 - d^2}$, within 4.3·10⁻⁶, 3.7·10⁻⁷ and 2.5·10⁻⁸ at the sizes 0.05,
+0.025 and 0.0125: the fourth power of the size, the corners of the union nodes (6.2·10⁻³,
+1.9·10⁻³ and 5.1·10⁻⁴ off with the chords). Boolean cylinders of radius 0.06 along $z$
 filling 0.4 of a periodic cube, cut by its middle plane in 50 discs that cross each other or
-their images 107 times, are meshed in 0.3 s at the size 0.04, the area of their union within
-10⁻⁵ of its count on a grid of 4000² points, the precision of the count (2.9·10⁻³ off with
-the chords). The reciprocal theorem of Keller, in the form Mendelson (1975) gave it for the
-tensors of any microstructure of two phases in the plane, $K(t)\,R\,K(1/t)\,R^{\mathsf T} = I$
-with $R$ the quarter turn, holds there within 2·10⁻³ and 1.3·10⁻³ at the sizes 0.04 and
-0.02: slowly, the fields singular at the corners of the union, which the sizes do not grade.
+their images 107 times, are meshed in 0.6 s at the size 0.04 by 15 860 triangles, the area of
+their union within 4·10⁻⁶ of its count on a grid of 4000² points, the precision of the count
+(2.1·10⁻³ off with the chords). The reciprocal theorem of Keller, in the form Mendelson
+(1975) gave it for the tensors of any microstructure of two phases in the plane,
+$K(t)\,R\,K(1/t)\,R^{\mathsf T} = I$ with $R$ the quarter turn, holds there within
+4.4·10⁻⁴, 2.2·10⁻⁴ and 9·10⁻⁵ at the sizes 0.04, 0.02 and 0.01; without the grading toward
+the corners, 6 940 triangles at 0.04 and 9 254 at 0.02 leave it within 2·10⁻³ and 1.3·10⁻³
+only.
 The neutral coated cylinder of §119, meshed by its rings, keeps the conductivity and
 the plane bulk modulus of its matrix within 2.9·10⁻⁶ and 1.5·10⁻⁶ at the size 0.1, five times
 closer than its level sets (1.5·10⁻⁵ and 6·10⁻⁶); shells of fibres have their areas to

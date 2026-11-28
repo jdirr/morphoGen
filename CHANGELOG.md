@@ -248,10 +248,12 @@
   `plane_mesh` by default for them): the sections of Boolean models of fibres along z and of
   spheres, meshed by the boundary of their union — the circles cut where they cross, these
   corners nodes of both, the arcs inside other discs and the discs inside others left out,
-  the gaps graded between the circles that do not cross —; tangent discs and coatings that
-  meet by the level sets. The area of two fibres that meet as the fourth power of the size
-  (2.7·10⁻⁸ at 0.0125), Boolean cylinders within 10⁻⁵ of a count on a grid, the reciprocal
-  theorem of Keller and Mendelson within 2·10⁻³.
+  the gaps graded between the circles that do not cross, the sizes at the corners an eighth
+  of what they would be, the fields singular there (`CORNER_REFINEMENT`) —; tangent discs
+  and coatings that meet by the level sets. The area of two fibres that meet as the fourth
+  power of the size (2.5·10⁻⁸ at 0.0125), Boolean cylinders within 4·10⁻⁶ of a count on a
+  grid, the reciprocal theorem of Keller and Mendelson within 4.4·10⁻⁴, 2.2·10⁻⁴ and 9·10⁻⁵
+  at the sizes 0.04, 0.02 and 0.01 (2·10⁻³ at 0.04 without the grading).
 * The rings of coated and hollow fibres and spheres in the sections of the plane
   (`disc_layers`; the model `coating`, outside or inside): their concentric circles meshed
   exactly, the coatings graded, three elements across them; coatings that meet by the level

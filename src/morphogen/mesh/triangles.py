@@ -1404,6 +1404,9 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
 GAP_ELEMENTS = 3
 #: The fewest segments of a whole circle
 CIRCLE_SEGMENTS = 24
+#: The sizes at the corners of a union of discs, where the fields are singular: those of the
+#: elements around them over this
+CORNER_REFINEMENT = 8
 #: The reference of the edges of the circles (in the files of mmg2d)
 REF_CIRCLE = 10
 
@@ -1588,9 +1591,12 @@ class _DiscSizes:
     (and, for the points of a circle, to the sides it does not cross; for those of a side,
     to the circles that do not cross it), at most the share of a circle of
     :data:`CIRCLE_SEGMENTS`, at least ``floor``; two circles that cross each other (the
-    pairs ``crossing``) meet at a point of the boundary, not across a gap."""
+    pairs ``crossing``) meet at a point of the boundary, not across a gap. At the corners of
+    a union of discs (``corners``), where the fields are singular, the sizes are a
+    :data:`CORNER_REFINEMENT`-th of what they would be."""
 
-    def __init__(self, cs, rs, lower, upper, size, periodic, floor, crossing=frozenset()):
+    def __init__(self, cs, rs, lower, upper, size, periodic, floor, crossing=frozenset(),
+                 corners=()):  # fmt: skip
         self.size = float(size)
         self.lower = np.asarray(lower, dtype=float)
         self.lengths = np.asarray(upper, dtype=float) - self.lower
@@ -1628,13 +1634,23 @@ class _DiscSizes:
                 h.append(gap / GAP_ELEMENTS)
         self.points = np.concatenate(points)
         self.h = np.clip(np.concatenate(h), floor, self.size)
+        self.reach = self.size / GRADE
+        self._index()
+        corners = np.asarray(corners, dtype=float).reshape(-1, 2)
+        if len(corners):
+            refined = np.maximum(self(corners) / CORNER_REFINEMENT, floor)
+            self.points = np.concatenate([self.points, corners])
+            self.h = np.concatenate([self.h, refined])
+            self._index()
+
+    def _index(self) -> None:
+        """The tree of the points (of their images in a periodic box)."""
         if self.periodic:
             wrapped = np.mod(self.points - self.lower, self.lengths)
             wrapped[wrapped >= self.lengths] = 0.0
             self.tree = cKDTree(wrapped, boxsize=self.lengths)
         else:
             self.tree = cKDTree(self.points)
-        self.reach = self.size / GRADE
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         x = np.atleast_2d(np.asarray(x, dtype=float))
@@ -1679,8 +1695,9 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
     ``size``), the sides of a periodic box matching; ``mmg2d`` meshes the regions within
     them, which keep their nodes. Plain discs that cross each other (a Boolean model of
     discs) are meshed by the boundary of their union: their circles cut where they cross,
-    these corners nodes of both, the arcs inside other discs and the discs inside others
-    left out. Six-node elements have their middle nodes on the circles
+    these corners nodes of both, the sizes graded toward them (:data:`CORNER_REFINEMENT`),
+    the arcs inside other discs and the discs inside others left out. Six-node elements
+    have their middle nodes on the circles
     (:func:`~morphogen.mesh.curved.curved_triangles`), by default. None for discs that
     touch, outside or inside, and for coated ones that meet (the level sets of their union
     then)."""
@@ -1746,7 +1763,8 @@ def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
     circle = {int(k): n for n, k in enumerate(which)}  # (one each where discs meet)
     crossing = {(circle[i], circle[j]) for i, j in union.crossing
                 if i in circle and j in circle}  # fmt: skip
-    field = _DiscSizes(cs, rs, lower, upper, size, periodic, floor, crossing)
+    corners = [p for key, p in union.points.items() if union.valid[key]]
+    field = _DiscSizes(cs, rs, lower, upper, size, periodic, floor, crossing, corners)
     cuts = [[(a, s, t) for a, s, t in _crossings(cs[i], rs[i], lower, upper, tol)
              if union.outside(_point(a, s, t, lower, upper), (which[i],))]
             for i in reach]  # fmt: skip

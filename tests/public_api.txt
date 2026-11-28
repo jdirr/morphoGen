@@ -3077,6 +3077,7 @@ morphogen.mesh.tetra.jacobian_ratios(gradients, deviations, bary)
 morphogen.mesh.tetra.tet_quality(nodes, elements)
 morphogen.mesh.tetra.tet_volumes(nodes, elements)
 morphogen.mesh.triangles.CIRCLE_SEGMENTS
+morphogen.mesh.triangles.CORNER_REFINEMENT
 morphogen.mesh.triangles.GAP_ELEMENTS
 morphogen.mesh.triangles.GRADE
 morphogen.mesh.triangles.REF_CIRCLE
