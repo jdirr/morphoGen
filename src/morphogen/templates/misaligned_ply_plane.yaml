@@ -6,8 +6,8 @@
 # level sets of the whole section join fibres across the narrowest; six-node triangles
 # curved along them. The section is solved as that of fibres along z (generalized plane
 # strain): its transverse properties, those of the ply where the fibres wave little; its
-# axial ones are those of straight fibres, which the stiffness of the section turned along
-# the segments of the fibres bounds for the ply (misaligned: Voigt, Reuss and the layers of
+# axial ones are those of straight fibres, which the tensors of the section turned along the
+# segments of the fibres bound for the ply (misaligned: Voigt, Reuss and the layers of
 # fibres that wave together). The stiffness and the conductivity under periodic, kinematic
 # and static conditions, and the figures of the mesh and of the von Mises stress of its
 # shear.
@@ -29,7 +29,7 @@ mesh:
 homogenization:
   method: fe
   plane: generalized          # or strain (plane strain)
-  misaligned: true            # stiffness_voigt, stiffness_reuss, stiffness_layers .<bc>.E3...
+  misaligned: true            # stiffness_voigt.<bc>.E3, conductivity_tensor_reuss.<bc>.C33...
   materials:
     0: {young: 3.5, poisson: 0.35, conductivity: 0.2}     # epoxy (GPa, W/m/K)
     1: {young: 230.0, poisson: 0.2, conductivity: 10.0}   # carbon fibres, isotropic here

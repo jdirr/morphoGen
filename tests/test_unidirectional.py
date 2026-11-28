@@ -25,8 +25,10 @@ from morphogen.homogenization.unidirectional import (
     fibre_directions,
     hill_moduli,
     hill_relations,
+    misaligned_conductivity,
     misaligned_stiffness,
     transverse_shear_bounds,
+    turned_conductivity,
     turned_stiffness,
 )
 
@@ -250,6 +252,33 @@ def test_misaligned_stiffness_in_closed_form():
     assert len(lengths) == len(d) and np.all(lengths > 0.0)
 
 
+def test_misaligned_conductivity_in_closed_form():
+    """A conductivity of fibres along z (10 along them, 1 across) turned by theta in the
+    plane xz: k_L cos^2 + k_T sin^2 along z, (k_L - k_T) sin cos its entry xz; one direction,
+    the turned tensor by every average; directions in the plane xz, the axial conductivity
+    of Voigt their mean and that of the layers their harmonic mean; Voigt >= layers >=
+    Reuss; an isotropic conductivity unchanged; a tensor not 3 x 3 refused."""
+    k = np.diag([1.0, 1.0, 10.0])
+    theta = np.radians(np.linspace(0.0, 30.0, 7))
+    d = np.column_stack([np.sin(theta), np.zeros(7), np.cos(theta)])
+    turned = turned_conductivity(k, d)
+    axial = 10.0 * np.cos(theta) ** 2 + np.sin(theta) ** 2
+    np.testing.assert_allclose(turned[:, 2, 2], axial, rtol=1e-12)
+    np.testing.assert_allclose(turned[:, 0, 2], 9.0 * np.sin(theta) * np.cos(theta),
+                               rtol=1e-12, atol=1e-15)  # fmt: skip
+    one = misaligned_conductivity(k, d[3:4])
+    assert all(np.allclose(one[a], turned[3], rtol=1e-12) for a in one)
+    out = misaligned_conductivity(k, d)
+    assert out["voigt"][2, 2] == pytest.approx(axial.mean(), rel=1e-12)
+    assert out["layers"][2, 2] == pytest.approx(1.0 / np.mean(1.0 / axial), rel=1e-12)
+    assert np.linalg.eigvalsh(out["voigt"] - out["layers"]).min() > -1e-12
+    assert np.linalg.eigvalsh(out["layers"] - out["reuss"]).min() > -1e-12
+    iso = misaligned_conductivity(2.0 * np.eye(3), d, np.arange(1.0, 8.0))
+    assert all(np.allclose(iso[a], 2.0 * np.eye(3), rtol=1e-12) for a in iso)
+    with pytest.raises(ValueError, match="3 x 3"):
+        turned_conductivity(np.eye(2), d)
+
+
 def test_fibre_directions_of_coated_and_hollow_fibres():
     """The segments of the fibres weighted with their volumes: those that a coating covers,
     those of hollow fibres about their lumens; a structure without segments refused."""
@@ -316,9 +345,10 @@ def _ply_config(tmp_path, **homogenization) -> dict:
         "homogenization": {
             "method": "fe",
             "misaligned": True,
-            "materials": {0: {"young": 3.5, "poisson": 0.35}, 1: {"young": 230.0, "poisson": 0.2}},
+            "materials": {0: {"young": 3.5, "poisson": 0.35, "conductivity": 0.2},
+                          1: {"young": 230.0, "poisson": 0.2, "conductivity": 10.0}},
             "boundary_conditions": ["periodic", "kubc"],
-            "properties": ["stiffness"],
+            "properties": ["stiffness", "conductivity_tensor"],
             **homogenization,
         },
         "outputs": {"directory": str(tmp_path / "out"), "name": "ply"},
@@ -330,8 +360,9 @@ def test_runs_record_the_misaligned_ply(tmp_path):
     """A run of a ply misaligned by 5 degrees, meshed in its plane, records beside the
     stiffness of its section (that of straight fibres: an axial modulus of 69.9) those of
     the misaligned ply under each condition: Voigt (68.6), the layers (59.3) and Reuss
-    (59.2), in this order, their entries and engineering constants; the option refused
-    without the stiffness, for tetrahedra, and for a structure without fibres."""
+    (59.2), in this order, their entries and engineering constants, and its axial
+    conductivity in the same order; the option refused without the stiffness or a
+    transport tensor, for tetrahedra, and for a structure without fibres."""
     import csv
 
     from morphogen.config import ConfigError, load_config
@@ -344,6 +375,10 @@ def test_runs_record_the_misaligned_ply(tmp_path):
         e3 = [values[f"stiffness{k}.{bc}.E3"] for k in ("", "_voigt", "_layers", "_reuss")]
         assert e3[0] > e3[1] > e3[2] > e3[3]
         assert {f"stiffness_voigt.{bc}.{k}" for k in ("C11", "C66", "E1", "G12")} <= set(values)
+        k33 = [values[f"conductivity_tensor{k}.{bc}.C33"] for k in ("", "_voigt", "_layers",
+                                                                     "_reuss")]  # fmt: skip
+        assert k33[0] > k33[1] > k33[2] >= k33[3] * (1 - 1e-12)
+        assert f"conductivity_tensor_reuss.{bc}.mean" in values
     e3 = [values[f"stiffness{k}.periodic.E3"] for k in ("", "_voigt", "_layers", "_reuss")]
     assert e3 == pytest.approx([69.9, 68.6, 59.3, 59.2], rel=0.02)
     with pytest.raises(ConfigError, match="true or false"):

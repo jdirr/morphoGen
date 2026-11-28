@@ -420,10 +420,11 @@ class HomogenizationSpec:
     #: the elastic problems of the meshes of the plane: 'generalized' (generalized plane
     #: strain, the default) or 'strain' (plane strain); morphogen.homogenization.plane
     plane: str | None = None
-    #: the stiffness of a ply of misaligned fibres from that of its section (the meshes of
-    #: the plane of the unions of segments): turned along the segments of its fibres, the
-    #: bounds of Voigt and Reuss and the average of layers of Backus
-    #: (morphogen.homogenization.unidirectional.misaligned_stiffness)
+    #: the stiffness and the transport tensors of a ply of misaligned fibres from those of
+    #: its section (the meshes of the plane of the unions of segments): turned along the
+    #: segments of its fibres, the bounds of Voigt and Reuss and the average of layers of
+    #: Backus (morphogen.homogenization.unidirectional.misaligned_stiffness and
+    #: misaligned_conductivity)
     misaligned: bool = False
 
     @property
@@ -1192,17 +1193,17 @@ def _homogenization(data, base: Path | None = None) -> HomogenizationSpec:
 
 
 def _misaligned(value, properties) -> bool:
-    """Whether the stiffness of the ply of misaligned fibres is computed from that of its
-    section (``homogenization.misaligned``)."""
+    """Whether the stiffness and the transport tensors of the ply of misaligned fibres are
+    computed from those of its section (``homogenization.misaligned``)."""
     if not isinstance(value, bool):
         raise ConfigError(
             "homogenization.misaligned: true or false (the stiffness of a ply of misaligned "
             "fibres from that of its section, turned along the segments of its fibres)"
         )
-    if value and "stiffness" not in properties:
+    if value and not set(TENSOR_PROPERTIES) & set(properties):
         raise ConfigError(
-            "homogenization.misaligned: from the stiffness of the section (properties: "
-            "[stiffness, ...])"
+            "homogenization.misaligned: from the stiffness or the transport tensors of the "
+            "section (properties: [stiffness, conductivity_tensor, ...])"
         )
     return value
 

@@ -258,7 +258,10 @@
   stiffness of the section turned along the segments of the fibres beside it, as
   `stiffness_voigt.<bc>.<entry>`, `stiffness_reuss` and `stiffness_layers` (the entries
   `C11` ... `C66` and the engineering constants), the runs of a structure without fibres
-  refused before their mesh; the template `misaligned_ply_plane` records them.
+  refused before their mesh; the template `misaligned_ply_plane` records them. So are the
+  conductivities and the tensors of the other transport phenomena (`turned_conductivity`,
+  `misaligned_conductivity`: `conductivity_tensor_voigt.<bc>.C33`..., their means), verified
+  against the axial conductivities of fibres turned in a plane.
   `fibre_directions` weighs the segments with their volumes (with their lengths before:
   the same for fibres of one radius), and finds those of coated fibres (the union their
   coating covers) and of hollow ones (the fibres about their lumens).

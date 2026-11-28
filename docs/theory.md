@@ -14126,7 +14126,14 @@ axial modulus (122.6 to 128.5 GPa, its section 129.3). The runs record the three
 of the stiffness of each section and condition beside it (`homogenization.misaligned`:
 `stiffness_voigt.<bc>.<entry>`, `stiffness_reuss`, `stiffness_layers`); the segments of
 coated fibres are those of the union the coating covers, those of hollow ones the fibres
-about their lumens.
+about their lumens. So are the conductivities and the tensors of the other transport
+phenomena, turned as $K(d) = R K R^T$ (`turned_conductivity`) and averaged the same way
+(`misaligned_conductivity`; `conductivity_tensor_voigt.<bc>.<entry>`...): the layers, the
+gradient in their plane and the flux across them continuous. Directions in the plane $xz$
+give the axial conductivities $k_L \cos^2\theta + k_T \sin^2\theta$, whose mean is that of
+Voigt and harmonic mean that of the layers, to round-off. The ply of the template
+`misaligned_ply_plane` (3°): an axial conductivity of 5.632 W/m/K for its section, 5.619
+(Voigt, the layers) and 5.560 (Reuss) for the ply.
 
 Coated and hollow fibres (the model `coating`) are meshed by the contours of their layers
 (`section_layers`): the union and that grown by the thickness of the coating, or the union

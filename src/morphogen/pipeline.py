@@ -86,7 +86,11 @@ from morphogen.homogenization.postprocess import (
     matrix_entries,
     normalized_values,
 )
-from morphogen.homogenization.unidirectional import fibre_directions, misaligned_stiffness
+from morphogen.homogenization.unidirectional import (
+    fibre_directions,
+    misaligned_conductivity,
+    misaligned_stiffness,
+)
 from morphogen.homogenization.xfem import LevelSetSample
 from morphogen.io.tables import write_table
 from morphogen.mesh.conforming import conforming_mesh
@@ -97,6 +101,7 @@ from morphogen.mesh.voxel import voxel_mesh
 from morphogen.models.base import Microstructure, Model
 from morphogen.models.implicit import implicit_functions
 from morphogen.rve import report as rve_report
+from morphogen.rve.study import TENSOR_PROPERTIES
 from morphogen.seeding import derive_seed
 from morphogen.stopping import checkpoint
 from morphogen.viz.workflow import element_arrays
@@ -558,26 +563,38 @@ def _process(
 
 
 def _misaligned(results: dict, directions, volumes, stem: str) -> dict:
-    """The stiffness of a ply of misaligned fibres from that of its section
-    (``homogenization.misaligned``): the entries ``C11`` ... ``C66`` and the engineering
-    constants of the averages of
-    :func:`~morphogen.homogenization.unidirectional.misaligned_stiffness` (``voigt``,
-    ``reuss``, ``layers``) of the stiffness of the section turned along the segments of its
-    fibres with their volumes: ``stiffness_<average>.<bc>.<entry>``."""
+    """The stiffness and the transport tensors of a ply of misaligned fibres from those of
+    its section (``homogenization.misaligned``): the averages of
+    :func:`~morphogen.homogenization.unidirectional.misaligned_stiffness` and
+    :func:`~morphogen.homogenization.unidirectional.misaligned_conductivity` (``voigt``,
+    ``reuss``, ``layers``) of the tensors of the section turned along the segments of its
+    fibres with their volumes, ``<property>_<average>.<bc>.<entry>``: the entries ``C11``
+    ... ``C66`` of the stiffness and its engineering constants, the entries ``C11`` ...
+    ``C33`` of the transport tensors and their means."""
     values = {}
     for key, res in results.items():
         prop, _, bc = key.partition(".")
-        if prop != "stiffness" or not isinstance(res, dict):
+        if prop not in TENSOR_PROPERTIES or not isinstance(res, dict):
             continue
-        averages = misaligned_stiffness(res["tensor"], directions, volumes)
+        if prop == "stiffness":
+            averages = misaligned_stiffness(res["tensor"], directions, volumes)
+            axial = {k: engineering_constants(c)["E3"] for k, c in averages.items()}
+            section, name = res["E3"], "modulus"
+        else:
+            averages = misaligned_conductivity(res["tensor"], directions, volumes)
+            axial = {k: float(c[2, 2]) for k, c in averages.items()}
+            section, name = float(res["tensor"][2, 2]), prop.removesuffix("_tensor")
         for average, tensor in averages.items():
-            named = {**matrix_entries(tensor, "C"), **engineering_constants(tensor)}
-            values.update({f"stiffness_{average}.{bc}.{k}": v for k, v in named.items()})
-        e3 = {k: engineering_constants(c)["E3"] for k, c in averages.items()}
+            named = matrix_entries(tensor, "C")
+            if prop == "stiffness":
+                named.update(engineering_constants(tensor))
+            else:
+                named["mean"] = float(np.trace(tensor) / 3.0)
+            values.update({f"{prop}_{average}.{bc}.{k}": v for k, v in named.items()})
         log.info(
-            "%s: the axial modulus of the misaligned ply (%s) between %.5g (Reuss) and %.5g "
+            "%s: the axial %s of the misaligned ply (%s) between %.5g (Reuss) and %.5g "
             "(Voigt), %.5g of layers; its section, of straight fibres, %.5g",
-            stem, bc, e3["reuss"], e3["voigt"], e3["layers"], res["E3"],
+            stem, name, bc, axial["reuss"], axial["voigt"], axial["layers"], section,
         )  # fmt: skip
     return values
 

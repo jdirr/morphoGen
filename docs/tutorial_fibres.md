@@ -192,7 +192,8 @@ these bounds, as long as the voxels are fine enough to keep the gaps between the
 open. A run records them beside the stiffness of the section with `misaligned: true` among
 the keys of its `homogenization` (the meshes of the plane, the stiffness among its
 properties): `stiffness_voigt.<bc>.E3`, `stiffness_reuss.<bc>.E3`, `stiffness_layers.<bc>.E3`
-and their other entries and engineering constants.
+and their other entries and engineering constants, and those of the conductivity
+(`conductivity_tensor_voigt.<bc>.C33`...) when it is among them.
 
 ## 6. Files for other codes
 
@@ -208,7 +209,7 @@ print(open("ply.inp").read().count("*SOLID SECTION"))  # 2: the matrix and the f
 
 The template `fibre_bed_plane` computes the permeability of preforms over several
 realizations, and `misaligned_ply_plane` the transverse stiffness and conductivity of a
-misaligned ply, and the bounds of its axial stiffness:
+misaligned ply, and the bounds of its axial stiffness and conductivity:
 
 ```bash
 morphogen template fibre_bed_plane -o preform.yaml

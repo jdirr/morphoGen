@@ -328,17 +328,50 @@ def misaligned_stiffness(stiffness, directions, weights=None) -> dict[str, np.nd
     their plane and the stresses on it continuous), that of fibres that wave together,
     between the two."""
     cs = turned_stiffness(stiffness, directions)
-    w = np.ones(len(cs)) if weights is None else np.asarray(weights, dtype=float).ravel()
-    if len(w) != len(cs) or not np.all(w >= 0.0) or not w.sum() > 0.0:
-        raise ValueError("misaligned_stiffness: a nonnegative weight per direction")
+    # the stresses 33, 23, 31 continuous across the layers; the strains 11, 22, 12
+    return _averages(cs, weights, [2, 3, 4], [0, 1, 5], "misaligned_stiffness")
+
+
+def turned_conductivity(conductivity, directions) -> np.ndarray:
+    """A conductivity (3 x 3; its fibres along the axis 3), or the tensor of another
+    transport phenomenon (the permittivity...), turned so that its axis 3 follows each of
+    ``directions`` (n x 3), ``R K R^T`` by the least turn (:func:`_turns`): (n, 3, 3)."""
+    k = np.asarray(conductivity, dtype=float)
+    if k.shape != (3, 3):
+        raise ValueError("turned_conductivity: a 3 x 3 tensor")
+    r = _turns(directions)
+    out = np.einsum("nip,njq,pq->nij", r, r, k)
+    return 0.5 * (out + np.swapaxes(out, -1, -2))
+
+
+def misaligned_conductivity(conductivity, directions, weights=None) -> dict[str, np.ndarray]:
+    """The conductivity of a ply of misaligned fibres from that of the ply aligned (3 x 3,
+    the fibres along the axis 3; or the tensor of another transport phenomenon), as
+    :func:`misaligned_stiffness`: the average of the turned conductivities (``"voigt"``: a
+    uniform gradient) and the inverse of the average of their resistivities (``"reuss"``: a
+    uniform flux), which bound it, and the conductivity of layers normal to the axis 3, each
+    of one orientation (``"layers"``: the gradient in their plane and the flux across them
+    continuous), between the two."""
+    ks = turned_conductivity(conductivity, directions)
+    return _averages(ks, weights, [2], [0, 1], "misaligned_conductivity")
+
+
+def _averages(tensors, weights, normal, tangent, name: str) -> dict[str, np.ndarray]:
+    """The averages of symmetric ``tensors`` (n x m x m) in the proportions ``weights``
+    (equal by default): of Voigt (the tensors), of Reuss (their inverses) and of layers
+    normal to the axis 3 (Backus 1962), the components ``normal`` of the fluxes (stresses)
+    continuous across them, the components ``tangent`` of the gradients (strains) in their
+    plane."""
+    w = np.ones(len(tensors)) if weights is None else np.asarray(weights, dtype=float).ravel()
+    if len(w) != len(tensors) or not np.all(w >= 0.0) or not w.sum() > 0.0:
+        raise ValueError(f"{name}: a nonnegative weight per direction")
     w = w / w.sum()
-    voigt = np.einsum("n,nij->ij", w, cs)
-    reuss = np.linalg.inv(np.einsum("n,nij->ij", w, np.linalg.inv(cs)))
-    normal, tangent = [2, 3, 4], [0, 1, 5]  # the stresses 33, 23, 31; the strains 11, 22, 12
-    cnn = cs[:, normal][:, :, normal]
-    cnt = cs[:, normal][:, :, tangent]
-    ctn = cs[:, tangent][:, :, normal]
-    ctt = cs[:, tangent][:, :, tangent]
+    voigt = np.einsum("n,nij->ij", w, tensors)
+    reuss = np.linalg.inv(np.einsum("n,nij->ij", w, np.linalg.inv(tensors)))
+    cnn = tensors[:, normal][:, :, normal]
+    cnt = tensors[:, normal][:, :, tangent]
+    ctn = tensors[:, tangent][:, :, normal]
+    ctt = tensors[:, tangent][:, :, tangent]
     inv = np.linalg.inv(cnn)
     nn = np.linalg.inv(np.einsum("n,nij->ij", w, inv))
     nt = nn @ np.einsum("n,nij->ij", w, inv @ cnt)
@@ -346,14 +379,16 @@ def misaligned_stiffness(stiffness, directions, weights=None) -> dict[str, np.nd
     tt = np.einsum("n,nij->ij", w, ctt - ctn @ inv @ cnt) + tn @ np.einsum(
         "n,nij->ij", w, inv @ cnt
     )
-    layers = np.empty((6, 6))
+    layers = np.empty(voigt.shape)
     layers[np.ix_(normal, normal)] = nn
     layers[np.ix_(normal, tangent)] = nt
     layers[np.ix_(tangent, normal)] = tn
     layers[np.ix_(tangent, tangent)] = tt
-    layers = 0.5 * (layers + layers.T)
-    return {"voigt": 0.5 * (voigt + voigt.T), "reuss": 0.5 * (reuss + reuss.T),
-            "layers": layers}  # fmt: skip
+    return {
+        "voigt": 0.5 * (voigt + voigt.T),
+        "reuss": 0.5 * (reuss + reuss.T),
+        "layers": 0.5 * (layers + layers.T),
+    }
 
 
 def _fibre_segments(micro):

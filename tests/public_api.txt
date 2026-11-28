@@ -1903,8 +1903,10 @@ morphogen.homogenization.unidirectional.composite_cylinders(fibre, matrix, fibre
 morphogen.homogenization.unidirectional.fibre_directions(micro)
 morphogen.homogenization.unidirectional.hill_moduli(material)
 morphogen.homogenization.unidirectional.hill_relations(fibre, matrix, fibre_fraction, k)
+morphogen.homogenization.unidirectional.misaligned_conductivity(conductivity, directions, weights=None)
 morphogen.homogenization.unidirectional.misaligned_stiffness(stiffness, directions, weights=None)
 morphogen.homogenization.unidirectional.transverse_shear_bounds(fibre, matrix, fibre_fraction)
+morphogen.homogenization.unidirectional.turned_conductivity(conductivity, directions)
 morphogen.homogenization.unidirectional.turned_stiffness(stiffness, directions)
 morphogen.homogenization.voxel_fe.CYCLE
 morphogen.homogenization.voxel_fe.SHIFT
