@@ -14194,8 +14194,50 @@ their curves for non-manifold); two coated discs whose coatings cross, within 7�
 them barely meet, the grid of 0.016 cut the tips of the wedges of matrix between them
 (2.5·10⁻⁵ of the box), which the corners found on their own restore: their cores and
 coatings within 1.4·10⁻⁶ and 4.5·10⁻⁶ of counts on grids of 4000² points at the sizes 0.05,
-0.025 and 0.0125 alike. Capsules that touch, features too small for the finest grid and
-contours tangent to a side are left to the level sets.
+0.025 and 0.0125 alike. Hollow fibres whose lumens are a union of their own (the union of
+the fibres less that of their lumens: `hardcore_fibers` and `curved_fibers` with a
+`lumen`) are meshed the same way, the lumens a layer within the fibres, of the phase of
+the matrix: the walls of dense hardcore fibres (radius 0.04, a fourth of the box, lumens
+of six tenths of the radii) within 6.1·10⁻⁶ of counts on grids of 8000² points, twelve
+realizations of twelve at the size 0.05.
+
+The angle of a corner is that of the normals of the two contours in the plane, those of
+the surfaces of the capsules projected onto it and normalized: unnormalized, the normals
+that tilt out of the plane made it larger (a corner where two contours are tangent came
+out at 53°). Two contours that meet within half a degree (`TANGENT`) are tangent, not a
+corner: where a chain of capsules bends, the round end of a capsule and the side of the
+next meet tangentially, at a point that Newton's method places poorly (the trace and the
+pairs of capsules 4·10⁻⁸ apart, where they should agree to 4·10⁻⁹), and the check of the
+corners of the contours against those of the pairs of capsules took it for a corner that
+the trace missed, leaving the chain to the level sets.
+Curved fibres, worm-like chains of short segments (radius 0.03, ten segments of 0.04 that
+bend by some 16° at each joint, a tenth of the box), solid or hollow, apart or overlapping,
+are meshed by their contours within 2.6·10⁻⁶ of counts on grids of 8000² points at the
+sizes 0.05 and 0.025, the noise of the counts (the same mesh differs from counts on grids
+of 4000², 8000² and 16000² points by 3·10⁻⁷, 2.5·10⁻⁶ and 1.4·10⁻⁶).
+
+**Contours that graze a side.** A contour that crosses the line of a side at a grazing
+angle dips across it by little: by less than the bulge of the chords of its trace (up to a
+256th of its radius, the cells an eighth of it), its two crossings then between two
+vertices on the same side of the line. Between two such vertices, nearer to the line than
+their chord is long, the point of the surface farthest across the line (golden sections
+over the chord, each point projected onto the capsule or the face of both ends) is taken
+among the vertices where it lies across: the chords then cross the line twice, the piece of
+the contour in the box ends on it, and the lens of its image across the side is meshed.
+Each crossing is the root between the points of the line beside the ends of its edge, where
+the distance has their signs: the root nearest to the crossing of a chord with one vertex
+in the dip may be that of the other side of it. Along a side that it crosses, a contour
+that runs within 15° of it (`GRAZING`) is graded by its gap to the side, as by the gaps to
+the sides it does not cross: the wedges between the contour and the side and the lens of
+its image are thin, and their triangles, spanning them flat, folded with their curved
+edges, which were then straightened. An oblique fibre (10°, radius 0.2) whose ellipse dips
+10⁻⁵ across a side — the nodes of its piece fell out of the box, and the section to the
+level sets — is within 5.5·10⁻⁶ of its area at the size 0.05, relatively (8.3·10⁻⁶ away
+from the sides); dense hardcore fibres (radius 0.04, a fourth of the box), twelve
+realizations meshed by their contours where one fell to the level sets, within 3.2·10⁻⁶ of
+counts on grids of 8000² points (1.4·10⁻⁵ before, one crossing at 10° whose lens was a
+single flat triangle). Capsules that touch, features too small for the finest grid and
+contours tangent to a side within round-off are left to the level sets.
 
 **Flat caps.** A cylinder whose flat cap reaches the slab of the plane keeps that end (the
 ends clipped to the slab are round, which keeps the section): its distance is that of the

@@ -3008,8 +3008,10 @@ morphogen.mesh.contours.Body.onto(self, xy, capsules=None, faces=None)
 morphogen.mesh.contours.Body.owners(self, xy)
 morphogen.mesh.contours.Body.round(self, k, xy)
 morphogen.mesh.contours.CORNER_ANGLE
+morphogen.mesh.contours.GRAZING
 morphogen.mesh.contours.MIN_JACOBIAN
 morphogen.mesh.contours.NEWTON_STEPS
+morphogen.mesh.contours.TANGENT
 morphogen.mesh.contours.TRACE_CELLS
 morphogen.mesh.contours.TRACE_POINTS
 morphogen.mesh.contours.TRACE_REFINEMENTS

@@ -80,6 +80,14 @@ MIN_JACOBIAN = 0.3
 #: The least angle (degrees) between the normals of the two surfaces at a corner of a
 #: contour for the sizes to be graded toward it (``CORNER_REFINEMENT``)
 CORNER_ANGLE = 10.0
+#: The angle (degrees) within which a contour runs along a side that it crosses for its gap
+#: to the side to grade its sizes, as the gaps to the sides that it does not cross: the thin
+#: wedges and lenses of a contour that crosses a side at a grazing angle, whose triangles
+#: would otherwise span them flat
+GRAZING = 15.0
+#: The angle (degrees) below which the contours of two capsules that meet are tangent, not a
+#: corner (the round end of a capsule and the side of the next where a chain bends)
+TANGENT = 0.5
 
 
 def section_capsules(micro, z: float | None = None):
@@ -153,14 +161,20 @@ def section_layers(micro):
     phases inside the innermost, between them and outside them: a union of spheres and
     segments itself (phase 1 inside, 0 outside), or one coated
     (:class:`~morphogen.models.nested.CoatedStructure`: the union and that grown by the
-    thickness of the coating, or the union shrunk by that of the shells and the union);
-    None for another structure."""
+    thickness of the coating, or the union shrunk by that of the shells and the union), or
+    the difference of two (the hollow fibres of :mod:`~morphogen.models.fibers`: the
+    lumens, phase 0 inside them, then the fibres); None for another structure."""
     from morphogen.mesh.triangles import _grown
+    from morphogen.models.combination import Combined
     from morphogen.models.nested import CoatedStructure
     from morphogen.models.union import PrimitiveUnion
 
     if isinstance(micro, PrimitiveUnion):
         return [micro], [1, 0]
+    if (isinstance(micro, Combined) and micro.operation == "difference"
+            and len(micro.parts) == 2
+            and all(isinstance(p, PrimitiveUnion) for p in micro.parts)):  # fmt: skip
+        return [micro.parts[1], micro.parts[0]], [0, 1, 0]
     if not (isinstance(micro, CoatedStructure) and isinstance(micro.inner, PrimitiveUnion)):
         return None
     inner, t = micro.inner, float(micro.thickness)
@@ -171,11 +185,12 @@ def section_layers(micro):
 
 def _layer_offsets(micro) -> list[float]:
     """The offsets of the unions of :func:`section_layers` from the union coated: the
-    coating grown by its thickness, the cores of shells shrunk by it."""
+    coating grown by its thickness, the cores of shells shrunk by it (none otherwise)."""
     from morphogen.models.nested import CoatedStructure
 
     if not isinstance(micro, CoatedStructure):
-        return [0.0]
+        layers = section_layers(micro)
+        return [0.0] * (len(layers[0]) if layers is not None else 1)
     t = float(micro.thickness)
     return [0.0, t] if micro.side == "outside" else [-t, 0.0]
 
@@ -581,7 +596,10 @@ def _meeting(body: Body, a: int, b: int, x: np.ndarray, tol: float):
     (va, ga), (vb, gb) = body.capsule(a, x), body.capsule(b, x)
     if max(abs(float(va[0])), abs(float(vb[0]))) > tol:
         return None
-    return x[0], float(np.degrees(np.arccos(np.clip(ga[0] @ gb[0], -1.0, 1.0))))
+    # (the normals of the contours in the plane: those of the surfaces tilt out of it)
+    lengths = float(np.linalg.norm(ga[0]) * np.linalg.norm(gb[0]))
+    cosine = float(ga[0] @ gb[0]) / max(lengths, 1e-300)
+    return x[0], float(np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0))))
 
 
 def _corners(body: Body, a: int, b: int, x: np.ndarray, tol: float):
@@ -714,7 +732,9 @@ def _pair_corners(body: Body, a: int, b: int, tol: float, polygon=None) -> list[
     for i in np.flatnonzero(change).tolist():  # (not where the surfaces coincide: a joint)
         middle = 0.5 * (polygon[i] + polygon[(i + 1) % len(polygon)])[None]
         corner = _corner(body, a, b, middle, tol)
-        if corner is not None and all(np.linalg.norm(corner[0] - y) > 1e3 * tol for y in found):
+        if corner is None or corner[1] < TANGENT:  # (two surfaces tangent: no corner)
+            continue
+        if all(np.linalg.norm(corner[0] - y) > 1e3 * tol for y in found):
             found.append(corner[0])
     return found
 
@@ -970,11 +990,25 @@ def _line_root(body: Body, axis: int, value: float, start: float, span: float, t
         return None
     t1 = start + offsets[changed[0]]
     t0 = t1 - np.sign(offsets[changed[0]]) * 0.25 * span  # (the step before, of the sign)
-    low, high = min(t0, t1), max(t0, t1)
-    sign_low = np.sign(float(body.distance(points(np.array([low])))[0]))
+    return _bracketed(body, axis, value, min(t0, t1), max(t0, t1), tol)
+
+
+def _bracketed(body: Body, axis: int, value: float, low: float, high: float, tol: float):
+    """The point of the surface of a body on the line ``axis = value`` between ``low`` and
+    ``high`` (its coordinates along the line), where the distance changes sign: Newton's
+    steps within the bracket, bisection out of it; None if it does not converge."""
+    other = 1 - axis
+    p = np.empty((1, 2))
+    p[0, axis] = value
+
+    def distance(t, gradient=False):
+        p[0, other] = t
+        return body.distance(p, gradient=gradient)
+
+    sign_low = np.sign(float(distance(low)[0]))
     t = 0.5 * (low + high)
     for _ in range(100):
-        d, g = body.distance(points(np.array([t])), gradient=True)
+        d, g = distance(t, gradient=True)
         d, g = float(d[0]), float(g[0, other])
         if abs(d) <= 1e-3 * tol:
             return t
@@ -984,7 +1018,7 @@ def _line_root(body: Body, axis: int, value: float, start: float, span: float, t
             high = t
         newton = t - d / g if g != 0.0 else np.nan
         t = newton if low < newton < high else 0.5 * (low + high)
-    return t if abs(float(body.distance(points(np.array([t])))[0])) <= 1e3 * tol else None
+    return t if abs(float(distance(t)[0])) <= 1e3 * tol else None
 
 
 def _along(loop: np.ndarray, e: int, x: np.ndarray) -> float:
@@ -1083,11 +1117,84 @@ def _curvature_radii(loop: np.ndarray) -> np.ndarray:
     return lengths / np.maximum(2.0 * area2, 1e-300)
 
 
+def _grazing(body: Body, loop: np.ndarray, corners: list[int], lower, upper, tol: float):
+    """A closed contour with the points of the surface beyond the lines of the sides that its
+    chords miss, and its corners' indices among its new vertices: between two vertices on the
+    same side of a line, nearer to it than their chord is long, the point of the surface (over
+    the chord, onto the capsule or the face of both) farthest across the line, where it is
+    across. A contour that grazes a side, its dip across the line shallower than the bulge
+    of its chord, crosses it twice between two vertices: with the point, its chords do too."""
+    following = np.roll(loop, -1, axis=0)
+    chord = np.linalg.norm(following - loop, axis=1)
+    pairs = []  # (edge, axis, value) of the chords near a line, not across it
+    for axis in (0, 1):
+        for value in (lower[axis], upper[axis]):
+            u, v = loop[:, axis] - value, following[:, axis] - value
+            near = ((u < 0.0) == (v < 0.0)) & (np.minimum(np.abs(u), np.abs(v)) < chord)
+            pairs += [(e, axis, value) for e in np.flatnonzero(near).tolist()]
+    if not pairs:
+        return loop, corners
+    edge = np.array([p[0] for p in pairs])
+    axis = np.array([p[1] for p in pairs])
+    value = np.array([p[2] for p in pairs], dtype=float)
+    rows = np.arange(len(pairs))
+    start, run = loop[edge], following[edge] - loop[edge]
+    sign = np.where(start[rows, axis] >= value, 1.0, -1.0)  # (the side of the vertices)
+    if len(body.radii) == 1:
+        own = np.zeros(len(pairs), dtype=int)
+    else:
+        a, b = body.owners(start), body.owners(start + run)
+        own = np.where(a == b, a, -1)
+    face = np.full(len(pairs), -1)
+    if body.capped:
+        a, b = body.faces(start), body.faces(start + run)
+        face = np.where(a == b, a, -1)
+
+    def across(t: np.ndarray, rows=rows):
+        """How far the surface over the chord at ``t`` along it is on the side of its
+        vertices (negative: across the line), and its points."""
+        k = rows if t.ndim == 1 else np.repeat(rows, t.shape[1])
+        p = body.onto(start[k] + t.reshape(-1)[:, None] * run[k], own[k], face[k])
+        return (sign[k] * (p[np.arange(len(k)), axis[k]] - value[k])).reshape(t.shape), p
+
+    s = np.linspace(0.0, 1.0, 17)[1:-1]
+    d, p = across(np.tile(s, (len(pairs), 1)))
+    # the bulge of each arc from its chord: between two of its samples it strays from theirs
+    # by a 256th of it, so that an arc whose samples all pass farther from the line than a
+    # 16th of it is clear of the line
+    over = start[:, None] + s[None, :, None] * run[:, None]  # (the points of the chords)
+    bulge = np.linalg.norm(p.reshape(len(pairs), len(s), 2) - over, axis=2).max(axis=1)
+    close = np.flatnonzero(d.min(axis=1) < bulge / 16.0)
+    if not len(close):
+        return loop, corners
+    k = d[close].argmin(axis=1)
+    lo = np.where(k > 0, s[np.maximum(k - 1, 0)], 0.0)
+    hi = np.where(k + 1 < len(s), s[np.minimum(k + 1, len(s) - 1)], 1.0)
+    golden = 0.5 * (np.sqrt(5.0) - 1.0)
+    for _ in range(30):  # (the least of the distance across, by golden sections)
+        c, f = hi - golden * (hi - lo), lo + golden * (hi - lo)
+        left = across(c, close)[0] < across(f, close)[0]
+        hi, lo = np.where(left, f, hi), np.where(left, lo, c)
+    depth, points = across(0.5 * (lo + hi), close)
+    found: dict[int, tuple[float, np.ndarray]] = {}
+    for r in np.flatnonzero(depth < -tol).tolist():
+        e = int(edge[close[r]])
+        if e not in found or depth[r] < found[e][0]:
+            found[e] = (float(depth[r]), points[r])
+    if not found:
+        return loop, corners
+    edges = sorted(found)
+    loop = np.insert(loop, [e + 1 for e in edges], [found[e][1] for e in edges], axis=0)
+    return loop, [c + int(np.searchsorted(edges, c)) for c in corners]
+
+
 def _line_crossings(body: Body, loop: np.ndarray, lower, upper, tol: float):
     """Where a contour crosses the lines of the sides of the rectangle, along it: ``(edge,
     fraction, axis, side, t)``, the edge of the contour and the fraction of it, ``t`` along
-    the line, moved onto the surface by Newton's method; None where it does not converge
-    (a contour tangent to a line)."""
+    the line, on the surface: the root between the points of the line beside the ends of the
+    edge where the distance has their signs, else by Newton's method from the crossing of
+    the chord, bracketed where it overshoots; None where neither converges (a contour
+    tangent to a line)."""
     out = []
     following = np.roll(loop, -1, axis=0)
     for axis in (0, 1):
@@ -1097,6 +1204,18 @@ def _line_crossings(body: Body, loop: np.ndarray, lower, upper, tol: float):
             for e in np.flatnonzero((u < 0.0) != (v < 0.0)).tolist():
                 fraction = float(u[e] / (u[e] - v[e]))
                 start = float(loop[e, other] + fraction * (following[e, other] - loop[e, other]))
+                # the root between the points of the line beside the ends of the edge, where
+                # the distance has their signs: that of this edge (the nearest to the
+                # crossing of the chord may be that of the next, the other side of a dip)
+                low, high = sorted((float(loop[e, other]), float(following[e, other])))
+                p = np.empty((2, 2))
+                p[:, axis], p[:, other] = value, (low, high)
+                ends = body.distance(p)
+                if high > low and np.sign(ends[0]) * np.sign(ends[1]) < 0.0:
+                    t = _bracketed(body, axis, value, low, high, tol)
+                    if t is not None:
+                        out.append((e, fraction, axis, side, t))
+                        continue
                 t = start
                 p = np.empty((1, 2))
                 p[0, axis] = value
@@ -1189,6 +1308,7 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             perimeter = float(np.linalg.norm(loop - np.roll(loop, 1, axis=0), axis=1).sum())
             if perimeter < 3.0 * floor:
                 continue  # a contour within the least size: a hole or the tip of a cap
+            loop, corners = _grazing(body, loop, corners, lower, upper, tol)
             loops.append((b, loop, corners))
             found = _line_crossings(body, loop, lower, upper, tol)
             if found is None:
@@ -1248,10 +1368,20 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
         if same:  # the other contours of the body (its vertices: within a cell)
             gap = np.minimum(gap, cKDTree(np.concatenate(same)).query(loop)[0])
         gap = np.minimum(gap, _self_gaps(loop))
+        normal = None
         for axis in (0, 1):
             for side, value in ((0, lower[axis]), (1, upper[axis])):
+                across = np.abs(loop[:, axis] - value)
                 if (axis, side) not in crosses[b]:
-                    gap = np.minimum(gap, np.abs(loop[:, axis] - value))
+                    gap = np.minimum(gap, across)
+                    continue
+                # a side that the contour crosses: its gap where the contour runs along it
+                # (within GRAZING degrees), the thin wedges and lenses of a grazing crossing
+                if normal is None:
+                    normal = bodies[b].distance(loop, gradient=True)[1]
+                    normal /= np.maximum(np.linalg.norm(normal, axis=1), 1e-300)[:, None]
+                along = np.abs(normal[:, axis]) > np.cos(np.radians(GRAZING))
+                gap = np.minimum(gap, np.where(along, across, np.inf))
         radii = _curvature_radii(loop)
         for k in corners:  # (a corner is no curvature: graded below if sharp)
             radii[[k - 1, k, (k + 1) % len(loop)]] = np.inf

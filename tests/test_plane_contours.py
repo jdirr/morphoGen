@@ -20,6 +20,7 @@ from morphogen.mesh.contours import (
     _grid_distances,
     _joined,
     _layer_offsets,
+    _line_crossings,
     _line_root,
     _marching_loops,
     _pair_corners,
@@ -386,6 +387,98 @@ def test_contours_of_coated_and_hollow_fibres():
     outer = 2.0 * np.pi * 0.14**2 - _lens(0.14, 0.14, 0.25)
     assert fractions[1] == pytest.approx(2.0 * np.pi * 0.01, rel=2e-6)
     assert fractions[2] == pytest.approx(outer - 2.0 * np.pi * 0.01, rel=2e-6)
+
+
+@needs_mmg2d
+def test_contours_of_hollow_hardcore_fibres():
+    """Hollow fibres, the difference of their union and of that of their lumens: the lumens
+    a layer within the fibres, of the phase of the matrix; the walls of a dense packing (a
+    fourth of the box, the lumens six tenths of the radii) within 1e-5 of counts, though a
+    fibre of it grazes the side y = 0 (its dip across the line shallower than the bulge of
+    the chords of its trace: :func:`test_contours_that_graze_a_side`)."""
+    from morphogen.models.base import model_from_config
+
+    model = model_from_config({"type": "hardcore_fibers", "radius": 0.04, "length": 0.3,
+                               "volume_fraction": 0.25, "lumen": 0.6})  # fmt: skip
+    micro = model.generate(BOX, seed=1)
+    unions, bands = section_layers(micro)
+    assert bands == [0, 1, 0] and unions == [micro.parts[1], micro.parts[0]]
+    assert _layer_offsets(micro) == [0.0, 0.0]
+    mesh = plane_mesh(micro, size=0.05, order=2)
+    assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+    assert mesh.metadata["layers"] == 2
+    walls = _counted(micro.parts[0], 4000) - _counted(micro.parts[1], 4000)
+    assert mesh.phase_fractions()[1] == pytest.approx(walls, abs=1e-5)
+
+
+@needs_mmg2d
+def test_contours_of_curved_fibres():
+    """Curved fibres, worm-like chains of short segments (a tenth of their length, a radius
+    and a third) that bend by some 16 degrees at each joint: the round end of a capsule and
+    the side of the next tangent where a chain bends, no corner (the corners of the
+    contours checked against those of the pairs of capsules made it one, and left the
+    chains to the level sets); the angles of the corners those of the normals of the
+    contours in the plane. Solid and hollow, apart or overlapping, within 1e-5 of counts."""
+    from morphogen.models.base import model_from_config
+
+    for lumen, overlap in ((0.0, False), (0.5, False), (0.5, True)):
+        model = model_from_config({"type": "curved_fibers", "radius": 0.03, "length": 0.4,
+                                   "persistence": 0.5, "volume_fraction": 0.1,
+                                   "lumen": lumen, "overlap": overlap})  # fmt: skip
+        micro = model.generate(BOX, seed=1)
+        mesh = plane_mesh(micro, size=0.05, order=2)
+        assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+        if lumen:
+            fibres, lumens = micro.parts
+            counted = _counted(fibres, 4000) - _counted(lumens, 4000)
+        else:
+            counted = _counted(micro, 4000)
+        assert mesh.phase_fractions()[1] == pytest.approx(counted, abs=1e-5)
+    for body in section_bodies(micro.parts[0]):  # (the fibres)
+        for loop, corners, angles in _traced(body):
+            for k, angle in zip(corners, angles, strict=True):
+                a, b = np.argsort([abs(body.capsule(c, loop[k][None])[0][0])
+                                   for c in range(len(body.radii))])[:2]  # fmt: skip
+                ga, gb = body.capsule(a, loop[k][None])[1][0], body.capsule(b, loop[k][None])[1][0]
+                cosine = ga @ gb / (np.linalg.norm(ga) * np.linalg.norm(gb))
+                assert angle == pytest.approx(np.degrees(np.arccos(cosine)), abs=1e-6)
+
+
+@needs_mmg2d
+def test_contours_that_graze_a_side():
+    """A contour that dips across the line of a side by less than the bulge of the chords
+    of its trace: the chords miss the line; the point of the surface farthest across it
+    between them gives its two crossings, and the piece of the contour in the box and the
+    lens of its image across the side are meshed (the nodes of the pieces fell out of the
+    box, and the mesh to the level sets); the edges graded at the crossings by their angle,
+    so that the curved elements of the thin wedges keep their bulge (straightened, they
+    lost ten times as much of the ellipse): within 2e-5 of it."""
+    depth = 1e-5
+    micro = _oblique(10.0, radius=0.2, y=0.2 - depth)
+    for body in section_bodies(micro, margin=0.15):
+        for loop, *_ in _traced(body):
+            crossings = _line_crossings(body, loop, np.zeros(2), np.ones(2), 1e-9)
+            assert not [c for c in crossings if c[2] == 1]  # (the lines y = 0 and 1)
+    mesh = contour_mesh(micro, size=0.05, order=2)
+    assert mesh is not None and mesh.metadata["mesher"] == "exact contours (mmg2d)"
+    assert mesh.matching_sides() and np.all((mesh.nodes >= 0.0) & (mesh.nodes <= 1.0))
+    exact = np.pi * 0.04 / np.cos(np.radians(10.0))
+    assert mesh.phase_fractions()[1] == pytest.approx(exact, rel=2e-5)
+    assert _phase_at(mesh, [0.5, 1.0 - 0.5 * depth]) == 1  # (the lens of the image)
+    assert _phase_at(mesh, [0.5, 1.0 - 2.0 * depth]) == 0
+    assert _phase_at(mesh, [0.5, 0.5 * depth]) == 1
+    # a dip that the chords cross, one vertex in it: each crossing the root between the ends
+    # of its own edge, where the root nearest to the crossing of its chord was the other's
+    micro = _oblique(20.0, radius=0.2, y=0.2 - 2.0 * depth)
+    body = section_bodies(micro, margin=0.15)[0]
+    ((loop, *_),) = _traced(body)
+    found = _line_crossings(body, loop, np.zeros(2), np.ones(2), 1e-9)
+    centre = (0.2 - 2.0 * depth) / 0.2  # (of the ellipse, over its semi-axis across y = 0)
+    half = 0.2 / np.cos(np.radians(20.0)) * np.sqrt(1.0 - centre**2)
+    assert sorted(c[4] for c in found if c[2] == 1) == pytest.approx([0.5 - half, 0.5 + half])
+    mesh = contour_mesh(micro, size=0.05, order=2)
+    exact = np.pi * 0.04 / np.cos(np.radians(20.0))
+    assert mesh.phase_fractions()[1] == pytest.approx(exact, rel=2e-5)
 
 
 @needs_mmg2d

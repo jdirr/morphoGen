@@ -267,6 +267,36 @@
   of the union less it, its caps moved out and its rims round; the cores of shells, shrunk,
   the caps moved in and the rims sharp. Boolean cylinders coated and hollowed within
   4.6·10⁻⁶ of counts.
+* The exact contours of hollow fibres whose lumens are a union of their own (`hardcore_fibers`
+  and `curved_fibers` with a `lumen`, the union of the fibres less that of their lumens):
+  the lumens a layer within the fibres, of the phase of the matrix (`section_layers`), where
+  the section fell to the level sets. The walls of dense hardcore fibres (a fourth of the
+  box, lumens of six tenths of the radii) within 6.1·10⁻⁶ of counts on grids of 8000²
+  points, twelve realizations of twelve.
+* The exact contours of curved fibres, worm-like chains of short segments that bend at each
+  joint: the angle of a corner is that of the normals of the contours in the plane,
+  normalized (the normals of the surfaces that tilt out of it made it larger: 53° for two
+  contours tangent), and two contours tangent within half a degree are no corner
+  (`mesh.contours.TANGENT`) — the round end of a capsule and the side of the next where a
+  chain bends, which the check of the corners took for one that the trace missed, leaving
+  the chains to the level sets. Solid and hollow, apart or overlapping, within 2.6·10⁻⁶ of
+  counts on grids of 8000² points, the noise of the counts. `mesh.contours.TANGENT` and
+  `GRAZING` (below) are in the public interface (`tests/public_api.txt`).
+* Fixed: a contour that crosses a side at a grazing angle, its dip across the line shallower
+  than the bulge of the chords of its trace (up to a 256th of its radius), crossed it unseen
+  between two vertices: the nodes of its piece fell out of the box and the section to the
+  level sets (one realization in twelve of dense hardcore fibres). The point of the surface
+  farthest across the line between them is now among the vertices of the contour, the piece
+  in the box and the lens of its image across the side meshed. The two crossings of a dip
+  that the chords cross came out at the same point (the root nearest to the crossing of a
+  chord with a vertex in the dip, that of its other side), and the piece of contour cut
+  across the dip: each is now the root between the ends of its own edge. A contour that runs
+  within 15° of a side it crosses is graded by its gap to the side
+  (`mesh.contours.GRAZING`), as by the gaps to the sides it does not cross: the thin wedges
+  and lenses of a grazing crossing were spanned by flat triangles, which their curved edges
+  folded and which were then straightened. An oblique fibre whose ellipse dips 10⁻⁵ across a
+  side within 5.5·10⁻⁶ of its area, relatively, at the size 0.05; dense hardcore fibres
+  within 3.2·10⁻⁶ of counts on grids of 8000² points (1.4·10⁻⁵ before).
 * Fixed: the contour mesher failed ("a crossing off the nodes of its side") where a contour
   leaves the box near a corner of it: its crossings of the lines of the two sides were in
   the order of the chord, which near a corner may be the other; they are now in that of
