@@ -107,7 +107,11 @@ class MeshSpec:
     :func:`morphogen.mesh.conforming.conforming_mesh`). ``order``: None in a
     configuration that does not give it, then 2 (10-node tetrahedra) when the mesh is
     analysed by finite elements and 1 (4-node) when it is only written
-    (:func:`load_config`)."""
+    (:func:`load_config`). ``plane``: triangular meshes of the plane instead
+    (:func:`morphogen.mesh.triangles.plane_mesh`: the exact columnar grains of a
+    tessellation whose germs lie in one plane, the section of any other structure at the
+    height ``z``, by default the middle of the box); None (``auto``): for those
+    tessellations."""
 
     size: float
     min_size: float | None = None
@@ -122,6 +126,29 @@ class MeshSpec:
     min_feature: float | None = None
     cells: str = "whole"
     method: str = "auto"
+    plane: bool | None = None
+    z: float | None = None
+
+    def on_plane(self, micro) -> bool:
+        """Whether the mesh of a realization is a mesh of the plane: asked (``plane``), or
+        by default the columnar grains of a tessellation whose germs lie in one plane."""
+        if self.plane is not None:
+            return bool(self.plane)
+        from morphogen.mesh.triangles import planar_tessellation
+
+        return planar_tessellation(micro)
+
+    def plane_kwargs(self, porous=False) -> dict:
+        """Arguments of :func:`morphogen.mesh.triangles.plane_mesh` (``phases`` as for
+        :meth:`kwargs`)."""
+        full = self.kwargs(porous)
+        out = {k: full[k] for k in ("size", "min_size", "hausdorff", "gradation", "background",
+                                    "order", "phases")}  # fmt: skip
+        if self.z is not None:
+            out["z"] = self.z
+        if self.min_feature is not None:
+            out["min_feature"] = self.min_feature
+        return out
 
     def kwargs(self, porous=False) -> dict:
         """Arguments of ``conforming_mesh``; ``phases='auto'`` meshes only the solid phase
@@ -387,6 +414,9 @@ class HomogenizationSpec:
     #: the criterion of cleavage of Beremin along a loading path: its ``path`` and its
     #: ``criterion`` (a mapping for morphogen.homogenization.beremin.Beremin)
     beremin: dict | None = None
+    #: the elastic problems of the meshes of the plane: 'generalized' (generalized plane
+    #: strain, the default) or 'strain' (plane strain); morphogen.homogenization.plane
+    plane: str | None = None
 
     @property
     def porous(self) -> bool:
@@ -649,6 +679,8 @@ def _mesh(data) -> MeshSpec:
         "min_feature",
         "cells",
         "method",
+        "plane",
+        "z",
     }
     _check_keys("mesh", data, allowed, {"size"})
     sharp_edges = data.get("sharp_edges")
@@ -700,6 +732,23 @@ def _mesh(data) -> MeshSpec:
     gradation = _positive_float("mesh.gradation", data.get("gradation", 2.0))
     if gradation < 1.0:
         raise ConfigError("mesh.gradation: a number >= 1 (size ratio of neighbouring elements)")
+    plane = data.get("plane", "auto")
+    if plane == "auto":
+        plane = None
+    elif not isinstance(plane, bool):
+        raise ConfigError(
+            "mesh.plane: true (triangles of the plane: the columnar grains of a tessellation "
+            "of coplanar germs, the section of any structure at mesh.z), false (tetrahedra) "
+            "or auto (the triangles of those tessellations)"
+        )
+    z = data.get("z")
+    if z is not None:
+        if plane is False:
+            raise ConfigError("mesh.z: the height of the sections of the plane (mesh.plane)")
+        try:
+            z = float(z)
+        except (TypeError, ValueError):
+            raise ConfigError("mesh.z: the height of the plane of the sections") from None
     return MeshSpec(
         size=_positive_float("mesh.size", data["size"]),
         min_size=_positive_float("mesh.min_size", data.get("min_size"), optional=True),
@@ -714,6 +763,8 @@ def _mesh(data) -> MeshSpec:
         min_feature=min_feature,
         cells=cells,
         method=method,
+        plane=plane,
+        z=z,
     )
 
 
@@ -912,6 +963,7 @@ def _homogenization(data, base: Path | None = None) -> HomogenizationSpec:
         "integration",
         "fatigue",
         "beremin",
+        "plane",
     }
     _check_keys("homogenization", data, allowed, {"materials"})
     method = data.get("method", "auto")
@@ -1124,7 +1176,59 @@ def _homogenization(data, base: Path | None = None) -> HomogenizationSpec:
         else None,
         fatigue=_fatigue(data.get("fatigue"), paths, materials),
         beremin=_beremin(data.get("beremin"), paths),
+        plane=_plane_hypothesis(data.get("plane")),
         **spectra,
+    )
+
+
+def _meshes_of_the_plane(mesh: MeshSpec, model) -> bool:
+    """Whether the meshes of a run are those of the plane: asked, or by default for the
+    models whose realizations are columnar grains (the seeds of the plane)."""
+    if mesh.plane is not None:
+        return bool(mesh.plane)
+    from morphogen.models.seeded import SeededLaguerre
+
+    return isinstance(model, SeededLaguerre) and model.dimension == 2
+
+
+def _check_plane(mesh: MeshSpec, homog, outputs, viz) -> None:
+    """What the meshes of the plane do not do (``mesh.plane: true``): the tetrahedra of the
+    files of Code_Aster, of OpenFOAM, of the periodic equations; the loading paths and
+    nonlinear behaviours; the videos of the mesh and of its fields."""
+    other = [f for f in outputs.conforming_mesh if f in ("mail", "med")]
+    reasons = []
+    if other:
+        reasons.append(f"outputs.conforming_mesh {other} (Code_Aster's tetrahedra)")
+    if outputs.code_aster is not None:
+        reasons.append("outputs.code_aster")
+    if outputs.openfoam is not None and outputs.openfoam.get("sample") == "mesh":
+        reasons.append("outputs.openfoam of the mesh")
+    if outputs.periodic_equations:
+        reasons.append("outputs.periodic_equations")
+    if homog is not None and (homog.paths or homog.nonlinear or homog.ntfa):
+        reasons.append("the loading paths and nonlinear behaviours")
+    if homog is not None and "mixed" in homog.boundary_conditions:
+        reasons.append("the mixed conditions")
+    if viz is not None and viz.videos and any(v.of != "image" and v.of != "labels"
+                                              for v in viz.videos):  # fmt: skip
+        reasons.append("the videos of the mesh and of its fields")
+    if reasons:
+        raise ConfigError(
+            "mesh.plane: the meshes of the plane do not take "
+            + "; ".join(reasons)
+            + " (mesh.plane: false for tetrahedra)"
+        )
+
+
+def _plane_hypothesis(value) -> str | None:
+    from morphogen.homogenization.plane import PLANES
+
+    if value is None or value in PLANES:
+        return value
+    raise ConfigError(
+        "homogenization.plane: 'generalized' (generalized plane strain: the anti-plane "
+        "fluctuation free, the default) or 'strain' (plane strain), for the meshes of the "
+        "plane"
     )
 
 
@@ -2277,6 +2381,21 @@ def load_config(source, *, base_dir=None) -> RunConfig:
             raise ConfigError("visualization: the realizations of batches and ensemble studies")
     if outputs.conforming_mesh and mesh is None:
         raise ConfigError("outputs.conforming_mesh: give the 'mesh' section (element size...)")
+    if (
+        homog is not None
+        and homog.plane is not None
+        and (homog.method != "fe" or mesh is None or mesh.plane is False)
+    ):
+        raise ConfigError(
+            "homogenization.plane: the elastic problems of the meshes of the plane (method: fe, "
+            "a 'mesh' section, mesh.plane true or auto)"
+        )
+    if mesh is not None and mesh.plane:
+        _check_plane(mesh, homog, outputs, viz)
+    if mesh is not None and viz is not None and _meshes_of_the_plane(mesh, model):
+        for view in viz.figures:  # the triangles drawn by matplotlib, not VTK
+            if view.group in ("mesh", "result", "path"):
+                view.vtk = False
     if (outputs.damask or outputs.neper) and not model.meshed_by_grains:
         raise ConfigError("outputs.damask, outputs.neper: Voronoi and Laguerre tessellations only")
     if outputs.damask and not getattr(model, "crystal_orientations", False):

@@ -323,6 +323,28 @@ def _second_order(mesh: TetMesh, micro, curved: bool | None) -> TetMesh:
     return mesh.quadratic()
 
 
+def _columnar_mesh(micro, *, size, min_size, gradation, phases, order, periodic, min_feature,
+                   executable, workdir, timeout) -> TetMesh:  # fmt: skip
+    """The columnar grains of a tessellation whose germs lie in one plane: the mesh of its
+    exact polygons in the plane (:func:`morphogen.mesh.triangles.tessellation_mesh`)
+    extruded through the box in layers of about the size of the elements, each prism cut
+    into three tetrahedra; its opposite faces match, those along ``z`` too."""
+    from morphogen.mesh.triangles import tessellation_mesh
+
+    axes = _periodic_axes(micro.domain.periodic if periodic is None else periodic)
+    if axes[0] != axes[1]:
+        raise ValueError("periodic: the columnar grains of the plane are periodic along x and "
+                         "y together, or not")  # fmt: skip
+    plane = tessellation_mesh(micro, size=size, min_size=min_size, gradation=gradation,
+                              phases=phases, periodic=bool(axes[0]), min_feature=min_feature,
+                              executable=executable, workdir=workdir, timeout=timeout)  # fmt: skip
+    layers = max(1, round(float(micro.domain.lengths[2]) / size))
+    mesh = plane.extruded(layers=layers)
+    mesh.metadata.update({"mesher": "columnar grains (exact polygons of the plane, mmg2d), "
+                                    "extruded", "size": size})  # fmt: skip
+    return mesh.quadratic() if order == 2 else mesh
+
+
 def conforming_mesh(
     micro,
     *,
@@ -352,7 +374,10 @@ def conforming_mesh(
     tessellations are meshed grain by grain from their cells
     (:func:`morphogen.mesh.polycrystal.polycrystal_mesh`): every grain boundary is
     conforming, and each element knows its grain (``mesh.cell``) and its crystal
-    orientation (``mesh.orientations``).
+    orientation (``mesh.orientations``). The columnar grains of a tessellation whose germs
+    lie in one plane (the seeds of the plane) are the exact polygons of its mesh of the
+    plane (:func:`morphogen.mesh.triangles.tessellation_mesh`) extruded through the box,
+    in layers of about ``size``.
 
     Parameters
     ----------
@@ -467,6 +492,13 @@ def conforming_mesh(
     size = float(size)
     if not size > 0:
         raise ValueError("size: must be positive")
+    from morphogen.mesh.triangles import planar_tessellation
+
+    if grains and planar_tessellation(micro):
+        return _columnar_mesh(micro, size=size, min_size=min_size, gradation=gradation,
+                              phases=phases, order=order, periodic=periodic,
+                              min_feature=min_feature, executable=executable, workdir=workdir,
+                              timeout=timeout)  # fmt: skip
     if method != "grid":
         from morphogen.mesh.exact import exact_mesh, exact_route
 

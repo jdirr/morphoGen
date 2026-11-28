@@ -260,31 +260,39 @@ class TriMesh:
                        dict(self.metadata), self.cell, self.orientations, self.z,
                        self.thickness)  # fmt: skip
 
-    def extruded(self, thickness: float | None = None, z0: float | None = None):
-        """A layer of tetrahedra of thickness ``thickness`` (default :attr:`thickness`) from
-        ``z0`` (default :attr:`z` minus half of it): each prism over a triangle cut into
-        three tetrahedra along the diagonals that start at the least node of each of its
-        sides (the cuts of neighbouring prisms then match), a
-        :class:`~morphogen.mesh.tetra.TetMesh` of the box of that thickness, periodic as
-        this mesh. With uniform fields across the layer (plane strain, periodic along z),
-        its linear finite elements are those of this mesh."""
+    def extruded(self, thickness: float | None = None, z0: float | None = None,
+                 layers: int = 1):  # fmt: skip
+        """Layers of tetrahedra of the total thickness ``thickness`` (default
+        :attr:`thickness`) from ``z0`` (default :attr:`z` minus half of it): each prism over a
+        triangle cut into three tetrahedra along the diagonals that start at the least node of
+        each of its sides (the cuts of neighbouring prisms then match), a
+        :class:`~morphogen.mesh.tetra.TetMesh` of the box of that thickness, periodic as this
+        mesh, its faces ``z`` matching. With uniform fields across the layers (plane strain,
+        periodic along z), its linear finite elements are those of this mesh."""
         from morphogen.mesh.tetra import TetMesh
 
         lin = self.linear()
         t = float(self.thickness if thickness is None else thickness)
         base = float(self.z - 0.5 * t if z0 is None else z0)
+        layers = int(layers)
+        if layers < 1:
+            raise ValueError("layers: one at least")
         n = lin.n_nodes
-        nodes = np.vstack([np.column_stack([lin.nodes, np.full(n, base)]),
-                           np.column_stack([lin.nodes, np.full(n, base + t)])])  # fmt: skip
+        heights = base + t * np.arange(layers + 1) / layers
+        heights[-1] = base + t
+        nodes = np.vstack([np.column_stack([lin.nodes, np.full(n, h)]) for h in heights])
         # the prism (a, b, c) below, (a', b', c') above (a < b < c): cut from the least node
         a, b, c = np.sort(lin.elements, axis=1).T
         cuts = [(a, b, c, c + n), (a, b, c + n, b + n), (a, b + n, c + n, a + n)]
-        tets = np.stack([np.column_stack(t) for t in cuts], axis=1).reshape(-1, 4)
+        one = np.stack([np.column_stack(t) for t in cuts], axis=1).reshape(-1, 4)
+        tets = np.concatenate([one + k * n for k in range(layers)])
         lower = np.array([*lin.lower, base])
         upper = np.array([*lin.upper, base + t])
-        mesh = TetMesh(nodes, tets, np.repeat(lin.phase, 3), lower, upper,
-                       periodic=lin.periodic, metadata={"extruded_from": "triangles"},
-                       cell=None if lin.cell is None else np.repeat(lin.cell, 3),
+        order = np.tile(np.repeat(np.arange(lin.n_elements), 3), layers)  # their triangles
+        mesh = TetMesh(nodes, tets, lin.phase[order], lower, upper,
+                       periodic=lin.periodic, metadata={"extruded_from": "triangles",
+                                                        "layers": layers},
+                       cell=None if lin.cell is None else lin.cell[order],
                        orientations=lin.orientations)  # fmt: skip
         vol = mesh.volumes()
         if np.any(vol <= 0):
@@ -573,20 +581,41 @@ def _rectangle(lower, upper) -> np.ndarray:
                      [lower[0], upper[1]]], dtype=float)  # fmt: skip
 
 
-def planar_pieces(micro) -> tuple[np.ndarray, list[np.ndarray], np.ndarray]:
+def section_weights(micro, z: float) -> np.ndarray:
+    """The weights of the power diagram of the plane ``z`` that cuts a tessellation in space:
+    ``w_k - (z - z_k)²``, the distance to the plane of the nearest image of each germ along
+    ``z`` in a periodic box — the power distance of a point of the plane to a germ is its
+    distance in the plane less that weight, and the cells of the plane are the sections of
+    the cells in space (the germs of the cells that the plane misses have empty cells)."""
+    germs = np.asarray(micro.germs, dtype=float)
+    weights = (np.zeros(len(germs)) if micro.weights is None
+               else np.asarray(micro.weights, dtype=float))  # fmt: skip
+    d = float(z) - germs[:, 2]
+    if micro.domain.periodic:
+        length = float(micro.domain.lengths[2])
+        d = d - length * np.round(d / length)
+    return weights - d * d
+
+
+def planar_pieces(micro, z: float | None = None) -> tuple[np.ndarray, list[np.ndarray], np.ndarray]:
     """The power diagram in the plane of a tessellation of coplanar germs, cut by its box:
     the vertices of the pieces (merged), each piece as a loop of them (counterclockwise),
     and the cell of each piece. A cell is the polygon of the points of least power distance
     ``|x - x_k|² - w_k`` to its germ, clipped by the half planes of its neighbours (those
     within the reach of its farthest vertex, the periodic images of the germs among them);
     in a periodic box, it and its translates are cut by the box (the pieces of a cell on
-    opposite sides)."""
+    opposite sides). With ``z``, the section of any tessellation in space by the plane at
+    that height: the power diagram of the weights of :func:`section_weights`."""
     domain: Domain = micro.domain
     lower, upper = np.asarray(domain.lower[:2], dtype=float), np.asarray(domain.upper[:2])
     lengths = upper - lower
     germs = np.asarray(micro.germs, dtype=float)[:, :2]
     n = len(germs)
-    weights = np.zeros(n) if micro.weights is None else np.asarray(micro.weights, dtype=float)
+    if z is not None:
+        weights = section_weights(micro, z)
+    else:
+        weights = (np.zeros(n) if micro.weights is None
+                   else np.asarray(micro.weights, dtype=float))  # fmt: skip
     periodic = bool(domain.periodic)
     shifts = (np.array([(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)], dtype=float)
               if periodic else np.zeros((1, 2)))  # fmt: skip
@@ -666,6 +695,219 @@ def planar_pieces(micro) -> tuple[np.ndarray, list[np.ndarray], np.ndarray]:
             ids = ids[:-1]
         loops.append(ids)
     return vertices, loops, np.asarray(owner, dtype=np.int64)
+
+
+def _find(parent: np.ndarray, a: int) -> int:
+    while parent[a] != a:
+        parent[a] = parent[parent[a]]
+        a = parent[a]
+    return a
+
+
+def _merged(points: np.ndarray, tol: float) -> np.ndarray:
+    """The index of each point among the distinct ones (those closer than ``tol`` merged)."""
+    parent = np.arange(len(points))
+    for a, b in cKDTree(points).query_pairs(tol, output_type="ndarray"):
+        ra, rb = _find(parent, a), _find(parent, b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    roots = np.array([_find(parent, a) for a in range(len(points))], dtype=np.int64)
+    return np.unique(roots, return_inverse=True)[1]
+
+
+def _kept_edges(loops, owner) -> dict[tuple[int, int], list[int]]:
+    """The pieces of each edge of the loops (sorted pairs of vertices)."""
+    pieces_of: dict[tuple[int, int], list[int]] = {}
+    for p, loop in enumerate(loops):
+        for a, b in zip(loop, np.roll(loop, -1), strict=True):
+            pieces_of.setdefault((min(int(a), int(b)), max(int(a), int(b))), []).append(p)
+    return pieces_of
+
+
+def _regularized(xy, loops, owner, lower, upper, periodic: bool, delta: float, tol: float):
+    """The polygons of the pieces without their features smaller than ``delta``, as the
+    cells in space (:func:`morphogen.mesh.regularize.regularize`): the edges between grains
+    or on the sides shorter than it collapsed (their ends merged, on the torus of a periodic
+    box: the copies of a vertex on opposite sides alike; on the side, or the corner, of a
+    vertex of one), the vertices nearer than it to a side moved onto the side (the thin
+    caps of the cells that the box cuts), the pieces left without area removed, and the
+    vertices of the sides of a periodic box given their translates on the opposite sides
+    (inserted in the edges of those sides). Returns the vertices, the loops and their
+    grains, or None when the polygons fold (the exact ones are then kept)."""
+    lengths = upper - lower
+    n = len(xy)
+    side = np.zeros((n, 2), dtype=np.int8)  # -1 on the lower side of an axis, +1 the upper
+    for axis in (0, 1):
+        side[xy[:, axis] == lower[axis], axis] = -1
+        side[xy[:, axis] == upper[axis], axis] = 1
+    canon = np.arange(n)  # each vertex, or the copy on the lower sides that it translates
+    if periodic:
+        for axis in (0, 1):
+            hi, lo = np.flatnonzero(side[:, axis] == 1), np.flatnonzero(side[:, axis] == -1)
+            if len(hi) and len(lo):
+                other = 1 - axis
+                d, j = cKDTree(xy[lo, other][:, None]).query(xy[hi, other][:, None])
+                good = d <= 1e3 * tol
+                canon[hi[good]] = lo[j[good]]
+        for _ in range(3):
+            canon = canon[canon]
+    # the short edges between grains or on the sides: their ends merged
+    parent = np.arange(n)
+    for (a, b), ps in _kept_edges(loops, owner).items():
+        kept = len(ps) == 1 or owner[ps[0]] != owner[ps[1]]
+        if kept and np.linalg.norm(xy[a] - xy[b]) < delta:
+            ra, rb = _find(parent, int(canon[a])), _find(parent, int(canon[b]))
+            if ra != rb:
+                parent[max(ra, rb)] = min(ra, rb)
+    roots = np.array([_find(parent, int(canon[v])) for v in range(n)], dtype=np.int64)
+    position = {}
+    for r in np.unique(roots):
+        members = np.unique(canon[roots == r])
+        p = xy[members].copy()
+        if periodic:
+            p -= lengths * np.round((p - xy[r]) / lengths)
+        target = p.mean(axis=0)
+        for axis in (0, 1):
+            fixed = side[members, axis] != 0
+            if fixed.any():
+                target[axis] = p[fixed, axis][0]
+        position[int(r)] = target
+    new = np.empty_like(xy)
+    for v in range(n):
+        c = int(canon[v])
+        target = position[int(roots[v])]
+        if periodic:  # the image of the merged vertex nearest to the canonical copy
+            target = target + lengths * np.round((xy[c] - target) / lengths)
+        new[v] = target + (xy[v] - xy[c])
+    # the vertices near a side, onto it (the caps of the cells cut by the box)
+    for axis in (0, 1):
+        for value in (lower[axis], upper[axis]):
+            near = (np.abs(new[:, axis] - value) < delta) & (new[:, axis] != value)
+            new[near, axis] = value
+    for axis in (0, 1):  # exactly on the sides
+        for value in (lower[axis], upper[axis]):
+            new[np.abs(new[:, axis] - value) <= tol, axis] = value
+    index = _merged(new, tol)
+    xy2 = np.zeros((index.max() + 1, 2))
+    xy2[index] = new
+    out_loops, out_owner = [], []
+    box = float(np.prod(lengths))
+    for loop, g in zip(loops, owner, strict=True):
+        ids = _without_spikes(xy2, index[np.asarray(loop)], tol)
+        if len(ids) < 3:
+            continue
+        area = _shoelace(xy2[ids])
+        if area <= 1e-14 * box:
+            if area < -1e-12 * box:
+                return None  # a piece folded over
+            continue
+        out_loops.append(ids)
+        out_owner.append(g)
+    total = sum(_shoelace(xy2[loop]) for loop in out_loops)
+    if abs(total - box) > 1e-9 * box:
+        return None
+    if periodic:  # the vertices of the sides and their translates on the opposite sides
+        xy2, out_loops = _matched_sides(xy2, out_loops, lower, upper, tol)
+    used, inverse = np.unique(np.concatenate(out_loops), return_inverse=True)
+    starts = np.cumsum([0] + [len(loop) for loop in out_loops])
+    out_loops = [inverse[a:b] for a, b in itertools.pairwise(starts)]
+    return xy2[used], out_loops, np.asarray(out_owner, dtype=np.int64)
+
+
+def _without_spikes(xy: np.ndarray, ids: np.ndarray, tol: float) -> np.ndarray:
+    """A loop without its repeated vertices and the vertices where it turns back along a
+    line (the spikes that a vertex moved onto a side, or merged, leaves: a cap gone)."""
+    ids = list(int(k) for k in ids)
+    scale = float(np.max(np.abs(xy))) if len(xy) else 1.0
+    changed = True
+    while changed and len(ids) >= 3:
+        changed = False
+        for i in range(len(ids)):
+            a, b, c = ids[i - 1], ids[i], ids[(i + 1) % len(ids)]
+            if b == a or b == c:
+                del ids[i]
+                changed = True
+                break
+            u, w = xy[b] - xy[a], xy[c] - xy[b]
+            flat = abs(u[0] * w[1] - u[1] * w[0]) <= tol * scale * (
+                np.abs(u).sum() + np.abs(w).sum()
+            )
+            if flat and u @ w < 0:
+                del ids[i]
+                changed = True
+                break
+    return np.asarray(ids, dtype=np.int64)
+
+
+def _matched_sides(xy, loops, lower, upper, tol):
+    """The vertices of each side translated onto the opposite side where it has none there,
+    inserted in the edge of that side that holds them."""
+    xy = [tuple(p) for p in xy]
+    loops = [list(loop) for loop in loops]
+    for axis in (0, 1):
+        other = 1 - axis
+        for here, there in ((lower[axis], upper[axis]), (upper[axis], lower[axis])):
+            used = sorted({int(k) for loop in loops for k in loop})  # (not those of no loop)
+            mine = [k for k in used if xy[k][axis] == here]
+            theirs = np.array([xy[k][other] for k in used if xy[k][axis] == there])
+            for k in mine:
+                t = xy[k][other]
+                if len(theirs) and np.min(np.abs(theirs - t)) <= 1e3 * tol:
+                    continue
+                point = [0.0, 0.0]
+                point[axis], point[other] = there, t
+                new = len(xy)
+                for loop in loops:
+                    hit = False
+                    for i in range(len(loop)):
+                        a, b = loop[i], loop[(i + 1) % len(loop)]
+                        pa, pb = xy[a], xy[b]
+                        low, high = sorted((pa[other], pb[other]))
+                        if pa[axis] == there and pb[axis] == there and low < t < high:
+                            loop.insert(i + 1, new)
+                            hit = True
+                            break
+                    if hit:
+                        break
+                xy.append(tuple(point))
+                theirs = np.append(theirs, t)
+    return np.asarray(xy, dtype=float), [np.asarray(loop, dtype=np.int64) for loop in loops]
+
+
+def _ear_clipped(points: np.ndarray, ring: np.ndarray) -> np.ndarray:
+    """The triangles of a simple polygon (counterclockwise ring of indices of ``points``) by
+    ear clipping."""
+    ring = list(int(k) for k in ring)
+    out = []
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    guard = 0
+    while len(ring) > 3 and guard < 10 * len(ring) ** 2:
+        guard += 1
+        for i in range(len(ring)):
+            a, b, c = ring[i - 1], ring[i], ring[(i + 1) % len(ring)]
+            pa, pb, pc = points[a], points[b], points[c]
+            if cross(pa, pb, pc) <= 0:
+                continue  # a reflex or flat corner
+            inside = False
+            for k in ring:
+                if k in (a, b, c):
+                    continue
+                q = points[k]
+                if cross(pa, pb, q) >= 0 and cross(pb, pc, q) >= 0 and cross(pc, pa, q) >= 0:
+                    inside = True
+                    break
+            if not inside:
+                out.append((a, b, c))
+                del ring[i]
+                break
+        else:
+            break
+    if len(ring) == 3:
+        out.append(tuple(ring))
+    return np.asarray(out, dtype=np.int64).reshape(-1, 3)
 
 
 def _shoelace(polygon: np.ndarray) -> float:
@@ -778,6 +1020,7 @@ def _graded(starts: np.ndarray, ends: np.ndarray, field: _SizeField) -> list[np.
 def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
                       hausdorff: float | None = None, gradation: float = 2.0,
                       phases="all", order: int = 1, periodic: bool | None = None,
+                      z: float | None = None, min_feature: float | None = None,
                       executable: str | None = None, workdir=None,
                       timeout: float | None = None) -> TriMesh:  # fmt: skip
     """The conforming triangular mesh of the grains of a planar tessellation (see the
@@ -785,11 +1028,21 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
     element (``cell``: the grain). The polygons are exact: their edges between grains and
     on the sides are subdivided at the sizes of a field graded from their small features
     (:class:`_SizeField`: short edges, thin grains, close corners) up to ``size``, and
-    ``mmg2d`` remeshes the grains within them without moving them (``-nosurf``)."""
+    ``mmg2d`` remeshes the grains within them without moving them (``-nosurf``). With
+    ``z``, the exact section of a tessellation in space by the plane at that height (its
+    grains cut by the plane: :func:`planar_pieces`). ``min_feature`` (default ``size / 4``,
+    as the cells in space): the edges between grains shorter than it collapsed and the
+    vertices nearer than it to a side moved onto it (:func:`_regularized`); 0 keeps the
+    exact polygons, at the price of flat elements next to their small features (the thin
+    caps of the cells that the box cuts)."""
     from morphogen.mesh.conforming import mmg_executable
 
-    if not planar_tessellation(micro):
-        raise ValueError("tessellation mesh: the germs of a tessellation in one plane")
+    if z is None and not planar_tessellation(micro):
+        raise ValueError("tessellation mesh: the germs of a tessellation in one plane, or the "
+                         "height z of the section of a tessellation in space")  # fmt: skip
+    if z is not None and not exact_section(micro):
+        raise ValueError("tessellation mesh: the exact sections of the tessellations without "
+                         "a boundary phase")  # fmt: skip
     domain: Domain = micro.domain
     size = float(size)
     if not size > 0:
@@ -809,12 +1062,20 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
     lengths = upper - lower
     tol = 1e-9 * float(domain.lengths.max())
     # the polygons: the pieces of the cells of the power diagram in the box, their grains
-    vertices, loops, piece_cell = planar_pieces(micro)
+    vertices, loops, piece_cell = planar_pieces(micro, z)
     owner = grains[piece_cell]
     xy = vertices.copy()
     for axis in (0, 1):  # the vertices of the sides exactly on them
         for value in (lower[axis], upper[axis]):
             xy[np.abs(xy[:, axis] - value) <= tol, axis] = value
+    feature = size / 4.0 if min_feature is None else float(min_feature)
+    if feature > 0:
+        regular = _regularized(xy, loops, owner, lower, upper, periodic, feature, tol)
+        if regular is None:
+            log.warning("tessellation mesh: the polygons fold when their features below %g "
+                        "are removed; the exact polygons instead", feature)  # fmt: skip
+        else:
+            xy, loops, owner = regular
     ids = np.arange(len(xy))  # each vertex, or the one of the lower sides it translates
     twins = [np.arange(len(xy)), np.arange(len(xy))]  # along x, along y
     if periodic:
@@ -892,9 +1153,18 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
             mids = between.get((min(a, b), max(a, b)), [])
             ring.append(int(a))
             ring += mids if a < b else mids[::-1]
-        c = len(xy) + len(centres)
-        centres.append(xy[loop].mean(axis=0))
         ring = np.asarray(ring)
+        centre = xy[loop].mean(axis=0)
+        fan = np.column_stack([ring, np.roll(ring, -1)])
+        folds = _signed_areas(np.vstack([xy, centre]), np.column_stack(
+            [fan, np.full(len(ring), len(xy))])) <= 0  # fmt: skip
+        if folds.any():  # a piece that its regularization left not star-shaped
+            ears = _ear_clipped(xy, ring)
+            tris.append(ears)
+            refs.append(np.full(len(ears), g + 1))
+            continue
+        c = len(xy) + len(centres)
+        centres.append(centre)
         tris.append(np.column_stack([ring, np.roll(ring, -1), np.full(len(ring), c)]))
         refs.append(np.full(len(ring), g + 1))
     xy = np.vstack([xy, np.asarray(centres).reshape(-1, 2)])
@@ -921,27 +1191,41 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
         args = [*_mmg_args(size, hmin, hausdorff, gradation), "-nr", "-nosurf"]
         out = _run(exe, folder / "grains.mesh", None, folder / "out.mesh", args, timeout)
     cell = out["Triangles_refs"] - 1
+    height = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
+    what = "tessellation (exact polygons, mmg2d)" if z is None else "section of a tessellation"
     mesh = TriMesh(out["Vertices"], out["Triangles"], grain_phase[cell], lower, upper,
-                   periodic, {"mesher": "tessellation (exact polygons, mmg2d)", "size": size,
-                              "n_grains": n_grains},
-                   cell=cell, orientations=micro.orientations,
-                   z=float(domain.lower[2] + 0.5 * domain.lengths[2]),
+                   periodic, {"mesher": what, "size": size, "n_grains": n_grains},
+                   cell=cell, orientations=micro.orientations, z=height,
                    thickness=float(domain.lengths[2]))  # fmt: skip
     mesh = _kept(mesh, phases)
     return mesh.quadratic() if order == 2 else mesh
 
 
+def exact_section(micro) -> bool:
+    """Whether the sections of a structure are exact polygons: a tessellation (its grains
+    gathered from its cells) without a boundary phase."""
+    from morphogen.models.tessellation import Tessellation
+
+    return (isinstance(micro, Tessellation) and bool(micro.n_cells)
+            and not micro.boundary_thickness > 0)  # fmt: skip
+
+
 def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     """The triangular mesh of a planar structure: the exact grains of a planar tessellation
-    (:func:`tessellation_mesh`), the section of any other structure in its plane
-    (:func:`section_mesh`)."""
-    if planar_tessellation(micro):
+    (:func:`tessellation_mesh`), the exact section of a tessellation in space in the plane
+    ``z`` (by default the middle of its box), the section of any other structure in that
+    plane (:func:`section_mesh`). ``min_feature``: that of the polygons of tessellations."""
+    if planar_tessellation(micro) or exact_section(micro):
         options.pop("background", None)
-        options.pop("z", None)
-        return tessellation_mesh(micro, size=size, **options)
+        z = options.pop("z", None)
+        if not planar_tessellation(micro):
+            domain = micro.domain
+            z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
+        return tessellation_mesh(micro, size=size, z=z, **options)
+    options.pop("min_feature", None)  # (the level sets have no features to remove)
     return section_mesh(micro, size=size, **options)
 
 
 __all__ = ["REF_PHASE", "SIDE_REFS", "TRI6_EDGES", "TriMesh", "background_triangulation",
-           "planar_pieces", "planar_tessellation", "plane_level_set", "plane_mesh",
-           "section_mesh", "tessellation_mesh"]  # fmt: skip
+           "exact_section", "planar_pieces", "planar_tessellation", "plane_level_set",
+           "plane_mesh", "section_mesh", "section_weights", "tessellation_mesh"]  # fmt: skip

@@ -13891,6 +13891,25 @@ the exact grains and the smallest angle 7.7°; in a box that is not periodic, 59
 17 391 triangles (6.5°); the 400 cells of a periodic Voronoi mosaic (edge 10, `size: 0.1`) in
 38 658 triangles in 0.6 s (5.3°).
 
+**The small features.** The exact polygons of the plane have small features: the short edges
+where the cells of the spheres of two seeds meet along a grain boundary, and the thin caps of
+the cells that the box cuts near its sides — wedges whose elements are flat whatever their
+grading (a cap 10⁻⁶ thick gives angles of 0°). As the cells in space (§10), the features
+smaller than `min_feature` (by default a quarter of the size; 0 keeps the exact polygons)
+are removed before meshing: the edges between grains or on the sides shorter than it
+collapse, their ends merged on the torus of a periodic box (the copies of a vertex on
+opposite sides alike, on the side or the corner of a vertex of one); the vertices nearer
+than it to a side move onto it; the loops lose the vertices where they then turn back along
+a side, the pieces left without area vanish, and the vertices of the sides of a periodic box
+get their translates on the opposite sides, inserted in the edges there — the sides match,
+and the areas sum to the box. The grains of the template `seeded_plane_stiffness` (90 grains
+of seeds elongated along $x$ in the unit square, `size: 0.025`, four realizations): 52 000 to
+59 000 triangles with the exact polygons, the smallest angles 0 to 9°; 8 300 to 10 300
+regularized, the smallest angles 6.4 to 10.4°, the areas of the grains within 0.4 to 0.6 %
+of the exact ones on average (2 to 4 % at most). A piece that the regularization leaves not
+star-shaped about its centroid is cut into triangles by ear clipping, and polygons that would
+fold are kept exact.
+
 **Sections.** Any other structure is meshed in its plane $z$ from the implicit functions of its
 phases (`section_mesh`), as in space (§11): sampled at the nodes of a triangulation of the
 rectangle (a grid of squares cut by diagonals that alternate with their parity, symmetric
@@ -13899,6 +13918,18 @@ after another by the level sets of `mmg2d` (its multi-material references, the p
 before left whole), then remeshed within the Hausdorff distance of the interfaces, the sides
 of a periodic structure kept as the cut left them — matching, the functions taking the same
 values on opposite sides.
+
+**Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
+$z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -
+z_k)^2)$: the section of a Laguerre (or Voronoi) tessellation in space by the plane is the
+power diagram of the plane of the germs projected on it with the weights
+$w_k - (z - z_k)^2$ (`section_weights`), the nearest image of each germ along $z$ in a
+periodic box — the farther ones, at the same point of the plane with smaller weights, have
+empty cells, as have the germs whose cells the plane misses. `plane_mesh` meshes the sections
+of the tessellations (and of the grains of seeds in space) by these exact polygons, those of
+other structures by their level sets: the section at $z = 0.37$ of a Laguerre tessellation of
+60 cells in a periodic unit cube has the areas of its 19 cells to round-off, which 200 000
+points of the plane sampled in the cells find within their standard errors.
 
 **Elasticity of the plane.** The fields of a structure invariant along $z$ under a uniform
 macroscopic loading do not vary along $z$: $u = E\,x + w(x, y)$, the strain
@@ -13951,14 +13982,30 @@ files (triangles of types 2 and 9, the edges of the sides as lines of types 1 an
 files (cell types 5 and 22) and Medit files of dimension 2, and read back with their grains,
 orientations, rectangle, periodicity, plane and thickness.
 
+**In space and in the runs.** The mesher in space takes the columnar grains too
+(`conforming_mesh`): their exact polygons extruded through the box in layers of about the
+size of the elements, the faces of a periodic box matching, the faces $z$ among them — the
+volume of each grain its area times the thickness to round-off —, for what only the
+tetrahedra do (loading paths, Code_Aster, OpenFOAM). A configuration meshes the realizations
+of seeds of the plane in their plane by default (`mesh.plane: auto`), the section of any
+structure at `mesh.z` with `plane: true`, writes the triangles (`<stem>_tri.<format>`, the
+plane elements of Abaqus with the crystals of the grains) and solves them by the finite
+elements of the plane (`homogenization.plane`); its figures draw the triangles in the
+colours of their phases and the fields of the solutions on them, deformed by their
+displacement. `morphogen homogenize` meshes a geometry in its plane with `--plane` (by
+default for the columnar grains), reads the meshes of the plane it wrote, and solves them.
+
 Checked (`tests/test_plane_meshes.py`): the triangles counterclockwise, their sides, six-node
 elements and layers of tetrahedra (three per triangle, the volume of the area times the
-thickness); the power diagram of coplanar germs against the exact cells, periodic or not;
+thickness); the columnar grains in space, the volumes of the grains, the faces matching; the power diagram of coplanar germs against the exact cells, periodic or not;
 the grains of seeds of the plane meshed with the areas of the exact grains, angles above 3°,
-matching sides; the section of spheres against their level set on a fine grid; the files read
+matching sides; their small features removed (half the elements at most, angles above 5°,
+the areas within 8 % and 1 % on average); the section of spheres against their level set on a fine grid; the files read
 back; the uniform fields, the laminates, the checkerboard and the layer in space; `homogenize`
 of a mesh of the plane (moduli, tensors, thermal expansion, named loadings, fields, porous
-meshes), what it does not solve refused.
+meshes), what it does not solve refused; a run of seeds of the plane (its files of
+triangles, the bulk modulus of the crystals), the keys of the configurations and what the
+meshes of the plane do not take, the command line, the figures.
 
 ## References
 

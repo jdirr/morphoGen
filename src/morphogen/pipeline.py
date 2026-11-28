@@ -86,6 +86,7 @@ from morphogen.io.tables import write_table
 from morphogen.mesh.conforming import conforming_mesh
 from morphogen.mesh.surface import surface_mesh
 from morphogen.mesh.tetra import TetMesh
+from morphogen.mesh.triangles import TriMesh, plane_mesh
 from morphogen.mesh.voxel import voxel_mesh
 from morphogen.models.base import Microstructure, Model
 from morphogen.models.implicit import implicit_functions
@@ -237,20 +238,24 @@ def _write_fields(result: Apparent, path_stem: Path) -> Path:
     """Local fields of a solution: ``.vtu`` on its mesh, ``.vti`` on its image."""
     support = result.solution.support
     arrays = _field_arrays(result)
-    if isinstance(support, TetMesh):
+    if isinstance(support, (TetMesh, TriMesh)):
         fields = result.solution.fields
         nodal = {}
         if "displacement" in fields:
-            nodal["displacement"] = fields["displacement"]
+            u = np.asarray(fields["displacement"], dtype=float)
+            if u.shape[1] == 2:  # plane strain: the vectors of ParaView have three components
+                u = np.column_stack([u, np.zeros(len(u))])
+            nodal["displacement"] = u
         if "temperature" in fields:
             nodal["temperature"] = fields["temperature"]
         cell = {k: np.asarray(v, dtype=np.float32) for k, v in arrays.items()}
-        return io.write_vtu_tet(path_stem.with_suffix(".vtu"), support, cell, nodal)
+        write = io.write_vtu_tri if isinstance(support, TriMesh) else io.write_vtu_tet
+        return write(path_stem.with_suffix(".vtu"), support, cell, nodal)
     images = [support.with_data(np.asarray(v, dtype=np.float32), name=k) for k, v in arrays.items()]
     return io.write_vti(path_stem.with_suffix(".vti"), images)
 
 
-def _mesh_fractions(mesh: TetMesh, materials) -> dict[int, float]:
+def _mesh_fractions(mesh: TetMesh | TriMesh, materials) -> dict[int, float]:
     """Volume fractions of the phases of a mesh; a phase left out of the mesh (the pores
     of porous media) takes the rest of the box."""
     fractions = mesh.phase_fractions()
@@ -281,6 +286,8 @@ def _homogenize(
     figures and videos (true, or ``"steps"`` for the loading paths); ``tables``: formats of
     the curves of the paths besides .csv."""
     extra = {} if grains is None else {"grains": grains[0], "orientations": grains[1]}
+    if isinstance(sample, TriMesh):  # the elastic problems of the plane
+        extra["plane"] = spec.plane
     # the fatigue of a cycle and the criterion of Beremin read the stresses of each step
     judged = spec.fatigue or spec.beremin
     fields = "steps" if keep == "steps" or judged else bool(spec.fields or keep)
@@ -352,7 +359,7 @@ def _homogenize(
             for name, entry in entries:  # the scalar results of the statistics of RVE studies
                 if name == prop and entry in named:
                     rows.append({"property": f"{prop}.{entry}", "bc": bc, "value": named[entry]})
-    if isinstance(sample, TetMesh):
+    if isinstance(sample, (TetMesh, TriMesh)):
         fractions = _mesh_fractions(sample, spec.materials)
     elif isinstance(sample, LevelSetSample):
         fractions = sample.phase_fractions()
@@ -365,10 +372,16 @@ def _homogenize(
     return values, rows, results
 
 
-def _conforming_mesh(micro: Microstructure, cfg: RunConfig) -> tuple[TetMesh, dict]:
+def _conforming_mesh(micro: Microstructure, cfg: RunConfig) -> tuple[TetMesh | TriMesh, dict]:
+    """The conforming mesh of a realization: tetrahedra, or triangles of the plane
+    (``mesh.plane``, by default for the columnar grains of tessellations of coplanar
+    germs), and its summary."""
     homog = cfg.homogenization
     porous = homog.void_phases if homog is not None else set()
-    mesh = conforming_mesh(micro, **cfg.mesh.kwargs(porous))
+    if cfg.mesh.on_plane(micro):
+        mesh = plane_mesh(micro, **cfg.mesh.plane_kwargs(porous))
+    else:
+        mesh = conforming_mesh(micro, **cfg.mesh.kwargs(porous))
     q = mesh.quality()
     info = {
         "mesh_nodes": mesh.n_nodes,
@@ -419,15 +432,32 @@ def _process(
         mesh, info = _conforming_mesh(micro, cfg)
         checkpoint()  # a stop after the mesh (morphogen.stopping)
         values.update(info)
+        plane = isinstance(mesh, TriMesh)
+        if plane and (out.code_aster is not None or foam or out.periodic_equations):
+            raise ValueError(
+                f"{stem}: a mesh of the plane (the columnar grains of coplanar germs); the "
+                "files of Code_Aster, of OpenFOAM and the periodic equations take tetrahedra "
+                "(mesh.plane: false)"
+            )
+        kind = "tri" if plane else "tet"
         for fmt in out.conforming_mesh:
             # Abaqus inputs with the materials of the phases (MFront laws for the nonlinear,
-            # and for all in finite strains)
+            # and for all in finite strains; the elastic ones of the plane elements)
             extra = {}
             if fmt == "inp" and homog is not None:
-                extra = {"materials": homog.materials, "kinematics": _kinematics(homog)}
-            io.save_mesh(mesh, outdir / f"{stem}_tet.{fmt}", **extra)
+                extra = {"materials": homog.materials}
+                if not plane:
+                    extra["kinematics"] = _kinematics(homog)
+            target = outdir / f"{stem}_{kind}.{fmt}"
+            try:
+                io.save_mesh(mesh, target, **extra)
+            except ValueError as error:
+                if not (plane and extra):
+                    raise
+                log.warning("%s: the plane elements without materials (%s)", target.name, error)
+                io.save_mesh(mesh, target)
         if out.periodic_pairs and mesh.periodic:
-            io.write_periodic_pairs(outdir / f"{stem}_tet_periodic.csv", mesh)
+            io.write_periodic_pairs(outdir / f"{stem}_{kind}_periodic.csv", mesh)
         if out.periodic_equations and mesh.periodic:
             io.write_periodic_equations(outdir / f"{stem}_tet_equations.inp", mesh)
         if out.code_aster is not None:  # the study of the apparent properties of the mesh

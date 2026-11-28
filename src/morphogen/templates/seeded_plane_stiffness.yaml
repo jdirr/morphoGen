@@ -1,0 +1,36 @@
+# The stiffness of the section of a rolled sheet by the finite elements of the plane: grains
+# grown from elliptical seeds elongated along x, columnar through the box, their exact
+# polygons meshed in their plane (triangles: mesh.plane auto), crystals of copper turned at
+# random; the 6 x 6 stiffness of the sheet in generalized plane strain (the anti-plane
+# fluctuation free) under periodic, kinematic and static conditions on the sides of the
+# section, and the figures of the mesh and of the von Mises stress of its shear.
+model:
+  type: seeded_laguerre
+  dimension: 2
+  diameter: {type: lognormal, mean: 0.12, std: 0.03}
+  aspect_ratio: {type: uniform, low: 2.0, high: 3.0}
+  orientation: aligned
+  crystal_orientations: true
+domain:
+  size: [1.0, 1.0, 0.05]
+  periodic: true
+seed: 1
+mesh:
+  size: 0.025                 # triangles of the plane, graded from the small features
+homogenization:
+  method: fe                  # the finite elements of the plane
+  plane: generalized          # or strain (plane strain)
+  materials:
+    1: {cubic: [168.4, 121.4, 75.4]}   # copper (GPa)
+  boundary_conditions: [periodic, kubc, subc]
+  properties: [stiffness, shear_modulus]
+  fields: true
+outputs:
+  directory: out/seeded_plane_stiffness
+  name: sheet
+  conforming_mesh: [vtu, inp]   # sheet_0000_tri.vtu, the CPE6 elements of Abaqus
+visualization:
+  figures:
+    - {of: mesh}
+    - {of: shear_modulus.periodic, color: von_mises}
+analysis: [exact_grains]   # the grains against their seeds, on their exact cells

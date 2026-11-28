@@ -585,12 +585,15 @@ def _parse_material(text: str):
     return phase.strip(), values
 
 
-def _homogenization_sample(args, materials):
+def _homogenization_sample(args, materials, plane: bool = False):
     """Mesh or image to homogenize: a geometry (.json) is meshed conformingly, a
     tetrahedral mesh (.vtu, .mesh) is used as is (finite elements), an image is solved
-    by FFT."""
+    by FFT. With ``plane`` (the homogenizations), a geometry is meshed in its plane when
+    ``--plane`` asks it or it is a tessellation of coplanar germs (columnar grains), and a
+    mesh of the plane (.vtu, .mesh of triangles) is read as such."""
     from morphogen.homogenization.materials import any_oriented
     from morphogen.mesh.conforming import conforming_mesh
+    from morphogen.mesh.triangles import planar_tessellation, plane_mesh
 
     path = Path(args.sample)
     ext = path.suffix.lower()
@@ -615,6 +618,15 @@ def _homogenization_sample(args, materials):
         if phases == "auto":
             phases = "solid" if any(m.void for m in materials.values()) else "all"
         periodic = True if args.periodic else None
+        if plane and (getattr(args, "plane", None) is not None or planar_tessellation(micro)):
+            extra = dict(light)
+            if getattr(args, "z", None) is not None:
+                extra["z"] = args.z
+            if args.min_feature is not None:
+                extra["min_feature"] = args.min_feature
+            mesh = plane_mesh(micro, size=size, hausdorff=hausdorff, order=args.order,
+                              phases=phases, periodic=periodic, **extra)  # fmt: skip
+            return mesh, {}
         extra = dict(light)
         if args.min_feature is not None:
             extra["min_feature"] = args.min_feature
@@ -631,7 +643,13 @@ def _homogenization_sample(args, materials):
         )
         return mesh, {}
     if ext in (".vtu", ".mesh"):
-        return io.read_tet_mesh(path, periodic=True if args.periodic else None), {}
+        periodic = True if args.periodic else None
+        if plane:
+            try:
+                return io.read_tet_mesh(path, periodic=periodic), {}
+            except ValueError:  # triangles of the plane
+                return io.read_tri_mesh(path, periodic=periodic), {}
+        return io.read_tet_mesh(path, periodic=periodic), {}
     image = io.load_image(path, name=args.array)
     if args.periodic:
         image.periodic = True
@@ -895,11 +913,16 @@ def cmd_homogenize(args) -> int:
     from morphogen.homogenization.coupled import NOTATION as COUPLED_NOTATION
     from morphogen.homogenization.postprocess import notation
     from morphogen.mesh.tetra import TetMesh
+    from morphogen.mesh.triangles import TriMesh
 
     materials = materials_from_config(_material_spec(args))
-    sample, grains = _homogenization_sample(args, materials)
-    if isinstance(sample, TetMesh) and args.save_mesh:
+    sample, grains = _homogenization_sample(args, materials, plane=True)
+    if isinstance(sample, (TetMesh, TriMesh)) and args.save_mesh:
         io.save_mesh(sample, args.save_mesh)
+    if isinstance(sample, TriMesh):
+        grains = {**grains, "plane": args.plane}
+    elif args.plane is not None:
+        raise ValueError("--plane: the elastic problems of a mesh of the plane")
     loadings = {}
     for k, text in enumerate(args.loading or []):
         name, sep, rest = text.partition(":")
@@ -941,6 +964,15 @@ def cmd_homogenize(args) -> int:
             f"{sample.n_nodes} nodes, finite elements"
         )
         size = {"elements": sample.n_elements, "nodes": sample.n_nodes, "order": sample.order}
+    elif isinstance(sample, TriMesh):
+        fractions = pipeline._mesh_fractions(sample, materials)
+        hypothesis = "plane strain" if args.plane == "strain" else "generalized plane strain"
+        described = (
+            f"{sample.n_elements} triangles ({sample.order * 3}-node) of the plane, "
+            f"{sample.n_nodes} nodes, finite elements of the plane ({hypothesis})"
+        )
+        size = {"elements": sample.n_elements, "nodes": sample.n_nodes, "order": sample.order,
+                "plane": args.plane or "generalized"}  # fmt: skip
     else:
         fractions = analysis.phase_fractions(sample)
         described = f"{sample.shape} voxels, FFT solver"
@@ -3088,6 +3120,19 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("auto", "all", "solid"),
         default="auto",
         help="mesh both phases, or phase 1 only (auto: solid when a phase is a void)",
+    )
+    p.add_argument(
+        "--plane",
+        choices=("generalized", "strain"),
+        help="the finite elements of the plane on triangles: generalized plane strain (the "
+        "anti-plane fluctuation free) or plane strain; a geometry (.json) is then meshed in "
+        "its plane z (by default for the columnar grains of coplanar germs, generalized)",
+    )
+    p.add_argument(
+        "--z",
+        type=float,
+        help="with --plane: the height of the section of a geometry (default: the middle "
+        "of its box)",
     )
     p.add_argument(
         "--integration",

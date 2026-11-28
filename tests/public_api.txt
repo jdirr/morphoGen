@@ -334,15 +334,17 @@ morphogen.config.DiffusionSpec.boundary(self)
 morphogen.config.FATIGUE_QUANTITIES
 morphogen.config.FIGURE_FORMATS
 morphogen.config.HOMOGENIZATION_METHODS
-morphogen.config.HomogenizationSpec(materials, method='auto', boundary_conditions=<factory>, properties=<factory>, solver='auto', tolerance=1e-08, max_iterations=None, fields=False, loadings=<factory>, paths=<factory>, nonlinear=<factory>, device='cpu', ntfa=<factory>, mean_temperature=300.0, frequencies=None, wavelengths=None, fracture=None, fluid_bulk_modulus=None, integration=None, fatigue=None, beremin=None)
+morphogen.config.HomogenizationSpec(materials, method='auto', boundary_conditions=<factory>, properties=<factory>, solver='auto', tolerance=1e-08, max_iterations=None, fields=False, loadings=<factory>, paths=<factory>, nonlinear=<factory>, device='cpu', ntfa=<factory>, mean_temperature=300.0, frequencies=None, wavelengths=None, fracture=None, fluid_bulk_modulus=None, integration=None, fatigue=None, beremin=None, plane=None)
 morphogen.config.HomogenizationSpec.options(self)
 morphogen.config.HomogenizationSpec.porous
 morphogen.config.HomogenizationSpec.series(self)
 morphogen.config.HomogenizationSpec.tensors(self)
 morphogen.config.HomogenizationSpec.void_phases
 morphogen.config.MESH_FORMATS
-morphogen.config.MeshSpec(size, min_size=None, hausdorff=None, gradation=2.0, background=None, order=None, curved=None, sharp_edges=None, phases='auto', grains=None, min_feature=None, cells='whole', method='auto')
+morphogen.config.MeshSpec(size, min_size=None, hausdorff=None, gradation=2.0, background=None, order=None, curved=None, sharp_edges=None, phases='auto', grains=None, min_feature=None, cells='whole', method='auto', plane=None, z=None)
 morphogen.config.MeshSpec.kwargs(self, porous=False)
+morphogen.config.MeshSpec.on_plane(self, micro)
+morphogen.config.MeshSpec.plane_kwargs(self, porous=False)
 morphogen.config.NONLINEAR_OPTIONS
 morphogen.config.OPENFOAM_OPTIONS
 morphogen.config.OutputSpec(directory=Path('morphogen_output'), name='sample', geometry=<factory>, image=<factory>, labels=<factory>, level_set=<factory>, mesh=<factory>, mesh_phases=None, conforming_mesh=<factory>, periodic_pairs=False, periodic_equations=False, surface=<factory>, damask=False, neper=False, database=None, amitex=None, code_aster=None, openfoam=None, tables=<factory>)
@@ -1794,6 +1796,7 @@ morphogen.homogenization.photonic.smoothed_inverse(field, coarsen=1)
 morphogen.homogenization.plane.GAUSS
 morphogen.homogenization.plane.PLANES
 morphogen.homogenization.plane.PLANE_CONDITIONS
+morphogen.homogenization.plane.PLANE_DIRECT_LIMIT
 morphogen.homogenization.plane.PlaneElasticProblem(mesh, materials, bc='periodic', *, plane='generalized', **options)
 morphogen.homogenization.plane.PlaneThermalProblem(mesh, materials, bc='periodic', *, solver='auto', tol=1e-08, maxiter=None, regularization=1e-12, physics=None)
 morphogen.homogenization.poroelastic.POROELASTIC_ENTRIES
@@ -3075,7 +3078,7 @@ morphogen.mesh.triangles.TriMesh.areas(self)
 morphogen.mesh.triangles.TriMesh.boundary_edges(self)
 morphogen.mesh.triangles.TriMesh.box_area(self)
 morphogen.mesh.triangles.TriMesh.edges(self)
-morphogen.mesh.triangles.TriMesh.extruded(self, thickness=None, z0=None)
+morphogen.mesh.triangles.TriMesh.extruded(self, thickness=None, z0=None, layers=1)
 morphogen.mesh.triangles.TriMesh.linear(self)
 morphogen.mesh.triangles.TriMesh.matching_sides(self)
 morphogen.mesh.triangles.TriMesh.min_angles(self)
@@ -3094,12 +3097,14 @@ morphogen.mesh.triangles.TriMesh.subset(self, phases)
 morphogen.mesh.triangles.TriMesh.summary(self)
 morphogen.mesh.triangles.TriMesh.tolerance
 morphogen.mesh.triangles.background_triangulation(shape, lower, upper)
-morphogen.mesh.triangles.planar_pieces(micro)
+morphogen.mesh.triangles.exact_section(micro)
+morphogen.mesh.triangles.planar_pieces(micro, z=None)
 morphogen.mesh.triangles.planar_tessellation(micro)
 morphogen.mesh.triangles.plane_level_set(micro, spacing, z, phase=None)
 morphogen.mesh.triangles.plane_mesh(micro, *, size, **options)
 morphogen.mesh.triangles.section_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, background=None, z=None, phases='all', order=1, periodic=None, executable=None, workdir=None, timeout=None)
-morphogen.mesh.triangles.tessellation_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, phases='all', order=1, periodic=None, executable=None, workdir=None, timeout=None)
+morphogen.mesh.triangles.section_weights(micro, z)
+morphogen.mesh.triangles.tessellation_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, phases='all', order=1, periodic=None, z=None, min_feature=None, executable=None, workdir=None, timeout=None)
 morphogen.mesh.voxel.FACE_NAMES
 morphogen.mesh.voxel.HEX_FACES
 morphogen.mesh.voxel.VoxelMesh(nodes, elements, phase, label, node_ijk, element_ijk, grid_shape, spacing, node_sets=<factory>, metadata=<factory>)
@@ -4656,7 +4661,7 @@ morphogen.viz.figures.inverse_pole_figure_figure(figure, *, points=None, cmap='v
 morphogen.viz.figures.ipf_key(ax, lattice='cubic', *, resolution=240)
 morphogen.viz.figures.ipf_map_figure(ebsd, direction=(0.0, 0.0, 1.0), *, grains=None, title=None)
 morphogen.viz.figures.kinetics_figure(micro, domain=None)
-morphogen.viz.figures.mesh_figure(mesh, *, axis=2, position=None, values=None, cmap='viridis', label='', title=None)
+morphogen.viz.figures.mesh_figure(mesh, *, axis=2, position=None, values=None, cmap='viridis', label='', title=None, grains=False)
 morphogen.viz.figures.mesh_section(mesh, axis=2, position=None)
 morphogen.viz.figures.path_figure(result, *, title=None)
 morphogen.viz.figures.pole_figures_figure(figures, *, axes=('x', 'y'), cmap='viridis', vmax=None, title=None)

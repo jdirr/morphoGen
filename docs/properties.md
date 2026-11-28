@@ -28,6 +28,11 @@ its property; this page shows the main uses.
 * Extended finite elements (`method: xfem`, `LevelSetSample`): a regular grid cut by
   the interfaces of the morphology, without a mesher and without the stairs of the
   voxels; elasticity, transport and loading paths.
+* Finite elements of the plane (3- and 6-node triangles, `TriMesh`): the structures
+  invariant across their plane — the columnar grains of seeds of the plane, the section
+  of long fibres — in generalized plane strain (the stiffness of the structure in space)
+  or plane strain, and in conduction; KUBC, periodic and static (SUBC) conditions on the
+  sides of the rectangle.
 
 Which one to choose is the subject of a [recipe](howto.md) and of the
 [guide to the physics](physics.md#8-dependence-on-the-mesh-and-how-to-control-it).
@@ -119,6 +124,41 @@ of the box) are removed before meshing; `min_feature=0` meshes the exact cells. 
 MMG, or for voxel workflows, the same polycrystals are homogenized by FFT on their
 images with the grain labels (`homogenize(image, materials, grains=labels,
 orientations=grains.orientations)`).
+
+## Structures of the plane
+
+A structure that does not vary along z — the columnar grains of a tessellation whose germs
+lie in one plane, the section of long fibres along z, a layer whose fields do not vary
+through its thickness — is meshed in its plane and solved there ([theory](theory.md) §119):
+
+```python
+from morphogen.homogenization import Material, homogenize
+from morphogen.models.seeded import SeededLaguerre
+
+# grains grown from elliptical seeds, columnar through the box: their exact polygons
+sheet = SeededLaguerre(dimension=2, aspect_ratio=2.0, crystal_orientations=True).generate(
+    mg.Domain(size=(3.0, 3.0, 0.1), periodic=True), seed=3
+)
+mesh = mg.mesh.plane_mesh(sheet, size=0.1, order=2)  # triangles, matching sides
+results = homogenize(
+    mesh,
+    {1: Material.cubic(168.4, 121.4, 75.4)},
+    bcs=["kubc", "periodic", "subc"],
+    properties=["stiffness"],
+    plane="generalized",  # the anti-plane fluctuation free; "strain": plane strain
+)
+print(results["stiffness.periodic"]["tensor"])  # the 6 x 6 stiffness of the sheet in space
+
+mg.io.save_mesh(mesh, "sheet.inp")  # CPE6 elements, the sets of the grains and sides
+section = mg.mesh.plane_mesh(micro, size=0.5, z=10.0)  # the section of the spheres above
+```
+
+The mesh in space of the same grains (`conforming_mesh`) is their exact polygons extruded
+through the box (`TriMesh.extruded`, three tetrahedra per prism): its periodic problems are
+those of the plane. In a configuration, `mesh: {plane: auto}` (the default) meshes the
+columnar grains of seeds of the plane in their plane, `plane: true` the section of any
+structure at `mesh.z`, and `homogenization.plane` chooses the hypothesis;
+`morphogen homogenize` takes `--plane` and `--z`.
 
 ## Macroscopic loadings and thermal expansion
 

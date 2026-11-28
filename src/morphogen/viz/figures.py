@@ -10,7 +10,7 @@ import numpy as np
 
 from morphogen.image import VoxelImage
 from morphogen.models.base import Microstructure
-from morphogen.viz.png import PALETTE, slice_of
+from morphogen.viz.png import PALETTE, label_colors, slice_of
 
 
 def _figure(width: float = 6.0, height: float = 4.0):
@@ -106,24 +106,33 @@ def field_figure(data, *, cmap="viridis", clim=None, title: str | None = None, l
 
 
 def mesh_figure(mesh, *, axis: int = 2, position: float | None = None, values=None,
-                cmap="viridis", label: str = "", title: str | None = None):  # fmt: skip
+                cmap="viridis", label: str = "", title: str | None = None,
+                grains: bool = False):  # fmt: skip
     """The cut of a tetrahedral mesh by a plane normal to ``axis`` (through the middle of
     its box, or at the coordinate ``position``): the polygons of the elements that the
     plane crosses, in the colours of their phases or coloured by ``values`` (one per
     element, with a colour bar titled ``label``), their edges drawn — the elements of a
-    conforming mesh following the interfaces. See :func:`mesh_section` for the polygons."""
+    conforming mesh following the interfaces. See :func:`mesh_section` for the polygons. A
+    mesh of the plane (:class:`~morphogen.mesh.triangles.TriMesh`) is drawn whole, its
+    triangles. ``grains``: the elements of polycrystals in a colour per grain."""
     from matplotlib.collections import PolyCollection
 
     polygons, elements = mesh_section(mesh, axis, position)
-    lower, upper = np.asarray(mesh.nodes).min(axis=0), np.asarray(mesh.nodes).max(axis=0)
+    nodes = np.asarray(mesh.nodes)
+    if nodes.shape[1] == 2:  # a mesh of the plane
+        nodes = np.column_stack([nodes, np.zeros(len(nodes))])
+    lower, upper = nodes.min(axis=0), nodes.max(axis=0)
     u, v = [a for a in range(3) if a != axis]
     width, height = upper[u] - lower[u], upper[v] - lower[v]
     fig = _figure(4.6 * width / max(width, height) + (0.9 if values is not None else 0.0),
                   4.6 * height / max(width, height) + 0.4)  # fmt: skip
     ax = fig.add_subplot(1, 1, 1)
     if values is None:
-        phase = np.asarray(mesh.phase)[elements]
-        colours = PALETTE[np.minimum(phase, len(PALETTE) - 1)] / 255.0
+        if grains and getattr(mesh, "cell", None) is not None:
+            colours = label_colors(np.asarray(mesh.cell)[elements]) / 255.0
+        else:
+            phase = np.asarray(mesh.phase)[elements]
+            colours = PALETTE[np.minimum(phase, len(PALETTE) - 1)] / 255.0
         cut = PolyCollection(polygons, facecolors=colours, edgecolors="0.15", linewidths=0.25)
     else:
         cut = PolyCollection(polygons, array=np.asarray(values, dtype=float)[elements], cmap=cmap,
@@ -150,6 +159,13 @@ def mesh_section(mesh, axis: int = 2, position: float | None = None):
     plane is the cut of the element below it."""
     if axis not in (0, 1, 2):
         raise ValueError(f"mesh_section: axis 0, 1 or 2, got {axis!r}")
+    from morphogen.mesh.triangles import TriMesh
+
+    if isinstance(mesh, TriMesh):  # a mesh of the plane: its triangles
+        if axis != 2:
+            raise ValueError("mesh_section: a mesh of the plane is its section normal to z")
+        corners = np.asarray(mesh.nodes, dtype=float)[np.asarray(mesh.elements)[:, :3]]
+        return list(corners), np.arange(mesh.n_elements, dtype=np.int64)
     nodes = np.asarray(mesh.nodes, dtype=float)
     corners = np.asarray(mesh.elements)[:, :4]
     along = nodes[:, axis]

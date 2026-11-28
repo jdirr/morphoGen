@@ -36,11 +36,18 @@ mesh:                  # conforming tetrahedral meshes (MMG), FE solver
   gradation: 2.0       # size ratio of neighbouring elements
   background: null     # level-set sampling (default size / 2): must resolve thin features
   grains: null         # tessellations: one subdomain per grain (default), false: phases
-  min_feature: null    # grains: features below this length removed (default size / 4)
+  min_feature: null    # grains: features below this length removed (default size / 4; the
+                       # cells in space, the polygons of the plane)
   cells: whole         # periodic tessellations: whole grains (default) or box (cut cells)
   method: auto         # exact: no background grid, the exact cells, convex pieces or
                        # point-wise level set (theory §94; background unused); grid: the
                        # level set on a grid; auto: exact when possible, grid otherwise
+  plane: auto          # true: triangles of the plane (theory §119; the exact columnar
+                       # grains of a tessellation of coplanar germs, the section of any
+                       # other structure at z) and the finite elements of the plane;
+                       # false: tetrahedra (those grains extruded through the box);
+                       # auto: triangles for those tessellations, tetrahedra otherwise
+  z: null              # plane: the height of the sections (default: the middle of the box)
 outputs:
   directory: out/run   # relative to the configuration file
   name: sample         # file stem
@@ -49,7 +56,9 @@ outputs:
   labels: [vti]        # tessellations: cell labels
   level_set: [vti]
   mesh: {formats: [inp, msh, vtu], phases: [1]}   # voxel hexahedra
-  conforming_mesh: [vtu, inp, msh, mesh, xdmf, mail]   # tetrahedra (needs the mesh section)
+  conforming_mesh: [vtu, inp, msh, mesh, xdmf, mail]   # tetrahedra (needs the mesh section);
+                       # the triangles of the plane: vtu, inp (plane strain elements), msh,
+                       # mesh and the formats of meshio
   periodic_pairs: true
   periodic_equations: true   # *EQUATION files for the meshes written (periodic domains)
   damask: true         # tessellations with orientations: DAMASK grid and material file
@@ -119,6 +128,9 @@ homogenization:        # apparent properties of every realization
                        # or {law: kachanov, A, r, k, alpha, beta} (and critical,
                        # viscosity: the damage of the effective stress)
   boundary_conditions: [kubc, mixed, periodic, subc]   # aliases: utg, mbc/mtbc, pbc, uhf
+  plane: generalized   # the meshes of the plane: generalized (generalized plane strain:
+                       # the anti-plane fluctuation free, the stiffness of the structure in
+                       # space; the default) | strain (plane strain); kubc, periodic, subc
   properties: [bulk_modulus, shear_modulus, conductivity, stiffness, conductivity_tensor,
                thermal_expansion]   # materials with expansion: alpha | [a_a, a_c] | 3 x 3
                # the other transports: electrical_conductivity, permittivity, permeability,

@@ -78,6 +78,10 @@ GAUSS = {
 }
 #: Engineering shears of the Voigt components (11, 22, 33, 23, 31, 12)
 _ENGINEERING = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0])
+#: The unknowns up to which ``solver: auto`` factorizes the problems of the plane (the fill of
+#: a sparse factorization of a problem of the plane grows as n log n: a million unknowns in
+#: tens of seconds), beyond which it takes the algebraic multigrid
+PLANE_DIRECT_LIMIT = 1_500_000
 
 
 def _gradients(mesh: TriMesh) -> tuple[np.ndarray, np.ndarray]:
@@ -323,7 +327,9 @@ class _PlaneProblem(MacroscopicLoadings):
                 diag = reduced.diagonal()
                 reduced = (reduced + sp.diags(np.full(diag.size, self.regularization
                                                       * float(np.mean(diag))))).tocsr()  # fmt: skip
-            method = choose_method(self.solver_method, reduced.shape[0])
+            method = ("direct" if self.solver_method == "auto"
+                      and reduced.shape[0] <= PLANE_DIRECT_LIMIT
+                      else choose_method(self.solver_method, reduced.shape[0]))  # fmt: skip
             near = None
             if method != "direct":
                 near = self._near_null(t)
@@ -571,4 +577,5 @@ class PlaneThermalProblem(_PlaneProblem):
                         info=info, fields=fld, support=self.mesh if fields else None)  # fmt: skip
 
 
-__all__ = ["GAUSS", "PLANES", "PLANE_CONDITIONS", "PlaneElasticProblem", "PlaneThermalProblem"]
+__all__ = ["GAUSS", "PLANES", "PLANE_CONDITIONS", "PLANE_DIRECT_LIMIT", "PlaneElasticProblem",
+           "PlaneThermalProblem"]  # fmt: skip

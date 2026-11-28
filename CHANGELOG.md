@@ -219,6 +219,31 @@
   `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
   plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
   `write_medit_tri` (`tests/public_api.txt`).
+* The meshes of the plane in the runs (§119): `mesh.plane` (`auto`, the default: the
+  columnar grains of seeds of the plane meshed in their plane; `true`: the section of any
+  structure at `mesh.z`; `false`: tetrahedra), the files of the triangles
+  (`<stem>_tri.<format>`: .vtu, .inp of plane elements with the crystals of the grains,
+  .msh, .mesh, their periodic pairs), `homogenization.plane` (`generalized` or `strain`),
+  their figures (the triangles in the colours of their grains, the fields of the solutions
+  on the deformed triangles: `mesh_figure`, `mesh_section` of a `TriMesh`), and in
+  `morphogen homogenize` (`--plane`, `--z`; the meshes of the plane read back). The mesher
+  in space takes the columnar grains too (`conforming_mesh`: their exact polygons extruded
+  through the box, `TriMesh.extruded(layers=...)`), where it failed on their degenerate
+  cells. The exact sections of the tessellations in space by a plane z, the power diagrams
+  of the plane of the weights w_k - (z - z_k)^2 (`section_weights`, `planar_pieces(micro,
+  z)`, `tessellation_mesh(z=...)`, `exact_section`): `plane_mesh` meshes the sections of
+  tessellations exactly. The small features of the polygons removed by default, as the cells
+  in space (`tessellation_mesh(min_feature=...)`, a quarter of the size; 0 keeps the exact
+  polygons): the short edges between grains collapsed and the thin caps of the cells cut by
+  the box moved onto the sides — six times fewer triangles for the grains of seeds, none
+  flat, the areas within 0.5 % on average. The problems of the plane factorized up to
+  1.5 million unknowns (`PLANE_DIRECT_LIMIT`). The template `seeded_plane_stiffness` (the
+  stiffness of the section of a rolled sheet by the finite elements of the plane) and its
+  card in the gallery. Tested (`tests/test_plane_meshes.py`). Public interface: `MeshSpec.plane`,
+  `MeshSpec.z`, `MeshSpec.on_plane`, `MeshSpec.plane_kwargs`, `HomogenizationSpec.plane`,
+  `TriMesh.extruded(layers=...)`, `section_weights`, `exact_section`, `planar_pieces(...,
+  z)`, `tessellation_mesh(..., z, min_feature)`, `mesh_figure(..., grains)`,
+  `PLANE_DIRECT_LIMIT` (`tests/public_api.txt`).
 * The computations of morphoGen as models of VIMSEO (`morphogen.interop.vimseo`, §112; the
   extra `vimseo`, Python 3.10 to 3.12), for the demonstration of the credibility of the
   simulations: a configuration of `morphogen run` with its entries as inputs and its results

@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 import morphogen as mg
+from morphogen.distributions import Uniform
 from morphogen.homogenization import Material, homogenize
 from morphogen.homogenization.apparent import conductivity_tensor, stiffness_tensor
 from morphogen.homogenization.fe import FEElasticProblem, FEThermalProblem
@@ -114,7 +115,7 @@ def test_exact_grains_of_the_plane(periodic):
     degrees (the edges graded from the small features of the polygons), the opposite sides
     of a periodic structure matching."""
     seeds = _seeds(periodic)
-    mesh = tessellation_mesh(seeds, size=0.2)
+    mesh = tessellation_mesh(seeds, size=0.2, min_feature=0)
     exact = seeds.grain_shapes()["area"]
     per = np.bincount(mesh.cell, mesh.areas(), minlength=seeds.n_grains)
     np.testing.assert_allclose(per, exact, rtol=1e-9, atol=1e-12)
@@ -124,10 +125,34 @@ def test_exact_grains_of_the_plane(periodic):
     if periodic:
         assert mesh.matching_sides()
     assert mesh.orientations is not None and mesh.thickness == pytest.approx(0.1)
-    quad = plane_mesh(seeds, size=0.2, order=2)
+    quad = plane_mesh(seeds, size=0.2, order=2, min_feature=0)
     assert quad.order == 2 and quad.n_elements == mesh.n_elements
     middle = 0.5 * (quad.nodes[quad.elements[:, 0]] + quad.nodes[quad.elements[:, 1]])
     np.testing.assert_allclose(quad.nodes[quad.elements[:, 3]], middle, atol=1e-12)
+
+
+@needs_mmg2d
+@pytest.mark.parametrize("periodic", [True, False])
+def test_small_features_removed(periodic):
+    """By default, as the cells in space, the features of the polygons smaller than a
+    quarter of the elements are removed (short edges collapsed, the vertices near the
+    sides moved onto them): far fewer elements, none flat, the areas of the grains within
+    a few percent of the exact ones and their sum that of the box, the sides matching."""
+    seeds = SeededLaguerre(dimension=2, diameter=Uniform(0.08, 0.16), aspect_ratio=2.5,
+                           orientation="aligned").generate(
+        mg.Domain(size=(1.0, 1.0, 0.05), periodic=periodic), seed=4)  # fmt: skip
+    exact = tessellation_mesh(seeds, size=0.025, min_feature=0)
+    mesh = tessellation_mesh(seeds, size=0.025)
+    assert mesh.n_elements < 0.5 * exact.n_elements
+    assert mesh.min_angles().min() > 5.0
+    assert mesh.areas().sum() == pytest.approx(1.0, rel=1e-12)
+    areas = seeds.grain_shapes()["area"]
+    per = np.bincount(mesh.cell, mesh.areas(), minlength=seeds.n_grains)
+    used = areas > 1e-3
+    error = np.abs(per[used] - areas[used]) / areas[used]
+    assert error.max() < 0.08 and error.mean() < 0.01
+    if periodic:
+        assert mesh.matching_sides()
 
 
 @needs_mmg2d
@@ -322,3 +347,163 @@ def test_homogenize_the_plane():
     assert 0 < soft["bulk_modulus.periodic"].value < soft["bulk_modulus.kubc"].value < 100.0
     with pytest.raises(ValueError, match="porous"):
         PlaneElasticProblem(porous, voids, "subc")
+
+
+# -- the runs ------------------------------------------------------------------------------
+
+
+@needs_mmg2d
+def test_columnar_grains_in_space():
+    """The mesher in space takes the columnar grains of seeds of the plane: their exact
+    polygons extruded through the box in layers, the volume of each grain its area times
+    the thickness, the faces matching, ten-node elements on demand."""
+    seeds = _seeds(True)
+    mesh = mg.mesh.conforming_mesh(seeds, size=0.05, min_feature=0)
+    assert mesh.metadata["layers"] == 2 and mesh.periodic and mesh.matching_faces()
+    per = np.bincount(mesh.cell, np.abs(mesh.volumes()), minlength=seeds.n_grains)
+    np.testing.assert_allclose(per, 0.1 * seeds.grain_shapes()["area"], rtol=1e-9, atol=1e-13)
+    quad = mg.mesh.conforming_mesh(seeds, size=0.3, order=2)
+    assert quad.order == 2 and quad.volumes().min() > 0
+    with pytest.raises(ValueError, match="x and y together"):
+        mg.mesh.conforming_mesh(seeds, size=0.3, periodic=(True, False, True))
+
+
+def _plane_config(tmp_path, **changes) -> dict:
+    data = {
+        "model": {"type": "seeded_laguerre", "dimension": 2, "diameter": 0.6,
+                  "crystal_orientations": True},
+        "domain": {"size": [3.0, 3.0, 0.1], "periodic": True},
+        "seed": 3,
+        "mesh": {"size": 0.25},
+        "homogenization": {"method": "fe", "materials": {1: {"cubic": [168.0, 121.0, 75.0],
+                                                             "conductivity": 3.0}},
+                           "boundary_conditions": ["periodic", "kubc"],
+                           "properties": ["stiffness", "conductivity"]},
+        "outputs": {"directory": str(tmp_path / "out"), "name": "sheet",
+                    "conforming_mesh": ["vtu", "inp"], "periodic_pairs": True},
+    }  # fmt: skip
+    for key, value in changes.items():
+        section, _, name = key.partition("__")
+        if name:
+            data[section][name] = value
+        else:
+            data[section] = value
+    return data
+
+
+@needs_mmg2d
+def test_runs_of_the_plane(tmp_path):
+    """A configuration of seeds of the plane meshes its grains in their plane by default and
+    solves them by the finite elements of the plane: the files of the triangles, the plane
+    elements of Abaqus with their crystals, the stiffness of the grains (their bulk modulus
+    that of the crystals) under periodic and kinematic conditions; plane strain asked."""
+    from morphogen.config import load_config
+    from morphogen.pipeline import run
+
+    cfg = load_config(_plane_config(tmp_path), base_dir=tmp_path)
+    assert cfg.mesh.plane is None and cfg.mesh.order == 2
+    run(cfg)
+    out = tmp_path / "out"
+    names = {p.name for p in out.iterdir()}
+    assert {"sheet_0000_tri.vtu", "sheet_0000_tri.inp", "sheet_0000_tri_periodic.csv"} <= names
+    mesh = read_tri_mesh(out / "sheet_0000_tri.vtu")
+    assert mesh.order == 2 and mesh.periodic and mesh.orientations is not None
+    assert "CPE6" in (out / "sheet_0000_tri.inp").read_text()
+    rows = (out / "results.csv").read_text().splitlines()
+    header = rows[0].split(",")
+    values = dict(zip(header, rows[1].split(","), strict=True))
+    bulk = float(values["stiffness.periodic.bulk_modulus"])
+    assert bulk == pytest.approx((168.0 + 2 * 121.0) / 3.0, rel=1e-9)
+    assert float(values["conductivity.kubc"]) == pytest.approx(3.0)
+    assert float(values["stiffness.kubc.C11"]) >= float(values["stiffness.periodic.C11"])
+    strain = load_config(_plane_config(tmp_path, homogenization__plane="strain"),
+                         base_dir=tmp_path)  # fmt: skip
+    assert strain.homogenization.plane == "strain"
+
+
+def test_configurations_of_the_plane(tmp_path):
+    """The keys of the meshes of the plane and what they do not take."""
+    from morphogen.config import ConfigError, load_config
+
+    base = _plane_config(tmp_path)
+    cfg = load_config({**base, "mesh": {"size": 0.25, "plane": True, "z": 0.05}},
+                      base_dir=tmp_path)  # fmt: skip
+    assert cfg.mesh.plane is True and cfg.mesh.z == 0.05
+    assert cfg.mesh.plane_kwargs()["z"] == 0.05
+    with pytest.raises(ConfigError, match=r"mesh\.plane: true"):
+        load_config({**base, "mesh": {"size": 0.25, "plane": "yes"}}, base_dir=tmp_path)
+    with pytest.raises(ConfigError, match=r"mesh\.z"):
+        load_config({**base, "mesh": {"size": 0.25, "plane": False, "z": 0.05}},
+                    base_dir=tmp_path)  # fmt: skip
+    with pytest.raises(ConfigError, match=r"homogenization\.plane"):
+        load_config(_plane_config(tmp_path, homogenization__plane="stress"), base_dir=tmp_path)
+    with pytest.raises(ConfigError, match=r"homogenization\.plane: the elastic problems"):
+        load_config({**_plane_config(tmp_path, homogenization__plane="strain"),
+                     "mesh": {"size": 0.25, "plane": False}}, base_dir=tmp_path)  # fmt: skip
+    with pytest.raises(ConfigError, match=r"do not take outputs\.code_aster"):
+        outputs = {**base["outputs"], "code_aster": True}
+        load_config({**base, "mesh": {"size": 0.25, "plane": True}, "outputs": outputs},
+                    base_dir=tmp_path)  # fmt: skip
+
+
+@needs_mmg2d
+def test_the_command_line_of_the_plane(tmp_path, capsys):
+    """``morphogen homogenize`` of a geometry of seeds of the plane: its triangles and the
+    finite elements of the plane, in plane strain on demand; a mesh of the plane read back."""
+    import json
+
+    from morphogen import cli
+
+    seeds = _seeds(True)
+    geometry = tmp_path / "seeds.json"
+    mg.io.save_microstructure(seeds, geometry)
+    spec = "1=cubic:168/121/75"
+    code = cli.main(["homogenize", str(geometry), "--size", "0.3", "--order", "1",
+                     "--material", spec, "--property", "stiffness", "--plane", "strain",
+                     "--save-mesh", str(tmp_path / "plane.vtu"), "--json"])  # fmt: skip
+    assert code == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["plane"] == "strain" and out["order"] == 1
+    assert cli.main(["homogenize", str(tmp_path / "plane.vtu"), "--material", spec,
+                     "--property", "bulk_modulus", "--periodic"]) == 0  # fmt: skip
+    assert "triangles" in capsys.readouterr().out
+
+
+@needs_mmg2d
+def test_figures_of_the_plane(tmp_path):
+    """The figures of a mesh of the plane and of a field of its solution, on its triangles
+    deformed by the displacement."""
+    pytest.importorskip("matplotlib")
+    from morphogen.viz.figures import mesh_figure, mesh_section
+
+    seeds = _seeds(True)
+    mesh = tessellation_mesh(seeds, size=0.3)
+    polygons, elements = mesh_section(mesh)
+    assert len(polygons) == mesh.n_elements and elements.tolist() == list(range(mesh.n_elements))
+    fig = mesh_figure(mesh, values=np.arange(mesh.n_elements), label="element")
+    fig.savefig(tmp_path / "mesh.png")
+    assert (tmp_path / "mesh.png").stat().st_size > 1000
+
+
+@needs_mmg2d
+@pytest.mark.parametrize("periodic", [True, False])
+def test_exact_sections_of_tessellations(periodic):
+    """The section of a Laguerre tessellation in space by a plane is the power diagram of the
+    plane of the weights w - (z - z_k)²: the areas of its grains those of the points of the
+    plane in each cell (Monte Carlo), its mesh their exact polygons."""
+    micro = mg.models.Laguerre(n_cells=60, radius=Uniform(0.05, 0.15), crystal_orientations=True)
+    micro = micro.generate(mg.Domain.cube(1.0, periodic=periodic), seed=2)
+    vertices, loops, cell = planar_pieces(micro, 0.37)
+    areas = np.bincount(cell, [_shoelace(vertices[loop]) for loop in loops], minlength=60)
+    assert areas.sum() == pytest.approx(1.0, rel=1e-12)
+    rng = np.random.default_rng(0)
+    points = np.column_stack([rng.random((200_000, 2)), np.full(200_000, 0.37)])
+    sampled = np.bincount(micro.cell_of(points), minlength=60) / 200_000
+    sigma = np.sqrt(np.maximum(areas * (1 - areas), 1e-6) / 200_000)
+    assert np.all(np.abs(areas - sampled) < 5 * sigma + 1e-4)
+    mesh = plane_mesh(micro, size=0.05, z=0.37, min_feature=0)
+    per = np.bincount(mesh.cell, mesh.areas(), minlength=60)
+    np.testing.assert_allclose(per, areas, rtol=1e-9, atol=1e-12)
+    assert mesh.z == pytest.approx(0.37) and mesh.periodic == periodic
+    if periodic:
+        assert mesh.matching_sides()

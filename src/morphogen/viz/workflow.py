@@ -12,7 +12,8 @@ A view shows one object of each realization (``of``):
   orthoslices);
 * ``mesh``: the conforming mesh coloured by phase (``color: none``: uniform); figures: a
   view; videos: a turntable (``turntable``) or a cross-section sweeping along ``axis``
-  (``sweep``);
+  (``sweep``); a mesh of the plane is drawn by its triangles (figures only), and so are
+  the fields of its results, on the triangles deformed by their displacement;
 * a result of the homogenization, ``<property>.<bc>`` (bulk_modulus, shear_modulus,
   conductivity), ``<loading>.<bc>`` or ``<path>.<bc>``: the field ``color`` (by default the
   von Mises stress, or the norm of the heat flux) on the mesh deformed by its displacement
@@ -244,11 +245,15 @@ def _result(results, key: str):
 
 
 def _points(support) -> np.ndarray:
-    """The nodes of a mesh, or the centres of the voxels of an image (nx, ny, nz, 3)."""
+    """The nodes of a mesh (those of the plane at its height), or the centres of the voxels
+    of an image (nx, ny, nz, 3)."""
     from morphogen.mesh.tetra import TetMesh
+    from morphogen.mesh.triangles import TriMesh
 
     if isinstance(support, TetMesh):
         return support.nodes
+    if isinstance(support, TriMesh):
+        return np.column_stack([support.nodes, np.full(support.n_nodes, support.z)])
     axes = [
         support.origin[d] + (np.arange(n) + 0.5) * support.spacing[d]
         for d, n in enumerate(support.data.shape)
@@ -288,8 +293,39 @@ def _snapshot(res, view, time=None):
         support, named = sol.support, solution_fields(sol)
     u = named.get("displacement")
     if u is not None and view.part == "fluctuation":
-        u = u - _points(support) @ _macro(res, time).T
+        affine = _points(support) @ _macro(res, time).T
+        u = u - affine[..., : u.shape[-1]]  # (the two components of plane strain)
     return support, named, u
+
+
+def _plane_figure(spec, view, path: Path, mesh, values=None, u=None, title=None) -> Path:
+    """The figure of a mesh of the plane: its triangles in the colours of their grains (of
+    their phases with ``color: none``, or without grains), or coloured by ``values`` (per
+    element; per node, their means on the elements), deformed by the displacement ``u``
+    magnified (by default its largest drawn as a tenth of the mesh)."""
+    from morphogen.mesh.triangles import TriMesh
+    from morphogen.viz.export import save_figure
+    from morphogen.viz.figures import mesh_figure
+
+    shown = mesh
+    if u is not None:
+        u = np.asarray(u, dtype=float)[:, :2]
+        largest = float(np.abs(u).max(initial=0.0))
+        factor = view.magnification
+        if factor is None:
+            factor = 0.1 * float(np.max(mesh.size)) / largest if largest > 0 else 0.0
+        shown = TriMesh(mesh.nodes + factor * u, mesh.elements, mesh.phase, mesh.lower,
+                        mesh.upper, mesh.periodic, cell=mesh.cell, z=mesh.z)  # fmt: skip
+    if values is not None:
+        values = np.asarray(values, dtype=float)
+        if values.ndim == 2:
+            values = np.linalg.norm(values, axis=-1)
+        if len(values) == mesh.n_nodes and len(values) != mesh.n_elements:
+            values = values[mesh.elements[:, :3]].mean(axis=1)
+    fig = mesh_figure(shown, values=values, cmap=view.cmap or spec.cmap,
+                      label=view.color if values is not None else "", title=title,
+                      grains=view.color != "none")  # fmt: skip
+    return save_figure(fig, path, dpi=spec.dpi)
 
 
 def _magnification(view, res):
@@ -303,6 +339,7 @@ def _magnification(view, res):
 def _figure(spec, view, path: Path, image, labels, mesh, results) -> Path:
     from morphogen.homogenization.paths import PathResult
     from morphogen.mesh.tetra import TetMesh
+    from morphogen.mesh.triangles import TriMesh
     from morphogen.viz import video as vv
     from morphogen.viz.export import save_figure
     from morphogen.viz.figures import field_figure, path_figure, slices_figure
@@ -319,6 +356,8 @@ def _figure(spec, view, path: Path, image, labels, mesh, results) -> Path:
     if view.of == "mesh":
         if mesh is None:
             raise ValueError("visualization: this realization has no conforming mesh")
+        if isinstance(mesh, TriMesh):
+            return _plane_figure(spec, view, path, mesh, title="the mesh of the plane")
         field = None if view.color == "none" else "phase"
         return _save_rgb(vv.deformed_view(mesh, None, field, size=spec.size, **_camera(spec)), path)
     res = _result(results, view.of)
@@ -328,6 +367,9 @@ def _figure(spec, view, path: Path, image, labels, mesh, results) -> Path:
     time = max(res.fields) if isinstance(res, PathResult) and res.fields else None
     support, named, u = _snapshot(res, view, time)
     values = field_values(named, view.color)
+    if isinstance(support, TriMesh):
+        title = f"{view.of}: {view.color}"
+        return _plane_figure(spec, view, path, support, values, u, title=title)
     if isinstance(support, TetMesh):
         rgb = vv.deformed_view(
             support,
@@ -354,9 +396,13 @@ def _natural(values: np.ndarray) -> np.ndarray:
 def _frames(spec, view, image, labels, mesh, results) -> list[np.ndarray]:
     from morphogen.homogenization.paths import PathResult
     from morphogen.mesh.tetra import TetMesh
+    from morphogen.mesh.triangles import TriMesh
     from morphogen.viz import video as vv
 
     cmap = view.cmap or spec.cmap
+    if view.of not in ("image", "labels") and isinstance(mesh, TriMesh):
+        raise ValueError("visualization: the videos of a mesh of the plane and of its fields "
+                         "are not made, its figures are (tetrahedra: plane false)")  # fmt: skip
     if view.of in ("image", "labels"):
         source = _source(view, image, labels)
         flags = {"labels": True} if view.of == "labels" else {}
