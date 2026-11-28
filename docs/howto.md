@@ -190,6 +190,25 @@ limits = bounds(analysis.phase_fractions(image), materials)["bulk_modulus"]
 print(limits["reuss"], limits["hs_lower"], limits["hs_upper"], limits["voigt"])
 ```
 
+### ... homogenize columnar grains, or a section, in the plane?
+
+A structure that does not vary along z — the grains of seeds of the plane, a section — is
+meshed by triangles in its plane and solved there, in generalized plane strain (or plane
+strain, `plane="strain"`): the stiffness of the structure in space.
+
+```python
+from morphogen.models.seeded import SeededLaguerre
+
+sheet = SeededLaguerre(dimension=2, diameter=0.6, crystal_orientations=True).generate(
+    mg.Domain(size=(3.0, 3.0, 0.1), periodic=True), seed=1
+)
+plane = mg.mesh.plane_mesh(sheet, size=0.2)  # the triangles of its exact columnar grains
+copper = {1: Material.cubic(168.4, 121.4, 75.4)}
+out = homogenize(plane, copper, bcs=["periodic", "kubc"], properties=["shear_modulus"])
+print(out["shear_modulus.periodic"].value, out["shear_modulus.kubc"].value)
+cut = mg.mesh.plane_mesh(micro, size=1.0, z=4.0)  # the section of the spheres at z = 4
+```
+
 ### ... choose between voxels, a conforming mesh and extended finite elements?
 
 The FFT solver on voxels for speed and large volumes (periodic conditions; on an NVIDIA

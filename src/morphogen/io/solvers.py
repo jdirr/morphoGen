@@ -26,15 +26,21 @@ from morphogen.mesh.voxel import VoxelMesh
 
 
 def _box(mesh) -> tuple[np.ndarray, np.ndarray]:
-    if isinstance(mesh, TetMesh):
+    from morphogen.mesh.triangles import TriMesh
+
+    if isinstance(mesh, (TetMesh, TriMesh)):
         return np.asarray(mesh.lower, float), np.asarray(mesh.upper, float)
     return mesh.nodes.min(axis=0), mesh.nodes.max(axis=0)
 
 
 def _upper(mesh, axis: int) -> np.ndarray:
-    """Nodes of the upper face along ``axis``."""
+    """Nodes of the upper face (side) along ``axis``."""
+    from morphogen.mesh.triangles import TriMesh
+
     if isinstance(mesh, TetMesh):
         return mesh.face_nodes(axis, 1)
+    if isinstance(mesh, TriMesh):
+        return mesh.side_nodes(axis, 1)
     return np.flatnonzero(mesh.node_ijk[:, axis] == mesh.grid_shape[axis])
 
 
@@ -43,9 +49,11 @@ def periodic_images(mesh) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     (``masters``, translated along every axis whose upper face holds the node) and the
     periods between them, ``x_slave = x_master + shift * edges`` (shift: 0 or 1 along
     each axis). Meshes of whole periodic cells: every node of their boundary that is a
-    translate of another, ``mesh.periodic_links()``."""
-    if not isinstance(mesh, (TetMesh, VoxelMesh)):
-        raise TypeError("periodic equations need a TetMesh or a VoxelMesh")
+    translate of another, ``mesh.periodic_links()``. Meshes of the plane: their two axes."""
+    from morphogen.mesh.triangles import TriMesh
+
+    if not isinstance(mesh, (TetMesh, VoxelMesh, TriMesh)):
+        raise TypeError("periodic equations need a TetMesh, a TriMesh or a VoxelMesh")
     if isinstance(mesh, TetMesh) and mesh.whole:
         if not mesh.matching_faces():
             raise ValueError(
@@ -56,7 +64,8 @@ def periodic_images(mesh) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     n = mesh.n_nodes
     image = []
     on_upper = []
-    for axis in range(3):
+    axes = range(2) if isinstance(mesh, TriMesh) else range(3)
+    for axis in axes:
         pairs = mesh.periodic_pairs(axis)
         upper = _upper(mesh, axis)
         if len(pairs) != len(upper):
@@ -70,9 +79,9 @@ def periodic_images(mesh) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         flag = np.zeros(n, dtype=bool)
         flag[upper] = True
         on_upper.append(flag)
-    slaves = np.flatnonzero(on_upper[0] | on_upper[1] | on_upper[2])
+    slaves = np.flatnonzero(np.logical_or.reduce(on_upper))
     masters = slaves.copy()
-    for axis in range(3):
+    for axis in axes:
         sel = on_upper[axis][slaves]
         masters[sel] = image[axis][masters[sel]]
         if np.any(masters < 0):  # pragma: no cover - guarded by the face check
@@ -87,7 +96,11 @@ def write_periodic_equations(path, mesh, *, physics: str = "elastic") -> Path:
     ``*EQUATION`` blocks ``u(n) - u(image of n) - sum_d s_d u(REF_d) = 0``, with ``s_d``
     the periods from the image to the node along each axis (1 for the upper faces of a
     mesh of the box holding the node; -1, 0 or 1 for whole periodic cells), degrees of
-    freedom 1-3, or 11 for ``physics='thermal'``."""
+    freedom 1-3, or 11 for ``physics='thermal'``. A mesh of the plane (its plane elements)
+    has the reference nodes ``REF_X`` and ``REF_Y``, the degrees of freedom 1 and 2, and
+    the areas of its sides times its thickness."""
+    from morphogen.mesh.triangles import TriMesh
+
     if physics not in ("elastic", "thermal"):
         raise ValueError("physics: 'elastic' or 'thermal'")
     path = Path(path)
@@ -95,43 +108,49 @@ def write_periodic_equations(path, mesh, *, physics: str = "elastic") -> Path:
     lower, upper = _box(mesh)
     length = upper - lower
     n = mesh.n_nodes
-    refs = n + 1 + np.arange(3)  # 1-based ids of the reference nodes
-    dofs = (1, 2, 3) if physics == "elastic" else (11,)
+    dim = len(length)
+    refs = n + 1 + np.arange(dim)  # 1-based ids of the reference nodes
+    dofs = tuple(range(1, dim + 1)) if physics == "elastic" else (11,)
     corner = int(np.argmin(np.linalg.norm(mesh.nodes - lower, axis=1)))
-    names = ("REF_X", "REF_Y", "REF_Z")
+    names = ("REF_X", "REF_Y", "REF_Z")[:dim]
     area = np.prod(length) / length  # faces normal to each axis
+    if isinstance(mesh, TriMesh):
+        area = area * mesh.thickness  # the sides of the plane elements
     lines = [
         f"** morphoGen {__version__}: periodic boundary conditions ({physics})",
         "** Include after the mesh. Macroscopic strain E (gradient G): impose on REF_<d> the",
         "** displacement E . L_d e_d (temperature G . L_d e_d), and fix CORNER, e.g.",
         (
             f"**   *BOUNDARY: REF_X, 1, 1, E11*{length[0]:.9g}; REF_X, 2, 2, E21*...; ..."
+            + (" (plane elements: the components 11, 22, 12)" if dim == 2 else "")
             if physics == "elastic"
             else f"**   *BOUNDARY: REF_X, 11, 11, G1*{length[0]:.9g}; REF_Y, 11, 11, G2*..."
         ),
         (
             "** Macroscopic stress S (the reference nodes are the macroscopic degrees of "
-            "freedom):\n** fix the rotation (REF_X 2 and 3, REF_Y 3) and apply on REF_<d> the "
-            "force A_d S . e_d,\n** A_d the area of the face normal to d: "
-            + ", ".join(f"A_{n} = {a:.9g}" for n, a in zip("xyz", area, strict=True))
+            "freedom):\n** fix the rotation ("
+            + ("REF_X 2" if dim == 2 else "REF_X 2 and 3, REF_Y 3")
+            + ") and apply on REF_<d> the force A_d S . e_d,\n** A_d the area of the face "
+            "normal to d: "
+            + ", ".join(f"A_{n} = {a:.9g}" for n, a in zip("xyz", area, strict=False))
             + "; e.g. *CLOAD: REF_X, 1, S11*A_x. Mixed: prescribe either per component."
             if physics == "elastic"
             else "** Macroscopic flux Q: apply on REF_<d> the concentrated flux -A_d Q_d, "
             "A_d the area of the face normal to d: "
-            + ", ".join(f"A_{n} = {a:.9g}" for n, a in zip("xyz", area, strict=True))
+            + ", ".join(f"A_{n} = {a:.9g}" for n, a in zip("xyz", area, strict=False))
         ),
         f"** Box: lower {' '.join(f'{v:.9g}' for v in lower)}, edges "
         f"{' '.join(f'{v:.9g}' for v in length)}.",
         "*NODE",
     ]
-    for d in range(3):
-        x = upper + length * 0.1 * (np.arange(3) == d)  # outside the box, for display
-        lines.append(f"{refs[d]}, {x[0]:.12g}, {x[1]:.12g}, {x[2]:.12g}")
+    for d in range(dim):
+        x = upper + length * 0.1 * (np.arange(dim) == d)  # outside the box, for display
+        lines.append(f"{refs[d]}, " + ", ".join(f"{v:.12g}" for v in x))
     for d, name in enumerate(names):
         lines += [f"*NSET, NSET={name}", str(refs[d])]
     lines += ["*NSET, NSET=CORNER", str(corner + 1)]
     for s, m, shift in zip(slaves, masters, shifts.tolist(), strict=True):
-        terms_ref = [(refs[d], -float(shift[d])) for d in range(3) if shift[d]]
+        terms_ref = [(refs[d], -float(shift[d])) for d in range(dim) if shift[d]]
         for dof in dofs:
             terms = [(s + 1, dof, 1.0), (m + 1, dof, -1.0)] + [(r, dof, c) for r, c in terms_ref]
             lines += ["*EQUATION", str(len(terms))]

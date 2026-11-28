@@ -1793,6 +1793,7 @@ morphogen.homogenization.photonic.PlaneWaves.unknowns
 morphogen.homogenization.photonic.SUBSPACE
 morphogen.homogenization.photonic.electromagnetic_band_structure(sample, permittivity, path=('G', 'X', 'M', 'G', 'R'), *, permeability=1.0, bands=8, points=12, coarsen=1, tol=0.0001)
 morphogen.homogenization.photonic.smoothed_inverse(field, coarsen=1)
+morphogen.homogenization.plane.CHUNK
 morphogen.homogenization.plane.GAUSS
 morphogen.homogenization.plane.PLANES
 morphogen.homogenization.plane.PLANE_CONDITIONS
@@ -3079,6 +3080,7 @@ morphogen.mesh.triangles.TriMesh.boundary_edges(self)
 morphogen.mesh.triangles.TriMesh.box_area(self)
 morphogen.mesh.triangles.TriMesh.edges(self)
 morphogen.mesh.triangles.TriMesh.extruded(self, thickness=None, z0=None, layers=1)
+morphogen.mesh.triangles.TriMesh.layer(self)
 morphogen.mesh.triangles.TriMesh.linear(self)
 morphogen.mesh.triangles.TriMesh.matching_sides(self)
 morphogen.mesh.triangles.TriMesh.min_angles(self)

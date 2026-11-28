@@ -24,13 +24,14 @@ Every study follows the same four steps.
 1. **A model** generates a microstructure: an explicit description (centres, radii, axes,
    germs) that can be saved and regenerated exactly (the [gallery](gallery.md) shows the
    models).
-2. **A sample** discretizes it. There are three kinds, each with its solver:
+2. **A sample** discretizes it. There are four kinds, each with its solver:
 
    | Sample | Made by | Solver | Boundary conditions |
    |---|---|---|---|
    | voxel image (`VoxelImage`) | `micro.voxelize(shape=...)` | FFT-preconditioned conjugate gradients on trilinear voxels (CPU or GPU) | periodic |
    | conforming mesh (`TetMesh`) | `mg.mesh.conforming_mesh(micro, ...)` | finite elements: 4-node tetrahedra, or 10-node ones (`order=2`) with curved edges on the interfaces | kinematic uniform (`kubc`), static uniform (`subc`), `mixed`, `periodic` |
    | level set on a grid (`LevelSetSample`) | `LevelSetSample.of(micro, shape)` | extended finite elements: a regular grid cut by the interfaces | periodic |
+   | mesh of the plane (`TriMesh`) | `mg.mesh.plane_mesh(micro, ...)`: the columnar grains of seeds of the plane, the section of any structure | finite elements of the plane: 3- or 6-node triangles, generalized plane strain or plane strain; loading paths on its layer in space | `kubc`, `subc`, `periodic` (paths: `periodic`) |
 
 3. **A problem** applies macroscopic loadings to the sample for one physics and gives an
    *apparent property*: `homogenize(sample, materials, properties=[...])`.

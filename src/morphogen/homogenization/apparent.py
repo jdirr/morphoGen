@@ -664,7 +664,9 @@ def homogenize(
     ``periodic`` and ``subc`` conditions on its sides): the elastic properties and tensors
     (:data:`PLANE_PROPERTIES`), those of the transport phenomena and the named loadings, of
     its structure invariant across the plane; ``plane``: ``"generalized"`` (default, the
-    anti-plane fluctuation free) or ``"strain"`` (plane strain).
+    anti-plane fluctuation free) or ``"strain"`` (plane strain). Its loading paths are
+    followed on its layer of tetrahedra in space (:meth:`~morphogen.mesh.triangles.TriMesh.
+    layer`), periodic across it: in generalized plane strain, under periodic conditions.
 
     ``ntfa`` (voxel images): the ``paths`` are followed by a reduced model instead
     (:mod:`morphogen.homogenization.ntfa`), trained on the paths of ``ntfa["training"]``
@@ -689,9 +691,15 @@ def homogenize(
         if other:
             raise ValueError(f"{other}: not by the finite elements of the plane, which give "
                              f"{sorted(allowed)}")  # fmt: skip
-        if paths or ntfa or fracture is not None or nonlinear:
-            raise ValueError("the loading paths and the nonlinear behaviours: meshes in "
-                             "space (TriMesh.extruded: tetrahedra) or images")  # fmt: skip
+        if ntfa or fracture is not None:
+            raise ValueError("the reduced models and the phase field: images")
+        if paths and plane == "strain":
+            raise ValueError(
+                "the loading paths of a mesh of the plane are solved on its layer "
+                "in space, in generalized plane strain (plane: generalized)"
+            )
+        if {"contact", "interfaces"} & set(nonlinear or {}):
+            raise ValueError("nonlinear: the contacts and the interfaces of the meshes in space")
         if "mixed" in bc_names:
             raise ValueError("the problems of the plane take the conditions kubc, periodic "
                              "and subc")  # fmt: skip
@@ -840,6 +848,10 @@ def homogenize(
             if bc not in ("periodic", "kubc"):
                 log.info("loading paths skipped for %s conditions", bc)
                 continue
+            if isinstance(sample, TriMesh) and bc != "periodic":
+                log.info("loading paths of a mesh of the plane: on its layer in space, periodic "
+                         "across it; skipped for %s conditions", bc)  # fmt: skip
+                continue
             if fracture is not None:
                 problem = _fracture_problem(
                     sample, materials, fracture, grains, orientations, nonlinear
@@ -872,8 +884,10 @@ def homogenize(
                     sample, materials, law, bc, tol=tol, maxiter=maxiter, **cell, **nonlinear
                 )
             else:
+                # a mesh of the plane: its layer of tetrahedra in space, periodic across it
+                solid = sample.layer() if isinstance(sample, TriMesh) else sample
                 problem = NonlinearFEProblem(
-                    sample, materials, bc, solver=solver, tol=tol, maxiter=maxiter,
+                    solid, materials, bc, solver=solver, tol=tol, maxiter=maxiter,
                     **(nonlinear or {}),
                 )  # fmt: skip
             if microdamage and hasattr(problem, "microdamage_options"):

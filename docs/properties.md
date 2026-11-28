@@ -155,7 +155,9 @@ section = mg.mesh.plane_mesh(micro, size=0.5, z=10.0)  # the section of the sphe
 
 The mesh in space of the same grains (`conforming_mesh`) is their exact polygons extruded
 through the box (`TriMesh.extruded`, three tetrahedra per prism): its periodic problems are
-those of the plane. In a configuration, `mesh: {plane: auto}` (the default) meshes the
+those of the plane. The loading paths of a mesh of the plane (plasticity, crystal plasticity)
+are followed on its layer in space (`TriMesh.layer`), periodic across it, under periodic
+conditions. In a configuration, `mesh: {plane: auto}` (the default) meshes the
 columnar grains of seeds of the plane in their plane, `plane: true` the section of any
 structure at `mesh.z`, and `homogenization.plane` chooses the hypothesis;
 `morphogen homogenize` takes `--plane` and `--z`.

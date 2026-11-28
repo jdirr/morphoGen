@@ -1193,8 +1193,8 @@ def _meshes_of_the_plane(mesh: MeshSpec, model) -> bool:
 
 def _check_plane(mesh: MeshSpec, homog, outputs, viz) -> None:
     """What the meshes of the plane do not do (``mesh.plane: true``): the tetrahedra of the
-    files of Code_Aster, of OpenFOAM, of the periodic equations; the loading paths and
-    nonlinear behaviours; the videos of the mesh and of its fields."""
+    files of Code_Aster and of OpenFOAM; the loading paths without periodic conditions; the
+    reduced models, contacts and interfaces; the videos of the mesh and of its fields."""
     other = [f for f in outputs.conforming_mesh if f in ("mail", "med")]
     reasons = []
     if other:
@@ -1203,10 +1203,12 @@ def _check_plane(mesh: MeshSpec, homog, outputs, viz) -> None:
         reasons.append("outputs.code_aster")
     if outputs.openfoam is not None and outputs.openfoam.get("sample") == "mesh":
         reasons.append("outputs.openfoam of the mesh")
-    if outputs.periodic_equations:
-        reasons.append("outputs.periodic_equations")
-    if homog is not None and (homog.paths or homog.nonlinear or homog.ntfa):
-        reasons.append("the loading paths and nonlinear behaviours")
+    if homog is not None and homog.paths and "periodic" not in homog.boundary_conditions:
+        reasons.append("loading paths without periodic conditions (on the layer in space)")
+    if homog is not None and homog.ntfa:
+        reasons.append("the reduced models")
+    if homog is not None and {"contact", "interfaces"} & set(homog.nonlinear):
+        reasons.append("the contacts and the interfaces")
     if homog is not None and "mixed" in homog.boundary_conditions:
         reasons.append("the mixed conditions")
     if viz is not None and viz.videos and any(v.of != "image" and v.of != "labels"
@@ -2384,11 +2386,11 @@ def load_config(source, *, base_dir=None) -> RunConfig:
     if (
         homog is not None
         and homog.plane is not None
-        and (homog.method != "fe" or mesh is None or mesh.plane is False)
+        and (homog.method != "fe" or mesh is None or not _meshes_of_the_plane(mesh, model))
     ):
         raise ConfigError(
             "homogenization.plane: the elastic problems of the meshes of the plane (method: fe, "
-            "a 'mesh' section, mesh.plane true or auto)"
+            "a 'mesh' section, mesh.plane true, or auto for the seeds of the plane)"
         )
     if mesh is not None and mesh.plane:
         _check_plane(mesh, homog, outputs, viz)

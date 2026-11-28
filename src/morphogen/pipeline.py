@@ -433,11 +433,10 @@ def _process(
         checkpoint()  # a stop after the mesh (morphogen.stopping)
         values.update(info)
         plane = isinstance(mesh, TriMesh)
-        if plane and (out.code_aster is not None or foam or out.periodic_equations):
+        if plane and (out.code_aster is not None or foam):
             raise ValueError(
                 f"{stem}: a mesh of the plane (the columnar grains of coplanar germs); the "
-                "files of Code_Aster, of OpenFOAM and the periodic equations take tetrahedra "
-                "(mesh.plane: false)"
+                "files of Code_Aster and of OpenFOAM take tetrahedra (mesh.plane: false)"
             )
         kind = "tri" if plane else "tet"
         for fmt in out.conforming_mesh:
@@ -459,7 +458,7 @@ def _process(
         if out.periodic_pairs and mesh.periodic:
             io.write_periodic_pairs(outdir / f"{stem}_{kind}_periodic.csv", mesh)
         if out.periodic_equations and mesh.periodic:
-            io.write_periodic_equations(outdir / f"{stem}_tet_equations.inp", mesh)
+            io.write_periodic_equations(outdir / f"{stem}_{kind}_equations.inp", mesh)
         if out.code_aster is not None:  # the study of the apparent properties of the mesh
             io.write_code_aster(outdir / f"{stem}_aster", mesh, homog.materials, name=stem,
                                 **out.code_aster)  # fmt: skip

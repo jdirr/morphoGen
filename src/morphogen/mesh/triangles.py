@@ -300,6 +300,17 @@ class TriMesh:
             mesh.elements[flip] = mesh.elements[flip][:, [0, 2, 1, 3]]
         return mesh
 
+    def layer(self):
+        """The layer of tetrahedra in space whose periodic problems are those of this mesh
+        (generalized plane strain): one layer of the thickness of its mean edge (the fields
+        do not vary across it, so that its thickness does not matter; elements of good
+        shape), of ten-node tetrahedra for six-node triangles (:meth:`extruded`)."""
+        lin = self.linear()
+        edges = lin.edges()
+        mean = float(np.linalg.norm(lin.nodes[edges[:, 1]] - lin.nodes[edges[:, 0]], axis=1).mean())
+        mesh = lin.extruded(thickness=mean, z0=self.z - 0.5 * mean)
+        return mesh.quadratic() if self.order == 2 else mesh
+
     def summary(self) -> dict:
         q = self.quality()
         return {

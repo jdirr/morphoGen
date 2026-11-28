@@ -70,7 +70,8 @@ SURFACE_VOXELS = 256
 #: ``path`` (the stress of a loading path against its strain; ``stretch``: against the
 #: stretch, the nominal stress; ``time``: against the time, on a logarithmic axis;
 #: ``labels``: the names of its segments, those of the same name drawn alike),
-#: ``fracture`` (the damage at the end of the path on the phases, beside the curve)
+#: ``fracture`` (the damage at the end of the path on the phases, beside the curve),
+#: ``plane`` (the grains of a mesh of the plane and a field of a result on its triangles)
 RESULTS = {
     "homogenization_viscoplastic": {
         "kind": "path",
@@ -122,6 +123,12 @@ RESULTS = {
     },
     "homogenization_grain_fracture": {"kind": "path"},
     "homogenization_beremin": {"kind": "beremin"},
+    "seeded_plane_stiffness": {
+        "kind": "plane",
+        "result": "shear_modulus_periodic",
+        "field": "von_mises",
+        "title": "von Mises stress of the shear",
+    },
     "fracture_composite": {"kind": "fracture"},
     "fracture_rubber": {"kind": "fracture", "stretch": True},
 }
@@ -1212,6 +1219,37 @@ def _field(ax, name: str, outdir: Path, options: dict) -> None:
     ax.set_title(options.get("title", options["field"]), color=INK, fontsize=13)
 
 
+def _plane(left, right, name: str, outdir: Path, options: dict) -> None:
+    """The mesh of the plane of the run of a template, its grains (left), and the field
+    ``options["field"]`` of the result ``options["result"]`` on its triangles (right)."""
+    from matplotlib import colormaps
+    from matplotlib.collections import PolyCollection
+
+    from morphogen import io
+    from morphogen.viz.png import label_colors
+
+    stem = config(name)["outputs"]["name"]
+    mesh = io.read_tri_mesh(sorted(outdir.glob(f"{stem}_*_tri.vtu"))[0])
+    corners = mesh.nodes[mesh.elements[:, :3]]
+    grid = io.read_vtu(sorted(outdir.glob(f"{stem}_*_{options['result']}.vtu"))[0])
+    values = np.asarray(grid["cell_data"][options["field"]], dtype=float)
+    lo, hi = np.percentile(values, [1.0, 99.0])
+    shade = colormaps["magma"](np.clip((values - lo) / max(hi - lo, 1e-300), 0.0, 1.0))
+    grains = label_colors(mesh.cell) / 255.0 if mesh.cell is not None else INK
+    for ax, colours, title in ((left, grains, "grains"), (right, shade, options["title"])):
+        ax.add_collection(
+            PolyCollection(corners, facecolors=colours, edgecolors="face", linewidths=0.3)
+        )  # (no seams between the triangles)
+        ax.set_xlim(mesh.lower[0], mesh.upper[0])
+        ax.set_ylim(mesh.lower[1], mesh.upper[1])
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for side in ax.spines.values():
+            side.set_color(INK)
+        ax.set_title(title, color=INK, fontsize=13)
+
+
 def result_image(name: str, outdir: Path, canvas=RESULT_CANVAS) -> np.ndarray:
     """RGBA of the figure of the result of a template of :data:`RESULTS`, from the files
     of its run in ``outdir``."""
@@ -1241,6 +1279,9 @@ def result_image(name: str, outdir: Path, canvas=RESULT_CANVAS) -> np.ndarray:
         left, right = fig.subplots(1, 2, width_ratios=(1.0, 1.25))
         _field(left, name, outdir, options)
         _curve(right, name, outdir, options)
+    elif options["kind"] == "plane":
+        left, right = fig.subplots(1, 2)
+        _plane(left, right, name, outdir, options)
     else:
         _curve(fig.subplots(), name, outdir, options)
     drawn = FigureCanvasAgg(fig)

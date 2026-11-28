@@ -759,6 +759,11 @@ morphogen run seeded_plane.yaml
 :loading: lazy
 ```
 
+```{image} _static/gallery/seeded_plane_stiffness_result.png
+:alt: the result of seeded_plane_stiffness
+:loading: lazy
+```
+
 **`seeded_plane_stiffness`** — The stiffness of the section of a rolled sheet by the finite elements of the plane: the columnar grains of its seeds meshed by triangles in their plane, crystals of copper, periodic, kinematic and static conditions.
 
 *Needs the mesher MMG (extra `mesh`), VTK and ffmpeg (extra `video`).*

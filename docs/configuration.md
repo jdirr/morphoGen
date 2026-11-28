@@ -60,7 +60,8 @@ outputs:
                        # the triangles of the plane: vtu, inp (plane strain elements), msh,
                        # mesh and the formats of meshio
   periodic_pairs: true
-  periodic_equations: true   # *EQUATION files for the meshes written (periodic domains)
+  periodic_equations: true   # *EQUATION files for the meshes written (periodic domains;
+                       # the plane elements of the meshes of the plane too)
   damask: true         # tessellations with orientations: DAMASK grid and material file
   neper: true          # tessellations: Neper seeds, weights, orientations, command
   amitex: true         # AMITEX_FFTP runs of the image (needs homogenization), or options:
@@ -130,7 +131,8 @@ homogenization:        # apparent properties of every realization
   boundary_conditions: [kubc, mixed, periodic, subc]   # aliases: utg, mbc/mtbc, pbc, uhf
   plane: generalized   # the meshes of the plane: generalized (generalized plane strain:
                        # the anti-plane fluctuation free, the stiffness of the structure in
-                       # space; the default) | strain (plane strain); kubc, periodic, subc
+                       # space; the default) | strain (plane strain); kubc, periodic, subc;
+                       # their paths on their layer in space, periodic (generalized)
   properties: [bulk_modulus, shear_modulus, conductivity, stiffness, conductivity_tensor,
                thermal_expansion]   # materials with expansion: alpha | [a_a, a_c] | 3 x 3
                # the other transports: electrical_conductivity, permittivity, permeability,

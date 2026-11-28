@@ -78,6 +78,8 @@ GAUSS = {
 }
 #: Engineering shears of the Voigt components (11, 22, 33, 23, 31, 12)
 _ENGINEERING = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0])
+#: The elements assembled together (their matrices and indices in memory at once)
+CHUNK = 20_000
 #: The unknowns up to which ``solver: auto`` factorizes the problems of the plane (the fill of
 #: a sparse factorization of a problem of the plane grows as n log n: a million unknowns in
 #: tens of seconds), beyond which it takes the algebraic multigrid
@@ -226,16 +228,25 @@ class _PlaneProblem(MacroscopicLoadings):
         return np.concatenate([b, extra], axis=3), np.concatenate([dofs, cols], axis=1)
 
     def _stiffness(self) -> sp.csr_matrix:
+        """The stiffness (conductance) matrix, assembled by chunks of elements."""
         if self._matrix is None:
             b, dofs = self._full_operator()
-            active = self.mat >= 0
-            d = self.table.matrices[np.maximum(self.mat, 0)]
-            k = np.einsum("mq,mqai,mab,mqbj->mij", self.weights, b, d, b, optimize=True)
-            k[~active] = 0.0
             size = self.mesh.n_nodes * self.nd + self.n_global
-            rows = np.repeat(dofs, dofs.shape[1], axis=1).ravel()
-            cols = np.tile(dofs, (1, dofs.shape[1])).ravel()
-            self._matrix = sp.coo_matrix((k.ravel(), (rows, cols)), shape=(size, size)).tocsr()
+            matrix = sp.csr_matrix((size, size))
+            for start in range(0, len(dofs), CHUNK):
+                part = slice(start, start + CHUNK)
+                mat = self.mat[part]
+                d = self.table.matrices[np.maximum(mat, 0)]
+                k = np.einsum("mq,mqai,mab,mqbj->mij", self.weights[part], b[part], d, b[part],
+                              optimize=True)  # fmt: skip
+                k[mat < 0] = 0.0
+                local = dofs[part]
+                rows = np.repeat(local, local.shape[1], axis=1).ravel()
+                cols = np.tile(local, (1, local.shape[1])).ravel()
+                matrix = (
+                    matrix + sp.coo_matrix((k.ravel(), (rows, cols)), shape=(size, size)).tocsr()
+                )
+            self._matrix = matrix.tocsr()
         return self._matrix
 
     def _uniform_load(self, x: np.ndarray, dt: float) -> tuple[np.ndarray, float]:

@@ -507,3 +507,70 @@ def test_exact_sections_of_tessellations(periodic):
     assert mesh.z == pytest.approx(0.37) and mesh.periodic == periodic
     if periodic:
         assert mesh.matching_sides()
+
+
+def test_paths_of_the_plane():
+    """The loading paths of a mesh of the plane: on its layer of tetrahedra in space, periodic
+    across it, the same as on that layer itself; under periodic conditions only; not in plane
+    strain."""
+    from morphogen.homogenization import LoadingPath
+    from morphogen.homogenization.behaviours import Plasticity
+
+    mesh = _square(6, phase=lambda xy: (np.hypot(xy[:, 0] - 0.5, xy[:, 1] - 0.5) < 0.3)
+                   .astype(np.int64)).quadratic()  # fmt: skip
+    mats = {0: Material(young=70e3, poisson=0.3, plasticity=Plasticity(yield_stress=100.0,
+                                                                       hardening=1000.0)),
+            1: Material(young=400e3, poisson=0.25)}  # fmt: skip
+    path = LoadingPath.from_spec({"times": [0, 1], "increments": 4, "strain": {"11": 0.01}})
+    plane = homogenize(mesh, mats, bcs=("periodic", "kubc"), properties=(), paths={"pull": path})
+    assert "pull.kubc" not in plane
+    layer = homogenize(mesh.layer(), mats, properties=(), paths={"pull": path})
+    a, b = plane["pull.periodic"].components(), layer["pull.periodic"].components()
+    assert a["S11"] == pytest.approx(b["S11"], rel=1e-9) and abs(a["S22"]) < 1e-6
+    assert 100.0 < a["S11"] < 400e3 * 0.01
+    assert mesh.layer().order == 2 and mesh.layer().periodic
+    with pytest.raises(ValueError, match="generalized plane strain"):
+        homogenize(mesh, mats, properties=(), paths={"pull": path}, plane="strain")
+
+
+def test_assembled_by_chunks(monkeypatch):
+    """The stiffness of the problems of the plane assembled by chunks of elements is the
+    stiffness assembled at once (the global unknowns of static conditions among them)."""
+    import morphogen.homogenization.plane as plane
+
+    mesh = _square(10, phase=lambda xy: (xy[:, 0] > 0.5).astype(np.int64)).quadratic()
+    mats = {0: Material.cubic(c11=168.0, c12=121.0, c44=75.0), 1: Material(young=70.0, poisson=0.3)}
+    whole = PlaneElasticProblem(mesh, mats, "subc")._stiffness()
+    monkeypatch.setattr(plane, "CHUNK", 37)
+    parts = PlaneElasticProblem(mesh, mats, "subc")._stiffness()
+    assert abs(whole - parts).max() <= 1e-12 * abs(whole).max()
+
+
+def test_periodic_equations_of_the_plane(tmp_path):
+    """The periodic equations of Abaqus and CalculiX of a mesh of the plane: the reference
+    nodes of its two axes, the two degrees of freedom of the plane elements of each node of
+    its upper sides tied to its image, the areas of its sides times its thickness."""
+    from morphogen.io import write_periodic_equations
+
+    mesh = _square(3, length=2.0)
+    mesh.thickness = 0.5
+    text = write_periodic_equations(tmp_path / "equations.inp", mesh).read_text()
+    assert "*NSET, NSET=REF_Y" in text and "REF_Z" not in text
+    upper = np.unique(np.concatenate([mesh.side_nodes(0, 1), mesh.side_nodes(1, 1)]))
+    assert text.count("*EQUATION") == 2 * len(upper)
+    assert "A_x = 1, A_y = 1" in text
+    thermal = write_periodic_equations(tmp_path / "heat.inp", mesh, physics="thermal")
+    assert thermal.read_text().count("*EQUATION") == len(upper)
+
+
+def test_plane_hypothesis_of_tetrahedra(tmp_path):
+    """The hypothesis of the plane asked of a run whose meshes are tetrahedra is refused."""
+    from morphogen.config import ConfigError, load_config
+
+    data = {"model": {"type": "voronoi", "n_cells": 5}, "domain": {"size": 1.0, "periodic": True},
+            "mesh": {"size": 0.3},
+            "homogenization": {"method": "fe", "plane": "strain",
+                               "materials": {1: {"young": 1.0, "poisson": 0.3}}},
+            "outputs": {"directory": str(tmp_path)}}  # fmt: skip
+    with pytest.raises(ConfigError, match=r"homogenization\.plane"):
+        load_config(data, base_dir=tmp_path)

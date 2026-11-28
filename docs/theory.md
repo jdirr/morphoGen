@@ -13960,6 +13960,17 @@ on a triangle, is linear on each tetrahedron of its prism and takes the values o
 there: the four-node elements of the layer, its nodes tied across it, span the three-node
 elements of the plane, and the periodic problems in space are those of the plane.
 
+**Loading paths.** The nonlinear behaviours of the solvers in space (plasticity, crystal
+plasticity, damage, finite strains...) follow the loading paths of a mesh of the plane on its
+layer in space (`TriMesh.layer`): one layer of prisms of the thickness of its mean edge, cut
+into tetrahedra (ten-node ones for six-node triangles), its faces $z$ tied as those of the
+other axes — the fields do not vary across it, the thickness drops out of the averages, and the
+periodic problems of the layer are those of the structure in generalized plane strain. Kinematic
+conditions on the layer would clamp its faces $z$: its paths run under periodic conditions only
+(the others skipped), and in generalized plane strain (not with `plane: strain`). A uniaxial
+tension of a square of an elastoplastic matrix about a stiff disc gives the same response on
+the mesh of the plane as on its layer itself, to round-off.
+
 **Verification.** A homogeneous square gives its stiffness and conductivity under every
 condition, for both orders and both hypotheses, to 10⁻¹². Three layers across $x$ of two
 turned cubic crystals and an isotropic phase give the stiffness of the laminate — the
@@ -13980,7 +13991,10 @@ and of the nodes of the sides; the crystals of each grain turned into the axes o
 `TYPE=ANISOTROPIC`, since a plane element takes no orientation out of its plane), as Gmsh
 files (triangles of types 2 and 9, the edges of the sides as lines of types 1 and 8), VTK
 files (cell types 5 and 22) and Medit files of dimension 2, and read back with their grains,
-orientations, rectangle, periodicity, plane and thickness.
+orientations, rectangle, periodicity, plane and thickness; the periodic equations of their
+plane elements tie the two degrees of freedom of each node of the upper sides to those of its
+image and of the reference nodes `REF_X` and `REF_Y`, the forces of a macroscopic stress
+those of the areas of the sides times the thickness.
 
 **In space and in the runs.** The mesher in space takes the columnar grains too
 (`conforming_mesh`): their exact polygons extruded through the box in layers of about the
@@ -14003,7 +14017,8 @@ matching sides; their small features removed (half the elements at most, angles 
 the areas within 8 % and 1 % on average); the section of spheres against their level set on a fine grid; the files read
 back; the uniform fields, the laminates, the checkerboard and the layer in space; `homogenize`
 of a mesh of the plane (moduli, tensors, thermal expansion, named loadings, fields, porous
-meshes), what it does not solve refused; a run of seeds of the plane (its files of
+meshes), what it does not solve refused; the loading paths on the layer in space, under
+periodic conditions only; a run of seeds of the plane (its files of
 triangles, the bulk modulus of the crystals), the keys of the configurations and what the
 meshes of the plane do not take, the command line, the figures.
 

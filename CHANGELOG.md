@@ -219,6 +219,20 @@
   `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
   plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
   `write_medit_tri` (`tests/public_api.txt`).
+* The loading paths of the meshes of the plane (§119): `homogenize` of a `TriMesh` follows
+  them with the nonlinear behaviours on its layer of tetrahedra in space (`TriMesh.layer`:
+  one layer of the thickness of its mean edge, ten-node tetrahedra for six-node triangles),
+  periodic across it — generalized plane strain —, under periodic conditions (the others
+  skipped); the configurations of the meshes of the plane take them. The stiffness of the
+  problems of the plane assembled by chunks of elements (`CHUNK`: the memory of the element
+  matrices bounded). The periodic equations of Abaqus and CalculiX of the meshes of the
+  plane (`write_periodic_equations`, `outputs.periodic_equations`: the reference nodes
+  `REF_X` and `REF_Y`, the two degrees of freedom of the plane elements, the areas of the
+  sides times the thickness). The card of `seeded_plane_stiffness` in the gallery shows the grains
+  of its mesh and the von Mises stress of its shear. Tested (`tests/test_plane_meshes.py`:
+  the same response as the layer itself, the chunks against the whole, the equations of
+  the plane). Public interface:
+  `TriMesh.layer`, `CHUNK` (`tests/public_api.txt`).
 * The meshes of the plane in the runs (§119): `mesh.plane` (`auto`, the default: the
   columnar grains of seeds of the plane meshed in their plane; `true`: the section of any
   structure at `mesh.z`; `false`: tetrahedra), the files of the triangles
