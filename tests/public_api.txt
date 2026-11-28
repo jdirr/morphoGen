@@ -2979,6 +2979,9 @@ morphogen.mesh: plane_mesh
 morphogen.mesh: polyhedral_mesh
 morphogen.mesh: surface_mesh
 morphogen.mesh: voxel_mesh
+morphogen.mesh.cells.REF_LUMEN
+morphogen.mesh.cells.cell_lumens(micro)
+morphogen.mesh.cells.cells_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, z=None, phases='all', order=1, curved=None, periodic=None, executable=None, workdir=None, timeout=None)
 morphogen.mesh.conforming.ImplicitBody(domain, function)
 morphogen.mesh.conforming.ImplicitBody.level_set(self, shape=None, *, voxel_size=None, grid=None)
 morphogen.mesh.conforming.REF_INSIDE

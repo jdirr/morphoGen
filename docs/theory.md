@@ -14311,6 +14311,28 @@ other structures by their level sets: the section at $z = 0.37$ of a Laguerre te
 60 cells in a periodic unit cube has the areas of its 19 cells to round-off, which 200 000
 points of the plane sampled in the cells find within their standard errors.
 
+**Honeycombs.** The walls of prismatic cells (the model `honeycomb`: hexagonal, square and
+Voronoi cells, their prisms along $z$) are the points of each cell nearer to its sides than
+half its wall $t_i$; in a convex cell the distance to its boundary is the least of those to
+the lines of its sides, so that its lumen is the intersection of its half planes moved in
+by $t_i/2$, an exact convex polygon (`mesh.cells.cell_lumens`), and the walls the rest of
+the box. `plane_mesh` meshes them by these polygons (`cells_mesh`): the edges of the lumens
+graded across the thinnest wall (three elements) and from their gaps to the sides of the
+box that they do not touch, the side nodes of a periodic box matching, `mmg2d` within them,
+run once more in another order of the nodes where it fails. The prisms do not vary along
+$z$: the mesh of their plane is the structure itself, and its stiffness and conductivity in
+space are those of generalized plane strain. Square and hexagonal honeycombs (cells of 1,
+walls of 0.1) in periodic boxes of whole cells have their walls $1 - (1 - t/d)^2 = 0.19$ to
+round-off; Voronoi ones, in periodic boxes or with free sides, within 4.6·10⁻⁶ of counts of
+their own distance on grids of 4000² points (10⁻⁵ on those of 2000²). A hexagonal honeycomb
+of a solid, its lumens empty, has along its prisms the uniform strain for its field, its
+axial modulus and conductivity those of the solid times the fraction of its walls, to
+round-off (13.3 = 0.19·70 GPa); across them it is isotropic as its hexagonal symmetry has
+it (its moduli $E_1$ and $E_2$ within 2·10⁻⁴), $E_1/E_s = 0.0129$ for walls of a sixth of
+their length, 8 % above the beams of Gibson and Ashby in bending alone
+($4/\sqrt{3}\,(t/l)^3 = 0.0120$), the stiff nodes of the walls. The radial files of wood
+and prisms along another axis are left to the level sets.
+
 **Maps of grains.** An orientation map (EBSD, the model `ebsd`: a lattice of one cell
 through the thickness of the box, the label of a grain and its mean orientation per cell) is
 meshed in its plane by its pixels (`lattice_mesh`): two triangles per pixel along the

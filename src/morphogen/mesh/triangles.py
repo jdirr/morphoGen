@@ -2019,8 +2019,10 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     fibres along ``z`` and of spheres, coated or hollow, and the union of plain ones that
     cross (:func:`disc_mesh`), the exact contours of the sections of oblique and wavy
     fibres, coated or hollow, and of coatings that meet
-    (:func:`~morphogen.mesh.contours.contour_mesh`), the section of any other structure in
-    that plane (:func:`section_mesh`), a map of grains by its pixels (:func:`lattice_mesh`).
+    (:func:`~morphogen.mesh.contours.contour_mesh`), the exact lumens and walls of
+    honeycombs (:func:`~morphogen.mesh.cells.cells_mesh`), the section of any other
+    structure in that plane (:func:`section_mesh`), a map of grains by its pixels
+    (:func:`lattice_mesh`).
     ``min_feature``: that of the polygons of tessellations; ``curved``: the six-node
     elements of the sections with curved edges along their interfaces (by default; the
     edges of polygons and pixels are straight)."""
@@ -2041,6 +2043,12 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
         return tessellation_mesh(micro, size=size, z=z, **options)
     options.pop("min_feature", None)  # (the level sets have no features to remove)
     exact = {k: v for k, v in options.items() if k != "background"}
+    # prismatic cells, honeycombs: their exact lumens
+    from morphogen.mesh.cells import cells_mesh
+
+    mesh = cells_mesh(micro, size=size, **exact)
+    if mesh is not None:
+        return mesh
     discs = disc_layers(micro, options.get("z"))
     if discs is not None:
         mesh = disc_mesh(micro, discs, size=size, **exact)

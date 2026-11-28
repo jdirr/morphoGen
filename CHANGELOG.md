@@ -267,6 +267,17 @@
   of the union less it, its caps moved out and its rims round; the cores of shells, shrunk,
   the caps moved in and the rims sharp. Boolean cylinders coated and hollowed within
   4.6·10⁻⁶ of counts.
+* Exact meshes of honeycombs in their plane (`mesh.cells`: `cell_lumens`, `cells_mesh`, and
+  `plane_mesh` for the model `honeycomb`, which fell to the level sets): the lumen of each
+  prismatic cell its Voronoi polygon offset inward by half its wall, an exact convex
+  polygon, the walls the rest of the box, the edges graded across the thinnest wall and
+  from their gaps to the sides, the sides of a periodic box matching. The prisms do not vary
+  along their axis, so that the mesh of their plane is the structure itself: square and
+  hexagonal honeycombs have their walls $1 - (1 - t/d)^2$ to round-off, Voronoi ones within
+  4.6·10⁻⁶ of counts on grids of 4000² points, and a hexagonal honeycomb of a solid its
+  axial modulus and conductivity the fraction of the walls of the solid's to round-off,
+  isotropic in its plane within 2·10⁻⁴, 8 % above the bending beams of Gibson and Ashby.
+  Tested in `tests/test_plane_cells.py`; the module in the public interface.
 * The exact contours of hollow fibres whose lumens are a union of their own (`hardcore_fibers`
   and `curved_fibers` with a `lumen`, the union of the fibres less that of their lumens):
   the lumens a layer within the fibres, of the phase of the matrix (`section_layers`), where
