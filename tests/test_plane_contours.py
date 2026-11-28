@@ -358,3 +358,31 @@ def test_every_corner_of_a_body_traced():
     assert fractions[0][2] == pytest.approx(coat - core, abs=3e-5)
     assert abs(fractions[1][1] - fractions[0][1]) < 2e-6
     assert abs(fractions[1][2] - fractions[0][2]) < 2e-6
+
+
+@needs_mmg2d
+@pytest.mark.slow
+@pytest.mark.parametrize("seed", [1, 2])
+def test_sections_of_many_realizations(seed):
+    """The sections of misaligned plies, sparse and dense, coated, hollow, of a Boolean
+    network of spherocylinders and of Boolean spheres, at two sizes: every one meshed —
+    by its exact contours or discs, or else by the level sets —, its six-node elements
+    valid and its periodic sides matching."""
+    structures = [
+        LongFibers(radius=0.05, volume_fraction=0.3, misalignment=2.0).generate(BOX, seed=seed),
+        LongFibers(radius=0.05, volume_fraction=0.55, misalignment=4.0).generate(BOX, seed=seed),
+        Coating(model=LongFibers(radius=0.05, volume_fraction=0.35, misalignment=3.0,
+                                 min_gap=0.02), thickness=0.01).generate(BOX, seed=seed),
+        Coating(model=LongFibers(radius=0.05, volume_fraction=0.4, misalignment=3.0),
+                thickness=0.015, side="inside", core_phase=2).generate(BOX, seed=seed),
+        mg.models.BooleanCylinders(radius=0.04, length=0.3, volume_fraction=0.15,
+                                   caps="round").generate(BOX, seed=seed),
+        mg.models.BooleanSpheres(radius=0.08, volume_fraction=0.3).generate(BOX, seed=seed),
+    ]  # fmt: skip
+    meshers = set()
+    for micro in structures:
+        for size in (0.05, 0.025):
+            mesh = plane_mesh(micro, size=size, order=2)
+            assert mesh.min_jacobian() > 0.25 and mesh.matching_sides()
+            meshers.add(mesh.metadata["mesher"])
+    assert "exact contours (mmg2d)" in meshers and "exact discs (mmg2d)" in meshers
