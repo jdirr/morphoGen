@@ -524,6 +524,12 @@ class ReactionDiffusionModel(_LatticeModel):
             crop = self._frames_of(domain, tiling, frames)
         else:
             _, sim, crop = self._window(domain, 16)
+            if max(sim) < 2:
+                raise ValueError(
+                    f"reaction_diffusion: the box holds a single cell (cell_size "
+                    f"{self.cell_size:g}); its patterns need at least 24 cells across: a "
+                    "smaller cell_size"
+                )
         attempts = 0
         while True:
             attempts += 1

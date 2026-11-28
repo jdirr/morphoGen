@@ -470,6 +470,32 @@ def test_capsules_that_touch_away_from_the_plane():
 
 
 @needs_mmg2d
+def test_corners_on_the_sides(monkeypatch):
+    """An octet lattice of struts (radius 0.08) cut through the middle of its cell: its
+    struts of the plane, along the diagonals, strips that cross on the sides of the box,
+    corners of their contours on the sides, where a contour crosses them: their nodes those
+    of the sides (two nodes 7e-14 apart failed mmg2d), the area of the strips
+    4 sqrt(2) r - 8 r^2 to round-off. Where mmg2d fails on the contours, a warning, and the
+    section left to the level sets."""
+    from morphogen.mesh import contours
+    from morphogen.models.base import model_from_config
+
+    lattice = model_from_config({"type": "random_lattice", "cell": "octet",
+                                 "strut_radius": 0.08}).generate(BOX, seed=1)  # fmt: skip
+    mesh = contour_mesh(lattice, size=0.05, order=2)
+    assert mesh is not None and mesh.matching_sides()
+    r = 0.08
+    assert mesh.phase_fractions()[1] == pytest.approx(4.0 * np.sqrt(2.0) * r - 8.0 * r**2, abs=1e-9)
+
+    def failed(*args, **kwargs):
+        raise RuntimeError("mmg2d_O3 failed (exit code 1):\n  -- MMG2D")
+
+    monkeypatch.setattr(contours, "_run", failed)
+    with pytest.warns(RuntimeWarning, match=r"mmg2d_O3 failed .* left to the level sets"):
+        assert contour_mesh(lattice, size=0.05) is None
+
+
+@needs_mmg2d
 def test_contours_that_graze_a_side():
     """A contour that dips across the line of a side by less than the bulge of the chords
     of its trace: the chords miss the line; the point of the surface farthest across it

@@ -350,3 +350,5 @@ def test_gray_scott_scheme():
     assert gray_scott((8, 8, 1), rng, du=0.2, steps=1)[0].shape == (8, 8, 1)  # 2D: D <= 1/4
     with pytest.raises(ValueError, match="seed_fraction"):
         gray_scott((8, 8, 8), rng, seed_fraction=0.0)
+    with pytest.raises(ValueError, match="a single cell"):
+        gray_scott((1, 1, 1), rng)

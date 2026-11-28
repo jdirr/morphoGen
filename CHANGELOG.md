@@ -303,6 +303,16 @@
   point of contact is within a thousandth of their radius of the plane, or that touch along
   a line, still leave it to the level sets. Random walks of fibres in contact, solid and
   hollow, within 3.2·10⁻⁶ of counts on grids of 8000² points, the bias of the counts.
+* Fixed: the contour mesher failed (`mmg2d` could not insert two nodes) where a corner of a
+  contour lies on a side of the box, the contour crossing the side there: the corner and the
+  crossing were two nodes 7·10⁻¹⁴ apart; the corner is now the node of the side. The octet
+  and hierarchical lattices of struts, whose struts cross on the sides, are meshed by their
+  contours (the section of the octet cell through its middle, its diagonal strips, to
+  round-off). Where `mmg2d` still fails on the contours, a warning says so and the section
+  is left to the level sets, which a run then uses, where the error stopped it.
+* Fixed: `reaction_diffusion` in a box of a single cell (its default `cell_size` of 1 in a
+  unit box) divided by zero; it now says that its patterns need at least 24 cells across.
+  `gray_scott` refuses a lattice of a single cell.
 * Fixed: the contour mesher failed ("a crossing off the nodes of its side") where a contour
   leaves the box near a corner of it: its crossings of the lines of the two sides were in
   the order of the chord, which near a corner may be the other; they are now in that of

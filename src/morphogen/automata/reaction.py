@@ -150,7 +150,10 @@ def gray_scott(
     Stability of the explicit scheme requires ``D <= 1/6`` (3D) or ``1/4`` (2D).
     """
     shape = tuple(int(n) for n in shape)
-    limit = 1.0 / (2 * sum(1 for n in shape if n > 1))
+    axes = sum(1 for n in shape if n > 1)
+    if not axes:
+        raise ValueError(f"a lattice of a single cell {shape}: the fields need cells to diffuse")
+    limit = 1.0 / (2 * axes)
     if not (0 < du <= limit and 0 < dv <= limit):
         raise ValueError(f"diffusion coefficients must lie in (0, {limit:g}] for stability")
     if not 0.0 < seed_fraction < 1.0:

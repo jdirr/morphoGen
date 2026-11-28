@@ -109,6 +109,9 @@ def test_windows_and_planar_structures():
 def test_reaction_diffusion_needs_room_for_the_pattern():
     with pytest.raises(ValueError, match="died out"):
         ReactionDiffusionModel(pattern="spots", steps=1500).generate(mg.Domain.cube(8.0), seed=1)
+    # a box of a single cell (the default cell_size in a unit box): said so, not a division
+    with pytest.raises(ValueError, match=r"a single cell .* smaller cell_size"):
+        ReactionDiffusionModel().generate(mg.Domain.cube(1.0, periodic=True), seed=1)
 
 
 def test_smoothing_rounds_the_interface():

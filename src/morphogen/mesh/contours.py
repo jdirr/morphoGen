@@ -37,6 +37,7 @@ from __future__ import annotations
 import itertools
 import tempfile
 import time
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -1490,7 +1491,15 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             key, point = value
             if key not in corner_ids:
                 corner_ids[key] = len(xy)
-                xy.append(point)
+                for (axis, side), (chain, ids) in side_nodes.items():
+                    # (a corner on a side, where the contour crosses it: the node of the side)
+                    if abs(point[axis] - (lower, upper)[side][axis]) <= 1e3 * tol:
+                        k = int(np.argmin(np.abs(chain - point[1 - axis])))
+                        if abs(chain[k] - point[1 - axis]) <= 1e3 * tol:
+                            corner_ids[key] = ids[k]
+                            break
+                else:
+                    xy.append(point)
             return corner_ids[key]
         axis, side, t = value
         chain, ids = side_nodes[(axis, side)]
@@ -1559,7 +1568,13 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                          edges=edges, edge_refs=refs, required_vertices=np.arange(len(xy)),
                          required_edges=np.arange(len(edges)))  # fmt: skip
         args = [*_mmg_args(size, 0.5 * shortest, hausdorff, gradation), "-nr", "-nosurf"]
-        out = _run(exe, folder / "contours.mesh", None, folder / "out.mesh", args, timeout)
+        try:
+            out = _run(exe, folder / "contours.mesh", None, folder / "out.mesh", args, timeout)
+        except RuntimeError as err:  # (left to the level sets, which may mesh it)
+            first = str(err).splitlines()[0] if str(err) else type(err).__name__
+            warnings.warn(f"contour mesh: {first}; the section is left to the level sets",
+                          RuntimeWarning, stacklevel=2)  # fmt: skip
+            return None
     nodes, tri = out["Vertices"], out["Triangles"]
     centroids = nodes[tri].mean(axis=1)
     innermost = np.full(len(tri), len(unions))
