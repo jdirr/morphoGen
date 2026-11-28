@@ -140,7 +140,8 @@ homogenization:        # apparent properties of every realization
                        # turned along the segments of its fibres, stiffness_voigt and
                        # stiffness_reuss (its bounds) and stiffness_layers (fibres that wave
                        # together), .<bc>.E3 ..., conductivity_tensor_voigt.<bc>.C33 ...
-                       # beside those of the section (theory §119)
+                       # beside those of the section, and the thermal expansion with the
+                       # stiffness, thermal_expansion_layers.<bc>.A33 ... (theory §119)
   properties: [bulk_modulus, shear_modulus, conductivity, stiffness, conductivity_tensor,
                thermal_expansion]   # materials with expansion: alpha | [a_a, a_c] | 3 x 3
                # the other transports: electrical_conductivity, permittivity, permeability,

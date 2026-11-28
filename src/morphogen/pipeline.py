@@ -77,7 +77,9 @@ from morphogen.domain import Domain
 from morphogen.homogenization import Apparent, PathResult, Response, bounds, homogenize
 from morphogen.homogenization.apparent import COUPLED, FLOW, HARMONIC
 from morphogen.homogenization.beremin import path_beremin
+from morphogen.homogenization.core import VOIGT_NAMES
 from morphogen.homogenization.coupled import coupled_entries
+from morphogen.homogenization.elements import VOIGT
 from morphogen.homogenization.fatigue import path_fatigue
 from morphogen.homogenization.materials import any_oriented
 from morphogen.homogenization.postprocess import (
@@ -89,6 +91,7 @@ from morphogen.homogenization.postprocess import (
 from morphogen.homogenization.unidirectional import (
     fibre_directions,
     misaligned_conductivity,
+    misaligned_expansion,
     misaligned_stiffness,
 )
 from morphogen.homogenization.xfem import LevelSetSample
@@ -570,10 +573,29 @@ def _misaligned(results: dict, directions, volumes, stem: str) -> dict:
     ``reuss``, ``layers``) of the tensors of the section turned along the segments of its
     fibres with their volumes, ``<property>_<average>.<bc>.<entry>``: the entries ``C11``
     ... ``C66`` of the stiffness and its engineering constants, the entries ``C11`` ...
-    ``C33`` of the transport tensors and their means."""
+    ``C33`` of the transport tensors and their means; and the thermal expansion of
+    :func:`~morphogen.homogenization.unidirectional.misaligned_expansion` (under a uniform
+    strain, a uniform stress, and of the layers) with the stiffness of the section under the
+    same condition, its entries ``A11`` ... ``A12`` and their mean."""
     values = {}
     for key, res in results.items():
         prop, _, bc = key.partition(".")
+        if prop == "thermal_expansion" and f"stiffness.{bc}" in results:
+            stiffness = results[f"stiffness.{bc}"]["tensor"]
+            averages = misaligned_expansion(stiffness, res["tensor"], directions, volumes)
+            for average, tensor in averages.items():
+                named = {f"A{n}": float(tensor[a, b])
+                         for (a, b), n in zip(VOIGT, VOIGT_NAMES, strict=True)}  # fmt: skip
+                named["mean"] = float(np.trace(tensor) / 3.0)
+                values.update({f"{prop}_{average}.{bc}.{k}": v for k, v in named.items()})
+            log.info(
+                "%s: the axial thermal expansion of the misaligned ply (%s): %.5g of the "
+                "layers, %.5g under a uniform stress, %.5g under a uniform strain; its "
+                "section, of straight fibres, %.5g",
+                stem, bc, averages["layers"][2, 2], averages["reuss"][2, 2],
+                averages["voigt"][2, 2], res["tensor"][2, 2],
+            )  # fmt: skip
+            continue
         if prop not in TENSOR_PROPERTIES or not isinstance(res, dict):
             continue
         if prop == "stiffness":

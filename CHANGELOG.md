@@ -262,6 +262,14 @@
   conductivities and the tensors of the other transport phenomena (`turned_conductivity`,
   `misaligned_conductivity`: `conductivity_tensor_voigt.<bc>.C33`..., their means), verified
   against the axial conductivities of fibres turned in a plane.
+* The thermal expansion of misaligned plies (`misaligned_expansion`): from the stiffness and
+  the expansion of the section, those of the ply under a uniform strain, under a uniform
+  stress and in layers normal to the fibres; the layers verified against the FFT solution
+  of a laminate of the turned composites to round-off (their stiffness too), and the ply
+  misaligned by 5° against the FFT solution of its voxels, within 1 % of the layers and of a
+  uniform stress (1.354·10⁻⁶ /K along the fibres, its section 1.05·10⁻⁶). The runs record
+  them with `homogenization.misaligned` (`thermal_expansion_layers.<bc>.A33`...), the
+  stiffness among the properties; the template `misaligned_ply_plane` computes them.
   `fibre_directions` weighs the segments with their volumes (with their lengths before:
   the same for fibres of one radius), and finds those of coated fibres (the union their
   coating covers) and of hollow ones (the fibres about their lumens).

@@ -8,9 +8,9 @@
 # strain): its transverse properties, those of the ply where the fibres wave little; its
 # axial ones are those of straight fibres, which the tensors of the section turned along the
 # segments of the fibres bound for the ply (misaligned: Voigt, Reuss and the layers of
-# fibres that wave together). The stiffness and the conductivity under periodic, kinematic
-# and static conditions, and the figures of the mesh and of the von Mises stress of its
-# shear.
+# fibres that wave together; the estimates of the thermal expansion). The stiffness, the
+# conductivity and the thermal expansion under periodic, kinematic and static conditions,
+# and the figures of the mesh and of the von Mises stress of its shear.
 model:
   type: long_fibers
   radius: 3.5                 # micrometres
@@ -31,10 +31,11 @@ homogenization:
   plane: generalized          # or strain (plane strain)
   misaligned: true            # stiffness_voigt.<bc>.E3, conductivity_tensor_reuss.<bc>.C33...
   materials:
-    0: {young: 3.5, poisson: 0.35, conductivity: 0.2}     # epoxy (GPa, W/m/K)
-    1: {young: 230.0, poisson: 0.2, conductivity: 10.0}   # carbon fibres, isotropic here
+    0: {young: 3.5, poisson: 0.35, conductivity: 0.2, expansion: 60.0e-6}    # epoxy
+    1: {young: 230.0, poisson: 0.2, conductivity: 10.0, expansion: -0.5e-6}  # carbon fibres,
+    # isotropic here (GPa, W/m/K, 1/K)
   boundary_conditions: [periodic, kubc, subc]
-  properties: [stiffness, shear_modulus, conductivity_tensor]
+  properties: [stiffness, shear_modulus, conductivity_tensor, thermal_expansion]
   fields: true
 outputs:
   directory: out/misaligned_ply_plane

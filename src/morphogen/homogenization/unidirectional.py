@@ -356,6 +356,57 @@ def misaligned_conductivity(conductivity, directions, weights=None) -> dict[str,
     return _averages(ks, weights, [2], [0, 1], "misaligned_conductivity")
 
 
+def misaligned_expansion(stiffness, expansion, directions, weights=None) -> dict[str, np.ndarray]:
+    """The thermal expansion (3 x 3) of a ply of misaligned fibres from the stiffness (6 x 6,
+    Voigt) and the expansion (3 x 3) of the ply aligned (the fibres along the axis 3), the
+    composite aligned with each of ``directions`` (n x 3) about it in the proportions
+    ``weights`` (their volumes; equal by default), as :func:`misaligned_stiffness`: under a
+    uniform strain (``"voigt"``: ``<C>^-1 <C a>``, the mean stress free), under a uniform
+    stress (``"reuss"``: ``<a>``, each free to expand) and in layers normal to the axis 3,
+    each of one orientation (``"layers"``: the strains in their plane and the stresses on it
+    continuous, their mean stress free), for a unit change of temperature."""
+    cs = turned_stiffness(stiffness, directions)
+    a = np.asarray(expansion, dtype=float)
+    if a.shape != (3, 3):
+        raise ValueError("misaligned_expansion: a 3 x 3 expansion")
+    a = _engineering(turned_conductivity(a, directions))  # (n, 6): the shears doubled
+    w = np.ones(len(cs)) if weights is None else np.asarray(weights, dtype=float).ravel()
+    if len(w) != len(cs) or not np.all(w >= 0.0) or not w.sum() > 0.0:
+        raise ValueError("misaligned_expansion: a nonnegative weight per direction")
+    w = w / w.sum()
+    voigt = np.linalg.solve(np.einsum("n,nij->ij", w, cs), np.einsum("n,nij,nj->i", w, cs, a))
+    reuss = np.einsum("n,ni->i", w, a)
+    normal, tangent = [2, 3, 4], [0, 1, 5]
+    cnn = cs[:, normal][:, :, normal]
+    cnt = cs[:, normal][:, :, tangent]
+    ctn = cs[:, tangent][:, :, normal]
+    ctt = cs[:, tangent][:, :, tangent]
+    an, at = a[:, normal], a[:, tangent]
+    inv_nt = np.linalg.solve(cnn, cnt)  # C_nn^-1 C_nt
+    m = ctt - ctn @ inv_nt  # the stiffness of each layer in its plane, its normal stress free
+    strain = np.linalg.solve(np.einsum("n,nij->ij", w, m), np.einsum("n,nij,nj->i", w, m, at))
+    layers = np.empty(6)
+    layers[tangent] = strain
+    layers[normal] = np.einsum("n,ni->i", w, an + np.einsum("nij,nj->ni", inv_nt, at)) - (
+        np.einsum("n,nij->ij", w, inv_nt) @ strain
+    )
+    return {k: _tensor(v) for k, v in (("voigt", voigt), ("reuss", reuss), ("layers", layers))}
+
+
+def _engineering(tensors) -> np.ndarray:
+    """Symmetric tensors (n x 3 x 3) as Voigt vectors (n x 6: 11 22 33 23 31 12), their
+    shears doubled (engineering strains)."""
+    t = np.asarray(tensors, dtype=float)
+    return np.stack([t[:, 0, 0], t[:, 1, 1], t[:, 2, 2], 2.0 * t[:, 1, 2], 2.0 * t[:, 2, 0],
+                     2.0 * t[:, 0, 1]], axis=1)  # fmt: skip
+
+
+def _tensor(v) -> np.ndarray:
+    """The symmetric tensor (3 x 3) of a Voigt vector of engineering strains."""
+    return np.array([[v[0], v[5] / 2, v[4] / 2], [v[5] / 2, v[1], v[3] / 2],
+                     [v[4] / 2, v[3] / 2, v[2]]])  # fmt: skip
+
+
 def _averages(tensors, weights, normal, tangent, name: str) -> dict[str, np.ndarray]:
     """The averages of symmetric ``tensors`` (n x m x m) in the proportions ``weights``
     (equal by default): of Voigt (the tensors), of Reuss (their inverses) and of layers

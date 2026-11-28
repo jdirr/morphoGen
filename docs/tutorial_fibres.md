@@ -193,7 +193,10 @@ open. A run records them beside the stiffness of the section with `misaligned: t
 the keys of its `homogenization` (the meshes of the plane, the stiffness among its
 properties): `stiffness_voigt.<bc>.E3`, `stiffness_reuss.<bc>.E3`, `stiffness_layers.<bc>.E3`
 and their other entries and engineering constants, and those of the conductivity
-(`conductivity_tensor_voigt.<bc>.C33`...) when it is among them.
+(`conductivity_tensor_voigt.<bc>.C33`...) and of the thermal expansion
+(`thermal_expansion_layers.<bc>.A33`...) when they are among them. A few degrees of waviness
+cost little of the axial modulus but raise the axial expansion by a fourth or more: the
+fibres that lean let the matrix expand along the ply ([theory](theory.md) §119).
 
 ## 6. Files for other codes
 
@@ -209,7 +212,8 @@ print(open("ply.inp").read().count("*SOLID SECTION"))  # 2: the matrix and the f
 
 The template `fibre_bed_plane` computes the permeability of preforms over several
 realizations, and `misaligned_ply_plane` the transverse stiffness and conductivity of a
-misaligned ply, and the bounds of its axial stiffness and conductivity:
+misaligned ply, the bounds of its axial stiffness and conductivity and the estimates of its
+thermal expansion:
 
 ```bash
 morphogen template fibre_bed_plane -o preform.yaml

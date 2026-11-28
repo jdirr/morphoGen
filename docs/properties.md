@@ -366,7 +366,11 @@ plies of laminates — are given by their constituents, `{unidirectional: {fibre
 matrix: {...}, fibre_fraction: 0.6}}`: the transversely isotropic material of the
 composite cylinder assemblage (Hashin & Rosen 1964), its axis 3 along the fibres, with its
 conductivities and expansions (`morphogen.homogenization.unidirectional`, theory notes
-§110).
+§110). The plies of misaligned fibres meshed in their plane are solved as straight fibres:
+`misaligned: true` adds the stiffness, the transport tensors and the thermal expansion of
+the ply, those of its section turned along the segments of its fibres (the bounds of Voigt
+and Reuss and the layers normal to the fibres; template `misaligned_ply_plane`, theory
+§119).
 
 Templates to start from: `homogenization_spheres` (the four conditions on a composite),
 `homogenization_gyroid` (stiffness tensor of a lattice, local fields),

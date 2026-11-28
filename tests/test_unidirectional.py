@@ -26,6 +26,7 @@ from morphogen.homogenization.unidirectional import (
     hill_moduli,
     hill_relations,
     misaligned_conductivity,
+    misaligned_expansion,
     misaligned_stiffness,
     transverse_shear_bounds,
     turned_conductivity,
@@ -279,6 +280,38 @@ def test_misaligned_conductivity_in_closed_form():
         turned_conductivity(np.eye(2), d)
 
 
+def test_misaligned_expansion_and_the_layers_of_a_laminate():
+    """The thermal expansion of misaligned plies: one direction, the expansion turned by
+    every average; an isotropic expansion unchanged by them; and the layers of the composite
+    cylinders along four directions, the FFT solution of their laminate (a voxel each along
+    z, their stiffnesses and expansions turned): its stiffness and its expansion those of the
+    layers of misaligned_stiffness and misaligned_expansion, to round-off."""
+    fibre = Material(young=230.0, poisson=0.2, expansion=-0.5e-6)
+    tow = composite_cylinders(fibre, Material(young=3.5, poisson=0.35, expansion=60e-6), 0.6)
+    c = np.asarray(tow.stiffness, dtype=float)
+    a = np.diag([tow.expansion[0], tow.expansion[0], tow.expansion[1]])
+    one = misaligned_expansion(c, a, [[0.3, 0.1, 1.0]])
+    turned = turned_conductivity(a, [[0.3, 0.1, 1.0]])[0]  # (a tensor of the second order)
+    assert all(np.allclose(one[k], turned, rtol=0.0, atol=1e-18) for k in one)
+    rng = np.random.default_rng(1)
+    directions = rng.normal(size=(5, 3)) * [0.2, 0.2, 1.0]
+    iso = misaligned_expansion(c, 3e-6 * np.eye(3), directions, rng.random(5))
+    assert all(np.allclose(iso[k], 3e-6 * np.eye(3), rtol=0.0, atol=1e-18) for k in iso)
+    directions = [[0.3, 0.0, 1.0], [-0.1, 0.25, 1.0], [0.05, -0.2, 1.0], [-0.2, -0.1, 1.0]]
+    cs, expansions = turned_stiffness(c, directions), turned_conductivity(a, directions)
+    plies = {k: Material.anisotropic(stiffness=cs[k], expansion=expansions[k]) for k in range(4)}
+    laminate = mg.VoxelImage(data=np.arange(4).reshape(1, 1, 4), periodic=True)
+    out = homogenize(laminate, plies, properties=["stiffness", "thermal_expansion"], tol=1e-10)
+    stiffness = out["stiffness.periodic"]["tensor"]
+    layers = misaligned_stiffness(c, directions)["layers"]
+    assert np.abs(layers - stiffness).max() < 1e-12 * np.abs(stiffness).max()
+    expansion = out["thermal_expansion.periodic"]["tensor"]
+    layers = misaligned_expansion(c, a, directions)["layers"]
+    assert np.abs(layers - expansion).max() < 1e-12 * np.abs(expansion).max()
+    with pytest.raises(ValueError, match="3 x 3"):
+        misaligned_expansion(c, np.eye(2), directions)
+
+
 def test_fibre_directions_of_coated_and_hollow_fibres():
     """The segments of the fibres weighted with their volumes: those that a coating covers,
     those of hollow fibres about their lumens; a structure without segments refused."""
@@ -316,21 +349,34 @@ def test_misaligned_ply_between_its_bounds():
     1.2 apart at least): the axial modulus of its section in its plane, that of straight
     fibres (92.5), above the Voigt bound of its stiffness turned along the segments of its
     fibres (90.8); the FFT solution of its voxels (0.4: the gaps three voxels at least, which
-    the voxels keep open) between the bounds of Voigt and Reuss (76.2), at 81.8."""
-    epoxy, carbon = Material(young=3.5, poisson=0.35), Material(young=230.0, poisson=0.2)
+    the voxels keep open) between the bounds of Voigt and Reuss (76.2), at 81.8. Its thermal
+    expansion along the fibres, 1.05e-6 for the section, 1.354e-6 by the voxels: within 1 %
+    of the layers (1.366e-6) and of a uniform stress (1.369e-6), a uniform strain far below
+    (0.79e-6)."""
+    epoxy = Material(young=3.5, poisson=0.35, expansion=60e-6)
+    carbon = Material(young=230.0, poisson=0.2, expansion=-0.5e-6)
     model = mg.models.LongFibers(radius=2.0, volume_fraction=0.4, min_gap=1.2, misalignment=5.0)
     ply = model.generate(mg.Domain(size=(16.0, 16.0, 48.0), periodic=True), seed=2)
     section = mg.mesh.plane_mesh(ply, size=0.6, order=2)
-    out = homogenize(section, {0: epoxy, 1: carbon}, properties=["stiffness"])
+    wanted = ["stiffness", "thermal_expansion"]
+    out = homogenize(section, {0: epoxy, 1: carbon}, properties=wanted)
     aligned = out["stiffness.periodic"]["tensor"]
     bounds = misaligned_stiffness(aligned, *fibre_directions(ply))
     image = ply.voxelize(voxel_size=0.4)
-    fft = homogenize(image, {0: epoxy, 1: carbon}, properties=["stiffness"])
+    fft = homogenize(image, {0: epoxy, 1: carbon}, properties=wanted)
     e3 = {k: engineering_constants(c)["E3"] for k, c in bounds.items()}
     straight = engineering_constants(aligned)["E3"]
     voxels = engineering_constants(fft["stiffness.periodic"]["tensor"])["E3"]
     assert straight > e3["voigt"] > voxels > e3["layers"] >= e3["reuss"] * (1 - 1e-9)
     assert straight == pytest.approx(92.5, rel=0.01) and voxels == pytest.approx(81.8, rel=0.01)
+    expansion = out["thermal_expansion.periodic"]["tensor"]
+    a33 = {k: t[2, 2] for k, t in misaligned_expansion(aligned, expansion,
+                                                       *fibre_directions(ply)).items()}  # fmt: skip
+    voxels = fft["thermal_expansion.periodic"]["tensor"][2, 2]
+    assert expansion[2, 2] == pytest.approx(1.05e-6, rel=0.01)
+    assert voxels == pytest.approx(1.354e-6, rel=0.01)
+    assert a33["layers"] == pytest.approx(voxels, rel=0.015)
+    assert a33["reuss"] == pytest.approx(voxels, rel=0.015) and a33["voigt"] < 0.6 * voxels
 
 
 def _ply_config(tmp_path, **homogenization) -> dict:
@@ -345,10 +391,12 @@ def _ply_config(tmp_path, **homogenization) -> dict:
         "homogenization": {
             "method": "fe",
             "misaligned": True,
-            "materials": {0: {"young": 3.5, "poisson": 0.35, "conductivity": 0.2},
-                          1: {"young": 230.0, "poisson": 0.2, "conductivity": 10.0}},
+            "materials": {0: {"young": 3.5, "poisson": 0.35, "conductivity": 0.2,
+                              "expansion": 60e-6},
+                          1: {"young": 230.0, "poisson": 0.2, "conductivity": 10.0,
+                              "expansion": -0.5e-6}},
             "boundary_conditions": ["periodic", "kubc"],
-            "properties": ["stiffness", "conductivity_tensor"],
+            "properties": ["stiffness", "conductivity_tensor", "thermal_expansion"],
             **homogenization,
         },
         "outputs": {"directory": str(tmp_path / "out"), "name": "ply"},
@@ -361,8 +409,10 @@ def test_runs_record_the_misaligned_ply(tmp_path):
     stiffness of its section (that of straight fibres: an axial modulus of 69.9) those of
     the misaligned ply under each condition: Voigt (68.6), the layers (59.3) and Reuss
     (59.2), in this order, their entries and engineering constants, and its axial
-    conductivity in the same order; the option refused without the stiffness or a
-    transport tensor, for tetrahedra, and for a structure without fibres."""
+    conductivity in the same order; its thermal expansion along the fibres, larger for the
+    ply than for its section; the option refused without the stiffness or a transport
+    tensor, for the expansion without the stiffness, for tetrahedra, and for a structure
+    without fibres."""
     import csv
 
     from morphogen.config import ConfigError, load_config
@@ -379,12 +429,18 @@ def test_runs_record_the_misaligned_ply(tmp_path):
                                                                      "_reuss")]  # fmt: skip
         assert k33[0] > k33[1] > k33[2] >= k33[3] * (1 - 1e-12)
         assert f"conductivity_tensor_reuss.{bc}.mean" in values
+        a33 = [values[f"thermal_expansion{k}.{bc}.A33"] for k in ("", "_layers", "_reuss")]
+        assert a33[1] > 1.05 * a33[0] and a33[2] > 1.05 * a33[0]
+        assert f"thermal_expansion_voigt.{bc}.A12" in values
     e3 = [values[f"stiffness{k}.periodic.E3"] for k in ("", "_voigt", "_layers", "_reuss")]
     assert e3 == pytest.approx([69.9, 68.6, 59.3, 59.2], rel=0.02)
     with pytest.raises(ConfigError, match="true or false"):
         load_config(_ply_config(tmp_path, misaligned="yes"), base_dir=tmp_path)
     with pytest.raises(ConfigError, match=r"properties: \[stiffness"):
         load_config(_ply_config(tmp_path, properties=["shear_modulus"]), base_dir=tmp_path)
+    with pytest.raises(ConfigError, match="stiffness of its section too"):
+        load_config(_ply_config(tmp_path, properties=["conductivity_tensor", "thermal_expansion"]),
+                    base_dir=tmp_path)  # fmt: skip
     tetrahedra = _ply_config(tmp_path)
     tetrahedra["mesh"] = {"size": 1.0}
     with pytest.raises(ConfigError, match="sections of the plane"):

@@ -14135,6 +14135,26 @@ Voigt and harmonic mean that of the layers, to round-off. The ply of the templat
 `misaligned_ply_plane` (3°): an axial conductivity of 5.632 W/m/K for its section, 5.619
 (Voigt, the layers) and 5.560 (Reuss) for the ply.
 
+**The thermal expansion of misaligned plies.** The expansion of the composite aligned with
+each segment, turned as $a(d) = R a R^T$, and its stiffness $C(d)$ give that of the ply
+under a uniform strain, $\langle C \rangle^{-1} \langle C a \rangle$ (the mean stress free),
+under a uniform stress, $\langle a \rangle$ (each part free to expand), and that of layers
+normal to $z$, each of one orientation (`misaligned_expansion`): the strains in their plane
+$e = \langle M \rangle^{-1} \langle M a_t \rangle$, where $M = C_{tt} - C_{tn} C_{nn}^{-1}
+C_{nt}$ is the stiffness of a layer in its plane under no normal stress ($t$ the strains 11,
+22, 12, $n$ the stresses 33, 23, 31, in Voigt's engineering notation), and the strains
+normal to them $\langle a_n + C_{nn}^{-1} C_{nt} (a_t - e) \rangle$. They are estimates, not
+bounds. The FFT solution of a laminate of the composite cylinders along four directions, a
+voxel each, has the stiffness and the expansion of the layers to round-off. The ply
+misaligned by 5° above (carbon at −0.5·10⁻⁶ /K in epoxy at 60·10⁻⁶): along the fibres,
+1.05·10⁻⁶ for its section and 1.354·10⁻⁶ by the FFT solution of its voxels of 0.4, within
+1 % of the layers (1.366·10⁻⁶) and of a uniform stress (1.369·10⁻⁶), where a uniform strain
+gives 0.79·10⁻⁶. Five degrees of waviness raise the axial expansion of the ply by 29 %,
+which its section misses: the fibres that lean let the matrix expand along the ply; the
+three degrees of the template `misaligned_ply_plane` raise it by 13 % (0.449·10⁻⁶ for its
+section, 0.506·10⁻⁶ for the ply). The runs record the three with the stiffness
+(`thermal_expansion_layers.<bc>.A33`...).
+
 Coated and hollow fibres (the model `coating`) are meshed by the contours of their layers
 (`section_layers`): the union and that grown by the thickness of the coating, or the union
 shrunk by that of the shells and the union, the phases between them, the gaps across a

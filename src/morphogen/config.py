@@ -420,11 +420,11 @@ class HomogenizationSpec:
     #: the elastic problems of the meshes of the plane: 'generalized' (generalized plane
     #: strain, the default) or 'strain' (plane strain); morphogen.homogenization.plane
     plane: str | None = None
-    #: the stiffness and the transport tensors of a ply of misaligned fibres from those of
-    #: its section (the meshes of the plane of the unions of segments): turned along the
-    #: segments of its fibres, the bounds of Voigt and Reuss and the average of layers of
-    #: Backus (morphogen.homogenization.unidirectional.misaligned_stiffness and
-    #: misaligned_conductivity)
+    #: the stiffness, the transport tensors and the thermal expansion of a ply of misaligned
+    #: fibres from those of its section (the meshes of the plane of the unions of segments):
+    #: turned along the segments of its fibres, the bounds of Voigt and Reuss and the
+    #: average of layers of Backus (morphogen.homogenization.unidirectional:
+    #: misaligned_stiffness, misaligned_conductivity, misaligned_expansion)
     misaligned: bool = False
 
     @property
@@ -1204,6 +1204,11 @@ def _misaligned(value, properties) -> bool:
         raise ConfigError(
             "homogenization.misaligned: from the stiffness or the transport tensors of the "
             "section (properties: [stiffness, conductivity_tensor, ...])"
+        )
+    if value and "thermal_expansion" in properties and "stiffness" not in properties:
+        raise ConfigError(
+            "homogenization.misaligned: the thermal expansion of the ply from the stiffness "
+            "of its section too (properties: [stiffness, thermal_expansion, ...])"
         )
     return value
 
