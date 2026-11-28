@@ -109,10 +109,16 @@ def _section_axes(micro, z: float | None = None, beyond: float = 0.0):
     """The axes of :func:`section_capsules` and, for each, whether its start and its end
     are flat caps that reach the plane (n x 2), kept where they are: ``(start, end, radii,
     flat)``; the ends clipped to the slab are round, which keeps the sections. ``beyond``:
-    the slab wider by it (the union grown or shrunk by it: its caps moved). None for
-    another structure."""
+    the slab wider by it (the union grown or shrunk by it: its caps moved). The union of
+    unions (a combination): the axes of all. None for another structure."""
+    from morphogen.models.combination import Combined
     from morphogen.models.union import PrimitiveUnion
 
+    if isinstance(micro, Combined) and micro.operation == "union":
+        parts = [_section_axes(part, z, beyond) for part in micro.parts]
+        if any(part is None for part in parts):
+            return None
+        return tuple(np.concatenate([part[k] for part in parts]) for k in range(4))
     if not isinstance(micro, PrimitiveUnion):
         return None
     domain = micro.domain
@@ -163,19 +169,26 @@ def section_layers(micro):
     segments itself (phase 1 inside, 0 outside), or one coated
     (:class:`~morphogen.models.nested.CoatedStructure`: the union and that grown by the
     thickness of the coating, or the union shrunk by that of the shells and the union), or
-    the difference of two (the hollow fibres of :mod:`~morphogen.models.fibers`: the
-    lumens, phase 0 inside them, then the fibres); None for another structure."""
+    the difference of unions (the hollow fibres of :mod:`~morphogen.models.fibers`: the
+    lumens, phase 0 inside them, then the fibres; the union of those removed, then the
+    first); a union of unions (a :class:`~morphogen.models.combination.Combined` union) is
+    one; None for another structure."""
     from morphogen.mesh.triangles import _grown
     from morphogen.models.combination import Combined
     from morphogen.models.nested import CoatedStructure
     from morphogen.models.union import PrimitiveUnion
 
-    if isinstance(micro, PrimitiveUnion):
+    if isinstance(micro, PrimitiveUnion) or (
+        isinstance(micro, Combined) and micro.operation == "union"
+        and _section_axes(micro) is not None
+    ):  # fmt: skip
         return [micro], [1, 0]
-    if (isinstance(micro, Combined) and micro.operation == "difference"
-            and len(micro.parts) == 2
-            and all(isinstance(p, PrimitiveUnion) for p in micro.parts)):  # fmt: skip
-        return [micro.parts[1], micro.parts[0]], [0, 1, 0]
+    if isinstance(micro, Combined) and micro.operation == "difference":
+        removed = (micro.parts[1] if len(micro.parts) == 2
+                   else Combined(micro.domain, "union", micro.parts[1:]))  # fmt: skip
+        if _section_axes(micro.parts[0]) is not None and _section_axes(removed) is not None:
+            return [removed, micro.parts[0]], [0, 1, 0]
+        return None
     if not (isinstance(micro, CoatedStructure) and isinstance(micro.inner, PrimitiveUnion)):
         return None
     inner, t = micro.inner, float(micro.thickness)

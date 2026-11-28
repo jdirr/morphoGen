@@ -282,6 +282,11 @@
   the chains to the level sets. Solid and hollow, apart or overlapping, within 2.6·10⁻⁶ of
   counts on grids of 8000² points, the noise of the counts. `mesh.contours.TANGENT` and
   `GRAZING` (below) are in the public interface (`tests/public_api.txt`).
+* The exact contours of combinations of unions of spheres and segments: a union of unions
+  (`combination`, `operation: union`) is one union, its capsules those of all (spheres and
+  Boolean cylinders within 9·10⁻⁷ of a count), and the difference of a union and of
+  several, the union of those removed within the first, where they lie within it (they fell
+  to the level sets).
 * Fixed: a contour that crosses a side at a grazing angle, its dip across the line shallower
   than the bulge of the chords of its trace (up to a 256th of its radius), crossed it unseen
   between two vertices: the nodes of its piece fell out of the box and the section to the

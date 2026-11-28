@@ -14201,6 +14201,13 @@ the matrix: the walls of dense hardcore fibres (radius 0.04, a fourth of the box
 of six tenths of the radii) within 6.1·10⁻⁶ of counts on grids of 8000² points, twelve
 realizations of twelve at the size 0.05.
 
+A combination of unions (`combination` with the operation `union`) is one union, its
+capsules those of all: spheres and Boolean cylinders together within 9·10⁻⁷ of a count on
+a grid of 4000² points. The difference of a union and of several (the operation
+`difference`) is meshed as the union of those removed within the first, the phases 0, 1, 0
+from the innermost: exactly where they lie within it, as lumens; where they cut its
+contour, the contours of the two layers cross, and the section is left to the level sets.
+
 The angle of a corner is that of the normals of the two contours in the plane, those of
 the surfaces of the capsules projected onto it and normalized: unnormalized, the normals
 that tilt out of the plane made it larger (a corner where two contours are tangent came
