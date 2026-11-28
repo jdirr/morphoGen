@@ -277,6 +277,9 @@
   4.6·10⁻⁶ of counts on grids of 4000² points, and a hexagonal honeycomb of a solid its
   axial modulus and conductivity the fraction of the walls of the solid's to round-off,
   isotropic in its plane within 2·10⁻⁴, 8 % above the bending beams of Gibson and Ashby.
+  Softwood without rays too, the lumens of its radial files rectangles, within 1.7·10⁻⁶ of
+  counts on a turned lattice; the vertices of the lumens within a 16th of the least size of
+  a side moved onto it (the slivers that a side cuts thinner than the elements left out).
   Tested in `tests/test_plane_cells.py`; the module in the public interface.
 * The exact contours of hollow fibres whose lumens are a union of their own (`hardcore_fibers`
   and `curved_fibers` with a `lumen`, the union of the fibres less that of their lumens):

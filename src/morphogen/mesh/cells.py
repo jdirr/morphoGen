@@ -1,9 +1,10 @@
 """Exact triangular meshes of prismatic cells in their plane: honeycombs.
 
 The walls of :class:`~morphogen.models.honeycomb.PrismaticCells` are the points of each
-cell nearer to its sides than half its wall: the lumen of a cell is its Voronoi polygon
-offset inward by half its wall — the intersection of its half planes moved in by it, an
-exact convex polygon —, and the walls are the rest of the box. Prisms along ``z`` do not
+cell nearer to its sides than half its wall: the lumen of a cell is its Voronoi polygon (or
+the rectangle of a radial file of wood) offset inward by half its wall — the intersection
+of its half planes moved in by it, an exact convex polygon —, and the walls are the rest of
+the box. Prisms along ``z`` do not
 vary along it: the mesh of their plane is the structure itself, whose stiffness and
 conductivity in space the finite elements of the plane give in generalized plane strain
 (:mod:`morphogen.homogenization.plane`). The edges of the lumens are graded across the
@@ -42,26 +43,48 @@ REF_LUMEN = 10
 
 def cell_lumens(micro) -> list[tuple[int, np.ndarray]] | None:
     """The lumens of the prismatic cells of a honeycomb whose prisms run along ``z``, in its
-    box: each cell (the Voronoi polygon of its germ) offset inward by half its wall, cut by
-    the box — in a periodic box, it and its translates —, as ``(cell, polygon)``, the
-    vertices counterclockwise; None for another structure (the radial files of wood, prisms
-    along another axis)."""
+    box: each cell (the Voronoi polygon of its germ, or the rectangle of a radial file of
+    wood) offset inward by half its wall, cut by the box — in a periodic box, it and its
+    translates —, as ``(cell, polygon)``, the vertices counterclockwise; None for another
+    structure (prisms along another axis, wood with rays, which vary along the prisms)."""
     from morphogen.models.honeycomb import PrismaticCells
 
-    if not isinstance(micro, PrismaticCells) or micro.axis != 2 or micro.files is not None:
+    if not isinstance(micro, PrismaticCells) or micro.axis != 2 or micro.rays is not None:
         return None
     domain = micro.domain
     lower = np.asarray(domain.lower[:2], dtype=float)
     upper = np.asarray(domain.upper[:2], dtype=float)
     lengths = upper - lower
-    germs = np.asarray(micro.germs, dtype=float)
     periodic = bool(domain.periodic)
     shifts = (np.array([(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)], dtype=float)
               if periodic else np.zeros((1, 2)))  # fmt: skip
+    lumens = _file_lumens(micro) if micro.files is not None else _voronoi_lumens(micro, shifts)
+    out = []
+    for i, lumen in lumens:
+        for shift in shifts:
+            piece = lumen + shift * lengths
+            for axis in (0, 1):
+                e = np.zeros(2)
+                e[axis] = 1.0
+                piece = _clip(piece, e, upper[axis])
+                piece = _clip(piece, -e, -lower[axis])
+            if len(piece) >= 3 and abs(_shoelace(piece)) > 1e-12 * float(np.prod(lengths)):
+                out.append((i, piece))
+    return out
+
+
+def _voronoi_lumens(micro, shifts) -> list[tuple[int, np.ndarray]]:
+    """The lumens of the Voronoi cells of the germs of prismatic cells: each cell, the half
+    planes of its nearest germs (their images across a periodic box), moved in by half its
+    wall."""
+    domain = micro.domain
+    lower = np.asarray(domain.lower[:2], dtype=float)
+    lengths = np.asarray(domain.lengths[:2], dtype=float)
+    germs = np.asarray(micro.germs, dtype=float)
     every = (germs[None, :, :] + shifts[:, None, :] * lengths).reshape(-1, 2)
     tree = cKDTree(every)
     big = _rectangle(np.minimum(lower, germs.min(axis=0)) - lengths,
-                     np.maximum(upper, germs.max(axis=0)) + lengths)  # fmt: skip
+                     np.maximum(lower + lengths, germs.max(axis=0)) + lengths)  # fmt: skip
     out = []
     for i, c in enumerate(germs):
         k = min(len(every), 24)
@@ -85,17 +108,26 @@ def cell_lumens(micro) -> list[tuple[int, np.ndarray]] | None:
             if length > 0.0:
                 normal = np.array([d[1], -d[0]]) / length  # (outward: counterclockwise)
                 lumen = _clip(lumen, normal, float(normal @ a) - half)
-        if len(lumen) < 3:
-            continue  # (a cell all wall)
-        for shift in shifts:
-            piece = lumen + shift * lengths
-            for axis in (0, 1):
-                e = np.zeros(2)
-                e[axis] = 1.0
-                piece = _clip(piece, e, upper[axis])
-                piece = _clip(piece, -e, -lower[axis])
-            if len(piece) >= 3 and abs(_shoelace(piece)) > 1e-12 * float(np.prod(lengths)):
-                out.append((i, piece))
+        if len(lumen) >= 3:  # (else a cell all wall)
+            out.append((i, lumen))
+    return out
+
+
+def _file_lumens(micro) -> list[tuple[int, np.ndarray]]:
+    """The lumens of the rectangular cells of the radial files of wood: each rectangle,
+    between two bounds along its file and the two sides of the file, shrunk by half its
+    wall."""
+    files = micro.cells
+    out = []
+    for j, bounds in enumerate(files.bounds):
+        below = files.origin + j * files.width
+        for k in range(len(bounds) - 1):
+            cell = int(files.first[j] + k)
+            half = 0.5 * float(micro.walls[cell])
+            lo = np.array([bounds[k] + half, below + half])
+            hi = np.array([bounds[k + 1] - half, below + files.width - half])
+            if np.all(hi > lo):
+                out.append((cell, _rectangle(lo, hi)))
     return out
 
 
@@ -107,8 +139,9 @@ def cells_mesh(micro, *, size: float, min_size: float | None = None,
     """The triangular mesh of the prismatic cells of a honeycomb in their plane (see the
     module): the lumens (phase 0) exact polygons (:func:`cell_lumens`), the walls (phase 1)
     the rest of the box, the edges of the lumens graded across the walls and from their gaps
-    to the sides (at least ``min_size``, by default a 64th of ``size``), the sides of a
-    periodic box matching; ``mmg2d`` meshes the regions within them. Six-node elements are
+    to the sides (at least ``min_size``, by default a 64th of ``size``; the vertices of the
+    lumens within a 16th of it of a side moved onto it), the sides of a periodic box
+    matching; ``mmg2d`` meshes the regions within them. Six-node elements are
     straight, as the edges (``curved`` has nothing to curve). ``z`` names the plane of the
     mesh (any: the prisms do not vary along their axis). None for another structure, or
     where ``mmg2d`` fails twice."""
@@ -132,13 +165,19 @@ def cells_mesh(micro, *, size: float, min_size: float | None = None,
     z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
     tol = 1e-9 * float(lengths.max())
     floor = size / 64.0 if min_size is None else float(min_size)
+    # the vertices of the lumens on the sides exactly on them, and those nearer to a side than
+    # a 16th of the least size moved onto it: the slivers of lumens or of walls that a side
+    # cuts thinner than the elements (a lumen 4e-6 from a side, cut by it) left out
+    snap = max(tol, floor / 16.0)
     pieces = []
-    for cell, polygon in lumens:  # (the vertices on the sides exactly on them)
+    for cell, polygon in lumens:
         polygon = polygon.copy()
         for axis in (0, 1):
             for value in (lower[axis], upper[axis]):
-                polygon[np.abs(polygon[:, axis] - value) <= tol, axis] = value
-        pieces.append((cell, polygon))
+                polygon[np.abs(polygon[:, axis] - value) <= snap, axis] = value
+        polygon = polygon[np.linalg.norm(polygon - np.roll(polygon, 1, axis=0), axis=1) > tol]
+        if len(polygon) >= 3 and abs(_shoelace(polygon)) > 1e-12 * float(np.prod(lengths)):
+            pieces.append((cell, polygon))
 
     def on_sides(p) -> list[tuple[int, int]]:
         return [(axis, side) for (axis, side) in SIDE_REFS

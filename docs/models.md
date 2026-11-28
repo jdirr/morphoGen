@@ -99,7 +99,7 @@ What a realization is made of, and how it becomes images and meshes, is the subj
 |---|---|
 | `nacre` | Brick-and-mortar stacks of mineral tablets, polygonal or staggered bricks |
 | `bouligand` | Twisted plywoods of fibres (arthropod cuticles, fish scales), periodic fibre families |
-| `honeycomb` | Prismatic cells: hexagonal, square or random honeycombs; softwood with radial files, growth rings and rays; the honeycombs meshed exactly in their plane, their lumens polygons |
+| `honeycomb` | Prismatic cells: hexagonal, square or random honeycombs; softwood with radial files, growth rings and rays; the honeycombs and wood without rays meshed exactly in their plane, their lumens polygons |
 | `osteons` | Haversian bone: osteons with canals and cement lines, remodelled one after another (dead leaves) |
 
 ### Combinations and nested models
