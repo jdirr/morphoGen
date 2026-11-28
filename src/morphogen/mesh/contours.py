@@ -14,8 +14,11 @@ level sets of the whole section (:func:`~morphogen.mesh.triangles.section_mesh`)
 those narrower than their background: the sections of misaligned fibres packed at the
 fractions of composites. Where the capsules of a body cross, its contours have corners,
 found where they pass from the surface of a capsule to that of another (Newton's method on
-the two distances); where they pass to a capsule that they do not cross, they bridge a gap
-narrower than a cell, which grids four and sixteen times as fine follow.
+the two distances), or, where a third covers that point, through the third; where they
+pass to a capsule that they do not cross, they bridge a gap narrower than a cell, which
+grids four and sixteen times as fine follow, their distances computed only in a band about
+the surface. A wedge narrower than a cell about a node of the grid, which the marching
+squares close into a loop of its own, is left to the contour that passes around it.
 
 :func:`contour_mesh` meshes them as :func:`~morphogen.mesh.triangles.disc_mesh` meshes
 circles: the contours cut by the sides of the box and at their corners, nodes on them at
@@ -63,10 +66,11 @@ TRACE_CELLS = 8
 #: Newton's steps onto the surface of a body
 NEWTON_STEPS = 6
 #: The finer grids on which a body is traced again where its contours bridge a gap between
-#: two of its capsules narrower than a cell: each a quarter of the last
+#: two of its capsules narrower than a cell: each a quarter of the last, its distances
+#: computed only in the cells of the last that the surface may cross
 TRACE_REFINEMENTS = 2
-#: The most nodes of the grid of a body
-TRACE_POINTS = 2_000_000
+#: The most nodes of a grid at which the distance of a body is computed
+TRACE_POINTS = 4_000_000
 #: The least ratio of the area element of a curved six-node element to that of its straight
 #: triangle: the middle nodes of the elements that would fold give way toward the middles
 MIN_JACOBIAN = 0.3
@@ -296,41 +300,84 @@ def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
     return [Body(start[k], end[k], radii[k], z) for k in groups.values()]
 
 
-def _marching_loops(f: np.ndarray, x0: float, y0: float, h: float,
-                    along=None) -> list[np.ndarray]:  # fmt: skip
-    """The closed contours ``f = 0`` of values on a grid (``f[i, j]`` at ``(x0 + i h, y0 +
-    j h)``, positive along its border) by the marching squares, the saddles resolved by the
-    mean of their corners: lists of their points, linear between the nodes, or
-    ``along(starts, steps, t)`` (the points ``starts + t steps`` of their edges of the grid,
-    moved along them)."""
+@dataclass
+class _Grid:
+    """The nodes of a grid at which the distance of a body is known: the grid from
+    ``lower``, its cell ``h``, ``shape`` nodes along x and y; the keys ``i * ny + j`` of the
+    nodes known, sorted, and their distances ``values``."""
+
+    lower: np.ndarray
+    h: float
+    shape: tuple[int, int]
+    keys: np.ndarray
+    values: np.ndarray
+
+    def find(self, keys) -> np.ndarray:
+        """The indices of nodes among those known, -1 for the others."""
+        return _found(self.keys, keys)
+
+    def points(self, index) -> np.ndarray:
+        """The coordinates of the nodes known of these indices."""
+        i, j = np.divmod(self.keys[index], self.shape[1])
+        return np.column_stack([self.lower[0] + self.h * i, self.lower[1] + self.h * j])
+
+
+def _found(sorted_keys: np.ndarray, keys) -> np.ndarray:
+    """The indices of ``keys`` in ``sorted_keys``, -1 for those not there."""
+    keys = np.asarray(keys, dtype=np.int64)
+    if not len(sorted_keys):
+        return np.full(keys.shape, -1, dtype=np.int64)
+    k = np.minimum(np.searchsorted(sorted_keys, keys), len(sorted_keys) - 1)
+    return np.where(sorted_keys[k] == keys, k, -1)
+
+
+def _marching_loops(grid: _Grid, along=None) -> list[np.ndarray] | None:
+    """The closed contours ``f = 0`` of values at the nodes of a grid (:class:`_Grid`, the
+    surface across no edge to a node not known, the values positive along its border) by
+    the marching squares, the saddles resolved by the mean of their corners: lists of
+    their points, linear between the nodes, or ``along(starts, steps, t)`` (the points
+    ``starts + t steps`` of their edges of the grid, moved along them); None where an
+    edge of a cell that the surface crosses has a node not known."""
+    nx, ny = grid.shape
+    keys, f, h = grid.keys, grid.values, grid.h
     inside = f < 0.0
-    across_x = inside[:-1, :] != inside[1:, :]  # the edges (i, j)-(i+1, j)
-    across_y = inside[:, :-1] != inside[:, 1:]  # the edges (i, j)-(i, j+1)
-    hx = np.full(across_x.shape, -1, dtype=np.int64)
-    hy = np.full(across_y.shape, -1, dtype=np.int64)
-    nh = int(across_x.sum())
-    hx[across_x] = np.arange(nh)
-    hy[across_y] = nh + np.arange(int(across_y.sum()))
-    i, j = np.nonzero(across_x)
-    tx = f[i, j] / (f[i, j] - f[i + 1, j])
-    sx = np.column_stack([x0 + i * h, y0 + j * h])
-    i, j = np.nonzero(across_y)
-    ty = f[i, j] / (f[i, j] - f[i, j + 1])
-    sy = np.column_stack([x0 + i * h, y0 + j * h])
-    starts, t = np.concatenate([sx, sy]), np.concatenate([tx, ty])
-    if not len(t):
+    i, j = np.divmod(keys, ny)
+    across = []  # the edges (i, j)-(i+1, j), then (i, j)-(i, j+1), that the surface crosses
+    for step, last in ((ny, i >= nx - 1), (1, j >= ny - 1)):
+        other = grid.find(keys + step)
+        other[last] = -1
+        known = np.flatnonzero(other >= 0)
+        cut = known[inside[known] != inside[other[known]]]
+        across.append((cut, other[cut]))
+    (ax, bx), (ay, by) = across
+    nh = len(ax)
+    if not nh + len(ay):
         return []
-    steps = np.concatenate([np.tile([h, 0.0], (len(tx), 1)), np.tile([0.0, h], (len(ty), 1))])
+    t = np.concatenate([f[ax] / (f[ax] - f[bx]), f[ay] / (f[ay] - f[by])])
+    starts = grid.points(np.concatenate([ax, ay]))
+    steps = np.concatenate([np.tile([h, 0.0], (nh, 1)), np.tile([0.0, h], (len(ay), 1))])
     points = starts + t[:, None] * steps if along is None else along(starts, steps, t)
-    bottom, top, left, right = hx[:, :-1], hx[:, 1:], hy[:-1, :], hy[1:, :]
+    xkeys, ykeys = keys[ax], keys[ay]  # (sorted, as the keys)
+    cells = np.concatenate([xkeys, xkeys[j[ax] > 0] - 1, ykeys, ykeys[i[ay] > 0] - ny])
+    cells = np.unique(cells)
+    ci, cj = np.divmod(cells, ny)
+    cells = cells[(ci < nx - 1) & (cj < ny - 1)]
+    bottom, top = _found(xkeys, cells), _found(xkeys, cells + 1)
+    left, right = _found(ykeys, cells), _found(ykeys, cells + ny)
+    left, right = np.where(left >= 0, nh + left, -1), np.where(right >= 0, nh + right, -1)
     count = (bottom >= 0).astype(int) + (top >= 0) + (left >= 0) + (right >= 0)
+    if np.any(count % 2):
+        return None  # (a node not known about a cell that the surface crosses)
     edges = np.stack([bottom, right, top, left], axis=-1)
     links = [np.sort(edges[count == 2], axis=1)[:, 2:]]
     four = count == 4
     if np.any(four):
-        ci, cj = np.nonzero(four)
-        centre = (f[ci, cj] + f[ci + 1, cj] + f[ci + 1, cj + 1] + f[ci, cj + 1]) < 0.0
-        joined = (centre == inside[ci, cj])[:, None]  # the corners 00 and 11 joined
+        c = cells[four]
+        corner = [grid.find(c + d) for d in (0, ny, ny + 1, 1)]
+        if min(int(k.min()) for k in corner) < 0:
+            return None
+        centre = sum(f[k] for k in corner) < 0.0
+        joined = (centre == inside[corner[0]])[:, None]  # the corners 00 and 11 joined
         b, r, tp, lf = (edges[four][:, k] for k in range(4))
         links.append(np.where(joined, np.column_stack([b, r]), np.column_stack([lf, b])))
         links.append(np.where(joined, np.column_stack([tp, lf]), np.column_stack([r, tp])))
@@ -338,10 +385,14 @@ def _marching_loops(f: np.ndarray, x0: float, y0: float, h: float,
     neighbours = np.full((len(points), 2), -1, dtype=np.int64)
     degree = np.zeros(len(points), dtype=np.int64)
     for u, v in links.tolist():
+        if degree[u] > 1 or degree[v] > 1:
+            return None
         neighbours[u, degree[u]] = v
         degree[u] += 1
         neighbours[v, degree[v]] = u
         degree[v] += 1
+    if np.any(degree != 2):
+        return None
     loops, seen = [], np.zeros(len(points), dtype=bool)
     for first in range(len(points)):
         if seen[first]:
@@ -362,6 +413,15 @@ def _corner(body: Body, a: int, b: int, x: np.ndarray, tol: float):
     Newton's method on their two distances, and the angle (degrees) between their normals
     there; None where it does not converge (surfaces nearly tangent: no corner) or where
     another capsule covers it."""
+    found = _meeting(body, a, b, x, tol)
+    if found is None or body.distance(found[0][None])[0] < -tol:
+        return None
+    return found
+
+
+def _meeting(body: Body, a: int, b: int, x: np.ndarray, tol: float):
+    """The point near ``x`` on the surfaces of the capsules ``a`` and ``b``, covered by
+    another capsule or not, and the angle of their normals there (:func:`_corner`)."""
     for _ in range(2 * NEWTON_STEPS):
         (va, ga), (vb, gb) = body.capsule(a, x), body.capsule(b, x)
         if max(abs(float(va[0])), abs(float(vb[0]))) <= 1e-3 * tol:
@@ -371,9 +431,33 @@ def _corner(body: Body, a: int, b: int, x: np.ndarray, tol: float):
             return None
         x = x - np.linalg.solve(jacobian, np.array([va[0], vb[0]]))
     (va, ga), (vb, gb) = body.capsule(a, x), body.capsule(b, x)
-    if max(abs(float(va[0])), abs(float(vb[0]))) > tol or body.distance(x)[0] < -tol:
+    if max(abs(float(va[0])), abs(float(vb[0]))) > tol:
         return None
     return x[0], float(np.degrees(np.arccos(np.clip(ga[0] @ gb[0], -1.0, 1.0))))
+
+
+def _corners(body: Body, a: int, b: int, x: np.ndarray, tol: float):
+    """The corners near ``x`` where a contour passes from the surface of the capsule ``a``
+    to that of ``b``: their point (:func:`_corner`); or, where a third capsule covers it
+    (three surfaces that meet nearly at a point, the contour along the third for less than
+    a cell), the corners of ``a`` with the third and of the third with ``b``. None if
+    there are none."""
+    found = _corner(body, a, b, x, tol)
+    if found is not None:
+        return [found]
+    met = _meeting(body, a, b, x, tol)
+    if met is None:
+        return None
+    point = met[0][None]
+    depth = np.array([float(body.capsule(c, point)[0][0]) if c not in (a, b) else np.inf
+                      for c in range(len(body.radii))])  # fmt: skip
+    c = int(np.argmin(depth))
+    if not depth[c] < -tol:
+        return None
+    first, second = _corner(body, a, c, point, tol), _corner(body, c, b, point, tol)
+    if first is None or second is None:
+        return None
+    return [first, second]
 
 
 def _joined(body: Body, a: int, b: int) -> bool:
@@ -463,23 +547,29 @@ def _traced(body: Body) -> list[tuple[np.ndarray, list[int], list[float]]] | Non
     a grid four times as fine, :data:`TRACE_REFINEMENTS` times at most; None if a bridge
     is left."""
     h = float(body.radii.min()) / TRACE_CELLS
+    grids: list = []
     for _ in range(TRACE_REFINEMENTS + 1):
-        out = _traced_at(body, h)
+        out = _traced_at(body, h, grids)
         if out is not None:
             return out
         h /= 4.0
     return None
 
 
-def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[float]]] | None:
-    """The contours of :func:`_traced` on the grid of cell ``h``; None for a bridge."""
+def _traced_at(body: Body, h: float, grids: list | None = None):
+    """The contours of :func:`_traced` on the grid of cell ``h``; None for a bridge.
+    ``grids``: those on which the body was traced before (:class:`_Grid`), the last
+    coarser, to which this one is added (:func:`_grid_distances`)."""
     lo, hi = body.bounds
     lo, hi = lo - 2.0 * h, hi + 2.0 * h
     nx, ny = (int(np.ceil((hi - lo)[k] / h)) + 1 for k in (0, 1))
-    if nx * ny > TRACE_POINTS:
+    if not grids and nx * ny > TRACE_POINTS:
         return None  # (a grid too large for the body)
-    gx, gy = np.meshgrid(lo[0] + h * np.arange(nx), lo[1] + h * np.arange(ny), indexing="ij")
-    values = body.distance(np.column_stack([gx.ravel(), gy.ravel()])).reshape(nx, ny)
+    grid = _grid_distances(body, lo, h, (nx, ny), grids[-1] if grids else None)
+    if grid is None:
+        return None  # (a band about its surface too large)
+    if grids is not None:
+        grids.append(grid)
     tol = 1e-9 * float(body.radii.min())
     out = []
 
@@ -498,7 +588,10 @@ def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[f
             t = np.where(done, t, step)
         return starts + t[:, None] * steps
 
-    for loop in _marching_loops(values, float(lo[0]), float(lo[1]), h, along):
+    traced = _marching_loops(grid, along)
+    if traced is None:
+        return None
+    for loop in traced:
         step = np.linalg.norm(np.diff(np.vstack([loop, loop[:1]]), axis=0), axis=1)
         loop = loop[step > 1e-9 * h]  # (the points of a node of the grid on the surface)
         if len(loop) < 3:
@@ -511,27 +604,28 @@ def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[f
             if a == b:
                 continue
             middle = 0.5 * (loop[k] + loop[(k + 1) % n])[None]
-            found = _corner(body, a, b, middle, tol)
+            found = _corners(body, a, b, middle, tol)
             if found is None:
                 if body.distance(middle)[0] > 0.0:
                     return None  # a gap between the capsules bridged by the chord
                 if not (_joined(body, a, b) or _shared(body, a, b, loop[[k, (k + 1) % n]], h)):
                     return None  # a corner that the grid did not resolve
                 continue
-            x, angle = found
-            if any(np.linalg.norm(x - y) < 1e-6 * h for *_, y, _ in found_at):
-                continue  # (the same corner, found again)
-            # the corner on the edge near this one that it lengthens the least
-            best = None
-            for e in range(k - 2, k + 3):
-                p, q = loop[e % n], loop[(e + 1) % n]
-                detour = np.linalg.norm(x - p) + np.linalg.norm(q - x) - np.linalg.norm(q - p)
-                if best is None or detour < best[0]:
-                    along = float((x - p) @ (q - p)) / max(float((q - p) @ (q - p)), 1e-300)
-                    best = (detour, e % n, along)
-            if best[0] > 16.0 * h:
-                return None  # a corner far off its contour: a feature that the grid cut
-            found_at.append((best[1], best[2], x, angle))
+            for x, angle in found:
+                if any(np.linalg.norm(x - y) < 1e-6 * h for *_, y, _ in found_at):
+                    continue  # (the same corner, found again)
+                # the corner on the edge near this one that it lengthens the least
+                best = None
+                for e in range(k - 2, k + 3):
+                    p, q = loop[e % n], loop[(e + 1) % n]
+                    detour = (np.linalg.norm(x - p) + np.linalg.norm(q - x)
+                              - np.linalg.norm(q - p))  # fmt: skip
+                    if best is None or detour < best[0]:
+                        along = float((x - p) @ (q - p)) / max(float((q - p) @ (q - p)), 1e-300)
+                        best = (detour, e % n, along)
+                if best[0] > 16.0 * h:
+                    return None  # a corner far off its contour: a feature that the grid cut
+                found_at.append((best[1], best[2], x, angle))
         found_at.sort(key=lambda c: (c[0], c[1]))
         points: list[np.ndarray] = []
         corners: list[int] = []
@@ -558,6 +652,8 @@ def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[f
             keep = np.flatnonzero(~near)
             points, corners = points[keep], np.flatnonzero(corner[keep]).tolist()
         out.append((points, corners, angles))
+    redundant = _redundant(body, [points for points, *_ in out], h)
+    out = [traced for traced, extra in zip(out, redundant, strict=True) if not extra]
     # every corner of the body (two capsules that cross, no other covering it) among those
     # of its contours: else a feature smaller than a cell, a hole, that the grid missed
     found = [loop[c] for loop, corners, _ in out for c in corners]
@@ -572,6 +668,108 @@ def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[f
                 if not found or min(np.linalg.norm(x - y) for y in found) > 1e-6 * h:
                     return None
     return out
+
+
+def _grid_distances(body: Body, lower, h: float, shape, coarse: _Grid | None = None):
+    """The distances of a body at the nodes of a grid (``lower``, cell ``h``, ``shape``
+    nodes): a :class:`_Grid`. With the grid of a coarser trace (``coarse``, spanning this
+    one), only at the nodes in its cells that the surface may cross and in their
+    neighbours, so that every cell of this grid that the surface crosses has its own: the
+    distance changes by no more than the distance between two points, so that a cell with
+    a corner farther from the surface than its diagonal is of one sign, that of the
+    corner, as are the nodes in it. None for more than :data:`TRACE_POINTS` nodes."""
+    nx, ny = shape
+    lower = np.asarray(lower, dtype=float)
+    if coarse is None:
+        keys = np.arange(nx * ny, dtype=np.int64)
+    else:
+        ci, cj = _near_cells(coarse)
+        offsets = np.array([(di, dj) for di in (-1, 0, 1) for dj in (-1, 0, 1)])
+        ci = (ci[:, None] + offsets[:, 0]).ravel()
+        cj = (cj[:, None] + offsets[:, 1]).ravel()
+        cnx, cny = coarse.shape
+        valid = (ci >= 0) & (ci < cnx - 1) & (cj >= 0) & (cj < cny - 1)
+        cells = np.unique(ci[valid] * cny + cj[valid])
+        ci, cj = np.divmod(cells, cny)
+        block = int(np.ceil(coarse.h / h)) + 3  # (a node about each, against round-off)
+        i0 = np.floor((coarse.lower[0] + ci * coarse.h - lower[0]) / h).astype(np.int64) - 1
+        j0 = np.floor((coarse.lower[1] + cj * coarse.h - lower[1]) / h).astype(np.int64) - 1
+        steps = np.arange(block)
+        i = np.clip(i0[:, None, None] + steps[None, :, None], 0, nx - 1)
+        j = np.clip(j0[:, None, None] + steps[None, None, :], 0, ny - 1)
+        keys = np.unique((i * ny + j).ravel())
+    if len(keys) > TRACE_POINTS:
+        return None
+    grid = _Grid(lower, float(h), (nx, ny), keys, np.empty(0))
+    grid.values = body.distance(grid.points(np.arange(len(keys))))
+    return grid
+
+
+def _near_cells(grid: _Grid) -> tuple[np.ndarray, np.ndarray]:
+    """The cells of a grid that the surface may cross: those whose four nodes are known, none
+    farther from the surface than the diagonal of the cell (the others are of one sign)."""
+    nx, ny = grid.shape
+    i, j = np.divmod(grid.keys, ny)
+    k0 = np.flatnonzero((i < nx - 1) & (j < ny - 1))
+    corners = [k0] + [grid.find(grid.keys[k0] + d) for d in (ny, 1, ny + 1)]
+    complete = np.all(np.stack(corners) >= 0, axis=0)
+    corners = [k[complete] for k in corners]
+    farthest = np.max(np.abs(np.stack([grid.values[k] for k in corners])), axis=0)
+    near = farthest <= np.sqrt(2.0) * grid.h * (1.0 + 1e-9)
+    return i[corners[0][near]], j[corners[0][near]]
+
+
+def _redundant(body: Body, loops: list[np.ndarray], h: float) -> list[bool]:
+    """Whether each closed contour of a body is redundant: the trace of the grid about a node
+    of it in a wedge narrower than a cell, which another contour of the body already passes
+    around to its corner. Such a contour, within 16 cells, holds no other, and the phase
+    well inside it is already that of the body there (its distance) between the others:
+    with it, the contours would give the other phase."""
+    out = []
+    for k, loop in enumerate(loops):
+        others = [other for j, other in enumerate(loops) if j != k]
+        small = float(np.linalg.norm(loop.max(axis=0) - loop.min(axis=0))) <= 16.0 * h
+        if not others or not small or any(_inside(other, loop).all() for other in others):
+            out.append(False)
+            continue
+        q = _interior_point(loop)
+        if q is None:
+            out.append(False)
+            continue
+        between = sum(bool(_inside(q[None], other)[0]) for other in others) % 2 == 1
+        out.append(between == bool(body.distance(q[None])[0] < 0.0))
+    return out
+
+
+def _inside(points: np.ndarray, loop: np.ndarray) -> np.ndarray:
+    """Whether points lie inside a closed polygon (the rule of even and odd)."""
+    points = np.atleast_2d(points)
+    x, y = points[:, :1], points[:, 1:2]
+    a, b = loop[None], np.roll(loop, -1, axis=0)[None]
+    straddle = (a[..., 1] > y) != (b[..., 1] > y)
+    rise = np.where(straddle, b[..., 1] - a[..., 1], 1.0)
+    xs = a[..., 0] + (y - a[..., 1]) * (b[..., 0] - a[..., 0]) / rise
+    return (straddle & (x < xs)).sum(axis=1) % 2 == 1
+
+
+def _interior_point(loop: np.ndarray) -> np.ndarray | None:
+    """A point well inside a closed polygon: of its centroid and of the points of a grid over
+    its box, the one inside it farthest from its edges (None if none is inside)."""
+    lo, hi = loop.min(axis=0), loop.max(axis=0)
+    t = np.linspace(0.0, 1.0, 18)[1:-1]
+    gx, gy = np.meshgrid(lo[0] + t * (hi[0] - lo[0]), lo[1] + t * (hi[1] - lo[1]))
+    candidates = np.vstack([loop.mean(axis=0)[None], np.column_stack([gx.ravel(), gy.ravel()])])
+    candidates = candidates[_inside(candidates, loop)]
+    if not len(candidates):
+        return None
+    a, b = loop, np.roll(loop, -1, axis=0)
+    ab = b - a
+    t = np.einsum("ijk,jk->ij", candidates[:, None] - a[None], ab) / np.maximum(
+        np.einsum("ij,ij->i", ab, ab), 1e-300
+    )
+    nearest = a[None] + np.clip(t, 0.0, 1.0)[..., None] * ab[None]
+    distance = np.linalg.norm(candidates[:, None] - nearest, axis=2).min(axis=1)
+    return candidates[int(np.argmax(distance))]
 
 
 def section_contours(body: Body) -> list[np.ndarray]:

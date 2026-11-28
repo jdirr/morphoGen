@@ -5,6 +5,8 @@ gaps that the level sets close and the reciprocal theorem of Keller."""
 
 from __future__ import annotations
 
+import itertools
+
 import numpy as np
 import pytest
 
@@ -13,8 +15,11 @@ from morphogen.homogenization import Material, homogenize
 from morphogen.mesh.conforming import mmg_executable
 from morphogen.mesh.contours import (
     TRACE_CELLS,
+    _corners,
     _crossing,
+    _grid_distances,
     _joined,
+    _marching_loops,
     _pair_corners,
     _segment_distances,
     _shared,
@@ -276,8 +281,7 @@ def test_boolean_networks_of_spherocylinders():
     """Spherocylinders turned at random (a Boolean model, radius 0.03, length 0.4), their
     sections bodies of several capsules that cross: filling a tenth of the box, meshed by
     their contours within 2e-5 of a count on a grid of 3000 x 3000 points; filling a
-    fourth, their crossings (holes and clusters of corners finer than the grids) leave this
-    realization to the level sets."""
+    fourth too, their holes, clusters of corners and wedges finer than the grids traced."""
     sparse = mg.models.BooleanCylinders(radius=0.03, length=0.4, volume_fraction=0.1,
                                         caps="round").generate(BOX, seed=1)  # fmt: skip
     mesh = plane_mesh(sparse, size=0.05, order=2)
@@ -286,8 +290,49 @@ def test_boolean_networks_of_spherocylinders():
     assert mesh.phase_fractions()[1] == pytest.approx(_counted(sparse, 3000), abs=2e-5)
     dense = mg.models.BooleanCylinders(radius=0.03, length=0.4, volume_fraction=0.25,
                                        caps="round").generate(BOX, seed=1)  # fmt: skip
-    assert contour_mesh(dense, size=0.05) is None
-    assert plane_mesh(dense, size=0.05).metadata["mesher"].startswith("section")
+    mesh = plane_mesh(dense, size=0.05, order=2)
+    assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+    assert mesh.min_jacobian() > 0.3
+    assert mesh.phase_fractions()[1] == pytest.approx(_counted(dense, 3000), abs=2e-5)
+
+
+def test_what_the_grid_cannot_see_of_dense_networks():
+    """The features of the sections of dense Boolean networks narrower than the cells of
+    the grids: a wedge of matrix about a node of the grid, which the marching squares close
+    into a loop of its own inside the contour that passes around the wedge to its corner —
+    the loop left out, no two contours of a body crossing (a realization filling a
+    fourth); three surfaces that meet nearly at a point, the contour from the first to the
+    second along the third for less than a cell — the two corners with the third (three
+    discs); and the finer grids of the bridges computed in bands about the surface, their
+    contours those of the whole grids."""
+    dense = mg.models.BooleanCylinders(radius=0.03, length=0.4, volume_fraction=0.25,
+                                       caps="round").generate(BOX, seed=1)  # fmt: skip
+    for body in section_bodies(dense):
+        loops = section_contours(body)
+        ends = np.cumsum([0] + [len(loop) for loop in loops])
+        edges = np.concatenate([np.column_stack([np.arange(a, b), np.roll(np.arange(a, b), -1)])
+                                for a, b in itertools.pairwise(ends)])  # fmt: skip
+        assert not _crossing(np.concatenate(loops), edges)
+    # the corner of the first two discs inside the third by 1e-8, the contour along its arc
+    r = 0.1
+    corner = np.array([0.475, 0.5 + np.sqrt(r**2 - 0.075**2)])
+    centres = [[0.4, 0.5], [0.55, 0.5], [corner[0], corner[1] - r + 1e-8]]
+    (body,) = section_bodies(_straight(centres, [r, r, r]))
+    found = _corners(body, 0, 1, corner[None], 1e-12)
+    assert len(found) == 2 and all(np.linalg.norm(x - corner) < 2e-8 for x, _ in found)
+    assert found[0][0][0] < corner[0] < found[1][0][0]  # (from the first disc to the third)
+    (loop,) = section_contours(body)
+    assert all(np.linalg.norm(loop - x, axis=1).min() < 1e-12 for x, _ in found)
+    lo, hi = body.bounds
+    grids = []
+    for h in (r / TRACE_CELLS, r / TRACE_CELLS / 4, r / TRACE_CELLS / 16):
+        shape = tuple(int(np.ceil((hi - lo)[k] / h + 4)) + 1 for k in (0, 1))
+        grids.append(_grid_distances(body, lo - 2.0 * h, h, shape, grids[-1] if grids else None))
+    whole = _grid_distances(body, grids[-1].lower, h, grids[-1].shape)
+    assert len(grids[-1].keys) < 0.25 * len(whole.keys)  # (the nodes of a band about the surface)
+    traced, full = _marching_loops(grids[-1]), _marching_loops(whole)
+    assert len(traced) == len(full)
+    assert all(np.array_equal(a, b) for a, b in zip(traced, full, strict=True))
 
 
 @needs_mmg2d

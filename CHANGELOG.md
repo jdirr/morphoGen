@@ -262,6 +262,16 @@
   conductivities and the tensors of the other transport phenomena (`turned_conductivity`,
   `misaligned_conductivity`: `conductivity_tensor_voigt.<bc>.C33`..., their means), verified
   against the axial conductivities of fibres turned in a plane.
+* The exact contours of the dense Boolean networks: the twelve sections of six realizations
+  of spherocylinders filling a fourth of the box meshed by their contours at the sizes 0.05
+  and 0.025 (two of twelve before, the others left to the level sets), within 1.3·10⁻⁵ of
+  counts on grids where the level sets are 10⁻³ off. A loop that the marching squares close
+  about a node of the grid in a wedge narrower than a cell, inside the contour that passes
+  around the wedge, is left out (the chords of the two crossed); where a third capsule
+  covers the point of two surfaces, the contour takes its corners with each of them; the
+  finer grids of the gaps narrower than a cell compute their distances only in a band about
+  the surface, their marching squares on the nodes known (`TRACE_POINTS`, now the most
+  nodes of that band: 4 million).
 * The thermal expansion of misaligned plies (`misaligned_expansion`): from the stiffness and
   the expansion of the section, those of the ply under a uniform strain, under a uniform
   stress and in layers normal to the fibres; the layers verified against the FFT solution

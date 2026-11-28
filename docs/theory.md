@@ -14074,11 +14074,28 @@ discs, within 3.3·10⁻⁶, 3.7·10⁻⁷ and 2.5·10⁻⁸ of their area at th
 circles 0.002 apart, the gap followed on the grid four times as fine, within 6.4·10⁻⁶ and
 4.9·10⁻⁷ at 0.05 and 0.0125, as by the union of discs. The sections of Boolean networks of
 spherocylinders turned at random (radius 0.03, length 0.4): filling a tenth of a periodic
-cube, ten of the twelve meshes of six realizations at the sizes 0.05 and 0.025 within
-2·10⁻⁶ of counts on grids of 4000² points; filling a fourth, two of twelve, the others —
-clusters of corners and the tips of wedges too narrow for the finest grids — left to the
-level sets, which are 3.9·10⁻³, 1.3·10⁻³ and 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and
-0.0125 for the first.
+cube, the twelve meshes of six realizations at the sizes 0.05 and 0.025 within 2.1·10⁻⁶ of
+counts on grids of 4000² points; filling a fourth, the twelve within 1.3·10⁻⁵ — the eight
+at 0.025 within 3·10⁻⁶, those at 0.05 where a few middle nodes give way at sharp corners
+(8 of 1956 for the worst: the area of their chords) —, where the level sets are 3.9·10⁻³,
+1.3·10⁻³ and 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and 0.0125 for the first. Three
+features of these sections are narrower than the cells of the grids. A wedge of matrix
+between two capsules that cross at a small angle, narrower than a cell about a node of the
+grid in it: the marching squares close a loop of their own about the node, inside the
+contour that passes around the wedge to its corner; a loop within 16 cells that holds no
+other, whose inside is already of the phase of the body there (its distance at the point
+of the loop farthest from its edges) between the other loops of the body, is left out.
+Three surfaces that meet nearly at a point: the contour passes from the first to the
+second along the third for less than a cell (10⁻⁵ in a realization), the point of the
+first two covered by the third, whose corners with each of them it then takes. And the
+gaps between two capsules of a body narrower than a cell, which the grids four and sixteen
+times as fine follow: a grid's distances are computed only in the cells of the last that
+the surface may cross and in their neighbours — the distance changes by no more than the
+distance between two points, so that a cell with a corner farther from the surface than
+its diagonal is of one sign —, the marching squares on the edges between nodes known, and
+their contours those of the whole grids, the nodes of a band about the surface: a tenth of
+the time on the largest bodies, which span the box (0.86 × 0.57 at the sixteenth of a cell
+of 3.75·10⁻³: 9 million nodes for the whole grid).
 
 Every corner of a body, two of its capsules crossing where no other covers them, is also
 found on its own: along a polygon of the section of each capsule (its boundary on 64 rays
