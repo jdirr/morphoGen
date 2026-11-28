@@ -1,7 +1,7 @@
 """The tutorials of the documentation (docs/tutorial.md, docs/tutorial_rve.md,
 docs/tutorial_rubber.md, docs/tutorial_geometry.md, docs/tutorial_iga.md,
 docs/tutorial_contact.md, docs/tutorial_fracture.md, docs/tutorial_texture.md,
-docs/tutorial_morphology.md, docs/tutorial_plane.md) stay correct:
+docs/tutorial_morphology.md, docs/tutorial_plane.md, docs/tutorial_fibres.md) stay correct:
 the Python snippets of each run one after another in one session, at smaller sizes; the
 configuration of the
 first runs with ``morphogen run``; each of their ``morphogen`` commands is one that the
@@ -31,6 +31,7 @@ FRACTURE = DOCS / "tutorial_fracture.md"
 TEXTURE = DOCS / "tutorial_texture.md"
 MORPHOLOGY = DOCS / "tutorial_morphology.md"
 PLANE = DOCS / "tutorial_plane.md"
+FIBRES = DOCS / "tutorial_fibres.md"
 if not DOCS.is_dir():  # an installed package without its sources
     pytest.skip("the documentation is not here", allow_module_level=True)
 
@@ -125,8 +126,14 @@ SMALLER_PLANE = {
     "mesh = mg.mesh.plane_mesh(sheet, size=0.025)": "mesh = mg.mesh.plane_mesh(sheet, size=0.05)",
     '"increments": 5, "strain": {"11": 0.01}': '"increments": 2, "strain": {"11": 0.01}',
 }
+#: Those of the tutorial of the fibres: a smaller ply, coarser triangles
+SMALLER_FIBRES = {
+    "size=(50.0, 50.0, 10.0)": "size=(25.0, 25.0, 10.0)",
+    "plane_mesh(ply, size=1.0, order=2)": "plane_mesh(ply, size=2.0, order=2)",
+}
 PAGES = {
     PLANE: SMALLER_PLANE,
+    FIBRES: SMALLER_FIBRES,
     CONTACT: SMALLER_CONTACT,
     FRACTURE: {},
     TEXTURE: SMALLER_TEXTURE,
@@ -542,3 +549,27 @@ def test_plane_tutorial_snippets(tmp_path, monkeypatch):
     assert ns["path"]["pull.periodic"].components()["S11"] > 100.0
     assert (tmp_path / "sheet.inp").read_text().count("*SOLID SECTION") == ns["sheet"].n_grains
     assert (tmp_path / "plane_grains.png").is_file()
+
+
+@pytest.mark.slow
+def test_fibres_tutorial_snippets(tmp_path, monkeypatch):
+    """Fibre composites in their plane: the fibres meshed by their exact discs, the axial
+    conductivity the arithmetic mean of the phases under every condition, the connection of
+    Hill to round-off, the transverse bulk modulus between the bounds of Hashin and
+    Shtrikman, the conditions ordered, the pores of the preform in one part and its axial
+    permeability above the transverse ones, the plane elements of Abaqus."""
+    ns = _run(FIBRES, tmp_path, monkeypatch)
+    assert ns["mesh"].metadata["mesher"] == "exact discs (mmg2d)" and ns["mesh"].matching_sides()
+    c, out = ns["c"], ns["out"]
+    for bc in ("kubc", "periodic", "subc"):
+        k = out[f"conductivity_tensor.{bc}"]["tensor"]
+        assert k[2, 2] == pytest.approx(c * 10.0 + (1 - c) * 0.2, rel=1e-9)
+    e1 = [out[f"stiffness.{bc}"]["E1"] for bc in ("kubc", "periodic", "subc")]
+    assert e1[0] >= e1[1] >= e1[2]
+    a, b, km, lm = ns["a"], ns["b"], ns["km"], ns["lm"]
+    assert ns["stress"][0] == pytest.approx(2 * km * a + lm * b, rel=1e-12)
+    assert ns["lower"] < ns["k23"] < ns["upper"]
+    preform = ns["preform"]
+    assert preform["parts"] == 1 and preform["k33"] > 10 * max(preform["k11"], preform["k22"])
+    assert (tmp_path / "ply.inp").read_text().count("*SOLID SECTION") == 2
+    assert (tmp_path / "fibres_section.png").is_file()

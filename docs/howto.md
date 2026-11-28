@@ -209,6 +209,26 @@ print(out["shear_modulus.periodic"].value, out["shear_modulus.kubc"].value)
 cut = mg.mesh.plane_mesh(micro, size=1.0, z=4.0)  # the section of the spheres at z = 4
 ```
 
+### ... compute the permeability of a bed of fibres?
+
+The pores between straight fibres along z are meshed with the fibres in their plane — the
+discs of the fibres exact, the elements graded from the gaps between them — and the Stokes
+flows across the fibres and along them give the permeability tensor of Darcy's law (the
+[tutorial of the fibres](tutorial_fibres.md)):
+
+```python
+from morphogen.homogenization import plane_permeability
+from morphogen.models.long_fibers import LongFibers
+
+bed = LongFibers(radius=0.1, volume_fraction=0.5, min_gap=0.01).generate(
+    mg.Domain(size=(1.0, 1.0, 0.2), periodic=True), seed=1
+)
+bed_mesh = mg.mesh.plane_mesh(bed, size=0.05, order=2)  # the pores and the fibres
+dry = {0: Material(void=True), 1: Material(young=230.0, poisson=0.2)}  # the pores, phase 0
+flow = plane_permeability(bed_mesh, dry)
+print(flow["k11"], flow["k22"], flow["k33"])  # across the fibres, and along them
+```
+
 ### ... choose between voxels, a conforming mesh and extended finite elements?
 
 The FFT solver on voxels for speed and large volumes (periodic conditions; on an NVIDIA

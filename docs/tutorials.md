@@ -147,6 +147,20 @@ of Abaqus.
 :::
 
 :::{container} gallery-card
+```{image} _static/tutorial/fibres_section.png
+:alt: the triangles of the section of a ply of fibres, its fibres meshed by their discs
+```
+
+**[Fibre composites in their plane](tutorial_fibres.md)** — the fibres of a ply packed at
+random and meshed by their exact discs, the stiffness and the conductivity of the composite
+across and along its fibres under the three conditions, the connections of Hill to round-off
+and the bounds of Hashin and Shtrikman, the permeability of the dry preform by the Stokes
+flow through its pores, the files of Abaqus.
+
+*About half a minute.*
+:::
+
+:::{container} gallery-card
 ```{image} _static/tutorial/interface_fracture.png
 :alt: the tab Fracture of the graphical interface
 ```
@@ -179,5 +193,6 @@ tutorial_fracture
 tutorial_texture
 tutorial_morphology
 tutorial_plane
+tutorial_fibres
 tutorial_interface
 ```

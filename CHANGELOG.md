@@ -219,6 +219,12 @@
   `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
   plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
   `write_medit_tri` (`tests/public_api.txt`).
+* The tutorial *Fibre composites in their plane* (`docs/tutorial_fibres.md`, run by the
+  tests): the fibres of a ply packed at random and meshed by their exact discs, the stiffness
+  and the conductivity of the composite across and along its fibres under the three
+  conditions, the connections of Hill to round-off (the uniform field that the arrangement
+  of the fibres cannot change), the bounds of Hashin and Shtrikman, the permeability of the
+  dry preform, the files of Abaqus; its card among the tutorials.
 * The exact discs of the sections of straight fibres along z and of spheres
   (`disc_sections`, `disc_mesh`; `plane_mesh` by default for them): their circles
   discretized exactly, at sizes graded from the gaps between them, three elements across the
