@@ -286,7 +286,11 @@
   (`combination`, `operation: union`) is one union, its capsules those of all (spheres and
   Boolean cylinders within 9·10⁻⁷ of a count), and the difference of a union and of
   several, the union of those removed within the first, where they lie within it (they fell
-  to the level sets).
+  to the level sets). A body whose capsules leave a gap narrower than the grid sixteen times
+  as fine is traced on one sixty-four times as fine (`mesh.contours.TRACE_REFINEMENTS`:
+  three), where it fell to the level sets (two cylinders 4·10⁻⁵ apart, within 5.6·10⁻⁶ of a
+  count). Where the two distances of the corner of two capsules do not meet by Newton's
+  method and one has a flat cap, its faces and those of the other are met in turn.
 * Fixed: a contour that crosses a side at a grazing angle, its dip across the line shallower
   than the bulge of the chords of its trace (up to a 256th of its radius), crossed it unseen
   between two vertices: the nodes of its piece fell out of the box and the section to the

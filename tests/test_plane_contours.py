@@ -498,7 +498,8 @@ def test_corners_on_the_sides(monkeypatch):
 @needs_mmg2d
 def test_contours_of_unions_of_unions():
     """A combination of unions, spheres and cylinders: one union, its capsules those of all,
-    meshed by its contours within 1e-5 of a count (left to the level sets); the difference
+    meshed by its contours within 1e-5 of a count (left to the level sets), and, two of
+    its cylinders 4e-5 apart, traced on the grid sixty-four times as fine; the difference
     of a union and of several: the union of those removed, then the first, the phases 0, 1,
     0; spheres that cut the cylinders from which they are removed, their contours crossing,
     left to the level sets."""
@@ -508,13 +509,15 @@ def test_contours_of_unions_of_unions():
     spheres = {"type": "hardcore_spheres", "radius": 0.1, "volume_fraction": 0.2}
     cylinders = {"type": "boolean_cylinders", "radius": 0.03, "length": 0.3,
                  "volume_fraction": 0.1}  # fmt: skip
-    union = model_from_config({"type": "combination", "operation": "union",
-                               "models": [spheres, cylinders]}).generate(BOX, seed=1)  # fmt: skip
-    (layer,), bands = section_layers(union)
-    assert layer is union and bands == [1, 0]
-    mesh = plane_mesh(union, size=0.05, order=2)
-    assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
-    assert mesh.phase_fractions()[1] == pytest.approx(_counted(union, 4000), abs=1e-5)
+    model = model_from_config({"type": "combination", "operation": "union",
+                               "models": [spheres, cylinders]})  # fmt: skip
+    for seed in (1, 2):  # (2: the narrow gap)
+        union = model.generate(BOX, seed=seed)
+        (layer,), bands = section_layers(union)
+        assert layer is union and bands == [1, 0]
+        mesh = plane_mesh(union, size=0.05, order=2)
+        assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+        assert mesh.phase_fractions()[1] == pytest.approx(_counted(union, 4000), abs=1e-5)
     small = {"type": "hardcore_spheres", "radius": 0.05, "volume_fraction": 0.05}
     holes = model_from_config({"type": "combination", "operation": "difference",
                                "models": [cylinders, spheres, small]})  # fmt: skip

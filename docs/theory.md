@@ -14065,8 +14065,9 @@ the unions of discs, and the middle node of each edge of a piece is moved onto t
 on whose surface its two ends lie, where the least of the distances would take the other
 surface near a corner. Where a contour passes from a capsule to another that it does not
 cross, its chord outside the body, it bridges a gap between them narrower than a cell: the
-body is traced again on grids four and sixteen times as fine (`TRACE_REFINEMENTS`, two
-million nodes at most). The sizes take the gaps within a contour (to its vertices farther
+body is traced again on grids four, sixteen and sixty-four times as fine
+(`TRACE_REFINEMENTS`, their distances in a band about the surface, four million nodes at
+most). The sizes take the gaps within a contour (to its vertices farther
 along it than three times their distance: the two sides of a narrow wedge) and between the
 contours of a body; where a gap $g$ is narrower than the bulge of chords of the least size,
 they fall to $\sqrt{2\rho\,g}$, chords that bulge by a quarter of it; the contours within
@@ -14203,7 +14204,8 @@ realizations of twelve at the size 0.05.
 
 A combination of unions (`combination` with the operation `union`) is one union, its
 capsules those of all: spheres and Boolean cylinders together within 9·10⁻⁷ of a count on
-a grid of 4000² points. The difference of a union and of several (the operation
+a grid of 4000² points, and, two of its cylinders 4·10⁻⁵ apart, traced on the grid
+sixty-four times as fine, within 5.6·10⁻⁶. The difference of a union and of several (the operation
 `difference`) is meshed as the union of those removed within the first, the phases 0, 1, 0
 from the innermost: exactly where they lie within it, as lumens; where they cut its
 contour, the contours of the two layers cross, and the section is left to the level sets.

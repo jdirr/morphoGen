@@ -16,8 +16,8 @@ fractions of composites. Where the capsules of a body cross, its contours have c
 found where they pass from the surface of a capsule to that of another (Newton's method on
 the two distances), or, where a third covers that point, through the third; where they
 pass to a capsule that they do not cross, they bridge a gap narrower than a cell, which
-grids four and sixteen times as fine follow, their distances computed only in a band about
-the surface. A wedge narrower than a cell about a node of the grid, which the marching
+grids four, sixteen and sixty-four times as fine follow, their distances computed only in
+a band about the surface. A wedge narrower than a cell about a node of the grid, which the marching
 squares close into a loop of its own, is left to the contour that passes around it. The
 flat caps of cylinders that reach the plane cut their sections along lines: the distance
 of a finite cylinder, and the corners of the rims where the contours pass from its lateral
@@ -72,7 +72,7 @@ NEWTON_STEPS = 6
 #: The finer grids on which a body is traced again where its contours bridge a gap between
 #: two of its capsules narrower than a cell: each a quarter of the last, its distances
 #: computed only in the cells of the last that the surface may cross
-TRACE_REFINEMENTS = 2
+TRACE_REFINEMENTS = 3
 #: The most nodes of a grid at which the distance of a body is computed
 TRACE_POINTS = 4_000_000
 #: The least ratio of the area element of a curved six-node element to that of its straight
@@ -620,22 +620,57 @@ def _corner(body: Body, a: int, b: int, x: np.ndarray, tol: float):
 
 def _meeting(body: Body, a: int, b: int, x: np.ndarray, tol: float):
     """The point near ``x`` on the surfaces of the capsules ``a`` and ``b``, covered by
-    another capsule or not, and the angle of their normals there (:func:`_corner`)."""
+    another capsule or not, and the angle of their normals there (:func:`_corner`). Where a
+    capsule has a flat cap, whose distance is not smooth at its rim (Newton's steps then go
+    from one face to the other), the nearest of the points where a face of one meets a face
+    of the other, on both surfaces."""
+    found = _newton_pair(lambda p: body.capsule(a, p), lambda p: body.capsule(b, p), x, tol)
+    if found is None and body.capped:
+        nearest = np.inf
+        for fa in _face_list(body, a):
+            for fb in _face_list(body, b):
+                y = _newton_pair(lambda p, fa=fa: _face_value(body, a, fa, p),
+                                 lambda p, fb=fb: _face_value(body, b, fb, p), x, tol)  # fmt: skip
+                if y is None or max(abs(float(body.capsule(a, y)[0][0])),
+                                    abs(float(body.capsule(b, y)[0][0]))) > tol:  # fmt: skip
+                    continue
+                if float(np.linalg.norm(y - x)) < nearest:
+                    found, nearest = y, float(np.linalg.norm(y - x))
+    if found is None:
+        return None
+    (_, ga), (_, gb) = body.capsule(a, found), body.capsule(b, found)
+    # (the normals of the contours in the plane: those of the surfaces tilt out of it)
+    lengths = float(np.linalg.norm(ga[0]) * np.linalg.norm(gb[0]))
+    cosine = float(ga[0] @ gb[0]) / max(lengths, 1e-300)
+    return found[0], float(np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0))))
+
+
+def _newton_pair(first, second, x: np.ndarray, tol: float):
+    """The point near ``x`` where two distances (``first``, ``second``: their values and
+    gradients at points) vanish, by Newton's method; None where it does not converge."""
     for _ in range(2 * NEWTON_STEPS):
-        (va, ga), (vb, gb) = body.capsule(a, x), body.capsule(b, x)
+        (va, ga), (vb, gb) = first(x), second(x)
         if max(abs(float(va[0])), abs(float(vb[0]))) <= 1e-3 * tol:
             break
         jacobian = np.array([ga[0], gb[0]])
         if abs(float(np.linalg.det(jacobian))) < 1e-6:
             return None
         x = x - np.linalg.solve(jacobian, np.array([va[0], vb[0]]))
-    (va, ga), (vb, gb) = body.capsule(a, x), body.capsule(b, x)
+    (va, _), (vb, _) = first(x), second(x)
     if max(abs(float(va[0])), abs(float(vb[0]))) > tol:
         return None
-    # (the normals of the contours in the plane: those of the surfaces tilt out of it)
-    lengths = float(np.linalg.norm(ga[0]) * np.linalg.norm(gb[0]))
-    cosine = float(ga[0] @ gb[0]) / max(lengths, 1e-300)
-    return x[0], float(np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0))))
+    return x
+
+
+def _face_list(body: Body, k: int) -> list[int]:
+    """The faces of the capsule ``k``: its lateral surface (0) and its flat caps (1, 2)."""
+    return [0] + [f for f, flat in zip((1, 2), body._flat(k), strict=True) if flat]
+
+
+def _face_value(body: Body, k: int, f: int, xy: np.ndarray):
+    """The distance of points to the face ``f`` of the capsule ``k`` (:func:`_face_list`)
+    and its gradient."""
+    return body.face(k, f, xy) if f else body.round(k, xy)
 
 
 def _corners(body: Body, a: int, b: int, x: np.ndarray, tol: float):
