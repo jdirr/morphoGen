@@ -155,7 +155,8 @@ of Abaqus.
 random and meshed by their exact discs, the stiffness and the conductivity of the composite
 across and along its fibres under the three conditions, the connections of Hill to round-off
 and the bounds of Hashin and Shtrikman, the permeability of the dry preform by the Stokes
-flow through its pores, the files of Abaqus.
+flow through its pores, misaligned fibres meshed by their exact contours, the files of
+Abaqus.
 
 *About half a minute.*
 :::

@@ -224,8 +224,9 @@
   and the conductivity of the composite across and along its fibres under the three
   conditions, the connections of Hill to round-off (the uniform field that the arrangement
   of the fibres cannot change), the bounds of Hashin and Shtrikman, the permeability of the
-  dry preform, the files of Abaqus; its card among the tutorials. The recipe of the
-  permeability of a bed of fibres among the how-tos.
+  dry preform, misaligned fibres meshed by their exact contours (their pores in one part,
+  which the level sets split into 9), the files of Abaqus; its card among the tutorials.
+  The recipe of the permeability of a bed of fibres among the how-tos.
 * The flow through the pores of the conforming meshes of space
   (`homogenization.mesh_flow`, `mesh_permeability`): the Stokes flow by the elements of
   Taylor and Hood on the ten-node tetrahedra of the pores, curved along their walls, its

@@ -5,7 +5,8 @@ along its fibres: its section is its structure, and the finite elements of the p
 it there, the fibres meshed by their exact discs. This tutorial packs the fibres of a ply at
 random, meshes their section, computes the stiffness and the conductivity of the composite
 across and along its fibres, the permeability of the dry preform that the resin fills, and
-writes the mesh for Abaqus. Each step meets what is known in advance: the axial
+meshes the section of misaligned fibres by their exact contours, and writes the mesh for
+Abaqus. Each step meets what is known in advance: the axial
 conductivity, the arithmetic mean of those of the phases; the connections of Hill, which
 the uniform fields of fibre composites fix whatever their arrangement; the bounds of Hashin
 and Shtrikman; a flow through the pores in one connected part.
@@ -141,7 +142,34 @@ the fibres — 0.2 micrometre at the least —, and a random packing has gaps fa
 those of the hexagonal array of the same fraction, whose transverse permeability Gebart's
 formula gives as 0.117: forty times more.
 
-## 5. Files for other codes
+## 5. Misaligned fibres
+
+The fibres of real plies wave about their axis by a few degrees (Yurgartis 1987):
+`misalignment` gives the RMS angle of their segments to $z$, chains of spherocylinders in a
+box long enough for their waviness ([theory](theory.md), the long fibres). Their sections
+are no longer discs: the mesh of the plane traces their contours fibre by fibre, each on its
+own distance function, so that no gap between two fibres closes, however narrow
+([theory](theory.md) §119, the exact contours):
+
+```python
+long_box = mg.Domain(size=(50.0, 50.0, 200.0), periodic=True)  # long enough to wave
+wavy = LongFibers(radius=3.5, volume_fraction=0.55, arrangement="random", min_gap=0.2,
+                  misalignment=3.0).generate(long_box, seed=1)
+print(round(wavy.summary()["misalignment_rms"], 2))  # 3.04 degrees
+section = mg.mesh.plane_mesh(wavy, size=1.0, order=2)
+print(section.metadata["mesher"], section.metadata["bodies"])  # exact contours (mmg2d) 46
+wet = plane_permeability(section, {0: Material(void=True), 1: carbon})
+print(wet["parts"], [round(wet[k], 4) for k in ("k11", "k22")])  # 1 [0.0127, 0.0079]
+```
+
+The 46 sections are those of the 36 fibres and of their images across the sides. The level
+sets of the whole section (`mg.mesh.triangles.section_mesh`) join fibres across the
+narrowest gaps, even at 0.2 micrometre: at the same size their pores fall into 9 parts, and
+the transverse permeabilities to 0.0078 and 0.0025, the gaps that carry the flow closed. The
+permeability along $z$ of the flows of the plane is that of straight fibres with this
+section, not that of the waving fibres.
+
+## 6. Files for other codes
 
 The mesh of the section is written as plane elements: CPE6 in plane strain for Abaqus and
 CalculiX, the fibres and the matrix as sets with their materials, and the periodic equations
