@@ -253,6 +253,15 @@
   misaligned by 3° and 6° between them (96.8 between 94.0 and 100.7 GPa; 86.5 between 78.0
   and 99.2), where the sections give 101.3 and 101.8; in the tutorial of the fibres, up to
   5 % of the axial modulus lost to 3° of waviness.
+* The stiffness of misaligned plies in the runs (`homogenization.misaligned: true`, the
+  meshes of the plane with the stiffness among the properties): the averages of the
+  stiffness of the section turned along the segments of the fibres beside it, as
+  `stiffness_voigt.<bc>.<entry>`, `stiffness_reuss` and `stiffness_layers` (the entries
+  `C11` ... `C66` and the engineering constants), the runs of a structure without fibres
+  refused before their mesh; the template `misaligned_ply_plane` records them.
+  `fibre_directions` weighs the segments with their volumes (with their lengths before:
+  the same for fibres of one radius), and finds those of coated fibres (the union their
+  coating covers) and of hollow ones (the fibres about their lumens).
 * Fixed: the meshing time of the records (`mesh_time_s`) was 0 for the meshes of the plane,
   which time none of their steps: it is the time of the whole meshing now, in the plane and
   in space.

@@ -334,7 +334,7 @@ morphogen.config.DiffusionSpec.boundary(self)
 morphogen.config.FATIGUE_QUANTITIES
 morphogen.config.FIGURE_FORMATS
 morphogen.config.HOMOGENIZATION_METHODS
-morphogen.config.HomogenizationSpec(materials, method='auto', boundary_conditions=<factory>, properties=<factory>, solver='auto', tolerance=1e-08, max_iterations=None, fields=False, loadings=<factory>, paths=<factory>, nonlinear=<factory>, device='cpu', ntfa=<factory>, mean_temperature=300.0, frequencies=None, wavelengths=None, fracture=None, fluid_bulk_modulus=None, integration=None, fatigue=None, beremin=None, plane=None)
+morphogen.config.HomogenizationSpec(materials, method='auto', boundary_conditions=<factory>, properties=<factory>, solver='auto', tolerance=1e-08, max_iterations=None, fields=False, loadings=<factory>, paths=<factory>, nonlinear=<factory>, device='cpu', ntfa=<factory>, mean_temperature=300.0, frequencies=None, wavelengths=None, fracture=None, fluid_bulk_modulus=None, integration=None, fatigue=None, beremin=None, plane=None, misaligned=False)
 morphogen.config.HomogenizationSpec.options(self)
 morphogen.config.HomogenizationSpec.porous
 morphogen.config.HomogenizationSpec.series(self)

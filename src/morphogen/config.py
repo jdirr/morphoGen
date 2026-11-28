@@ -420,6 +420,11 @@ class HomogenizationSpec:
     #: the elastic problems of the meshes of the plane: 'generalized' (generalized plane
     #: strain, the default) or 'strain' (plane strain); morphogen.homogenization.plane
     plane: str | None = None
+    #: the stiffness of a ply of misaligned fibres from that of its section (the meshes of
+    #: the plane of the unions of segments): turned along the segments of its fibres, the
+    #: bounds of Voigt and Reuss and the average of layers of Backus
+    #: (morphogen.homogenization.unidirectional.misaligned_stiffness)
+    misaligned: bool = False
 
     @property
     def porous(self) -> bool:
@@ -967,6 +972,7 @@ def _homogenization(data, base: Path | None = None) -> HomogenizationSpec:
         "fatigue",
         "beremin",
         "plane",
+        "misaligned",
     }
     _check_keys("homogenization", data, allowed, {"materials"})
     method = data.get("method", "auto")
@@ -1180,8 +1186,25 @@ def _homogenization(data, base: Path | None = None) -> HomogenizationSpec:
         fatigue=_fatigue(data.get("fatigue"), paths, materials),
         beremin=_beremin(data.get("beremin"), paths),
         plane=_plane_hypothesis(data.get("plane")),
+        misaligned=_misaligned(data.get("misaligned", False), props),
         **spectra,
     )
+
+
+def _misaligned(value, properties) -> bool:
+    """Whether the stiffness of the ply of misaligned fibres is computed from that of its
+    section (``homogenization.misaligned``)."""
+    if not isinstance(value, bool):
+        raise ConfigError(
+            "homogenization.misaligned: true or false (the stiffness of a ply of misaligned "
+            "fibres from that of its section, turned along the segments of its fibres)"
+        )
+    if value and "stiffness" not in properties:
+        raise ConfigError(
+            "homogenization.misaligned: from the stiffness of the section (properties: "
+            "[stiffness, ...])"
+        )
+    return value
 
 
 def _meshes_of_the_plane(mesh: MeshSpec | None, model) -> bool:
@@ -2409,6 +2432,15 @@ def load_config(source, *, base_dir=None) -> RunConfig:
         raise ConfigError(
             "homogenization.plane: the elastic problems of the meshes of the plane (method: fe, "
             "a 'mesh' section, mesh.plane true, or auto for the seeds of the plane)"
+        )
+    if (
+        homog is not None
+        and homog.misaligned
+        and (homog.method != "fe" or mesh is None or not _meshes_of_the_plane(mesh, model))
+    ):
+        raise ConfigError(
+            "homogenization.misaligned: the stiffness of the sections of the plane (method: "
+            "fe, a 'mesh' section, mesh.plane: true), the fibres along z"
         )
     if mesh is not None and mesh.plane:
         _check_plane(mesh, homog, outputs, viz)

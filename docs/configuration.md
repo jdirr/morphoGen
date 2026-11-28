@@ -135,6 +135,11 @@ homogenization:        # apparent properties of every realization
                        # the anti-plane fluctuation free, the stiffness of the structure in
                        # space; the default) | strain (plane strain); kubc, periodic, subc;
                        # their paths on their layer in space, periodic (generalized)
+  misaligned: false    # the meshes of the plane of misaligned fibres, with the stiffness:
+                       # that of the ply from that of its section turned along the segments
+                       # of its fibres, stiffness_voigt and stiffness_reuss (its bounds) and
+                       # stiffness_layers (fibres that wave together), .<bc>.E3 ... beside
+                       # those of the section (theory §119)
   properties: [bulk_modulus, shear_modulus, conductivity, stiffness, conductivity_tensor,
                thermal_expansion]   # materials with expansion: alpha | [a_a, a_c] | 3 x 3
                # the other transports: electrical_conductivity, permittivity, permeability,

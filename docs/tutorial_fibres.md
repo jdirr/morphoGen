@@ -170,7 +170,7 @@ permeability along $z$ of the flows of the plane is that of straight fibres with
 section, not that of the waving fibres.
 
 So is its axial modulus, that of straight fibres. Turned so that its axis follows each
-segment of the fibres and averaged with their lengths, the stiffness of the section bounds
+segment of the fibres and averaged with their volumes, the stiffness of the section bounds
 that of the ply, the composite aligned with each segment about it (Hill 1952): Voigt above,
 Reuss below ([theory](theory.md) §119, the axial stiffness of misaligned plies):
 
@@ -180,8 +180,8 @@ from morphogen.homogenization.unidirectional import fibre_directions, misaligned
 
 aligned = homogenize(section, materials, properties=["stiffness"])
 aligned = aligned["stiffness.periodic"]["tensor"]  # the section: fibres along z
-directions, lengths = fibre_directions(wavy)  # those of the segments of the fibres
-bounds = misaligned_stiffness(aligned, directions, lengths)
+directions, volumes = fibre_directions(wavy)  # those of the segments of the fibres
+bounds = misaligned_stiffness(aligned, directions, volumes)
 print(round(engineering_constants(aligned)["E3"], 1))  # 129.3: straight fibres
 print([round(engineering_constants(bounds[k])["E3"], 1) for k in ("voigt", "reuss")])
 # [128.5, 122.6]: three degrees of waviness cost up to 5 % of the axial modulus
@@ -189,7 +189,10 @@ print([round(engineering_constants(bounds[k])["E3"], 1) for k in ("voigt", "reus
 
 The axial modulus that the FFT solver finds on the voxels of misaligned plies falls between
 these bounds, as long as the voxels are fine enough to keep the gaps between the fibres
-open.
+open. A run records them beside the stiffness of the section with `misaligned: true` among
+the keys of its `homogenization` (the meshes of the plane, the stiffness among its
+properties): `stiffness_voigt.<bc>.E3`, `stiffness_reuss.<bc>.E3`, `stiffness_layers.<bc>.E3`
+and their other entries and engineering constants.
 
 ## 6. Files for other codes
 
@@ -205,7 +208,7 @@ print(open("ply.inp").read().count("*SOLID SECTION"))  # 2: the matrix and the f
 
 The template `fibre_bed_plane` computes the permeability of preforms over several
 realizations, and `misaligned_ply_plane` the transverse stiffness and conductivity of a
-misaligned ply:
+misaligned ply, and the bounds of its axial stiffness:
 
 ```bash
 morphogen template fibre_bed_plane -o preform.yaml

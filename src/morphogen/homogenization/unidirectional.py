@@ -319,7 +319,7 @@ def misaligned_stiffness(stiffness, directions, weights=None) -> dict[str, np.nd
     """The stiffness of a ply of misaligned fibres from that of the ply aligned (6 x 6,
     Voigt; the fibres along the axis 3: the stiffness of its section in its plane, or of
     the composite cylinders), the fibres along ``directions`` (n x 3: the segments of the
-    fibres, :func:`fibre_directions`) in the proportions ``weights`` (their lengths; equal
+    fibres, :func:`fibre_directions`) in the proportions ``weights`` (their volumes; equal
     by default), the composite aligned with each about it: the average of the turned
     stiffnesses (``"voigt"``: a uniform strain) and the inverse of the average of their
     compliances (``"reuss"``: a uniform stress), which bound the stiffness of the ply
@@ -356,14 +356,37 @@ def misaligned_stiffness(stiffness, directions, weights=None) -> dict[str, np.nd
             "layers": layers}  # fmt: skip
 
 
+def _fibre_segments(micro):
+    """The segments of the fibres of a union of segments, of the union that a coating covers
+    (:class:`~morphogen.models.nested.CoatedStructure`), or of the fibres of hollow fibres
+    (the difference of the union of the fibres and that of their lumens)."""
+    from morphogen.models.combination import Combined
+    from morphogen.models.nested import CoatedStructure
+
+    union = micro
+    if isinstance(union, CoatedStructure):
+        union = union.inner
+    elif isinstance(union, Combined) and union.operation == "difference" and union.parts:
+        union = union.parts[0]
+    segments = getattr(union, "segments", None)
+    if segments is None or not len(segments.radii):
+        raise ValueError(
+            "fibre_directions: the segments of the fibres of a union of segments (the long "
+            f"fibres, coated or hollow), not of {type(micro).__name__}"
+        )
+    return segments
+
+
 def fibre_directions(micro) -> tuple[np.ndarray, np.ndarray]:
     """The directions of the segments of the fibres of a union of segments (the chains of
-    :class:`~morphogen.models.long_fibers.LongFibers`), taken along z or no less, and their
-    lengths, the weights of :func:`misaligned_stiffness`."""
-    segments = micro.segments
+    :class:`~morphogen.models.long_fibers.LongFibers`; those that a coating covers, those of
+    hollow fibres), taken along z or no less, and their volumes ``pi r^2 L``, the weights of
+    :func:`misaligned_stiffness`."""
+    segments = _fibre_segments(micro)
     d = np.asarray(segments.end, dtype=float) - np.asarray(segments.start, dtype=float)
     lengths = np.linalg.norm(d, axis=1)
     keep = lengths > 0.0
     d, lengths = d[keep], lengths[keep]
+    radii = np.broadcast_to(np.asarray(segments.radii, dtype=float), keep.shape)[keep]
     d = d / lengths[:, None]
-    return np.where(d[:, 2:3] < 0.0, -d, d), lengths
+    return np.where(d[:, 2:3] < 0.0, -d, d), np.pi * radii**2 * lengths

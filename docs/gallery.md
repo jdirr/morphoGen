@@ -569,7 +569,7 @@ morphogen run fibre_bed_plane.yaml
 :loading: lazy
 ```
 
-**`misaligned_ply_plane`** — The transverse stiffness and conductivity of a ply of fibres misaligned by 3 degrees in its plane: the exact contours of their sections, each fibre traced on its own distance function, meshed by curved triangles.
+**`misaligned_ply_plane`** — The transverse stiffness and conductivity of a ply of fibres misaligned by 3 degrees in its plane: the exact contours of their sections, each fibre traced on its own distance function, meshed by curved triangles; the bounds of its axial stiffness, that of the section turned along the segments of the fibres.
 
 *Needs the mesher MMG (extra `mesh`), VTK and ffmpeg (extra `video`).*
 

@@ -80,7 +80,13 @@ from morphogen.homogenization.beremin import path_beremin
 from morphogen.homogenization.coupled import coupled_entries
 from morphogen.homogenization.fatigue import path_fatigue
 from morphogen.homogenization.materials import any_oriented
-from morphogen.homogenization.postprocess import NOTATION, matrix_entries, normalized_values
+from morphogen.homogenization.postprocess import (
+    NOTATION,
+    engineering_constants,
+    matrix_entries,
+    normalized_values,
+)
+from morphogen.homogenization.unidirectional import fibre_directions, misaligned_stiffness
 from morphogen.homogenization.xfem import LevelSetSample
 from morphogen.io.tables import write_table
 from morphogen.mesh.conforming import conforming_mesh
@@ -433,6 +439,12 @@ def _process(
     viz = viz if viz is not None and index < viz.realizations else None
     values: dict = {}
     mesh = None
+    fibres = None
+    if homog is not None and homog.misaligned and homogenize:
+        try:  # (before the mesh: a structure without fibres fails at once)
+            fibres = fibre_directions(micro)
+        except ValueError as error:
+            raise ValueError(f"{stem}: homogenization.misaligned: {error}") from None
     shown = viz is not None and viz.shows("mesh")
     foam = out.openfoam is not None and out.openfoam.get("sample") == "mesh"
     if cfg.mesh is not None and (
@@ -536,11 +548,38 @@ def _process(
             entries=entries,
         )
         values.update(fe_values)
+        if fibres is not None:
+            values.update(_misaligned(results, *fibres, stem))
     if viz is not None:
         from morphogen.viz.workflow import visualize
 
         visualize(viz, stem, outdir, image=image, labels=labels, mesh=mesh, results=results)
     return values, fe_rows
+
+
+def _misaligned(results: dict, directions, volumes, stem: str) -> dict:
+    """The stiffness of a ply of misaligned fibres from that of its section
+    (``homogenization.misaligned``): the entries ``C11`` ... ``C66`` and the engineering
+    constants of the averages of
+    :func:`~morphogen.homogenization.unidirectional.misaligned_stiffness` (``voigt``,
+    ``reuss``, ``layers``) of the stiffness of the section turned along the segments of its
+    fibres with their volumes: ``stiffness_<average>.<bc>.<entry>``."""
+    values = {}
+    for key, res in results.items():
+        prop, _, bc = key.partition(".")
+        if prop != "stiffness" or not isinstance(res, dict):
+            continue
+        averages = misaligned_stiffness(res["tensor"], directions, volumes)
+        for average, tensor in averages.items():
+            named = {**matrix_entries(tensor, "C"), **engineering_constants(tensor)}
+            values.update({f"stiffness_{average}.{bc}.{k}": v for k, v in named.items()})
+        e3 = {k: engineering_constants(c)["E3"] for k, c in averages.items()}
+        log.info(
+            "%s: the axial modulus of the misaligned ply (%s) between %.5g (Reuss) and %.5g "
+            "(Voigt), %.5g of layers; its section, of straight fibres, %.5g",
+            stem, bc, e3["reuss"], e3["voigt"], e3["layers"], res["E3"],
+        )  # fmt: skip
+    return values
 
 
 def _oriented(micro: Microstructure, homog: HomogenizationSpec) -> bool:

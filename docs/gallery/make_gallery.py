@@ -221,7 +221,8 @@ FAMILIES = [
             ("misaligned_ply_plane", "The transverse stiffness and conductivity of a ply of "
              "fibres misaligned by 3 degrees in its plane: the exact contours of their "
              "sections, each fibre traced on its own distance function, meshed by curved "
-             "triangles."),
+             "triangles; the bounds of its axial stiffness, that of the section turned "
+             "along the segments of the fibres."),
             ("cross_linked_fibers", "Entangled carbon fibres moulded about a plane, half "
              "their contacts bonded by epoxy cross-links (Chatti et al.)."),
             ("delaunay_network", "A fibre network on the edges of the Delaunay "

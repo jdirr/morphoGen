@@ -250,6 +250,26 @@ def test_misaligned_stiffness_in_closed_form():
     assert len(lengths) == len(d) and np.all(lengths > 0.0)
 
 
+def test_fibre_directions_of_coated_and_hollow_fibres():
+    """The segments of the fibres weighted with their volumes: those that a coating covers,
+    those of hollow fibres about their lumens; a structure without segments refused."""
+    from morphogen.models.nested import Coating
+
+    domain = mg.Domain(size=(10.0, 10.0, 16.0), periodic=True)
+    fibres = mg.models.LongFibers(radius=0.5, volume_fraction=0.4, misalignment=3.0)
+    coated = Coating(model=fibres, thickness=0.1, side="outside", phase=2).generate(domain, seed=1)
+    d, volumes = fibre_directions(coated)
+    segments = coated.inner.segments
+    lengths = np.linalg.norm(segments.end - segments.start, axis=1)
+    assert len(d) == len(lengths) and np.all(d[:, 2] > 0.0)
+    np.testing.assert_allclose(volumes, np.pi * segments.radii**2 * lengths, rtol=1e-12)
+    model = mg.models.HardcoreFibers(radius=0.5, length=3.0, number=6, lumen=0.5)
+    d, volumes = fibre_directions(model.generate(domain, seed=1))  # of the fibres, not lumens
+    assert len(d) == 6 and volumes.sum() == pytest.approx(6 * np.pi * 0.25 * 3.0, rel=1e-12)
+    with pytest.raises(ValueError, match="segments of the fibres"):
+        fibre_directions(mg.models.Voronoi(n_cells=4).generate(domain, seed=1))
+
+
 def _has_mmg2d() -> bool:
     from morphogen.mesh.conforming import mmg_executable
 
@@ -282,3 +302,60 @@ def test_misaligned_ply_between_its_bounds():
     voxels = engineering_constants(fft["stiffness.periodic"]["tensor"])["E3"]
     assert straight > e3["voigt"] > voxels > e3["layers"] >= e3["reuss"] * (1 - 1e-9)
     assert straight == pytest.approx(92.5, rel=0.01) and voxels == pytest.approx(81.8, rel=0.01)
+
+
+def _ply_config(tmp_path, **homogenization) -> dict:
+    """A ply of fibres misaligned by 5 degrees meshed in its plane, its stiffness and that of
+    the misaligned ply (homogenization.misaligned)."""
+    return {
+        "model": {"type": "long_fibers", "radius": 2.0, "volume_fraction": 0.3, "min_gap": 0.5,
+                  "misalignment": 5.0},
+        "domain": {"size": [16.0, 16.0, 48.0], "periodic": True},
+        "seed": 2,
+        "mesh": {"plane": True, "size": 1.0, "order": 1},
+        "homogenization": {
+            "method": "fe",
+            "misaligned": True,
+            "materials": {0: {"young": 3.5, "poisson": 0.35}, 1: {"young": 230.0, "poisson": 0.2}},
+            "boundary_conditions": ["periodic", "kubc"],
+            "properties": ["stiffness"],
+            **homogenization,
+        },
+        "outputs": {"directory": str(tmp_path / "out"), "name": "ply"},
+    }  # fmt: skip
+
+
+@pytest.mark.skipif(not _has_mmg2d(), reason="mmg2d (pymmg) is not installed")
+def test_runs_record_the_misaligned_ply(tmp_path):
+    """A run of a ply misaligned by 5 degrees, meshed in its plane, records beside the
+    stiffness of its section (that of straight fibres: an axial modulus of 69.9) those of
+    the misaligned ply under each condition: Voigt (68.6), the layers (59.3) and Reuss
+    (59.2), in this order, their entries and engineering constants; the option refused
+    without the stiffness, for tetrahedra, and for a structure without fibres."""
+    import csv
+
+    from morphogen.config import ConfigError, load_config
+    from morphogen.pipeline import run
+
+    run(load_config(_ply_config(tmp_path), base_dir=tmp_path))
+    with open(tmp_path / "out" / "results.csv", newline="") as stream:
+        values = {k: float(v) for k, v in next(csv.DictReader(stream)).items() if v}
+    for bc in ("periodic", "kubc"):
+        e3 = [values[f"stiffness{k}.{bc}.E3"] for k in ("", "_voigt", "_layers", "_reuss")]
+        assert e3[0] > e3[1] > e3[2] > e3[3]
+        assert {f"stiffness_voigt.{bc}.{k}" for k in ("C11", "C66", "E1", "G12")} <= set(values)
+    e3 = [values[f"stiffness{k}.periodic.E3"] for k in ("", "_voigt", "_layers", "_reuss")]
+    assert e3 == pytest.approx([69.9, 68.6, 59.3, 59.2], rel=0.02)
+    with pytest.raises(ConfigError, match="true or false"):
+        load_config(_ply_config(tmp_path, misaligned="yes"), base_dir=tmp_path)
+    with pytest.raises(ConfigError, match=r"properties: \[stiffness"):
+        load_config(_ply_config(tmp_path, properties=["shear_modulus"]), base_dir=tmp_path)
+    tetrahedra = _ply_config(tmp_path)
+    tetrahedra["mesh"] = {"size": 1.0}
+    with pytest.raises(ConfigError, match="sections of the plane"):
+        load_config(tetrahedra, base_dir=tmp_path)
+    grains = _ply_config(tmp_path)
+    grains["model"] = {"type": "voronoi", "n_cells": 4}
+    grains["homogenization"]["materials"] = {1: {"young": 1.0, "poisson": 0.3}}
+    with pytest.raises(ValueError, match=r"homogenization\.misaligned: .*segments"):
+        run(load_config(grains, base_dir=tmp_path))

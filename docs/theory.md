@@ -14107,7 +14107,7 @@ little, its axial ones are not. Its stiffness $C$ turned so that its axis follow
 segment of the fibres, $C_{ijkl}(d) = R_{ip} R_{jq} R_{kr} R_{ls} C_{pqrs}$ for the least
 rotation $R$ that takes $e_3$ to the direction $d$ of the segment (about $e_3 \times d$, the
 transverse axes kept as near $x$ and $y$ as they can be: `turned_stiffness`), and averaged
-with the lengths of the segments (`fibre_directions`), gives the Voigt and Reuss bounds of
+with the volumes of the segments (`fibre_directions`), gives the Voigt and Reuss bounds of
 the stiffness of the ply, the composite aligned with each segment about it
 (`misaligned_stiffness`; Hill 1952): the average of the turned stiffnesses and the inverse
 of the average of their compliances. Layers normal to $z$, each of one orientation, the
@@ -14122,7 +14122,11 @@ by 3° (RMS), an axial modulus of 96.8 GPa between 94.0 (Reuss) and 100.7 (Voigt
 the section gives 101.3; by 6°, 86.5 between 78.0 and 99.2 (101.8); aligned, 101.3 and
 101.2. Fibres that all wave together, by 4°: 93.8, nearer to the layers and Reuss (89.9)
 than to Voigt (100.3). The waviness of the ply of the tutorial, 3°, costs up to 5 % of its
-axial modulus (122.6 to 128.5 GPa, its section 129.3).
+axial modulus (122.6 to 128.5 GPa, its section 129.3). The runs record the three averages
+of the stiffness of each section and condition beside it (`homogenization.misaligned`:
+`stiffness_voigt.<bc>.<entry>`, `stiffness_reuss`, `stiffness_layers`); the segments of
+coated fibres are those of the union the coating covers, those of hollow ones the fibres
+about their lumens.
 
 Coated and hollow fibres (the model `coating`) are meshed by the contours of their layers
 (`section_layers`): the union and that grown by the thickness of the coating, or the union
