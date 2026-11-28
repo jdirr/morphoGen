@@ -560,7 +560,9 @@ def test_fibres_tutorial_snippets(tmp_path, monkeypatch):
     Hill to round-off, the transverse bulk modulus between the bounds of Hashin and
     Shtrikman, the conditions ordered, the pores of the preform in one part and its axial
     permeability above the transverse ones, the misaligned fibres by their exact contours,
-    every fibre apart and the pores in one part, the plane elements of Abaqus."""
+    every fibre apart and the pores in one part, their axial modulus between the bounds of
+    the stiffness turned along their segments and below that of straight fibres, the plane
+    elements of Abaqus."""
     ns = _run(FIBRES, tmp_path, monkeypatch)
     assert ns["mesh"].metadata["mesher"] == "exact discs (mmg2d)" and ns["mesh"].matching_sides()
     c, out = ns["c"], ns["out"]
@@ -577,5 +579,10 @@ def test_fibres_tutorial_snippets(tmp_path, monkeypatch):
     section, wet = ns["section"], ns["wet"]
     assert section.metadata["mesher"] == "exact contours (mmg2d)" and section.matching_sides()
     assert wet["parts"] == 1 and ns["wavy"].summary()["misalignment_rms"] > 2.0
+    from morphogen.homogenization.postprocess import engineering_constants
+
+    e3 = {k: engineering_constants(c)["E3"] for k, c in ns["bounds"].items()}
+    straight = engineering_constants(ns["aligned"])["E3"]
+    assert straight > e3["voigt"] > e3["layers"] >= e3["reuss"] * (1 - 1e-9)
     assert (tmp_path / "ply.inp").read_text().count("*SOLID SECTION") == 2
     assert (tmp_path / "fibres_section.png").is_file()

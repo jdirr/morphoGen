@@ -5,7 +5,8 @@ modulus between Hashin's bounds with their dilute slope, the conductivities and 
 expansions (Levin's relation, exact on the FFT solution of a fibre array), the tows as
 materials and in configurations, and the FFT stiffness of hexagonal and random arrays of
 long fibres (Richardson-extrapolated in the voxel size) against the closed forms and
-Rayleigh's multipole solution."""
+Rayleigh's multipole solution; misaligned plies, their stiffness turned along the segments
+of their fibres and averaged, against the laminates and the voxels."""
 
 from __future__ import annotations
 
@@ -17,12 +18,16 @@ import pytest
 
 import morphogen as mg
 from morphogen.homogenization import Material, homogenize
+from morphogen.homogenization.postprocess import engineering_constants
 from morphogen.homogenization.unidirectional import (
     Hill,
     composite_cylinders,
+    fibre_directions,
     hill_moduli,
     hill_relations,
+    misaligned_stiffness,
     transverse_shear_bounds,
+    turned_stiffness,
 )
 
 GLASS = Material(young=72.0, poisson=0.22, conductivity=1.0, expansion=5e-6)
@@ -205,3 +210,75 @@ def test_fft_stiffness_of_fibre_arrays():
             assert exact / r.p - 1 == pytest.approx(0.010, abs=0.002)
             assert p == pytest.approx(exact, rel=0.015)
             assert math.isclose(vf, 120 * math.pi * 0.25 / 144.0)
+
+
+def test_misaligned_stiffness_in_closed_form():
+    """A stiffness transversely isotropic about the axis 3 turned by theta toward y: its
+    modulus along z that of the laminates, ``1/E = cos^4/E_L + sin^4/E_T + (1/G_LT - 2
+    nu_LT/E_L) sin^2 cos^2``; an isotropic stiffness unchanged by any turn; one direction
+    the turned stiffness under the three averages; over directions scattered about z,
+    Voigt >= layers >= Reuss (their differences positive semidefinite); the directions of
+    the segments of long fibres, whose RMS angle is their misalignment."""
+    c = Hill(k=10.0, l=5.0, n=130.0, m=4.0, p=5.0).stiffness
+    e = engineering_constants(c)
+    for degrees in (0.0, 5.0, 30.0, 60.0, 90.0):
+        t = math.radians(degrees)
+        turned = turned_stiffness(c, [[0.0, math.sin(t), math.cos(t)]])[0]
+        s2, c2 = math.sin(t) ** 2, math.cos(t) ** 2
+        compliance = (c2 * c2 / e["E3"] + s2 * s2 / e["E1"]
+                      + (1.0 / e["G31"] - 2.0 * e["nu31"] / e["E3"]) * s2 * c2)  # fmt: skip
+        assert engineering_constants(turned)["E3"] == pytest.approx(1.0 / compliance, rel=1e-12)
+    rng = np.random.default_rng(0)
+    isotropic = Hill(k=14.0, l=10.0, n=18.0, m=4.0, p=4.0).stiffness  # (lambda 10, mu 4)
+    assert np.abs(turned_stiffness(isotropic, rng.normal(size=(20, 3))) - isotropic).max() < 1e-12
+    directions = np.column_stack([0.1 * rng.normal(size=(200, 2)), np.ones(200)])
+    one = misaligned_stiffness(c, directions[:1])
+    assert all(np.allclose(one[k], turned_stiffness(c, directions[:1])[0]) for k in one)
+    out = misaligned_stiffness(c, directions, np.full(200, 2.0))
+    assert np.linalg.eigvalsh(out["voigt"] - out["layers"]).min() > -1e-9
+    assert np.linalg.eigvalsh(out["layers"] - out["reuss"]).min() > -1e-9
+    e3 = [engineering_constants(out[k])["E3"] for k in ("voigt", "layers", "reuss")]
+    assert e3[0] > e3[1] > e3[2] and e3[0] < e["E3"]
+    with pytest.raises(ValueError, match="weight"):
+        misaligned_stiffness(c, directions, np.ones(3))
+    model = mg.models.LongFibers(radius=0.5, volume_fraction=0.5, misalignment=3.0)
+    ply = model.generate(mg.Domain(size=(10.0, 10.0, 16.0), periodic=True), seed=1)
+    d, lengths = fibre_directions(ply)
+    assert np.all(d[:, 2] > 0.0) and np.allclose(np.linalg.norm(d, axis=1), 1.0)
+    rms = math.degrees(math.sqrt(float(np.mean(np.arccos(d[:, 2]) ** 2))))
+    assert rms == pytest.approx(ply.summary()["misalignment_rms"], rel=1e-9)
+    assert len(lengths) == len(d) and np.all(lengths > 0.0)
+
+
+def _has_mmg2d() -> bool:
+    from morphogen.mesh.conforming import mmg_executable
+
+    try:
+        mmg_executable(None, "mmg2d")
+    except (FileNotFoundError, RuntimeError, ImportError):
+        return False
+    return True
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not _has_mmg2d(), reason="mmg2d (pymmg) is not installed")
+def test_misaligned_ply_between_its_bounds():
+    """A ply of fibres misaligned by 5 degrees (8 fibres of radius 2 filling 0.4 of the box,
+    1.2 apart at least): the axial modulus of its section in its plane, that of straight
+    fibres (92.5), above the Voigt bound of its stiffness turned along the segments of its
+    fibres (90.8); the FFT solution of its voxels (0.4: the gaps three voxels at least, which
+    the voxels keep open) between the bounds of Voigt and Reuss (76.2), at 81.8."""
+    epoxy, carbon = Material(young=3.5, poisson=0.35), Material(young=230.0, poisson=0.2)
+    model = mg.models.LongFibers(radius=2.0, volume_fraction=0.4, min_gap=1.2, misalignment=5.0)
+    ply = model.generate(mg.Domain(size=(16.0, 16.0, 48.0), periodic=True), seed=2)
+    section = mg.mesh.plane_mesh(ply, size=0.6, order=2)
+    out = homogenize(section, {0: epoxy, 1: carbon}, properties=["stiffness"])
+    aligned = out["stiffness.periodic"]["tensor"]
+    bounds = misaligned_stiffness(aligned, *fibre_directions(ply))
+    image = ply.voxelize(voxel_size=0.4)
+    fft = homogenize(image, {0: epoxy, 1: carbon}, properties=["stiffness"])
+    e3 = {k: engineering_constants(c)["E3"] for k, c in bounds.items()}
+    straight = engineering_constants(aligned)["E3"]
+    voxels = engineering_constants(fft["stiffness.periodic"]["tensor"])["E3"]
+    assert straight > e3["voigt"] > voxels > e3["layers"] >= e3["reuss"] * (1 - 1e-9)
+    assert straight == pytest.approx(92.5, rel=0.01) and voxels == pytest.approx(81.8, rel=0.01)

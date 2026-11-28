@@ -245,6 +245,14 @@
 * `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
   the solid, for their flow; the overview pages (README, the landing page, the properties)
   name the finite elements of the plane.
+* The axial stiffness of misaligned plies (`homogenization.unidirectional`:
+  `turned_stiffness`, `misaligned_stiffness`, `fibre_directions`): the stiffness of the
+  section of a ply, that of straight fibres, turned along the segments of its fibres and
+  averaged with their lengths — the bounds of Voigt and Reuss of the ply, and the layers
+  of Backus for fibres that wave together. The FFT solution of the voxels of plies
+  misaligned by 3° and 6° between them (96.8 between 94.0 and 100.7 GPa; 86.5 between 78.0
+  and 99.2), where the sections give 101.3 and 101.8; in the tutorial of the fibres, up to
+  5 % of the axial modulus lost to 3° of waviness.
 * Fixed: the meshing time of the records (`mesh_time_s`) was 0 for the meshes of the plane,
   which time none of their steps: it is the time of the whole meshing now, in the plane and
   in space.

@@ -14101,6 +14101,29 @@ reciprocal theorem of Keller and Mendelson holds within 3.6·10⁻⁴ and 2.7·1
 level sets split into 25: across the fibres, along $x$, its permeability (§120) is 2.0·10⁻⁶
 on the contours and 2·10⁻⁹ on the level sets.
 
+**The axial stiffness of misaligned plies.** The section of a ply is solved as that of
+straight fibres along $z$: its transverse moduli are those of the ply where the fibres wave
+little, its axial ones are not. Its stiffness $C$ turned so that its axis follows each
+segment of the fibres, $C_{ijkl}(d) = R_{ip} R_{jq} R_{kr} R_{ls} C_{pqrs}$ for the least
+rotation $R$ that takes $e_3$ to the direction $d$ of the segment (about $e_3 \times d$, the
+transverse axes kept as near $x$ and $y$ as they can be: `turned_stiffness`), and averaged
+with the lengths of the segments (`fibre_directions`), gives the Voigt and Reuss bounds of
+the stiffness of the ply, the composite aligned with each segment about it
+(`misaligned_stiffness`; Hill 1952): the average of the turned stiffnesses and the inverse
+of the average of their compliances. Layers normal to $z$, each of one orientation, the
+strains in their plane and the stresses on it continuous (Backus 1962), give the stiffness
+of fibres that all wave together, between the two. One direction turned by $\theta$ gives
+the modulus of the laminates, $1/E = \cos^4\theta/E_L + \sin^4\theta/E_T + (1/G_{LT} -
+2\nu_{LT}/E_L)\sin^2\theta\cos^2\theta$, to round-off. Plies of carbon fibres of radius
+3.5 filling 0.45 of a box of 25 × 25 × 100 in epoxy, 1.2 apart at least, against the FFT
+solution of their voxels of 0.35 (the gaps three voxels at least: the voxels of the
+denser plies, 0.2 apart, bridge their gaps and double their transverse moduli): misaligned
+by 3° (RMS), an axial modulus of 96.8 GPa between 94.0 (Reuss) and 100.7 (Voigt), where
+the section gives 101.3; by 6°, 86.5 between 78.0 and 99.2 (101.8); aligned, 101.3 and
+101.2. Fibres that all wave together, by 4°: 93.8, nearer to the layers and Reuss (89.9)
+than to Voigt (100.3). The waviness of the ply of the tutorial, 3°, costs up to 5 % of its
+axial modulus (122.6 to 128.5 GPa, its section 129.3).
+
 Coated and hollow fibres (the model `coating`) are meshed by the contours of their layers
 (`section_layers`): the union and that grown by the thickness of the coating, or the union
 shrunk by that of the shells and the union, the phases between them, the gaps across a
@@ -15366,6 +15389,8 @@ See [specification.md](specification.md#14-references). In addition:
   Phys.* 5, 548–549.
 * Mendelson, K. S. (1975). A theorem on the effective conductivity of a two-dimensional
   heterogeneous medium. *J. Appl. Phys.* 46, 4740–4741.
+* Backus, G. E. (1962). Long-wave elastic anisotropy produced by horizontal layering.
+  *J. Geophys. Res.* 67, 4427–4440.
 * Taylor, C., Hood, P. (1973). A numerical solution of the Navier-Stokes equations using the
   finite element technique. *Comput. Fluids* 1, 73–100.
 * Brezzi, F., Fortin, M. (1991). *Mixed and Hybrid Finite Element Methods*. Springer.

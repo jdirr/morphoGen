@@ -283,3 +283,87 @@ def hill_relations(fibre: Material, matrix: Material, fibre_fraction: float, k: 
     young = vf * ef + vm * em + 4.0 * (nf - nm) ** 2 / inv**2 * gap
     poisson = vf * nf + vm * nm - (nf - nm) / inv * gap
     return float(young), float(poisson)
+
+
+def _turns(directions) -> np.ndarray:
+    """The rotations (n x 3 x 3) that take the axis 3 to each direction by the least turn
+    (about the axis ``e3 x d``: the transverse axes of a stiffness stay as close to x and y
+    as they can), the directions taken along z or no less (a fibre has no sense)."""
+    d = np.asarray(directions, dtype=float).reshape(-1, 3)
+    d = d / np.linalg.norm(d, axis=1)[:, None]
+    d = np.where(d[:, 2:3] < 0.0, -d, d)
+    k = np.column_stack([-d[:, 1], d[:, 0], np.zeros(len(d))])  # e3 x d
+    s2 = np.einsum("ij,ij->i", k, k)
+    c = d[:, 2]
+    cross = np.zeros((len(d), 3, 3))
+    cross[:, 0, 1], cross[:, 0, 2] = -k[:, 2], k[:, 1]
+    cross[:, 1, 0], cross[:, 1, 2] = k[:, 2], -k[:, 0]
+    cross[:, 2, 0], cross[:, 2, 1] = -k[:, 1], k[:, 0]
+    factor = np.where(s2 > 1e-300, (1.0 - c) / np.maximum(s2, 1e-300), 0.0)
+    return np.eye(3)[None] + cross + factor[:, None, None] * (cross @ cross)
+
+
+def turned_stiffness(stiffness, directions) -> np.ndarray:
+    """A stiffness (6 x 6, Voigt; its fibres along the axis 3) turned so that its axis 3
+    follows each of ``directions`` (n x 3), by the least turn (:func:`_turns`): (n, 6, 6)."""
+    from morphogen.homogenization.materials import tensor4_to_voigt, voigt_to_tensor4
+
+    r = _turns(directions)
+    t = voigt_to_tensor4(np.asarray(stiffness, dtype=float))
+    out = tensor4_to_voigt(np.einsum("nip,njq,nkr,nls,pqrs->nijkl", r, r, r, r, t,
+                                     optimize=True))  # fmt: skip
+    return 0.5 * (out + np.swapaxes(out, -1, -2))
+
+
+def misaligned_stiffness(stiffness, directions, weights=None) -> dict[str, np.ndarray]:
+    """The stiffness of a ply of misaligned fibres from that of the ply aligned (6 x 6,
+    Voigt; the fibres along the axis 3: the stiffness of its section in its plane, or of
+    the composite cylinders), the fibres along ``directions`` (n x 3: the segments of the
+    fibres, :func:`fibre_directions`) in the proportions ``weights`` (their lengths; equal
+    by default), the composite aligned with each about it: the average of the turned
+    stiffnesses (``"voigt"``: a uniform strain) and the inverse of the average of their
+    compliances (``"reuss"``: a uniform stress), which bound the stiffness of the ply
+    whatever the arrangement of its orientations (Hill 1952), and the stiffness of layers
+    normal to the axis 3, each of one orientation (``"layers"``: Backus 1962, the strains in
+    their plane and the stresses on it continuous), that of fibres that wave together,
+    between the two."""
+    cs = turned_stiffness(stiffness, directions)
+    w = np.ones(len(cs)) if weights is None else np.asarray(weights, dtype=float).ravel()
+    if len(w) != len(cs) or not np.all(w >= 0.0) or not w.sum() > 0.0:
+        raise ValueError("misaligned_stiffness: a nonnegative weight per direction")
+    w = w / w.sum()
+    voigt = np.einsum("n,nij->ij", w, cs)
+    reuss = np.linalg.inv(np.einsum("n,nij->ij", w, np.linalg.inv(cs)))
+    normal, tangent = [2, 3, 4], [0, 1, 5]  # the stresses 33, 23, 31; the strains 11, 22, 12
+    cnn = cs[:, normal][:, :, normal]
+    cnt = cs[:, normal][:, :, tangent]
+    ctn = cs[:, tangent][:, :, normal]
+    ctt = cs[:, tangent][:, :, tangent]
+    inv = np.linalg.inv(cnn)
+    nn = np.linalg.inv(np.einsum("n,nij->ij", w, inv))
+    nt = nn @ np.einsum("n,nij->ij", w, inv @ cnt)
+    tn = np.einsum("n,nij->ij", w, ctn @ inv) @ nn
+    tt = np.einsum("n,nij->ij", w, ctt - ctn @ inv @ cnt) + tn @ np.einsum(
+        "n,nij->ij", w, inv @ cnt
+    )
+    layers = np.empty((6, 6))
+    layers[np.ix_(normal, normal)] = nn
+    layers[np.ix_(normal, tangent)] = nt
+    layers[np.ix_(tangent, normal)] = tn
+    layers[np.ix_(tangent, tangent)] = tt
+    layers = 0.5 * (layers + layers.T)
+    return {"voigt": 0.5 * (voigt + voigt.T), "reuss": 0.5 * (reuss + reuss.T),
+            "layers": layers}  # fmt: skip
+
+
+def fibre_directions(micro) -> tuple[np.ndarray, np.ndarray]:
+    """The directions of the segments of the fibres of a union of segments (the chains of
+    :class:`~morphogen.models.long_fibers.LongFibers`), taken along z or no less, and their
+    lengths, the weights of :func:`misaligned_stiffness`."""
+    segments = micro.segments
+    d = np.asarray(segments.end, dtype=float) - np.asarray(segments.start, dtype=float)
+    lengths = np.linalg.norm(d, axis=1)
+    keep = lengths > 0.0
+    d, lengths = d[keep], lengths[keep]
+    d = d / lengths[:, None]
+    return np.where(d[:, 2:3] < 0.0, -d, d), lengths

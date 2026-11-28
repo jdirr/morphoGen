@@ -169,6 +169,28 @@ the transverse permeabilities to 0.0078 and 0.0025, the gaps that carry the flow
 permeability along $z$ of the flows of the plane is that of straight fibres with this
 section, not that of the waving fibres.
 
+So is its axial modulus, that of straight fibres. Turned so that its axis follows each
+segment of the fibres and averaged with their lengths, the stiffness of the section bounds
+that of the ply, the composite aligned with each segment about it (Hill 1952): Voigt above,
+Reuss below ([theory](theory.md) §119, the axial stiffness of misaligned plies):
+
+```python
+from morphogen.homogenization.postprocess import engineering_constants
+from morphogen.homogenization.unidirectional import fibre_directions, misaligned_stiffness
+
+aligned = homogenize(section, materials, properties=["stiffness"])
+aligned = aligned["stiffness.periodic"]["tensor"]  # the section: fibres along z
+directions, lengths = fibre_directions(wavy)  # those of the segments of the fibres
+bounds = misaligned_stiffness(aligned, directions, lengths)
+print(round(engineering_constants(aligned)["E3"], 1))  # 129.3: straight fibres
+print([round(engineering_constants(bounds[k])["E3"], 1) for k in ("voigt", "reuss")])
+# [128.5, 122.6]: three degrees of waviness cost up to 5 % of the axial modulus
+```
+
+The axial modulus that the FFT solver finds on the voxels of misaligned plies falls between
+these bounds, as long as the voxels are fine enough to keep the gaps between the fibres
+open.
+
 ## 6. Files for other codes
 
 The mesh of the section is written as plane elements: CPE6 in plane strain for Abaqus and

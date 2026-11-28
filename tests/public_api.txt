@@ -1900,9 +1900,12 @@ morphogen.homogenization.unidirectional.Unidirectional.constants(self)
 morphogen.homogenization.unidirectional.Unidirectional.material(self)
 morphogen.homogenization.unidirectional.Unidirectional.stiffness
 morphogen.homogenization.unidirectional.composite_cylinders(fibre, matrix, fibre_fraction, *, transverse_shear='gscs')
+morphogen.homogenization.unidirectional.fibre_directions(micro)
 morphogen.homogenization.unidirectional.hill_moduli(material)
 morphogen.homogenization.unidirectional.hill_relations(fibre, matrix, fibre_fraction, k)
+morphogen.homogenization.unidirectional.misaligned_stiffness(stiffness, directions, weights=None)
 morphogen.homogenization.unidirectional.transverse_shear_bounds(fibre, matrix, fibre_fraction)
+morphogen.homogenization.unidirectional.turned_stiffness(stiffness, directions)
 morphogen.homogenization.voxel_fe.CYCLE
 morphogen.homogenization.voxel_fe.SHIFT
 morphogen.homogenization.voxel_fe.VoxelFEElasticProblem(image, materials, bc='periodic', *, tol=1e-08, maxiter=None, grains=None, orientations=None, shift=1e-12)
