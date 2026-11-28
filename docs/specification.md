@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Document | Software requirements specification |
-| Version | 1.193 |
+| Version | 1.194 |
 | Date | 2026-11-27 |
 | Author | @jdirr |
 | Status | Version 1.1 **validated** on 2026-10-21. The later versions, proposed, are listed in the change log (§13); changes go through pull requests that update this file and its change log. |
@@ -1311,6 +1311,7 @@ Packages: `models`, `kernels`, `analysis`, `rve`, `mesh`, `homogenization`, `io`
 | 1.191 | 2026-11-28 | The exact corners of the contours where capsules cross, their edges checked (FR-E18, §3.11) |
 | 1.192 | 2026-11-28 | The contours of coated and hollow fibres, and of coatings that meet (FR-E18, §3.11) |
 | 1.193 | 2026-11-28 | Every corner of a body found on its own and checked against its contours (FR-E18, §3.11) |
+| 1.194 | 2026-11-28 | The template of a misaligned ply in its plane (FR-E18, FR-H38, §3.11) |
 
 ## 14. References
 

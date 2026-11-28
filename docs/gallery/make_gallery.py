@@ -137,6 +137,12 @@ RESULTS = {
         "title": "von Mises stress of the shear",
     },
     "fibre_bed_plane": {"kind": "flow"},
+    "misaligned_ply_plane": {
+        "kind": "plane",
+        "result": "shear_modulus_periodic",
+        "field": "von_mises",
+        "title": "von Mises stress of the shear",
+    },
     "fracture_composite": {"kind": "fracture"},
     "fracture_rubber": {"kind": "fracture", "stretch": True},
 }
@@ -212,6 +218,10 @@ FAMILIES = [
             ("fibre_bed_plane", "The permeability of a bed of parallel fibres by the finite "
              "elements of the plane: the Stokes flows across and along the fibres through "
              "the pores of their sections, meshed by triangles curved along the fibres."),
+            ("misaligned_ply_plane", "The transverse stiffness and conductivity of a ply of "
+             "fibres misaligned by 3 degrees in its plane: the exact contours of their "
+             "sections, each fibre traced on its own distance function, meshed by curved "
+             "triangles."),
             ("cross_linked_fibers", "Entangled carbon fibres moulded about a plane, half "
              "their contacts bonded by epoxy cross-links (Chatti et al.)."),
             ("delaunay_network", "A fibre network on the edges of the Delaunay "
@@ -1234,13 +1244,14 @@ def _field(ax, name: str, outdir: Path, options: dict) -> None:
 
 
 def _plane(left, right, name: str, outdir: Path, options: dict) -> None:
-    """The mesh of the plane of the run of a template, its grains (left), and the field
-    ``options["field"]`` of the result ``options["result"]`` on its triangles (right)."""
+    """The mesh of the plane of the run of a template, its grains, or its phases without
+    grains (left), and the field ``options["field"]`` of the result ``options["result"]`` on
+    its triangles (right)."""
     from matplotlib import colormaps
     from matplotlib.collections import PolyCollection
 
     from morphogen import io
-    from morphogen.viz.png import label_colors
+    from morphogen.viz.png import PALETTE, label_colors
 
     stem = config(name)["outputs"]["name"]
     mesh = io.read_tri_mesh(sorted(outdir.glob(f"{stem}_*_tri.vtu"))[0])
@@ -1249,8 +1260,11 @@ def _plane(left, right, name: str, outdir: Path, options: dict) -> None:
     values = np.asarray(grid["cell_data"][options["field"]], dtype=float)
     lo, hi = np.percentile(values, [1.0, 99.0])
     shade = colormaps["magma"](np.clip((values - lo) / max(hi - lo, 1e-300), 0.0, 1.0))
-    grains = label_colors(mesh.cell) / 255.0 if mesh.cell is not None else INK
-    for ax, colours, title in ((left, grains, "grains"), (right, shade, options["title"])):
+    if mesh.cell is not None:
+        grains, what = label_colors(mesh.cell) / 255.0, "grains"
+    else:
+        grains, what = PALETTE[mesh.phase % len(PALETTE)] / 255.0, "phases"
+    for ax, colours, title in ((left, grains, what), (right, shade, options["title"])):
         ax.add_collection(
             PolyCollection(corners, facecolors=colours, edgecolors="face", linewidths=0.3)
         )  # (no seams between the triangles)

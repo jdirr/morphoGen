@@ -1,0 +1,43 @@
+# The transverse stiffness and conductivity of a ply of misaligned fibres by the finite
+# elements of its plane: long carbon fibres misaligned by 3 degrees (chains of
+# spherocylinders that wave about their sections), packed at random to 0.55, cut by the
+# middle plane of the box. Their sections are not discs: the exact contours of each fibre,
+# traced on its own distance function, keep every gap between the fibres open, where the
+# level sets of the whole section join fibres across the narrowest; six-node triangles
+# curved along them. The section is solved as that of fibres along z (generalized plane
+# strain): its transverse properties, those of the ply where the fibres wave little; its
+# axial ones are those of straight fibres. The stiffness and the conductivity under
+# periodic, kinematic and static conditions, and the figures of the mesh and of the von
+# Mises stress of its shear.
+model:
+  type: long_fibers
+  radius: 3.5                 # micrometres
+  volume_fraction: 0.55
+  arrangement: random
+  min_gap: 0.2
+  misalignment: 3.0           # degrees: the RMS angle of the segments to z
+domain:
+  size: [50.0, 50.0, 200.0]   # long enough along the fibres for their waviness
+  periodic: true
+seed: 1
+mesh:
+  plane: true                 # the triangles of the section z, the middle of the box
+  size: 1.0                   # the contours graded from the gaps between the fibres
+  order: 2                    # six-node triangles, their edges curved along the fibres
+homogenization:
+  method: fe
+  plane: generalized          # or strain (plane strain)
+  materials:
+    0: {young: 3.5, poisson: 0.35, conductivity: 0.2}     # epoxy (GPa, W/m/K)
+    1: {young: 230.0, poisson: 0.2, conductivity: 10.0}   # carbon fibres, isotropic here
+  boundary_conditions: [periodic, kubc, subc]
+  properties: [stiffness, shear_modulus, conductivity_tensor]
+  fields: true
+outputs:
+  directory: out/misaligned_ply_plane
+  name: ply
+  conforming_mesh: [vtu]
+visualization:
+  figures:
+    - {of: mesh}
+    - {of: shear_modulus.periodic, color: von_mises}

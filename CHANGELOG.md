@@ -245,6 +245,11 @@
 * `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
   the solid, for their flow; the overview pages (README, the landing page, the properties)
   name the finite elements of the plane.
+* The template `misaligned_ply_plane`: the transverse stiffness and conductivity of a ply of
+  fibres misaligned by 3 degrees in its plane, the exact contours of their sections meshed
+  by curved triangles, under the three conditions; its card in the gallery with the von
+  Mises stress of its shear (the figures of the meshes of the plane without grains colour
+  their phases).
 * Every corner of a body found on its own (`mesh.contours`): along polygons of the
   sections of its capsules, by Newton's method on two distances, and checked against its
   contours — a corner that they do not take, a feature smaller than a cell, has the body

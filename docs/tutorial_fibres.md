@@ -182,9 +182,12 @@ print(open("ply.inp").read().count("*SOLID SECTION"))  # 2: the matrix and the f
 ```
 
 The template `fibre_bed_plane` computes the permeability of preforms over several
-realizations:
+realizations, and `misaligned_ply_plane` the transverse stiffness and conductivity of a
+misaligned ply:
 
 ```bash
 morphogen template fibre_bed_plane -o preform.yaml
 morphogen run preform.yaml
+morphogen template misaligned_ply_plane -o ply.yaml
+morphogen run ply.yaml
 ```

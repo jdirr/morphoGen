@@ -557,6 +557,37 @@ morphogen run fibre_bed_plane.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-misaligned-ply-plane
+
+```{image} _static/gallery/misaligned_ply_plane.png
+:alt: misaligned_ply_plane
+:loading: lazy
+```
+
+```{image} _static/gallery/misaligned_ply_plane_result.png
+:alt: the result of misaligned_ply_plane
+:loading: lazy
+```
+
+**`misaligned_ply_plane`** — The transverse stiffness and conductivity of a ply of fibres misaligned by 3 degrees in its plane: the exact contours of their sections, each fibre traced on its own distance function, meshed by curved triangles.
+
+*Needs the mesher MMG (extra `mesh`), VTK and ffmpeg (extra `video`).*
+
+```bash
+morphogen template misaligned_ply_plane -o misaligned_ply_plane.yaml
+morphogen run misaligned_ply_plane.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/misaligned_ply_plane.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-cross-linked-fibers
 
 ```{image} _static/gallery/cross_linked_fibers.png
