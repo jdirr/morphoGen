@@ -365,6 +365,8 @@ def _corner(body: Body, a: int, b: int, x: np.ndarray, tol: float):
     another capsule covers it."""
     for _ in range(2 * NEWTON_STEPS):
         (va, ga), (vb, gb) = body.capsule(a, x), body.capsule(b, x)
+        if max(abs(float(va[0])), abs(float(vb[0]))) <= 1e-3 * tol:
+            break
         jacobian = np.array([ga[0], gb[0]])
         if abs(float(np.linalg.det(jacobian))) < 1e-6:
             return None
@@ -373,6 +375,41 @@ def _corner(body: Body, a: int, b: int, x: np.ndarray, tol: float):
     if max(abs(float(va[0])), abs(float(vb[0]))) > tol or body.distance(x)[0] < -tol:
         return None
     return x[0], float(np.degrees(np.arccos(np.clip(ga[0] @ gb[0], -1.0, 1.0))))
+
+
+def _section_polygon(body: Body, k: int, n: int = 64) -> np.ndarray:
+    """Points of the boundary of the section of the capsule ``k`` of a body, convex: along
+    ``n`` rays from the point of its axis nearest to the plane, by bisection."""
+    a, b, r = body.start[k], body.end[k], float(body.radii[k])
+    d = b - a
+    t = float(np.clip((body.z - a[2]) / d[2], 0.0, 1.0)) if d[2] != 0.0 else 0.5
+    centre = (a + t * d)[:2]
+    angle = 2.0 * np.pi * np.arange(n) / n
+    u = np.column_stack([np.cos(angle), np.sin(angle)])
+    low, high = np.zeros(n), np.full(n, float(np.linalg.norm(d[:2])) + 2.0 * r)
+    for _ in range(24):  # (to a millionth: Newton's method then finds the corners)
+        middle = 0.5 * (low + high)
+        inside = body.capsule(k, centre + middle[:, None] * u)[0] < 0.0
+        low, high = np.where(inside, middle, low), np.where(inside, high, middle)
+    return centre + (0.5 * (low + high))[:, None] * u
+
+
+def _pair_corners(body: Body, a: int, b: int, tol: float, polygon=None) -> list[np.ndarray]:
+    """The corners of a body where the surfaces of its capsules ``a`` and ``b`` cross and
+    no other capsule covers them: from the changes of sign of the distance to ``b`` along a
+    polygon of the section of ``a`` (:func:`_section_polygon`, unless given), by Newton's
+    method on the two distances (:func:`_corner`)."""
+    polygon = _section_polygon(body, a) if polygon is None else polygon
+    value = body.capsule(b, polygon)[0]
+    outside, clear = value > 0.0, np.abs(value) > 1e-6 * float(body.radii[b])
+    found: list[np.ndarray] = []
+    change = (outside != np.roll(outside, -1)) & clear & np.roll(clear, -1)
+    for i in np.flatnonzero(change).tolist():  # (not where the surfaces coincide: a joint)
+        middle = 0.5 * (polygon[i] + polygon[(i + 1) % len(polygon)])[None]
+        corner = _corner(body, a, b, middle, tol)
+        if corner is not None and all(np.linalg.norm(corner[0] - y) > 1e3 * tol for y in found):
+            found.append(corner[0])
+    return found
 
 
 def _crossing(points: np.ndarray, edges: np.ndarray) -> bool:
@@ -435,13 +472,15 @@ def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[f
         sign, low, high = np.sign(body.distance(starts)), np.zeros(len(t)), np.ones(len(t))
         for _ in range(8 * NEWTON_STEPS):
             d, g = body.distance(starts + t[:, None] * steps, gradient=True)
-            if np.abs(d).max() <= 1e-3 * tol:
+            done = np.abs(d) <= 1e-3 * tol
+            if done.all():
                 break
             before = np.sign(d) == sign
             low, high = np.where(before, t, low), np.where(before, high, t)
             slope = np.einsum("ij,ij->i", g, steps)
             newton = t - d / np.where(slope != 0.0, slope, np.inf)
-            t = np.where((newton > low) & (newton < high), newton, 0.5 * (low + high))
+            step = np.where((newton >= low) & (newton <= high), newton, 0.5 * (low + high))
+            t = np.where(done, t, step)
         return starts + t[:, None] * steps
 
     for loop in _marching_loops(values, float(lo[0]), float(lo[1]), h, along):
@@ -473,8 +512,8 @@ def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[f
                 if best is None or detour < best[0]:
                     along = float((x - p) @ (q - p)) / max(float((q - p) @ (q - p)), 1e-300)
                     best = (detour, e % n, along)
-            if best[0] > h:  # pragma: no cover - a corner off its contour
-                continue
+            if best[0] > 16.0 * h:
+                return None  # a corner far off its contour: a feature that the grid cut
             found_at.append((best[1], best[2], x, angle))
         found_at.sort(key=lambda c: (c[0], c[1]))
         points: list[np.ndarray] = []
@@ -502,6 +541,19 @@ def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[f
             keep = np.flatnonzero(~near)
             points, corners = points[keep], np.flatnonzero(corner[keep]).tolist()
         out.append((points, corners, angles))
+    # every corner of the body (two capsules that cross, no other covering it) among those
+    # of its contours: else a feature smaller than a cell, a hole, that the grid missed
+    found = [loop[c] for loop, corners, _ in out for c in corners]
+    m = len(body.radii)
+    if m > 1:
+        i, j = np.triu_indices(m, 1)
+        meet = _segment_distances(body.start[i], body.end[i], body.start[j], body.end[j])
+        cross = meet < body.radii[i] + body.radii[j]
+        polygons = {k: _section_polygon(body, k) for k in np.unique(i[cross]).tolist()}
+        for a, b in zip(i[cross].tolist(), j[cross].tolist(), strict=True):
+            for x in _pair_corners(body, a, b, tol, polygons[a]):
+                if not found or min(np.linalg.norm(x - y) for y in found) > 1e-6 * h:
+                    return None
     return out
 
 
@@ -604,9 +656,9 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     (:data:`~morphogen.mesh.triangles.CORNER_REFINEMENT`), the sides of a periodic box
     matching; ``mmg2d`` meshes the regions within them, which keep their nodes. Six-node
     elements have their middle nodes on the surfaces, by default. None for another
-    structure, flat caps in the plane, capsules that touch, a body larger than the box (a
-    cluster that percolates), a gap within a body too narrow for the finest grid, a contour
-    tangent to a side, or edges that cross."""
+    structure, flat caps in the plane, capsules that touch, a feature of a body (a gap, a
+    corner) too small for the finest grid, a contour tangent to a side, or edges that
+    cross."""
     from morphogen.mesh.conforming import mmg_executable
 
     domain = micro.domain
@@ -638,8 +690,6 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             return None
         bodies += found
         level += [k] * len(found)
-    if any(np.any(np.subtract(*b.bounds[::-1]) > lengths) for b in bodies):
-        return None  # (a body larger than the box: a cluster that percolates)
     floor = size / 64.0 if min_size is None else float(min_size)
     # 1. the contours of the bodies, their corners, the lines of the sides that they cross,
     #    and the pieces of them inside the box between these marks: ("side", (axis, side,

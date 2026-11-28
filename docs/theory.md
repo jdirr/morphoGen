@@ -14075,9 +14075,19 @@ circles 0.002 apart, the gap followed on the grid four times as fine, within 6.4
 4.9·10⁻⁷ at 0.05 and 0.0125, as by the union of discs. The sections of Boolean networks of
 spherocylinders turned at random (radius 0.03, length 0.4): filling a tenth of a periodic
 cube, ten of the twelve meshes of six realizations at the sizes 0.05 and 0.025 within
-3.2·10⁻⁶ of counts on grids of 4000² points; filling a fourth, four of twelve, the others
-— holes and clusters of corners finer than the grids — left to the level sets, which are
-3.9·10⁻³, 1.3·10⁻³ and 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and 0.0125 for the first.
+2·10⁻⁶ of counts on grids of 4000² points; filling a fourth, two of twelve, the others —
+clusters of corners and the tips of wedges too narrow for the finest grids — left to the
+level sets, which are 3.9·10⁻³, 1.3·10⁻³ and 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and
+0.0125 for the first.
+
+Every corner of a body, two of its capsules crossing where no other covers them, is also
+found on its own: along a polygon of the section of each capsule (its boundary on 64 rays
+from the point of its axis nearest to the plane, the section convex), where the distance
+to another changes its sign, by Newton's method on the two distances. A corner that the
+contours do not take is a feature smaller than a cell, which the finer grids follow; a
+corner far from the contour, at the tip of a narrow wedge of matrix that the grid cut, is
+inserted where the contour passes from one capsule to the other, sixteen cells away at
+most.
 
 A ply of fibres of radius 0.05 misaligned by 3° filling half of a periodic cube, 74
 sections in its middle plane with gaps down to 4·10⁻⁴: the level sets close its gaps — 7
@@ -14098,11 +14108,12 @@ coating 0.05, turned by 30°) are within 3.4·10⁻⁷ and 1.8·10⁻⁷ of thei
 0.05; hollow fibres misaligned by 3° (shells 0.015 thick about bores of a third phase),
 within 5·10⁻⁶ of counts on grids of 4000² points, where the level sets fail (`mmg2d` takes
 their curves for non-manifold); two coated discs whose coatings cross, within 7·10⁻⁷ and
-3.7·10⁻⁷. The grid of a body misses its features smaller than a cell — a hole enclosed by
-three capsules: coatings that percolate across the box, one of whose holes (2.5·10⁻⁵ of the
-box, between three coatings) fell between the nodes of a grid of 0.016, are left to the
-level sets with the other bodies larger than the box, as are flat caps in the plane (the
-Boolean cylinders), capsules that touch and contours tangent to a side.
+3.7·10⁻⁷. Coatings that percolate across the box, one body with its images: where two of
+them barely meet, the grid of 0.016 cut the tips of the wedges of matrix between them
+(2.5·10⁻⁵ of the box), which the corners found on their own restore: their cores and
+coatings within 1.4·10⁻⁶ and 4.5·10⁻⁶ of counts on grids of 4000² points at the sizes 0.05,
+0.025 and 0.0125 alike. Flat caps in the plane (the Boolean cylinders), capsules that touch, features too small for
+the finest grid and contours tangent to a side are left to the level sets.
 
 **Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
 $z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -

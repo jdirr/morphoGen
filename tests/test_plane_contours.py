@@ -14,6 +14,7 @@ from morphogen.mesh.conforming import mmg_executable
 from morphogen.mesh.contours import (
     TRACE_CELLS,
     _crossing,
+    _pair_corners,
     _segment_distances,
     _simple,
     _traced,
@@ -323,3 +324,37 @@ def test_contours_of_coated_and_hollow_fibres():
     outer = 2.0 * np.pi * 0.14**2 - _lens(0.14, 0.14, 0.25)
     assert fractions[1] == pytest.approx(2.0 * np.pi * 0.01, rel=2e-6)
     assert fractions[2] == pytest.approx(outer - 2.0 * np.pi * 0.01, rel=2e-6)
+
+
+@needs_mmg2d
+def test_every_corner_of_a_body_traced():
+    """Every corner of a body — two of its capsules crossing, no other covering the point —,
+    found on its own along polygons of the sections of its capsules (Newton's method on the
+    two distances), lies on its contours, or the body is traced again: two crossing discs
+    have their two; coated fibres whose coatings meet across the box (a cluster that
+    percolates), with corners at the tips of narrow wedges of matrix that the grid cuts,
+    their cores and coatings within 3e-5 of counts on a grid at the size 0.05, and within
+    2e-6 of themselves at 0.05 and 0.0125."""
+    pair = _straight([[0.3, 0.5], [0.6, 0.5]], [0.2, 0.2])
+    (body,) = section_bodies(pair)
+    m = len(body.radii)
+    found = [x for a in range(m) for b in range(a + 1, m) for x in _pair_corners(body, a, b, 1e-10)]
+    crossing = np.unique(np.round(np.array(found), 9), axis=0)
+    assert (
+        np.abs(crossing - [[0.45, 0.5 - np.sqrt(0.0175)], [0.45, 0.5 + np.sqrt(0.0175)]]).max()
+        < 1e-9
+    )
+    domain = mg.Domain(size=(1.0, 1.0, 0.25), periodic=True)
+    close = LongFibers(radius=0.1, number=10, arrangement="random", min_gap=0.02)
+    meeting = Coating(model=close, thickness=0.03).generate(domain, seed=2)
+    (cores, coats), _ = section_layers(meeting)
+    fractions = []
+    for size in (0.05, 0.0125):
+        mesh = plane_mesh(meeting, size=size, order=2)
+        assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+        fractions.append(mesh.phase_fractions())
+    core, coat = _counted(cores, 2000), _counted(coats, 2000)
+    assert fractions[0][1] == pytest.approx(core, abs=3e-5)
+    assert fractions[0][2] == pytest.approx(coat - core, abs=3e-5)
+    assert abs(fractions[1][1] - fractions[0][1]) < 2e-6
+    assert abs(fractions[1][2] - fractions[0][2]) < 2e-6
