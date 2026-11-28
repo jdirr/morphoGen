@@ -98,7 +98,7 @@ def section_capsules(micro, z: float | None = None):
         if len(spheres):
             c = spheres.centers + np.array([0.0, 0.0, k * lz])
             r = spheres.radii
-            cut = np.abs(c[:, 2] - z) < r
+            cut = (np.abs(c[:, 2] - z) < r) & (r > 0.0)
             starts.append(c[cut])
             ends.append(c[cut])
             radii.append(r[cut])
@@ -107,7 +107,7 @@ def section_capsules(micro, z: float | None = None):
             b = segments.end + np.array([0.0, 0.0, k * lz])
             r = segments.radii
             lo, hi = np.minimum(a[:, 2], b[:, 2]), np.maximum(a[:, 2], b[:, 2])
-            cut = (lo - r < z) & (hi + r > z)
+            cut = (lo - r < z) & (hi + r > z) & (r > 0.0)
             a, b, r = a[cut], b[cut], r[cut]
             if not segments.round_caps and np.any(
                 (np.abs(a[:, 2] - z) < r) | (np.abs(b[:, 2] - z) < r)
@@ -124,6 +124,27 @@ def section_capsules(micro, z: float | None = None):
             ends.append(a + t1[:, None] * d)
             radii.append(r)
     return np.concatenate(starts), np.concatenate(ends), np.concatenate(radii)
+
+
+def section_layers(micro):
+    """The unions whose contours bound the phases of a section, from the innermost, and the
+    phases inside the innermost, between them and outside them: a union of spheres and
+    segments itself (phase 1 inside, 0 outside), or one coated
+    (:class:`~morphogen.models.nested.CoatedStructure`: the union and that grown by the
+    thickness of the coating, or the union shrunk by that of the shells and the union);
+    None for another structure."""
+    from morphogen.mesh.triangles import _grown
+    from morphogen.models.nested import CoatedStructure
+    from morphogen.models.union import PrimitiveUnion
+
+    if isinstance(micro, PrimitiveUnion):
+        return [micro], [1, 0]
+    if not (isinstance(micro, CoatedStructure) and isinstance(micro.inner, PrimitiveUnion)):
+        return None
+    inner, t = micro.inner, float(micro.thickness)
+    if micro.side == "outside":
+        return [inner, _grown(inner, t)], [1, micro.phase, 0]
+    return [_grown(inner, -t), inner], [micro.core_phase, 1, 0]
 
 
 def _segment_distances(p1, q1, p2, q2) -> np.ndarray:
@@ -571,8 +592,10 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                  periodic: bool | None = None, executable: str | None = None, workdir=None,
                  timeout: float | None = None) -> TriMesh | None:  # fmt: skip
     """The triangular mesh of the section of a union of spheres and segments with round
-    caps in the plane ``z`` (default: the middle of its box) by the exact contours of its
-    bodies (see the module): their nodes on the surfaces, at sizes graded from the gaps
+    caps, coated or hollow (:func:`section_layers`), in the plane ``z`` (default: the
+    middle of its box) by the exact contours of its bodies (see the module) and of those
+    of its coatings or bores, the phases between them: their nodes on the surfaces, at
+    sizes graded from the gaps
     between the bodies (:data:`~morphogen.mesh.triangles.GAP_ELEMENTS` elements across the
     narrowest, the gaps the distances of the bodies), from their curvatures (the share of a
     circle of :data:`~morphogen.mesh.triangles.CIRCLE_SEGMENTS` of their radius) and at
@@ -603,9 +626,20 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
     tol = 1e-9 * float(lengths.max())
     margin = size * GAP_ELEMENTS
-    bodies = section_bodies(micro, z, margin=margin, periodic=periodic)
-    if bodies is None or any(np.any(np.subtract(*b.bounds[::-1]) > lengths) for b in bodies):
-        return None  # (or a body larger than the box: a cluster that percolates)
+    layers = section_layers(micro)
+    if layers is None:
+        return None
+    unions, bands = layers
+    bodies: list[Body] = []
+    level: list[int] = []
+    for k, union in enumerate(unions):
+        found = section_bodies(union, z, margin=margin, periodic=periodic)
+        if found is None:
+            return None
+        bodies += found
+        level += [k] * len(found)
+    if any(np.any(np.subtract(*b.bounds[::-1]) > lengths) for b in bodies):
+        return None  # (a body larger than the box: a cluster that percolates)
     floor = size / 64.0 if min_size is None else float(min_size)
     # 1. the contours of the bodies, their corners, the lines of the sides that they cross,
     #    and the pieces of them inside the box between these marks: ("side", (axis, side,
@@ -670,8 +704,8 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     for b, loop, corners in loops:
         gap = np.full(len(loop), np.inf)
         for o in tree.query_ball_point(centres[b], extents[b] + reach):
-            if o != b:
-                gap = np.minimum(gap, bodies[o].distance(loop))
+            if o != b:  # (inside the body of another layer: across a coating)
+                gap = np.minimum(gap, np.abs(bodies[o].distance(loop)))
         same = [other for c, other, _ in loops if c == b and other is not loop]
         if same:  # the other contours of the body (its vertices: within a cell)
             gap = np.minimum(gap, cKDTree(np.concatenate(same)).query(loop)[0])
@@ -704,7 +738,7 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                 if (axis, side) not in crosses[o]:
                     lo, hi = body.bounds
                     if lo[axis] - margin < value < hi[axis] + margin:
-                        gap = np.minimum(gap, body.distance(p))
+                        gap = np.minimum(gap, np.abs(body.distance(p)))
             points.append(p)
             h.append(np.clip(gap / GAP_ELEMENTS, floor, size))
     field = _ContourSizes(np.concatenate(points), np.concatenate(h), lower, upper, size,
@@ -831,17 +865,20 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
         out = _run(exe, folder / "contours.mesh", None, folder / "out.mesh", args, timeout)
     nodes, tri = out["Vertices"], out["Triangles"]
     centroids = nodes[tri].mean(axis=1)
-    phase = np.zeros(len(tri), dtype=np.int64)
-    if len(bodies):  # the triangles inside a body
+    innermost = np.full(len(tri), len(unions))
+    if len(bodies):  # the triangles inside a body: the innermost layer that holds them
         near = cKDTree(centroids)
-        for body, c, e in zip(bodies, centres, extents, strict=True):
+        for body, k_level, c, e in zip(bodies, level, centres, extents, strict=True):
             k = np.asarray(near.query_ball_point(c, e), dtype=np.int64)
             if len(k):
-                phase[k[body.distance(centroids[k]) < 0.0]] = 1
-    inside = {b for b, *_ in pieces}
+                k = k[body.distance(centroids[k]) < 0.0]
+                innermost[k] = np.minimum(innermost[k], k_level)
+    phase = np.asarray(bands, dtype=np.int64)[innermost]
+    outermost = {b for b, *_ in pieces if level[b] == len(unions) - 1}
     mesh = TriMesh(nodes, tri, phase, lower, upper, periodic,
-                   {"mesher": "exact contours (mmg2d)", "size": size, "bodies": len(inside),
-                    "z": z}, z=z, thickness=float(domain.lengths[2]))  # fmt: skip
+                   {"mesher": "exact contours (mmg2d)", "size": size,
+                    "bodies": len(outermost), "layers": len(unions), "z": z}, z=z,
+                   thickness=float(domain.lengths[2]))  # fmt: skip
     mesh = _kept(mesh, phases)
     if order == 1:
         return mesh

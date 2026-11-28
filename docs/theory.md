@@ -14087,8 +14087,22 @@ by 50 006 triangles in 2.4 s (the level sets: 5 982, the narrow gaps not graded)
 reciprocal theorem of Keller and Mendelson holds within 3.6·10⁻⁴ and 2.7·10⁻⁴ at the sizes
 0.05 and 0.025. Its pores stay in one part, which the bridges of the
 level sets split into 25: across the fibres, along $x$, its permeability (§120) is 2.0·10⁻⁶
-on the contours and 2·10⁻⁹ on the level sets. Flat caps in the plane (the Boolean
-cylinders), capsules that touch and contours tangent to a side are left to the level sets.
+on the contours and 2·10⁻⁹ on the level sets.
+
+Coated and hollow fibres (the model `coating`) are meshed by the contours of their layers
+(`section_layers`): the union and that grown by the thickness of the coating, or the union
+shrunk by that of the shells and the union, the phases between them, the gaps across a
+coating the distances of the bodies of the other layer. Coatings that meet, which the rings
+leave, are bodies of their own. The core and the coating of an oblique fibre (radius 0.15,
+coating 0.05, turned by 30°) are within 3.4·10⁻⁷ and 1.8·10⁻⁷ of their ellipses at the size
+0.05; hollow fibres misaligned by 3° (shells 0.015 thick about bores of a third phase),
+within 5·10⁻⁶ of counts on grids of 4000² points, where the level sets fail (`mmg2d` takes
+their curves for non-manifold); two coated discs whose coatings cross, within 7·10⁻⁷ and
+3.7·10⁻⁷. The grid of a body misses its features smaller than a cell — a hole enclosed by
+three capsules: coatings that percolate across the box, one of whose holes (2.5·10⁻⁵ of the
+box, between three coatings) fell between the nodes of a grid of 0.016, are left to the
+level sets with the other bodies larger than the box, as are flat caps in the plane (the
+Boolean cylinders), capsules that touch and contours tangent to a side.
 
 **Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
 $z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -

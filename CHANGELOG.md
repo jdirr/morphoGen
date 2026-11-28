@@ -245,6 +245,13 @@
 * `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
   the solid, for their flow; the overview pages (README, the landing page, the properties)
   name the finite elements of the plane.
+* The contours of coated and hollow fibres (`section_layers`; the model `coating`): those
+  of the union and of that grown by the coating (or shrunk by the shells), the phases between
+  them, the gaps across the coatings; coatings that meet, which the rings leave, as bodies
+  of their own (`plane_mesh` takes the contours where the discs give way). A coated oblique
+  fibre within 3.4·10⁻⁷ of its ellipses; hollow misaligned fibres, which the level sets do
+  not mesh, within 5·10⁻⁶ of counts; coatings that percolate across the box still by the
+  level sets.
 * The exact corners of the contours of the sections where their capsules cross
   (`mesh.contours`): found where a contour passes from the surface of a capsule to that of
   another (Newton's method on the two distances), nodes of the pieces on either side, the

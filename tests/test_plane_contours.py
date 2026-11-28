@@ -22,9 +22,11 @@ from morphogen.mesh.contours import (
     section_bodies,
     section_capsules,
     section_contours,
+    section_layers,
 )
-from morphogen.mesh.triangles import plane_mesh, section_mesh
+from morphogen.mesh.triangles import disc_mesh, plane_mesh, section_mesh
 from morphogen.models.long_fibers import LongFibers
+from morphogen.models.nested import CoatedStructure, Coating
 from morphogen.models.tessellation import Tessellation
 from morphogen.models.union import PrimitiveUnion
 from morphogen.primitives import Segments, Spheres
@@ -283,3 +285,41 @@ def test_boolean_networks_of_spherocylinders():
                                        caps="round").generate(BOX, seed=1)  # fmt: skip
     assert contour_mesh(dense, size=0.05) is None
     assert plane_mesh(dense, size=0.05).metadata["mesher"].startswith("section")
+
+
+@needs_mmg2d
+def test_contours_of_coated_and_hollow_fibres():
+    """The layers of a section: a coated oblique fibre, its core and the ring of its coating
+    within 1e-6 of their ellipses at the size 0.05; hollow misaligned fibres, their shells
+    about bores of a third phase, within 3e-5 of counts on a grid; two coated discs whose
+    coatings cross, which the rings leave, their cores and the union of their coatings
+    within 2e-6."""
+    coated = CoatedStructure(BOX, _oblique(30.0, radius=0.15), 0.05, "outside", 2, 0)
+    unions, bands = section_layers(coated)
+    assert len(unions) == 2 and bands == [1, 2, 0] and section_layers(object()) is None
+    mesh = plane_mesh(coated, size=0.05, order=2)
+    assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.metadata["layers"] == 2
+    cos = np.cos(np.radians(30.0))
+    fractions = mesh.phase_fractions()
+    assert fractions[1] == pytest.approx(np.pi * 0.0225 / cos, rel=1e-6)
+    assert fractions[2] == pytest.approx(np.pi * 0.0175 / cos, rel=1e-6)
+    fibres = LongFibers(radius=0.05, volume_fraction=0.4, misalignment=3.0)
+    hollow = Coating(model=fibres, thickness=0.015, side="inside", core_phase=3).generate(
+        BOX, seed=1
+    )
+    (bores, members), bands = section_layers(hollow)
+    assert bands == [3, 1, 0]
+    mesh = plane_mesh(hollow, size=0.05, order=2)
+    assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+    fractions, inner = mesh.phase_fractions(), _counted(bores, 2000)
+    assert fractions[3] == pytest.approx(inner, abs=3e-5)
+    assert fractions[1] == pytest.approx(_counted(members, 2000) - inner, abs=3e-5)
+    pair = _straight([[0.35, 0.5], [0.6, 0.5]], [0.1, 0.1])
+    meeting = CoatedStructure(pair.domain, pair, 0.04, "outside", 2, 0)
+    assert disc_mesh(meeting, size=0.05) is None
+    mesh = plane_mesh(meeting, size=0.05, order=2)
+    assert mesh.metadata["mesher"] == "exact contours (mmg2d)"
+    fractions = mesh.phase_fractions()
+    outer = 2.0 * np.pi * 0.14**2 - _lens(0.14, 0.14, 0.25)
+    assert fractions[1] == pytest.approx(2.0 * np.pi * 0.01, rel=2e-6)
+    assert fractions[2] == pytest.approx(outer - 2.0 * np.pi * 0.01, rel=2e-6)

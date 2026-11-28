@@ -931,8 +931,9 @@ def test_exact_rings_of_coated_and_hollow_fibres():
     coating and the matrix: its conductivity and plane bulk modulus within 5e-6 at the size
     0.1, five times closer than on its level sets; shells of fibres about a core of a third
     phase or hollow, by their rings, their areas within 1e-5; two coated spheres cut by the
-    plane, the coating of each cut that of the coated sphere; coatings that meet, by the
-    level sets."""
+    plane, the coating of each cut that of the coated sphere; coatings that meet across the
+    box (a cluster that percolates), by the level sets (those that meet in a body of their
+    own: tests/test_plane_contours.py)."""
     materials, sm, km = _neutral(0.2, 0.3)
     mesh = plane_mesh(_coated(0.2, 0.3), size=0.1, order=2)
     assert mesh.metadata["mesher"] == "exact discs (mmg2d)"

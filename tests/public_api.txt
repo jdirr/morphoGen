@@ -3007,6 +3007,7 @@ morphogen.mesh.contours.contour_mesh(micro, *, size, min_size=None, hausdorff=No
 morphogen.mesh.contours.section_bodies(micro, z=None, *, lower=None, upper=None, margin=0.0, periodic=None)
 morphogen.mesh.contours.section_capsules(micro, z=None)
 morphogen.mesh.contours.section_contours(body)
+morphogen.mesh.contours.section_layers(micro)
 morphogen.mesh.curved.MAX_PLANE_SAMPLES
 morphogen.mesh.curved.MAX_SAMPLES
 morphogen.mesh.curved.SAMPLES_PER_ELEMENT
