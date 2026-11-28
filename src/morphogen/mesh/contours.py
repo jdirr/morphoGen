@@ -18,7 +18,10 @@ the two distances), or, where a third covers that point, through the third; wher
 pass to a capsule that they do not cross, they bridge a gap narrower than a cell, which
 grids four and sixteen times as fine follow, their distances computed only in a band about
 the surface. A wedge narrower than a cell about a node of the grid, which the marching
-squares close into a loop of its own, is left to the contour that passes around it.
+squares close into a loop of its own, is left to the contour that passes around it. The
+flat caps of cylinders that reach the plane cut their sections along lines: the distance
+of a finite cylinder, and the corners of the rims where the contours pass from its lateral
+surface to a cap, the nodes on the face of their edges.
 
 :func:`contour_mesh` meshes them as :func:`~morphogen.mesh.triangles.disc_mesh` meshes
 circles: the contours cut by the sides of the box and at their corners, nodes on them at
@@ -87,6 +90,17 @@ def section_capsules(micro, z: float | None = None):
     ``(start, end, radii)``, a sphere an axis of no length; None for another structure, or
     for segments with flat caps that reach the plane, whose sections are not those of
     capsules."""
+    axes = _section_axes(micro, z)
+    if axes is None or axes[3].any():
+        return None
+    return axes[:3]
+
+
+def _section_axes(micro, z: float | None = None):
+    """The axes of :func:`section_capsules` and, for each, whether its start and its end
+    are flat caps that reach the plane (n x 2), kept where they are: ``(start, end, radii,
+    flat)``; the ends clipped to the slab are round, which keeps the sections. None for
+    another structure."""
     from morphogen.models.union import PrimitiveUnion
 
     if not isinstance(micro, PrimitiveUnion):
@@ -96,6 +110,7 @@ def section_capsules(micro, z: float | None = None):
     lz = float(domain.lengths[2])
     shifts = (-1.0, 0.0, 1.0) if domain.periodic else (0.0,)
     starts, ends, radii = [np.zeros((0, 3))], [np.zeros((0, 3))], [np.zeros(0)]
+    flats = [np.zeros((0, 2), dtype=bool)]
     spheres, segments = micro.spheres, micro.segments
     for k in shifts:
         if len(spheres):
@@ -105,6 +120,7 @@ def section_capsules(micro, z: float | None = None):
             starts.append(c[cut])
             ends.append(c[cut])
             radii.append(r[cut])
+            flats.append(np.zeros((int(cut.sum()), 2), dtype=bool))
         if len(segments):
             a = segments.start + np.array([0.0, 0.0, k * lz])
             b = segments.end + np.array([0.0, 0.0, k * lz])
@@ -112,21 +128,22 @@ def section_capsules(micro, z: float | None = None):
             lo, hi = np.minimum(a[:, 2], b[:, 2]), np.maximum(a[:, 2], b[:, 2])
             cut = (lo - r < z) & (hi + r > z) & (r > 0.0)
             a, b, r = a[cut], b[cut], r[cut]
-            if not segments.round_caps and np.any(
-                (np.abs(a[:, 2] - z) < r) | (np.abs(b[:, 2] - z) < r)
-            ):
-                return None  # a flat cap in the slab
             dz = b[:, 2] - a[:, 2]
-            flat = np.abs(dz) <= 1e-15 * max(lz, 1.0)
-            safe = np.where(flat, 1.0, dz)
-            t0 = np.where(flat, 0.0, (z - r - a[:, 2]) / safe)
-            t1 = np.where(flat, 1.0, (z + r - a[:, 2]) / safe)
+            level = np.abs(dz) <= 1e-15 * max(lz, 1.0)
+            safe = np.where(level, 1.0, dz)
+            t0 = np.where(level, 0.0, (z - r - a[:, 2]) / safe)
+            t1 = np.where(level, 1.0, (z + r - a[:, 2]) / safe)
             t0, t1 = np.clip(np.minimum(t0, t1), 0.0, 1.0), np.clip(np.maximum(t0, t1), 0.0, 1.0)
             d = b - a
             starts.append(a + t0[:, None] * d)
             ends.append(a + t1[:, None] * d)
             radii.append(r)
-    return np.concatenate(starts), np.concatenate(ends), np.concatenate(radii)
+            capped = not segments.round_caps  # (the ends kept, those in the slab)
+            first = capped & (t0 == 0.0) & (np.abs(a[:, 2] - z) < r)
+            last = capped & (t1 == 1.0) & (np.abs(b[:, 2] - z) < r)
+            flats.append(np.column_stack([first, last]))
+    return (np.concatenate(starts), np.concatenate(ends), np.concatenate(radii),
+            np.concatenate(flats))  # fmt: skip
 
 
 def section_layers(micro):
@@ -176,12 +193,26 @@ def _segment_distances(p1, q1, p2, q2) -> np.ndarray:
 class Body:
     """A body of a section: the capsules of a union that meet, their axes ``start``,
     ``end`` (clipped to the slab of the plane, translated to an image across a periodic box)
-    and ``radii``, in the plane ``z``."""
+    and ``radii``, in the plane ``z``; ``flat``: whether their starts and ends are flat
+    caps (n x 2; none by default), a capsule then a cylinder between the planes of its
+    flat ends and its round ends balls."""
 
     start: np.ndarray
     end: np.ndarray
     radii: np.ndarray
     z: float
+    flat: np.ndarray | None = None
+
+    def _flat(self, k: int) -> tuple[bool, bool]:
+        """Whether the start and the end of the capsule ``k`` are flat caps."""
+        if self.flat is None:
+            return False, False
+        return bool(self.flat[k, 0]), bool(self.flat[k, 1])
+
+    @property
+    def capped(self) -> bool:
+        """Whether some capsule of the body has a flat cap."""
+        return self.flat is not None and bool(np.any(self.flat))
 
     @property
     def bounds(self) -> tuple[np.ndarray, np.ndarray]:
@@ -198,7 +229,13 @@ class Body:
         p = np.column_stack([xy, np.full(len(xy), self.z)])
         best = np.full(len(xy), np.inf)
         grad = np.zeros((len(xy), 2))
-        for a, b, r in zip(self.start, self.end, self.radii, strict=True):
+        for k, (a, b, r) in enumerate(zip(self.start, self.end, self.radii, strict=True)):
+            if any(self._flat(k)):
+                value, g = self._cylinder(k, p)
+                closer = value < best
+                best = np.where(closer, value, best)
+                grad[closer] = g[closer]
+                continue
             d = b - a
             length2 = float(d @ d)
             t = np.clip((p - a) @ d / length2, 0.0, 1.0) if length2 > 0.0 else np.zeros(len(p))
@@ -214,6 +251,14 @@ class Body:
     def capsule(self, k: int, xy: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """The signed distance of points of the plane to the capsule ``k`` (to its axis,
         less its radius) and its gradient in the plane."""
+        if any(self._flat(k)):
+            xy = np.atleast_2d(np.asarray(xy, dtype=float))
+            return self._cylinder(k, np.column_stack([xy, np.full(len(xy), self.z)]))
+        return self.round(k, xy)
+
+    def round(self, k: int, xy: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The signed distance of points of the plane to the capsule ``k`` as if its ends
+        were round (its lateral surface and the balls of its ends), and its gradient."""
         xy = np.atleast_2d(np.asarray(xy, dtype=float))
         p = np.column_stack([xy, np.full(len(xy), self.z)])
         a, b, r = self.start[k], self.end[k], float(self.radii[k])
@@ -224,21 +269,100 @@ class Body:
         n = np.linalg.norm(v, axis=1)
         return n - r, v[:, :2] / np.maximum(n, 1e-300)[:, None]
 
+    def _axial(self, k: int, p: np.ndarray):
+        """Along the axis of the capsule ``k``: its unit direction and length, the abscissae
+        of points (of space) from its start, their offsets from the line of the axis and
+        their distances to it."""
+        a, b = self.start[k], self.end[k]
+        d = b - a
+        length = float(np.linalg.norm(d))
+        axis = d / max(length, 1e-300)
+        t = (p - a) @ axis
+        v = p - a - t[:, None] * axis
+        return axis, length, t, v, np.linalg.norm(v, axis=1)
+
+    def _cylinder(self, k: int, p: np.ndarray):
+        """The signed distance of points (of space, in the plane) to the capsule ``k`` with a
+        flat cap: to its cylinder between the planes of its ends, exact (the radial and the
+        axial excesses, their hypotenuse beyond the rim), and to the balls of its round
+        ends, the least; its gradient in the plane."""
+        r = float(self.radii[k])
+        axis, length, t, v, rho = self._axial(k, p)
+        u, s = rho - r, np.maximum(-t, t - length)
+        radial = v / np.maximum(rho, 1e-300)[:, None]
+        along = np.where((t < 0.5 * length)[:, None], -axis, axis)
+        both = (u > 0.0) & (s > 0.0)
+        value = np.where(both, np.hypot(u, s), np.maximum(u, s))
+        grad = np.where((u >= s)[:, None], radial, along)
+        grad[both] = (u[both, None] * radial[both] + s[both, None] * along[both]) / value[
+            both, None
+        ]
+        for end, flat in zip((self.start[k], self.end[k]), self._flat(k), strict=True):
+            if not flat:  # a round end: the ball
+                w = p - end
+                n = np.linalg.norm(w, axis=1)
+                closer = n - r < value
+                value = np.where(closer, n - r, value)
+                grad[closer] = w[closer] / np.maximum(n[closer], 1e-300)[:, None]
+        return value, grad[:, :2]
+
+    def faces(self, xy: np.ndarray) -> np.ndarray:
+        """The face of the surface of the body nearest each point: ``3 k`` the lateral
+        surface of the capsule ``k`` (and its round ends), ``3 k + 1`` and ``3 k + 2`` its
+        flat start and end."""
+        xy = np.atleast_2d(np.asarray(xy, dtype=float))
+        owners = self.owners(xy) if len(self.radii) > 1 else np.zeros(len(xy), dtype=int)
+        out = 3 * owners
+        for k in np.unique(owners).tolist():
+            start, end = self._flat(k)
+            if not (start or end):
+                continue
+            at = owners == k
+            p = np.column_stack([xy[at], np.full(int(at.sum()), self.z)])
+            _, length, t, _, rho = self._axial(k, p)
+            u = rho - float(self.radii[k])
+            face = np.zeros(len(p), dtype=int)
+            if start:
+                face[(-t >= u) & (-t >= t - length)] = 1
+            if end:
+                face[(t - length >= u) & (t - length > -t)] = 2
+            out[at] = 3 * k + face
+        return out
+
+    def face(self, k: int, face: int, xy: np.ndarray):
+        """The signed distance of points of the plane to a face of the capsule ``k`` (0: its
+        lateral surface, the line of its axis less its radius; 1, 2: the planes of its
+        start and of its end) and its gradient in the plane."""
+        xy = np.atleast_2d(np.asarray(xy, dtype=float))
+        p = np.column_stack([xy, np.full(len(xy), self.z)])
+        axis, length, t, v, rho = self._axial(k, p)
+        if face == 0:
+            return rho - float(self.radii[k]), (v / np.maximum(rho, 1e-300)[:, None])[:, :2]
+        if face == 1:
+            return -t, np.tile(-axis[:2], (len(p), 1))
+        return t - length, np.tile(axis[:2], (len(p), 1))
+
     def owners(self, xy: np.ndarray) -> np.ndarray:
         """The capsule nearest to each point (whose surface bounds the body there)."""
         values = np.array([self.capsule(k, xy)[0] for k in range(len(self.radii))])
         return values.argmin(axis=0)
 
-    def onto(self, xy: np.ndarray, capsules=None) -> np.ndarray:
+    def onto(self, xy: np.ndarray, capsules=None, faces=None) -> np.ndarray:
         """Points moved onto the surface of the body along its gradient (Newton), or onto
-        that of the capsule of each (``capsules``; -1: the body's)."""
+        that of the capsule of each (``capsules``; -1: the body's), or onto a face of it
+        (``faces``, :meth:`faces`; -1: by ``capsules``): its lateral surface and round
+        ends, or the plane of a flat cap."""
         xy = np.array(xy, dtype=float).reshape(-1, 2)
         own = np.full(len(xy), -1) if capsules is None else np.asarray(capsules, dtype=int)
-        for k in np.unique(own).tolist():
-            at = own == k
+        on = np.full(len(xy), -1) if faces is None else np.asarray(faces, dtype=int)
+        for k, f in np.unique(np.column_stack([own, on]), axis=0).tolist():
+            at = (own == k) & (on == f)
             p = xy[at]
             for _ in range(NEWTON_STEPS):
-                value, grad = self.distance(p, gradient=True) if k < 0 else self.capsule(k, p)
+                if f >= 0:
+                    value, grad = self.face(f // 3, f % 3, p) if f % 3 else self.round(f // 3, p)
+                else:
+                    value, grad = self.distance(p, gradient=True) if k < 0 else self.capsule(k, p)
                 g2 = np.maximum(np.einsum("ij,ij->i", grad, grad), 1e-300)
                 p = p - (value / g2)[:, None] * grad
             xy[at] = p
@@ -252,7 +376,7 @@ def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
     images across a periodic box taken where they come within ``margin`` of the rectangle
     ``lower``, ``upper`` (by default the box's); None as :func:`section_capsules`, or for
     capsules that touch, whose bodies would meet at a point."""
-    capsules = section_capsules(micro, z)
+    capsules = _section_axes(micro, z)
     if capsules is None:
         return None
     domain = micro.domain
@@ -261,17 +385,18 @@ def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
     upper = np.asarray(domain.upper[:2] if upper is None else upper, dtype=float)
     lengths = np.asarray(domain.lengths[:2], dtype=float)
     periodic = bool(domain.periodic) if periodic is None else bool(periodic)
-    start, end, radii = capsules
+    start, end, radii, flat = capsules
     if periodic and len(radii):
         shifts = np.array([(i, j, 0.0) for i in (-1, 0, 1) for j in (-1, 0, 1)], dtype=float)
         shifts[:, :2] *= lengths
         start = (start[None] + shifts[:, None]).reshape(-1, 3)
         end = (end[None] + shifts[:, None]).reshape(-1, 3)
         radii = np.tile(radii, len(shifts))
+        flat = np.tile(flat, (len(shifts), 1))
     lo = np.minimum(start[:, :2], end[:, :2]) - radii[:, None]
     hi = np.maximum(start[:, :2], end[:, :2]) + radii[:, None]
     near = np.all((hi > lower - margin) & (lo < upper + margin), axis=1)
-    start, end, radii = start[near], end[near], radii[near]
+    start, end, radii, flat = start[near], end[near], radii[near], flat[near]
     n = len(radii)
     tol = 1e-9 * float(max(lengths.max(), 1e-300))
     parent = np.arange(n)
@@ -297,7 +422,8 @@ def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
     groups: dict[int, list[int]] = {}
     for i in range(n):
         groups.setdefault(root(i), []).append(i)
-    return [Body(start[k], end[k], radii[k], z) for k in groups.values()]
+    return [Body(start[k], end[k], radii[k], z, flat[k] if flat[k].any() else None)
+            for k in groups.values()]  # fmt: skip
 
 
 @dataclass
@@ -460,6 +586,60 @@ def _corners(body: Body, a: int, b: int, x: np.ndarray, tol: float):
     return [first, second]
 
 
+def _face_corner(body: Body, k: int, first: int, second: int, x: np.ndarray, tol: float):
+    """The point near ``x`` where two faces of the capsule ``k`` meet (:meth:`Body.face`: its
+    lateral surface and a flat cap), by Newton's method on their two distances, and the
+    angle (degrees) between their normals there; None where it does not converge, or off
+    the surface of the capsule, or where another capsule covers it."""
+    for _ in range(2 * NEWTON_STEPS):
+        (va, ga), (vb, gb) = body.face(k, first, x), body.face(k, second, x)
+        if max(abs(float(va[0])), abs(float(vb[0]))) <= 1e-3 * tol:
+            break
+        jacobian = np.array([ga[0], gb[0]])
+        if abs(float(np.linalg.det(jacobian))) < 1e-9:
+            return None
+        x = x - np.linalg.solve(jacobian, np.array([va[0], vb[0]]))
+    (va, ga), (vb, gb) = body.face(k, first, x), body.face(k, second, x)
+    if max(abs(float(va[0])), abs(float(vb[0]))) > tol:
+        return None
+    if abs(float(body.capsule(k, x)[0][0])) > tol or body.distance(x)[0] < -tol:
+        return None
+    cos = float(ga[0] @ gb[0]) / max(float(np.linalg.norm(ga[0]) * np.linalg.norm(gb[0])), 1e-300)
+    return x[0], float(np.degrees(np.arccos(np.clip(cos, -1.0, 1.0))))
+
+
+def _face_at(body: Body, k: int, x: np.ndarray, tol: float) -> int:
+    """The face of the capsule ``k`` on which a point of its surface lies: a flat cap (1, 2)
+    whose plane it is on, or its lateral surface (0)."""
+    for f, flat in zip((1, 2), body._flat(k), strict=True):
+        if flat and abs(float(body.face(k, f, x[None])[0][0])) <= tol:
+            return f
+    return 0
+
+
+def _with_rims(body: Body, first, second, found, tol: float):
+    """The corners where a contour passes from a capsule to another (``found``), with
+    those of the rims of their flat caps between them and its vertices: where the corner
+    of the two lies on another face of the first than its vertex before (``first``: the
+    capsule and the face), or of the second than its vertex after, the contour passes
+    along a cap for less than a cell. None where such a rim is not found."""
+    out = list(found)
+    (a, face_a), (b, face_b) = first, second
+    on = _face_at(body, a, out[0][0], tol)
+    if on != face_a:
+        rim = _face_corner(body, a, face_a, on, out[0][0][None], tol)
+        if rim is None:
+            return None
+        out.insert(0, rim)
+    on = _face_at(body, b, out[-1][0], tol)
+    if on != face_b:
+        rim = _face_corner(body, b, on, face_b, out[-1][0][None], tol)
+        if rim is None:
+            return None
+        out.append(rim)
+    return out
+
+
 def _joined(body: Body, a: int, b: int) -> bool:
     """Whether the capsules ``a`` and ``b`` of a body share an end (a joint of a chain: its
     surface passes smoothly from one to the other)."""
@@ -483,6 +663,12 @@ def _section_polygon(body: Body, k: int, n: int = 64) -> np.ndarray:
     d = b - a
     t = float(np.clip((body.z - a[2]) / d[2], 0.0, 1.0)) if d[2] != 0.0 else 0.5
     centre = (a + t * d)[:2]
+    if any(body._flat(k)):  # (the axis may end short of the plane: into the section)
+        for _ in range(4 * NEWTON_STEPS):
+            value, grad = body.capsule(k, centre)
+            if value[0] < -0.25 * r:
+                break
+            centre = centre - (value[0] + 0.5 * r) * grad[0] / max(float(grad[0] @ grad[0]), 1e-12)
     angle = 2.0 * np.pi * np.arange(n) / n
     u = np.column_stack([np.cos(angle), np.sin(angle)])
     low, high = np.zeros(n), np.full(n, float(np.linalg.norm(d[:2])) + 2.0 * r)
@@ -597,35 +783,53 @@ def _traced_at(body: Body, h: float, grids: list | None = None):
         if len(loop) < 3:
             continue
         owner = body.owners(loop) if len(body.radii) > 1 else np.zeros(len(loop), dtype=int)
+        face = body.faces(loop) if body.capped else 3 * owner
         n = len(loop)
         found_at: list[tuple[int, float, np.ndarray, float]] = []  # (edge, along, x, angle)
         for k in range(n):
             a, b = int(owner[k]), int(owner[(k + 1) % n])
-            if a == b:
+            if face[k] == face[(k + 1) % n]:
                 continue
             middle = 0.5 * (loop[k] + loop[(k + 1) % n])[None]
-            found = _corners(body, a, b, middle, tol)
+            if a == b:  # from a face of a capsule to another: the rim of a flat cap
+                found = _face_corner(body, a, int(face[k]) % 3, int(face[(k + 1) % n]) % 3,
+                                     middle, tol)  # fmt: skip
+                if found is None:
+                    return None  # a rim that the grid did not resolve
+                found = [found]
+            else:
+                found = _corners(body, a, b, middle, tol)
+                if found is not None and body.capped:
+                    found = _with_rims(body, (a, int(face[k]) % 3), (b, int(face[(k + 1) % n]) % 3),
+                                       found, tol)  # fmt: skip
+                    if found is None:
+                        return None  # a rim that the grid did not resolve
             if found is None:
                 if body.distance(middle)[0] > 0.0:
                     return None  # a gap between the capsules bridged by the chord
                 if not (_joined(body, a, b) or _shared(body, a, b, loop[[k, (k + 1) % n]], h)):
                     return None  # a corner that the grid did not resolve
                 continue
-            for x, angle in found:
-                if any(np.linalg.norm(x - y) < 1e-6 * h for *_, y, _ in found_at):
-                    continue  # (the same corner, found again)
-                # the corner on the edge near this one that it lengthens the least
-                best = None
-                for e in range(k - 2, k + 3):
-                    p, q = loop[e % n], loop[(e + 1) % n]
-                    detour = (np.linalg.norm(x - p) + np.linalg.norm(q - x)
-                              - np.linalg.norm(q - p))  # fmt: skip
-                    if best is None or detour < best[0]:
-                        along = float((x - p) @ (q - p)) / max(float((q - p) @ (q - p)), 1e-300)
-                        best = (detour, e % n, along)
-                if best[0] > 16.0 * h:
-                    return None  # a corner far off its contour: a feature that the grid cut
-                found_at.append((best[1], best[2], x, angle))
+            known = [y for *_, y, _ in found_at]  # (the same corner, found again, left out)
+            group = [(x, angle) for x, angle in found
+                     if not any(np.linalg.norm(x - y) < 1e-6 * h for y in known)]  # fmt: skip
+            if not group:
+                continue
+            # the corners, in turn, on the edge near this one that they lengthen the least
+            best = None
+            for e in range(k - 2, k + 3):
+                p, q = loop[e % n], loop[(e + 1) % n]
+                path = np.array([p, *(x for x, _ in group), q])
+                detour = float(np.linalg.norm(np.diff(path, axis=0), axis=1).sum()
+                               - np.linalg.norm(q - p))  # fmt: skip
+                if best is None or detour < best[0]:
+                    x = group[0][0]
+                    along = float((x - p) @ (q - p)) / max(float((q - p) @ (q - p)), 1e-300)
+                    best = (detour, e % n, along)
+            if best[0] > 16.0 * h:
+                return None  # a corner far off its contour: a feature that the grid cut
+            for i, (x, angle) in enumerate(group):
+                found_at.append((best[1], best[2] + 1e-12 * i, x, angle))
         found_at.sort(key=lambda c: (c[0], c[1]))
         points: list[np.ndarray] = []
         corners: list[int] = []
@@ -640,6 +844,8 @@ def _traced_at(body: Body, h: float, grids: list | None = None):
                 pending += 1
         points = np.asarray(points)
         if corners and not _simple(points):  # the corners left out of a contour they knot
+            if body.capped:
+                return None  # (the rims of flat caps: on a finer grid)
             points, corners, angles = loop, [], []
         if corners:  # a vertex within a millionth of a cell of a corner: the corner
             m = len(points)
@@ -845,7 +1051,8 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                  periodic: bool | None = None, executable: str | None = None, workdir=None,
                  timeout: float | None = None) -> TriMesh | None:  # fmt: skip
     """The triangular mesh of the section of a union of spheres and segments with round
-    caps, coated or hollow (:func:`section_layers`), in the plane ``z`` (default: the
+    or flat caps, coated or hollow (:func:`section_layers`; the coatings of flat caps
+    left to the level sets), in the plane ``z`` (default: the
     middle of its box) by the exact contours of its bodies (see the module) and of those
     of its coatings or bores, the phases between them: their nodes on the surfaces, at
     sizes graded from the gaps
@@ -857,7 +1064,7 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     (:data:`~morphogen.mesh.triangles.CORNER_REFINEMENT`), the sides of a periodic box
     matching; ``mmg2d`` meshes the regions within them, which keep their nodes. Six-node
     elements have their middle nodes on the surfaces, by default. None for another
-    structure, flat caps in the plane, capsules that touch, a feature of a body (a gap, a
+    structure, capsules that touch, a feature of a body (a gap, a
     corner) too small for the finest grid, a contour tangent to a side, or edges that
     cross."""
     from morphogen.mesh.conforming import mmg_executable
@@ -891,6 +1098,8 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             return None
         bodies += found
         level += [k] * len(found)
+    if len(unions) > 1 and any(body.capped for body in bodies):
+        return None  # (a coating of a flat cap rounds its rim)
     floor = size / 64.0 if min_size is None else float(min_size)
     # 1. the contours of the bodies, their corners, the lines of the sides that they cross,
     #    and the pieces of them inside the box between these marks: ("side", (axis, side,
@@ -1084,7 +1293,13 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             owner[0], owner[-1] = owner[1], owner[-2]
         k = np.clip(np.searchsorted(cum, params, side="right") - 1, 0, len(step) - 1)
         own = np.where(owner[k] == owner[k + 1], owner[k], -1) if len(path) > 2 else None
-        inner = bodies[b].onto(at(params), own)
+        faces = None
+        if bodies[b].capped:  # (a flat cap and the lateral surface: the face of the edge)
+            face = bodies[b].faces(path)
+            if len(path) > 2:
+                face[0], face[-1] = face[1], face[-2]
+            faces = np.where(face[k] == face[k + 1], face[k], -1)
+        inner = bodies[b].onto(at(params), own, faces)
         ids = [node(start) if start is not None else len(xy)]
         if start is None:
             xy.append(path[0])
@@ -1175,6 +1390,14 @@ def _curved(mesh: TriMesh, bodies: list[Body]) -> TriMesh:
             take = near[better]
             best[take] = off[better]
             target[take] = body.onto(middle[take], np.full(len(take), k))
+            if any(body._flat(k)):  # the face of both ends: a flat cap (straight) or not
+                face = np.zeros(len(take), dtype=int)
+                for f in (1, 2):
+                    if body._flat(k)[f - 1]:
+                        on = np.maximum(np.abs(body.face(k, f, a[take])[0]),
+                                        np.abs(body.face(k, f, b[take])[0]))  # fmt: skip
+                        face[on <= 1e-9 * float(body.radii.max())] = f
+                target[take] = body.onto(middle[take], faces=3 * k + face)
     move = target - middle
     scale = np.ones(len(chosen))
     index = np.full(quad.n_nodes, -1)

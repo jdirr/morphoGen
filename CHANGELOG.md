@@ -262,6 +262,17 @@
   conductivities and the tensors of the other transport phenomena (`turned_conductivity`,
   `misaligned_conductivity`: `conductivity_tensor_voigt.<bc>.C33`..., their means), verified
   against the axial conductivities of fibres turned in a plane.
+* The exact contours of the cylinders whose flat caps cut the plane (the Boolean cylinders,
+  whose caps are flat by default, fell to the level sets): the distance of a finite
+  cylinder, the corners of the rims where the contours pass from the lateral surface to a
+  cap (Newton's method on the two faces), the nodes and the middle nodes of the six-node
+  elements on the face of their edges; the corners of two capsules on a cap with those of
+  its rim, the corners of one change inserted in turn. An oblique cylinder whose flat end
+  cuts its ellipse within 7.4·10⁻⁷ of the segment at the size 0.025; the networks filling a
+  tenth and a fourth meshed by their contours. The coatings of flat caps stay with the
+  level sets. `mesh.contours.Body` takes the flat ends of its capsules (`flat`), gives its
+  faces (`faces`, `face`, `round`, `capped`) and moves points onto a face (`onto`,
+  `faces`).
 * Fixed: the size field of the meshes of the plane (exact discs and contours) took the
   least over the 48 nearest of its points: those of a contour traced finely (a body traced
   again on the finer grids of the gaps between its capsules) hid a smaller size a little

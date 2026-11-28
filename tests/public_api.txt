@@ -2997,12 +2997,16 @@ morphogen.mesh.conforming.mirrored_mesh(micro, *, size, mirrors=(0, 1, 2), diago
 morphogen.mesh.conforming.mmg_executable(path=None, program='mmg3d')
 morphogen.mesh.conforming.node_level_set(micro, spacing, phase=None)
 morphogen.mesh.conforming.point_group(mirrors, diagonals=())
-morphogen.mesh.contours.Body(start, end, radii, z)
+morphogen.mesh.contours.Body(start, end, radii, z, flat=None)
 morphogen.mesh.contours.Body.bounds
+morphogen.mesh.contours.Body.capped
 morphogen.mesh.contours.Body.capsule(self, k, xy)
 morphogen.mesh.contours.Body.distance(self, xy, gradient=False)
-morphogen.mesh.contours.Body.onto(self, xy, capsules=None)
+morphogen.mesh.contours.Body.face(self, k, face, xy)
+morphogen.mesh.contours.Body.faces(self, xy)
+morphogen.mesh.contours.Body.onto(self, xy, capsules=None, faces=None)
 morphogen.mesh.contours.Body.owners(self, xy)
+morphogen.mesh.contours.Body.round(self, k, xy)
 morphogen.mesh.contours.CORNER_ANGLE
 morphogen.mesh.contours.MIN_JACOBIAN
 morphogen.mesh.contours.NEWTON_STEPS

@@ -14187,8 +14187,33 @@ their curves for non-manifold); two coated discs whose coatings cross, within 7�
 them barely meet, the grid of 0.016 cut the tips of the wedges of matrix between them
 (2.5·10⁻⁵ of the box), which the corners found on their own restore: their cores and
 coatings within 1.4·10⁻⁶ and 4.5·10⁻⁶ of counts on grids of 4000² points at the sizes 0.05,
-0.025 and 0.0125 alike. Flat caps in the plane (the Boolean cylinders), capsules that touch, features too small for
-the finest grid and contours tangent to a side are left to the level sets.
+0.025 and 0.0125 alike. The coatings of flat caps in the plane (their offsets round the
+rims), capsules that touch, features too small for the finest grid and contours tangent to
+a side are left to the level sets.
+
+**Flat caps.** A cylinder whose flat cap reaches the slab of the plane keeps that end (the
+ends clipped to the slab are round, which keeps the section): its distance is that of the
+finite cylinder between the planes of its flat ends, exact — the radial excess $u = \rho -
+r$ and the axial one $s$ beyond the nearer plane, $\max(u, s)$ inside and along a face,
+$\sqrt{u^2 + s^2}$ beyond the rim —, and of the balls of its round ends, the least. Its
+section is that of the lateral surface cut by the lines of its caps, with the corners of
+its rims where the contour passes from a face to another: Newton's method on the lateral
+distance and on that of the plane of the cap, the faces of the vertices of the trace those
+of the pieces of the distance. The nodes of a piece of contour, and the middle nodes of the
+six-node elements, go onto the face of both ends of their edge — the lateral surface (as
+if the ends were round) or the plane of the cap, where they stay straight —, not onto the
+cylinder, whose larger face would take the nodes of a thin wedge across to the cap. Where
+the corner of two capsules lies on a cap, the rim between it and the vertex of the trace
+on the lateral surface is taken too, the corners of one change inserted in turn on the
+edge that their path lengthens the least; a contour that its corners knot is traced on a
+finer grid. One oblique cylinder (40°, radius 0.15) whose flat end cuts the plane, its
+section an ellipse cut by a line: within 5.6·10⁻⁶, 7.4·10⁻⁷ and 4.9·10⁻⁸ of the area of the
+segment of the ellipse at the sizes 0.05, 0.025 and 0.0125, the corners of its rim nodes
+of the mesh. Boolean networks of cylinders with flat caps (radius 0.03, length 0.4), which
+all fell to the level sets: filling a tenth and a fourth, the twelve meshes of six
+realizations at the sizes 0.05 and 0.025 of each by their contours, within 1.6·10⁻⁶ and 7·10⁻⁶ of counts
+on grids of 8000² points (those of 4000² points are off by up to 6·10⁻⁶ along the straight
+edges of the caps).
 
 **Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
 $z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -

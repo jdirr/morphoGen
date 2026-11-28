@@ -215,11 +215,11 @@ def test_contours_keep_the_gaps_of_misaligned_fibres():
 
 @needs_mmg2d
 def test_what_the_contours_leave_to_the_level_sets():
-    """Flat caps in the plane (Boolean cylinders turned at random) are left to the level
-    sets; a box not periodic, its sides free, keeps the contours, the part of the ellipse
-    in the box within 2e-5."""
+    """The coatings of flat caps in the plane (coated Boolean cylinders turned at random,
+    whose offset rounds the rims) are left to the level sets; a box not periodic, its
+    sides free, keeps the contours, the part of the ellipse in the box within 2e-5."""
     flat = mg.models.BooleanCylinders(radius=0.05, length=0.3, volume_fraction=0.1)
-    micro = flat.generate(BOX, seed=2)
+    micro = Coating(model=flat, thickness=0.01).generate(BOX, seed=2)
     assert contour_mesh(micro, size=0.1) is None
     assert plane_mesh(micro, size=0.1).metadata["mesher"].startswith("section")
     free = plane_mesh(_oblique(30.0), size=0.05, order=2, periodic=False)
@@ -455,3 +455,36 @@ def test_owners_that_change_without_a_corner():
     on_one = np.array([[0.1, 0.5]])  # on the first circle only
     assert not _joined(body, a, b) and _shared(body, a, b, on_both, 0.01)
     assert not _shared(body, a, b, on_one, 0.01)
+
+
+def test_contours_of_flat_caps():
+    """Cylinders whose flat caps cut the plane: an oblique one (40 degrees) whose flat end
+    cuts its ellipse along a line, within 2e-6 of the area of the segment of the ellipse at
+    the size 0.025, the two corners of its rim nodes of the mesh; Boolean cylinders turned
+    at random (flat caps, filling a tenth of the box), meshed by their contours within
+    1e-5 of a count on a grid of 3000 x 3000 points (the straight edges of the caps)."""
+    theta, r = np.radians(40.0), 0.15
+    axis = np.array([np.sin(theta), 0.0, np.cos(theta)])
+    cross = np.array([0.45, 0.5, 0.5])  # where the axis crosses the plane
+    end = cross + 0.1 * axis  # the flat end
+    segments = Segments((cross - 0.6 * axis)[None], end[None], np.array([r]), round_caps=False)
+    micro = PrimitiveUnion(mg.Domain(size=(1.0, 1.0, 1.0)), None, segments)
+    (body,) = section_bodies(micro)
+    assert body.flat.tolist() == [[False, True]]
+    a, b = r / np.cos(theta), r  # the ellipse of the infinite cylinder, cut at x = cut
+    cut = end[0] - (0.5 - end[2]) / np.tan(theta)
+    u = (cut - cross[0]) / a
+    exact = np.pi * a * b - a * b * (np.arccos(u) - u * np.sqrt(1.0 - u * u))
+    mesh = contour_mesh(micro, size=0.025, order=2)
+    assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.min_jacobian() > 0.3
+    assert mesh.phase_fractions()[1] == pytest.approx(exact, rel=2e-6)
+    for sign in (1.0, -1.0):
+        rim = np.array([cut, cross[1] + sign * b * np.sqrt(1.0 - u * u)])
+        assert np.linalg.norm(mesh.nodes[:, :2] - rim, axis=1).min() < 1e-12
+    flat = mg.models.BooleanCylinders(radius=0.03, length=0.4, volume_fraction=0.1)
+    network = flat.generate(BOX, seed=1)
+    assert any(body.capped for body in section_bodies(network))
+    mesh = plane_mesh(network, size=0.05, order=2)
+    assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+    assert mesh.min_jacobian() > 0.3
+    assert mesh.phase_fractions()[1] == pytest.approx(_counted(network, 3000), abs=1e-5)
