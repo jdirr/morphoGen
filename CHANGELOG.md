@@ -262,6 +262,13 @@
   conductivities and the tensors of the other transport phenomena (`turned_conductivity`,
   `misaligned_conductivity`: `conductivity_tensor_voigt.<bc>.C33`..., their means), verified
   against the axial conductivities of fibres turned in a plane.
+* Fixed: the contour mesher failed ("a crossing off the nodes of its side") where a contour
+  leaves the box near a corner of it: its crossings of the lines of the two sides were in
+  the order of the chord, which near a corner may be the other; they are now in that of
+  their points on the surface, and a piece that still ends off its side leaves the section
+  to the level sets. Its crossings of a side at a grazing angle, where Newton's steps
+  overshoot, are now bracketed (they fell to the level sets): dense plies (0.65, misaligned
+  by 6°) meshed by their contours, within 10⁻⁵ of counts.
 * The interface solves the section of a morphology in its plane: the tool *Linear tensors*
   (Mechanics) takes the method `plane` — the triangles of its section (exact discs or
   contours, or the level sets), its element size, order, conditions and the height of the

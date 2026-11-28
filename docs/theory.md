@@ -14042,7 +14042,11 @@ which do not cross, where steps along the gradient of $d_b$, the least of the di
 several capsules, can jump from a surface to another. The level sets of the whole section (above) close the
 gaps narrower than their background; these stay open, however narrow. `contour_mesh` meshes
 them as the discs: the contours cut where they cross the lines of the sides (the crossings
-moved onto the surface along the side by Newton's method), the pieces inside the box kept,
+moved onto the surface along the side by Newton's method; where it crosses the line at a
+grazing angle, whose steps overshoot, bracketed by the first change of sign from the
+chord's crossing outward, then refined within the bracket; near a corner of the box, the
+crossings of the two lines in turn along their edge as their points on the surface, which
+may come in the other order than along the chord), the pieces inside the box kept,
 their nodes on the surfaces at sizes graded from the gaps — the distances $d_b$ of the other
 bodies at the vertices of a contour, exact — and from their curvatures, $2\pi\rho/24$ for the
 radius $\rho$ of the circle through three vertices; the sides match, `mmg2d` meshes the

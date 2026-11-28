@@ -19,6 +19,7 @@ from morphogen.mesh.contours import (
     _crossing,
     _grid_distances,
     _joined,
+    _line_root,
     _marching_loops,
     _pair_corners,
     _segment_distances,
@@ -488,3 +489,25 @@ def test_contours_of_flat_caps():
     assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
     assert mesh.min_jacobian() > 0.3
     assert mesh.phase_fractions()[1] == pytest.approx(_counted(network, 3000), abs=1e-5)
+
+
+def test_contours_at_the_corners_and_along_the_sides():
+    """Where a contour leaves the box near a corner of it, its crossings of the two lines
+    of the sides in turn along it as their points on the surface (those of its chord came
+    in the other order: a piece ended off its side, and the mesh failed); where it crosses
+    the line of a side at a grazing angle, the point of the surface on the line bracketed
+    (Newton's steps overshoot): a dense ply misaligned by 6 degrees, three realizations,
+    meshed by their contours; a circle that a line nearly touches, its two points on it."""
+    box = mg.Domain(size=(50.0, 50.0, 200.0), periodic=True)
+    for seed in (1, 2, 3):
+        ply = LongFibers(radius=3.5, volume_fraction=0.65, min_gap=0.2,
+                         misalignment=6.0).generate(box, seed=seed)  # fmt: skip
+        mesh = contour_mesh(ply, size=1.0, order=1)
+        assert mesh is not None and mesh.matching_sides()
+    r, gap = 0.1, 1e-4  # the line x = 0.4 + gap, the circle about (0.5, 0.5)
+    (body,) = section_bodies(_straight([[0.5, 0.5]], [r]))
+    half = np.sqrt(r**2 - (r - gap) ** 2)
+    for start, root in ((0.6, 0.5 + half), (0.45, 0.5 - half)):
+        t = _line_root(body, 0, 0.4 + gap, start, 0.01, 1e-12)
+        assert t == pytest.approx(root, abs=1e-12)
+    assert _line_root(body, 0, 0.3, 0.5, 0.01, 1e-12) is None  # (a line that misses it)

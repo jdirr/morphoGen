@@ -925,6 +925,52 @@ def _near_cells(grid: _Grid) -> tuple[np.ndarray, np.ndarray]:
     return i[corners[0][near]], j[corners[0][near]]
 
 
+def _line_root(body: Body, axis: int, value: float, start: float, span: float, tol: float):
+    """The point of the surface of a body on the line ``axis = value`` nearest to ``start``
+    (its coordinate along the line): bracketed by the first change of sign of the distance
+    from ``start`` outward, by steps of a quarter of ``span``, then Newton's steps within
+    the bracket, bisection out of it; None if there is none within 64 ``span``."""
+    other = 1 - axis
+
+    def points(t) -> np.ndarray:
+        p = np.empty((len(t), 2))
+        p[:, axis], p[:, other] = value, t
+        return p
+
+    d0 = float(body.distance(points(np.array([start])))[0])
+    if abs(d0) <= 1e-3 * tol:
+        return start
+    k = np.arange(1, 257)
+    offsets = np.stack([-k, k], axis=1).ravel() * (0.25 * span)  # (nearest first)
+    d = body.distance(points(start + offsets))
+    changed = np.flatnonzero(np.sign(d) != np.sign(d0))
+    if not len(changed):
+        return None
+    t1 = start + offsets[changed[0]]
+    t0 = t1 - np.sign(offsets[changed[0]]) * 0.25 * span  # (the step before, of the sign)
+    low, high = min(t0, t1), max(t0, t1)
+    sign_low = np.sign(float(body.distance(points(np.array([low])))[0]))
+    t = 0.5 * (low + high)
+    for _ in range(100):
+        d, g = body.distance(points(np.array([t])), gradient=True)
+        d, g = float(d[0]), float(g[0, other])
+        if abs(d) <= 1e-3 * tol:
+            return t
+        if np.sign(d) == sign_low:
+            low = t
+        else:
+            high = t
+        newton = t - d / g if g != 0.0 else np.nan
+        t = newton if low < newton < high else 0.5 * (low + high)
+    return t if abs(float(body.distance(points(np.array([t])))[0])) <= 1e3 * tol else None
+
+
+def _along(loop: np.ndarray, e: int, x: np.ndarray) -> float:
+    """The fraction of the edge ``e`` of a closed contour at which a point projects."""
+    p, q = loop[e], loop[(e + 1) % len(loop)]
+    return float((x - p) @ (q - p)) / max(float((q - p) @ (q - p)), 1e-300)
+
+
 def _redundant(body: Body, loops: list[np.ndarray], h: float) -> list[bool]:
     """Whether each closed contour of a body is redundant: the trace of the grid about a node
     of it in a wedge narrower than a cell, which another contour of the body already passes
@@ -1028,18 +1074,26 @@ def _line_crossings(body: Body, loop: np.ndarray, lower, upper, tol: float):
             u, v = loop[:, axis] - value, following[:, axis] - value
             for e in np.flatnonzero((u < 0.0) != (v < 0.0)).tolist():
                 fraction = float(u[e] / (u[e] - v[e]))
-                t = float(loop[e, other] + fraction * (following[e, other] - loop[e, other]))
+                start = float(loop[e, other] + fraction * (following[e, other] - loop[e, other]))
+                t = start
                 p = np.empty((1, 2))
                 p[0, axis] = value
                 for _ in range(NEWTON_STEPS):
                     p[0, other] = t
                     d, g = body.distance(p, gradient=True)
                     if abs(g[0, other]) < 1e-6:
-                        return None
+                        t = np.nan
+                        break
                     t -= float(d[0] / g[0, other])
-                p[0, other] = t
-                if abs(float(body.distance(p)[0])) > 1e3 * tol:
-                    return None
+                if np.isfinite(t):
+                    p[0, other] = t
+                if not np.isfinite(t) or abs(float(body.distance(p)[0])) > 1e3 * tol:
+                    # (a contour that crosses the line at a grazing angle: Newton's steps
+                    # overshoot) the root nearest to the start, bracketed
+                    span = float(np.linalg.norm(following[e] - loop[e]))
+                    t = _line_root(body, axis, value, start, span, tol)
+                    if t is None:
+                        return None
                 out.append((e, fraction, axis, side, t))
     out.sort(key=lambda c: (c[0], c[1]))
     return out
@@ -1125,15 +1179,20 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             for *_, axis, side, t in found:
                 if lower[1 - axis] - tol <= t <= upper[1 - axis] + tol:
                     crosses[b].add((axis, side))
-            marks = [(e, f, ("side", (axis, side, t)), _point(axis, side, t, lower, upper))
-                     for e, f, axis, side, t in found]  # fmt: skip
-            marks += [(k, 0.0, ("corner", ((len(loops), k), loop[k])), loop[k])
+            # the crossings in turn along their edges as their points on the surface (those of
+            # the chord, near a corner of the box, may come in the other order)
+            marks = []
+            for e, _, axis, side, t in found:
+                x = _point(axis, side, t, lower, upper)
+                along = _along(loop, e, x)
+                marks.append((e, min(max(along, 0.0), 1.0), ("side", (axis, side, t)), x, along))
+            marks += [(k, 0.0, ("corner", ((len(loops), k), loop[k])), loop[k], 0.0)
                       for k in corners]  # fmt: skip
             if not marks:
                 if np.all(loop[0] > lower + tol) and np.all(loop[0] < upper - tol):
                     pieces.append((b, np.vstack([loop, loop[:1]]), None, None, perimeter))
                 continue
-            marks.sort(key=lambda m: (m[0], m[1]))
+            marks.sort(key=lambda m: (m[0], m[4]))
             n = len(loop)
             for m0, m1 in zip(marks, [*marks[1:], marks[0]], strict=True):
                 start, stop = m0[0] + m0[1], m1[0] + m1[1]
@@ -1269,6 +1328,13 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             raise RuntimeError("contour mesh: a crossing off the nodes of its side")
         return ids[k]
 
+    # (a piece that ends off its side, the contour leaving the box at a corner of it)
+    for _, _, start, end, _ in pieces:
+        for kind, value in (m for m in (start, end) if m is not None):
+            if kind == "side":
+                chain = side_nodes[value[:2]][0]
+                if np.abs(chain - value[2]).min() > 1e3 * tol:
+                    return None
     # 4. the nodes of the pieces of the contours inside the box, graded, on the surfaces
     for b, path, start, end, perimeter in pieces:
         step = np.linalg.norm(np.diff(path, axis=0), axis=1)
