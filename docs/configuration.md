@@ -143,7 +143,8 @@ homogenization:        # apparent properties of every realization
                # magnetoelectroelastic, magnetoelectric, thermoelectric; harmonic regimes
                # (fft): dynamic_stiffness, complex_conductivity, refractive_index; flow
                # through the pores (fft, the voids, cubic voxels): hydraulic_permeability,
-               # acoustic
+               # acoustic; hydraulic_permeability on the meshes of the plane too (fe,
+               # mesh.plane: true, the pores meshed with the solid)
   frequencies: [0.1, 10.0]   # angular frequencies of dynamic_stiffness, complex_conductivity
   wavelengths: [0.6]         # of refractive_index
   mean_temperature: 300.0    # thermoelectric: the absolute temperature of the law (K)

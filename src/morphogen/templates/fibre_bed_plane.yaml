@@ -1,0 +1,38 @@
+# The permeability of a bed of parallel fibres — the dry preform of a unidirectional
+# composite, before the resin fills it — by the finite elements of the plane: the sections
+# of straight fibres (radius 3.5 micrometres, the carbon fibres of the composites), a random
+# packing filling half of the plane, meshed with the pores between them by six-node
+# triangles curved along the fibres. The Stokes flow of a viscous fluid across the fibres
+# and its flow along them (the elements of Taylor and Hood, periodic conditions) give the
+# permeability tensor of Darcy's law, in squared micrometres, over four realizations: its
+# transverse components k11, k22 and k12, its axial one k33.
+model:
+  type: long_fibers
+  radius: 3.5                 # micrometres
+  volume_fraction: 0.5
+  arrangement: random
+  min_gap: 0.3
+domain:
+  size: [40.0, 40.0, 10.0]
+  periodic: true
+seed: 1
+realizations: 4
+mesh:
+  plane: true                 # triangles in the plane z of the box
+  size: 1.0
+  background: 0.1             # the grid of the sections: a third of the smallest gap
+  order: 2                    # six-node triangles, their edges curved along the fibres
+homogenization:
+  method: fe
+  materials:
+    0: void                   # the pores, where the fluid flows
+    1: {young: 230.0e3, poisson: 0.2}   # the fibres, rigid for the flow
+  boundary_conditions: [periodic]
+  properties: [hydraulic_permeability]
+outputs:
+  directory: out/fibre_bed_plane
+  name: bed
+  conforming_mesh: [vtu]
+visualization:
+  figures:
+    - {of: mesh}

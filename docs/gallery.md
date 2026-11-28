@@ -526,6 +526,37 @@ morphogen run long_fibers.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-fibre-bed-plane
+
+```{image} _static/gallery/fibre_bed_plane.png
+:alt: fibre_bed_plane
+:loading: lazy
+```
+
+```{image} _static/gallery/fibre_bed_plane_result.png
+:alt: the result of fibre_bed_plane
+:loading: lazy
+```
+
+**`fibre_bed_plane`** — The permeability of a bed of parallel fibres by the finite elements of the plane: the Stokes flows across and along the fibres through the pores of their sections, meshed by triangles curved along the fibres.
+
+*Needs the mesher MMG (extra `mesh`), VTK and ffmpeg (extra `video`).*
+
+```bash
+morphogen template fibre_bed_plane -o fibre_bed_plane.yaml
+morphogen run fibre_bed_plane.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/fibre_bed_plane.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-cross-linked-fibers
 
 ```{image} _static/gallery/cross_linked_fibers.png

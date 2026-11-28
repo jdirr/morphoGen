@@ -1184,11 +1184,11 @@ def _homogenization(data, base: Path | None = None) -> HomogenizationSpec:
     )
 
 
-def _meshes_of_the_plane(mesh: MeshSpec, model) -> bool:
+def _meshes_of_the_plane(mesh: MeshSpec | None, model) -> bool:
     """Whether the meshes of a run are those of the plane: asked, or by default for the
     models whose realizations are columnar grains (the seeds of the plane, the orientation
     maps)."""
-    if mesh.plane is not None:
+    if mesh is not None and mesh.plane is not None:
         return bool(mesh.plane)
     from morphogen.models.ebsd import EBSD
     from morphogen.models.seeded import SeededLaguerre
@@ -1216,6 +1216,9 @@ def _check_plane(mesh: MeshSpec, homog, outputs, viz) -> None:
         reasons.append("the contacts and the interfaces")
     if homog is not None and "mixed" in homog.boundary_conditions:
         reasons.append("the mixed conditions")
+    if (homog is not None and "hydraulic_permeability" in homog.properties
+            and "periodic" not in homog.boundary_conditions):  # fmt: skip
+        reasons.append("the flow through the pores without periodic conditions")
     if viz is not None and viz.videos and any(v.of != "image" and v.of != "labels"
                                               for v in viz.videos):  # fmt: skip
         reasons.append("the videos of the mesh and of its fields")
@@ -2109,15 +2112,21 @@ def default_mesh(domain: Domain, voxels: VoxelSpec | None = None) -> MeshSpec:
                     min_size=DEFAULT_MIN_SIZE * size, background=background)  # fmt: skip
 
 
-def voxels_only(homog: HomogenizationSpec, rve=None, voxels: VoxelSpec | None = None) -> list[str]:
+def voxels_only(
+    homog: HomogenizationSpec, rve=None, voxels: VoxelSpec | None = None, *, plane: bool = False
+) -> list[str]:
     """What only the solvers of voxel images do among the options of a homogenization (and
     of the RVE study and voxels of its configuration): the reasons for which ``method:
     auto`` takes the FFT solver on voxels, the last resort, rather than finite elements
-    on conforming meshes."""
+    on conforming meshes (``plane``: those of the plane, which give the permeability of
+    their pores too)."""
+    from morphogen.homogenization.apparent import PLANE_FLOW
+
     reasons = []
     if homog.device == "gpu":
         reasons.append("the GPU (device: gpu) runs the FFT solver")
-    voxel = [p for p in homog.properties if PHYSICS[p] in ("coupled", "harmonic", "flow")]
+    voxel = [p for p in homog.properties if PHYSICS[p] in ("coupled", "harmonic", "flow")
+             and not (plane and p in PLANE_FLOW)]  # fmt: skip
     if voxel:
         reasons.append(f"the properties {voxel} are solved on voxel images")
     if homog.fracture is not None:
@@ -2138,14 +2147,18 @@ def _check_method(
     rve=None,
     voxels: VoxelSpec | None = None,
     domain: Domain | None = None,
+    plane: bool = False,
 ) -> MeshSpec | None:
     """Resolve ``method: auto``: finite elements on conforming meshes (exact where the
     model knows its geometry), with the mesh of :func:`default_mesh` when the
     configuration describes none; the FFT solver on voxels only for what only it does
     (:func:`voxels_only`) or without a conforming mesher (MMG). Check that the boundary
-    conditions suit the method; return the mesh."""
+    conditions suit the method; return the mesh (``plane``: the meshes are those of the
+    plane)."""
+    from morphogen.homogenization.apparent import PLANE_FLOW
+
     if homog.method == "auto":
-        reasons = voxels_only(homog, rve, voxels)
+        reasons = voxels_only(homog, rve, voxels, plane=plane)
         if not reasons:
             from morphogen.mesh.conforming import has_mmg
 
@@ -2177,11 +2190,13 @@ def _check_method(
             f"homogenization.properties: the coupled and harmonic problems {coupled} are "
             "solved on voxel images (method: fft, periodic conditions)"
         )
-    flows = [p for p in homog.properties if PHYSICS[p] == "flow"]
+    flows = [p for p in homog.properties if PHYSICS[p] == "flow"
+             and not (plane and homog.method == "fe" and p in PLANE_FLOW)]  # fmt: skip
     if homog.method != "fft" and flows:
         raise ConfigError(
             f"homogenization.properties: the flows through the pores {flows} are solved on "
-            "voxel images (method: fft, periodic conditions)"
+            "voxel images (method: fft, periodic conditions), the permeability on the "
+            "meshes of the plane too (mesh.plane: true)"
         )
     if homog.fracture is not None and homog.method != "fft":
         raise ConfigError(
@@ -2346,7 +2361,8 @@ def load_config(source, *, base_dir=None) -> RunConfig:
 
     analysis = _list_of("analysis", data.get("analysis"), {**MEASURES, **EXACT_MEASURES})
     if homog is not None:
-        mesh = _check_method(homog, mesh, rve=rve, voxels=voxels, domain=domain)
+        mesh = _check_method(homog, mesh, rve=rve, voxels=voxels, domain=domain,
+                             plane=_meshes_of_the_plane(mesh, model))  # fmt: skip
     if mesh is not None and mesh.order is None:
         # quadratic elements for the finite element analyses: linear tetrahedra are stiff,
         # and lock under isochoric plastic flow; a mesh that is only written stays linear

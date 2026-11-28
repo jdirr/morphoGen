@@ -71,7 +71,8 @@ SURFACE_VOXELS = 256
 #: stretch, the nominal stress; ``time``: against the time, on a logarithmic axis;
 #: ``labels``: the names of its segments, those of the same name drawn alike),
 #: ``fracture`` (the damage at the end of the path on the phases, beside the curve),
-#: ``plane`` (the grains of a mesh of the plane and a field of a result on its triangles)
+#: ``plane`` (the grains of a mesh of the plane and a field of a result on its triangles),
+#: ``flow`` (the speeds of the flows across and along the fibres of a mesh of the plane)
 RESULTS = {
     "homogenization_viscoplastic": {
         "kind": "path",
@@ -135,6 +136,7 @@ RESULTS = {
         "field": "von_mises",
         "title": "von Mises stress of the shear",
     },
+    "fibre_bed_plane": {"kind": "flow"},
     "fracture_composite": {"kind": "fracture"},
     "fracture_rubber": {"kind": "fracture", "stretch": True},
 }
@@ -207,6 +209,9 @@ FAMILIES = [
              "(Keilmann, Redenbach & Willot 2026)."),
             ("long_fibers", "A unidirectional composite: long fibres of slightly scattered "
              "radii at 0.6, their sections a random packing, misaligned by 3 degrees."),
+            ("fibre_bed_plane", "The permeability of a bed of parallel fibres by the finite "
+             "elements of the plane: the Stokes flows across and along the fibres through "
+             "the pores of their sections, meshed by triangles curved along the fibres."),
             ("cross_linked_fibers", "Entangled carbon fibres moulded about a plane, half "
              "their contacts bonded by epoxy cross-links (Chatti et al.)."),
             ("delaunay_network", "A fibre network on the edges of the Delaunay "
@@ -1259,6 +1264,43 @@ def _plane(left, right, name: str, outdir: Path, options: dict) -> None:
         ax.set_title(title, color=INK, fontsize=13)
 
 
+def _flow(left, right, name: str, outdir: Path) -> None:
+    """The speeds of the flows of the plane through the pores of the first mesh of the run
+    of a template: under a force along x, across the fibres (left), and along them (right),
+    on the triangles of the pores; the fibres in grey."""
+    from matplotlib import colormaps
+    from matplotlib.collections import PolyCollection
+
+    from morphogen import io
+    from morphogen.config import load_config
+    from morphogen.homogenization.plane_flow import plane_permeability
+
+    spec = config(name)
+    materials = load_config(spec).homogenization.materials
+    mesh = io.read_tri_mesh(sorted(outdir.glob(f"{spec['outputs']['name']}_*_tri.vtu"))[0])
+    flow = plane_permeability(mesh, materials, fields=True)
+    pores = flow["pores"]
+    solid = mesh.select(~np.isin(mesh.phase, np.unique(pores.phase)))
+    flows = ((left, np.linalg.norm(flow["velocity"][0], axis=1), "flow across the fibres"),
+             (right, np.abs(flow["velocity"][2][:, 2]), "flow along the fibres"))  # fmt: skip
+    for ax, speed, title in flows:
+        values = speed[pores.elements].mean(axis=1)
+        top = max(float(np.percentile(values, 99.0)), 1e-300)  # (the hot spots of the gaps)
+        shade = colormaps["viridis"](np.clip(values / top, 0.0, 1.0))
+        ax.add_collection(PolyCollection(pores.nodes[pores.elements[:, :3]], facecolors=shade,
+                                         edgecolors="face", linewidths=0.3))  # fmt: skip
+        ax.add_collection(PolyCollection(solid.nodes[solid.elements[:, :3]], facecolors="0.75",
+                                         edgecolors="face", linewidths=0.3))  # fmt: skip
+        ax.set_xlim(mesh.lower[0], mesh.upper[0])
+        ax.set_ylim(mesh.lower[1], mesh.upper[1])
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for side in ax.spines.values():
+            side.set_color(INK)
+        ax.set_title(title, color=INK, fontsize=13)
+
+
 def result_image(name: str, outdir: Path, canvas=RESULT_CANVAS) -> np.ndarray:
     """RGBA of the figure of the result of a template of :data:`RESULTS`, from the files
     of its run in ``outdir``."""
@@ -1291,6 +1333,9 @@ def result_image(name: str, outdir: Path, canvas=RESULT_CANVAS) -> np.ndarray:
     elif options["kind"] == "plane":
         left, right = fig.subplots(1, 2)
         _plane(left, right, name, outdir, options)
+    elif options["kind"] == "flow":
+        left, right = fig.subplots(1, 2)
+        _flow(left, right, name, outdir)
     else:
         _curve(fig.subplots(), name, outdir, options)
     drawn = FigureCanvasAgg(fig)

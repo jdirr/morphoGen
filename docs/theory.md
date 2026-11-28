@@ -14081,6 +14081,72 @@ grains and orientations, the bulk modulus of the crystals, a run); a run of seed
 triangles, the bulk modulus of the crystals), the keys of the configurations and what the
 meshes of the plane do not take, the command line, the figures.
 
+## 120. Creeping flow through the pores of the plane (`homogenization.plane_flow`)
+
+**The problem.** A fluid of viscosity $\eta$ creeps through the pores of a rigid solid that
+does not vary along $z$ — a bed of parallel fibres, the dry preform of a unidirectional
+composite before the resin fills it, or the section of any structure — under a macroscopic
+pressure gradient: the uniform force $f$ of the gradient drives the Stokes flow
+$\eta \Delta v - \nabla p + f = 0$, $\nabla \cdot v = 0$ in the pores, $v = 0$ on their walls,
+$v$ and $p$ periodic. The mean velocity over the whole cell, the solid included, obeys
+Darcy's law, $\langle v \rangle = (k/\eta)\, f$, with a symmetric positive tensor $k$ that does
+not depend on the fluid (§67). Since nothing varies along $z$, the component of the momentum
+along $z$ is uncoupled: the flow across the fibres is a plane Stokes flow, the flow along
+them the anti-plane flow $\eta \Delta w + f_3 = 0$, $w = 0$ on the walls — the problem of the
+torsion of a bar, or of the conduction of §119 with the walls held at zero — and $k_{13} =
+k_{23} = 0$.
+
+**The elements.** The plane flow is solved by the elements of Taylor & Hood (1973): the
+velocity quadratic on the six-node triangles of the pores, the pressure linear on their
+corners and continuous, a stable pair (it satisfies the inf-sup condition of Brezzi), the
+velocity of the third order in its values; the weak form
+$\eta \int \nabla v : \nabla w - \int p\, \nabla \cdot w = \int f \cdot w$,
+$\int q\, \nabla \cdot v = 0$ — the Laplacian form, the same flow as that of the symmetric
+gradient for walls at rest and periodic sides. The elements are those of the plane (§119),
+isoparametric, curved along the walls of the sections of the structures that give their
+implicit functions; their integrals of the second degree at three points (exact on straight
+elements). The anti-plane flow takes the same quadratic elements. The pores are the void
+phases of the materials (or the phases `pores`), meshed with the solid (`mesh.phases: all`):
+the walls are the edges between them and the other phases, or the free edges of a mesh of
+the pores inside the box; the nodes of the walls, their corners and middle nodes, hold the
+fluid at rest, and the nodes of the upper sides of the periodic box are those of their images.
+The pressure, determined up to a constant in each connected part of the pores (connected
+through the corners of their triangles and across the box), is fixed at one node of each:
+the closed pores hold a fluid at rest — across the plane, for they are pipes along $z$. The
+saddle point of the plane flow is factorized once (LU, a sparse factorization of SuperLU) for
+the two forces $f = e_x$ and $f = e_y$, the anti-plane flow by another for $f_3 = 1$; the
+mean velocities give the columns of $k$, symmetrized.
+
+**The gaps.** The transverse permeability of a bed of fibres is that of its narrowest gaps,
+whose flows are a few elements across: the mesh must keep them open. The section of the
+fibres is meshed from the functions of the phases sampled on a grid (`background`, §119),
+which must resolve the gaps — a third of the smallest gap: a random packing of fibres
+of radius 3.5 at 0.5 of the area, gaps of 0.3 at least, meshed with elements of 1 on the
+grid of 0.5 (the default, half of the elements) lost 0.6 % of its pores in ten closed parts
+and 5 % of its transverse permeability; on the grid of 0.1 it keeps its pores to 10⁻⁶ in one
+part, and its tensor within 2·10⁻⁴ of that on the grid of 0.05.
+
+**Checked** (`tests/test_plane_flow.py`): the channel of Poiseuille between plane walls along
+the lines of the grid, its parabola in the quadratic elements to 10⁻¹³ at the nodes and its
+permeability $H^3/12L$ along the channel and along $z$ to 10⁻¹², zero across; the square
+arrays of cylinders across them against the drags $F/\mu U$ of Sangani & Acrivos (1982),
+51.53 and 102.90 at the fractions 0.2 and 0.3, $k = \pi a^2/(cF) = 1/F$ for a unit cell:
+within 1.8·10⁻⁵ and 1.1·10⁻⁴ on curved triangles of size 0.05 (the digits of the drags;
+1 to 5 % off with straight edges), and along them against the series of Drummond & Tahir
+(1984), $a^2(-\ln c - 1.476 + 2c - c^2/2)/(4c)$, which is 8·10⁻⁴ and 3·10⁻³ off; the
+closed pores of the array of fibres taken as the pores, a fluid at rest across the plane
+(10⁻⁷ of the flow along $z$) and the pipes of Hagen and Poiseuille along it,
+$k_{33} = c\,a^2/8$, within 1.7·10⁻⁵, 1.7·10⁻⁶ and 7.5·10⁻⁸ at the sizes 0.1, 0.05 and
+0.025; a random bed of twelve fibres of radius 0.1 at 0.38 (gaps of 0.02), converged to
+10⁻⁴ at the size 0.0125 ($k_{11}$ 3.0598·10⁻⁴, $k_{22}$ 9.43·10⁻⁵, $k_{33}$ 3.4986·10⁻³),
+which the lattice Boltzmann method of §67 approaches on the voxels of its section, their
+walls stairs in the gaps, from 7.4 % and 0.5 % below on 96² voxels and 3.1 % below on
+192² across the fibres, 0.6 % along them; `homogenize` of a mesh of the plane (the
+permeability under periodic conditions beside the stiffness under every condition, the pores
+left out of the elastic problems), the pores left out of the mesh and the flow without
+periodic conditions refused; the configurations (`method: fe` and `mesh.plane: true`, or
+`auto`, which takes the finite elements of the plane) and a run.
+
 ## References
 
 See [specification.md](specification.md#14-references). In addition:
@@ -15097,3 +15163,6 @@ See [specification.md](specification.md#14-references). In addition:
   620–631.
 * Keller, J. B. (1964). A theorem on the conductivity of a composite medium. *J. Math.
   Phys.* 5, 548–549.
+* Taylor, C., Hood, P. (1973). A numerical solution of the Navier-Stokes equations using the
+  finite element technique. *Comput. Fluids* 1, 73–100.
+* Brezzi, F., Fortin, M. (1991). *Mixed and Hybrid Finite Element Methods*. Springer.

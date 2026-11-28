@@ -122,6 +122,7 @@ from morphogen.homogenization.ntfa import NTFAModel, train_ntfa
 from morphogen.homogenization.paths import LoadingPath, PathResult
 from morphogen.homogenization.photonic import electromagnetic_band_structure
 from morphogen.homogenization.plane import PlaneElasticProblem, PlaneThermalProblem
+from morphogen.homogenization.plane_flow import plane_permeability
 from morphogen.homogenization.poroelastic import poroelastic_tensors, swelling_tensor
 from morphogen.homogenization.xfem import (
     LevelSetSample,
@@ -201,6 +202,7 @@ __all__ = [
     "path_bifurcation",
     "path_fatigue",
     "permeability_tensor",
+    "plane_permeability",
     "poroelastic_tensors",
     "post_bifurcation",
     "scalar_band_structure",

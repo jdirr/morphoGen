@@ -219,6 +219,16 @@
   `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
   plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
   `write_medit_tri` (`tests/public_api.txt`).
+* The flow through the pores of the plane (`homogenization.plane_flow`,
+  `plane_permeability`): the Stokes flow across a structure that does not vary along z by
+  the elements of Taylor and Hood on its six-node triangles (the velocity quadratic, the
+  pressure linear), and its flow along z on the same elements, give its permeability tensor;
+  `homogenize` of a mesh of the plane takes `hydraulic_permeability` (periodic conditions),
+  and so do the configurations of the meshes of the plane (`method: fe` or `auto`), whose
+  pores are then meshed with the solid. The channel of Poiseuille exactly, the drags of
+  Sangani and Acrivos within their digits, the pipes of Hagen and Poiseuille within 2·10⁻⁶,
+  the lattice Boltzmann method within a few percent. The template `fibre_bed_plane` (the
+  permeability of a dry bed of fibres) and its card in the gallery, the speeds of its flows.
 * Curved six-node triangles: the nodes of the interfaces of the sections of the plane on the
   curves of the functions of their phases (`curved_triangles`; `section_mesh`, `plane_mesh`
   and `mesh.curved` at order 2, by default), isoparametric elements in the finite elements of

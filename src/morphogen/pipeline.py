@@ -379,6 +379,8 @@ def _conforming_mesh(micro: Microstructure, cfg: RunConfig) -> tuple[TetMesh | T
     homog = cfg.homogenization
     porous = homog.void_phases if homog is not None else set()
     if cfg.mesh.on_plane(micro):
+        if homog is not None and "hydraulic_permeability" in homog.properties:
+            porous = set()  # the flow through the pores: meshed with the solid
         mesh = plane_mesh(micro, **cfg.mesh.plane_kwargs(porous))
     else:
         mesh = conforming_mesh(micro, **cfg.mesh.kwargs(porous))

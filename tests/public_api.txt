@@ -369,7 +369,7 @@ morphogen.config.load_config(source, *, base_dir=None)
 morphogen.config.path_quantities(names, homog)
 morphogen.config.property_entries(names, homog)
 morphogen.config.read_config_file(path)
-morphogen.config.voxels_only(homog, rve=None, voxels=None)
+morphogen.config.voxels_only(homog, rve=None, voxels=None, *, plane=False)
 morphogen.contact: CompressionResult
 morphogen.contact: ContactCell
 morphogen.contact: ContactProblem
@@ -1161,6 +1161,7 @@ morphogen.homogenization: path_beremin
 morphogen.homogenization: path_bifurcation
 morphogen.homogenization: path_fatigue
 morphogen.homogenization: permeability_tensor
+morphogen.homogenization: plane_permeability
 morphogen.homogenization: poroelastic_tensors
 morphogen.homogenization: post_bifurcation
 morphogen.homogenization: scalar_band_structure
@@ -1210,6 +1211,7 @@ morphogen.homogenization.apparent.FLOW
 morphogen.homogenization.apparent.HARMONIC
 morphogen.homogenization.apparent.INTERFACE_OPTIONS
 morphogen.homogenization.apparent.PHYSICS
+morphogen.homogenization.apparent.PLANE_FLOW
 morphogen.homogenization.apparent.PLANE_PROPERTIES
 morphogen.homogenization.apparent.PROPERTIES
 morphogen.homogenization.apparent.Response(name, bc, solution)
@@ -1800,6 +1802,8 @@ morphogen.homogenization.plane.PLANE_CONDITIONS
 morphogen.homogenization.plane.PLANE_DIRECT_LIMIT
 morphogen.homogenization.plane.PlaneElasticProblem(mesh, materials, bc='periodic', *, plane='generalized', **options)
 morphogen.homogenization.plane.PlaneThermalProblem(mesh, materials, bc='periodic', *, solver='auto', tol=1e-08, maxiter=None, regularization=1e-12, physics=None)
+morphogen.homogenization.plane_flow.plane_permeability(mesh, materials=None, *, pores=None, viscosity=1.0, fields=False)
+morphogen.homogenization.plane_flow.pore_phases(mesh, materials=None, pores=None)
 morphogen.homogenization.poroelastic.POROELASTIC_ENTRIES
 morphogen.homogenization.poroelastic.UNDRAINED_ENTRIES
 morphogen.homogenization.poroelastic.poroelastic_tensors(sample, materials, bc='periodic', *, fluid_bulk=None, **options)

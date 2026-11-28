@@ -106,6 +106,9 @@ FLOW = ("hydraulic_permeability", "acoustic")
 #: The elastic properties of the finite elements of the plane (meshes of the plane), with
 #: those of the transport phenomena
 PLANE_PROPERTIES = ("bulk_modulus", "shear_modulus", "stiffness", "thermal_expansion")
+#: The flows of the meshes of the plane (:mod:`morphogen.homogenization.plane_flow`): the
+#: permeability of their pores, under periodic conditions
+PLANE_FLOW = ("hydraulic_permeability",)
 #: The physics of the problem that gives each property (``"coupled"``: the fields of a
 #: strong coupling solved together; ``"harmonic"``: a complex law at each frequency)
 PHYSICS = {
@@ -663,8 +666,11 @@ def homogenize(
     by the finite elements of the plane (:mod:`morphogen.homogenization.plane`; ``kubc``,
     ``periodic`` and ``subc`` conditions on its sides): the elastic properties and tensors
     (:data:`PLANE_PROPERTIES`), those of the transport phenomena and the named loadings, of
-    its structure invariant across the plane; ``plane``: ``"generalized"`` (default, the
-    anti-plane fluctuation free) or ``"strain"`` (plane strain). Its loading paths are
+    its structure invariant across the plane, and the permeability of its pores meshed with
+    the solid (:data:`PLANE_FLOW`: the flows across and along the plane by the finite elements
+    of Taylor & Hood, :mod:`morphogen.homogenization.plane_flow`, under periodic
+    conditions); ``plane``: ``"generalized"`` (default, the anti-plane fluctuation free) or
+    ``"strain"`` (plane strain). Its loading paths are
     followed on its layer of tetrahedra in space (:meth:`~morphogen.mesh.triangles.TriMesh.
     layer`), periodic across it: in generalized plane strain, under periodic conditions.
 
@@ -685,12 +691,15 @@ def homogenize(
     if plane is not None and plane not in PLANES:
         raise ValueError(f"plane: one of {PLANES}")
     if isinstance(sample, TriMesh):
-        allowed = set(PLANE_PROPERTIES) | {n for names in TRANSPORT_PROPERTIES.values()
-                                           for n in names}  # fmt: skip
+        allowed = set(PLANE_PROPERTIES) | set(PLANE_FLOW) | {
+            n for names in TRANSPORT_PROPERTIES.values() for n in names}  # fmt: skip
         other = [p for p in props if p not in allowed]
         if other:
             raise ValueError(f"{other}: not by the finite elements of the plane, which give "
                              f"{sorted(allowed)}")  # fmt: skip
+        if set(PLANE_FLOW) & set(props) and "periodic" not in bc_names:
+            raise ValueError("hydraulic_permeability: the flow through the pores of a mesh of "
+                             "the plane, under periodic conditions")  # fmt: skip
         if ntfa or fracture is not None:
             raise ValueError("the reduced models and the phase field: images")
         if paths and plane == "strain":
@@ -782,7 +791,7 @@ def homogenize(
                 maxiter,
             )
         flows = [p for p in props if PHYSICS[p] == "flow"]
-        if flows:
+        if flows and not (isinstance(sample, TriMesh) and bc != "periodic"):
             checkpoint()
             for prop, res in _flow(sample, materials, flows, tol).items():
                 out[f"{prop}.{bc}"] = res
@@ -1009,9 +1018,16 @@ def _interface_options(interfaces, sample, solver: str) -> tuple[dict, dict] | N
 def _flow(sample, materials, props, tol) -> dict:
     """The permeability tensor and the acoustic parameters (those of ``props``) of the
     pores of a voxel image (:mod:`morphogen.homogenization.flow`,
-    :mod:`morphogen.homogenization.acoustics`); the flows are solved once for both."""
+    :mod:`morphogen.homogenization.acoustics`); the flows are solved once for both. The
+    permeability of a mesh of the plane by its finite elements
+    (:mod:`morphogen.homogenization.plane_flow`)."""
     from morphogen.homogenization.acoustics import acoustic_parameters
     from morphogen.homogenization.flow import ENTRIES, permeability_tensor
+
+    if isinstance(sample, TriMesh):
+        from morphogen.homogenization.plane_flow import plane_permeability
+
+        return {"hydraulic_permeability": plane_permeability(sample, materials)}
 
     if not isinstance(sample, VoxelImage):
         raise ValueError(
