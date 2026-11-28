@@ -1588,63 +1588,28 @@ class _Union:
         return self._by.get(i, [])
 
 
-class _DiscSizes:
-    """The size of the elements along the circles and the sides: the least of the size and
-    of ``h_k + GRADE |x - p_k|`` over points ``p_k`` along the circles and the sides, whose
-    sizes ``h_k`` are a :data:`GAP_ELEMENTS`-th of their gaps to the nearest other circle
-    (and, for the points of a circle, to the sides it does not cross; for those of a side,
-    to the circles that do not cross it), at most the share of a circle of
-    :data:`CIRCLE_SEGMENTS`, at least ``floor``; two circles that cross each other (the
-    pairs ``crossing``) meet at a point of the boundary, not across a gap. At the corners of
-    a union of discs (``corners``), where the fields are singular, the sizes are a
-    :data:`CORNER_REFINEMENT`-th of what they would be."""
+class _PointSizes:
+    """The size of the elements near points of given sizes: the least of ``size`` and of
+    ``h_k + GRADE |x - p_k|`` over the points ``p_k`` of sizes ``h_k`` (their images across a
+    periodic box)."""
 
-    def __init__(self, cs, rs, lower, upper, size, periodic, floor, crossing=frozenset(),
-                 corners=()):  # fmt: skip
+    def __init__(self, points, h, lower, upper, size, periodic):
         self.size = float(size)
         self.lower = np.asarray(lower, dtype=float)
         self.lengths = np.asarray(upper, dtype=float) - self.lower
         self.periodic = bool(periodic)
-        spacing = self.size / 4.0
-        points, h = [], []
-        tree = cKDTree(cs) if len(cs) else None
-        reach = float(rs.max()) + self.size * GAP_ELEMENTS if len(rs) else 0.0
-        for i, (c, r) in enumerate(zip(cs, rs, strict=True)):
-            m = max(16, int(np.ceil(2.0 * np.pi * r / spacing)))
-            a = 2.0 * np.pi * np.arange(m) / m
-            p = c + r * np.column_stack([np.cos(a), np.sin(a)])
-            gap = np.full(m, np.inf)
-            for j in tree.query_ball_point(c, r + reach):
-                if j != i and (min(i, j), max(i, j)) not in crossing:  # (concentric too)
-                    gap = np.minimum(gap, np.abs(np.linalg.norm(p - cs[j], axis=1) - rs[j]))
-            for axis in (0, 1):
-                for value in (lower[axis], upper[axis]):
-                    if abs(c[axis] - value) >= r:  # a side that the circle does not cross
-                        gap = np.minimum(gap, np.abs(p[:, axis] - value))
-            points.append(p)
-            h.append(np.minimum(gap / GAP_ELEMENTS, 2.0 * np.pi * r / CIRCLE_SEGMENTS))
-        for axis in (0, 1):
-            other = 1 - axis
-            n = max(2, int(np.ceil(self.lengths[other] / spacing)) + 1)
-            t = np.linspace(lower[other], upper[other], n)
-            for value in (lower[axis], upper[axis]):
-                p = np.empty((n, 2))
-                p[:, axis], p[:, other] = value, t
-                gap = np.full(n, np.inf)
-                apart = np.abs(cs[:, axis] - value) >= rs  # the circles that do not cross it
-                for c, r in zip(cs[apart], rs[apart], strict=True):
-                    gap = np.minimum(gap, np.abs(np.linalg.norm(p - c, axis=1) - r))
-                points.append(p)
-                h.append(gap / GAP_ELEMENTS)
-        self.points = np.concatenate(points)
-        self.h = np.clip(np.concatenate(h), floor, self.size)
+        self.points = np.asarray(points, dtype=float).reshape(-1, 2)
+        self.h = np.asarray(h, dtype=float)
         self.reach = self.size / GRADE
         self._index()
-        corners = np.asarray(corners, dtype=float).reshape(-1, 2)
-        if len(corners):
-            refined = np.maximum(self(corners) / CORNER_REFINEMENT, floor)
-            self.points = np.concatenate([self.points, corners])
-            self.h = np.concatenate([self.h, refined])
+
+    def refine(self, points, ratio: float, floor: float) -> None:
+        """The sizes at ``points`` a ``ratio``-th of what they are, ``floor`` at least."""
+        points = np.asarray(points, dtype=float).reshape(-1, 2)
+        if len(points):
+            sizes = np.maximum(self(points) / ratio, floor)
+            self.points = np.concatenate([self.points, points])
+            self.h = np.concatenate([self.h, sizes])
             self._index()
 
     def _index(self) -> None:
@@ -1670,7 +1635,58 @@ class _DiscSizes:
         return np.minimum(self.size, value.min(axis=1))
 
 
-def _marched(length: float, at, field: _DiscSizes, least: int = 1) -> np.ndarray:
+class _DiscSizes(_PointSizes):
+    """The size of the elements along the circles and the sides (:class:`_PointSizes`): at
+    points ``p_k`` along the circles and the sides, whose
+    sizes ``h_k`` are a :data:`GAP_ELEMENTS`-th of their gaps to the nearest other circle
+    (and, for the points of a circle, to the sides it does not cross; for those of a side,
+    to the circles that do not cross it), at most the share of a circle of
+    :data:`CIRCLE_SEGMENTS`, at least ``floor``; two circles that cross each other (the
+    pairs ``crossing``) meet at a point of the boundary, not across a gap. At the corners of
+    a union of discs (``corners``), where the fields are singular, the sizes are a
+    :data:`CORNER_REFINEMENT`-th of what they would be."""
+
+    def __init__(self, cs, rs, lower, upper, size, periodic, floor, crossing=frozenset(),
+                 corners=()):  # fmt: skip
+        size = float(size)
+        lengths = np.asarray(upper, dtype=float) - np.asarray(lower, dtype=float)
+        spacing = size / 4.0
+        points, h = [], []
+        tree = cKDTree(cs) if len(cs) else None
+        reach = float(rs.max()) + size * GAP_ELEMENTS if len(rs) else 0.0
+        for i, (c, r) in enumerate(zip(cs, rs, strict=True)):
+            m = max(16, int(np.ceil(2.0 * np.pi * r / spacing)))
+            a = 2.0 * np.pi * np.arange(m) / m
+            p = c + r * np.column_stack([np.cos(a), np.sin(a)])
+            gap = np.full(m, np.inf)
+            for j in tree.query_ball_point(c, r + reach):
+                if j != i and (min(i, j), max(i, j)) not in crossing:  # (concentric too)
+                    gap = np.minimum(gap, np.abs(np.linalg.norm(p - cs[j], axis=1) - rs[j]))
+            for axis in (0, 1):
+                for value in (lower[axis], upper[axis]):
+                    if abs(c[axis] - value) >= r:  # a side that the circle does not cross
+                        gap = np.minimum(gap, np.abs(p[:, axis] - value))
+            points.append(p)
+            h.append(np.minimum(gap / GAP_ELEMENTS, 2.0 * np.pi * r / CIRCLE_SEGMENTS))
+        for axis in (0, 1):
+            other = 1 - axis
+            n = max(2, int(np.ceil(lengths[other] / spacing)) + 1)
+            t = np.linspace(lower[other], upper[other], n)
+            for value in (lower[axis], upper[axis]):
+                p = np.empty((n, 2))
+                p[:, axis], p[:, other] = value, t
+                gap = np.full(n, np.inf)
+                apart = np.abs(cs[:, axis] - value) >= rs  # the circles that do not cross it
+                for c, r in zip(cs[apart], rs[apart], strict=True):
+                    gap = np.minimum(gap, np.abs(np.linalg.norm(p - c, axis=1) - r))
+                points.append(p)
+                h.append(gap / GAP_ELEMENTS)
+        super().__init__(np.concatenate(points), np.clip(np.concatenate(h), floor, size), lower,
+                         upper, size, periodic)  # fmt: skip
+        self.refine(corners, CORNER_REFINEMENT, floor)
+
+
+def _marched(length: float, at, field: _PointSizes, least: int = 1) -> np.ndarray:
     """The arc lengths (from 0 to ``length``) of the nodes of a curve whose points are
     ``at(s)``, at the sizes of the field: marched from its start, the steps then scaled to
     end on its end; ``least`` segments at least."""

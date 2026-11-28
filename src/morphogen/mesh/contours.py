@@ -42,18 +42,17 @@ from morphogen.mesh.triangles import (
     CIRCLE_SEGMENTS,
     CORNER_REFINEMENT,
     GAP_ELEMENTS,
-    GRADE,
     REF_CIRCLE,
     SIDE_REFS,
     TRI6_EDGES,
     TRI6_NODES,
     TRI_GAUSS,
     TriMesh,
-    _DiscSizes,
     _kept,
     _marched,
     _mmg_args,
     _point,
+    _PointSizes,
     _run,
     corner_gradients,
     jacobian_ratios,
@@ -569,20 +568,6 @@ def section_contours(body: Body) -> list[np.ndarray]:
     return [loop for loop, *_ in traced]
 
 
-class _ContourSizes(_DiscSizes):
-    """The size field of :class:`~morphogen.mesh.triangles._DiscSizes` from its points and
-    their sizes, given."""
-
-    def __init__(self, points, h, lower, upper, size, periodic):  # (not the circles')
-        self.size = float(size)
-        self.lower = np.asarray(lower, dtype=float)
-        self.lengths = np.asarray(upper, dtype=float) - self.lower
-        self.periodic = bool(periodic)
-        self.points, self.h = np.asarray(points, dtype=float), np.asarray(h, dtype=float)
-        self.reach = self.size / GRADE
-        self._index()
-
-
 def _self_gaps(loop: np.ndarray, ratio: float = 3.0) -> np.ndarray:
     """The gaps of a closed contour to itself: the distance of each vertex to the nearest of
     the others that are ``ratio`` times as far along it (the two sides of a narrow wedge
@@ -791,14 +776,8 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                         gap = np.minimum(gap, np.abs(body.distance(p)))
             points.append(p)
             h.append(np.clip(gap / GAP_ELEMENTS, floor, size))
-    field = _ContourSizes(np.concatenate(points), np.concatenate(h), lower, upper, size,
-                          periodic)  # fmt: skip
-    if sharp:  # the sharp corners, where the fields are singular: graded toward them
-        sharp = np.asarray(sharp)
-        refined = np.maximum(field(sharp) / CORNER_REFINEMENT, floor)
-        field.points = np.concatenate([field.points, sharp])
-        field.h = np.concatenate([field.h, refined])
-        field._index()
+    field = _PointSizes(np.concatenate(points), np.concatenate(h), lower, upper, size, periodic)
+    field.refine(sharp, CORNER_REFINEMENT, floor)  # (the fields are singular at sharp corners)
     # 3. the nodes of the sides: their corners, the crossings, the points graded between;
     #    those of the upper sides of a periodic box the translates of the lower ones
     xy: list[np.ndarray] = []
