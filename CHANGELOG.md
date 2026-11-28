@@ -226,6 +226,10 @@
   of the fibres cannot change), the bounds of Hashin and Shtrikman, the permeability of the
   dry preform, the files of Abaqus; its card among the tutorials. The recipe of the
   permeability of a bed of fibres among the how-tos.
+* The velocities of the flows through the pores of the plane, with `fields`: from
+  `plane_permeability` and `homogenize`, and in the runs (`fields: true`) as the file
+  `<stem>_hydraulic_permeability_periodic.vtu`, the velocities of the three flows (under the
+  unit forces along x, y and z) at the nodes of the triangles of the pores.
 * `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
   the solid, for their flow; the overview pages (README, the landing page, the properties)
   name the finite elements of the plane.

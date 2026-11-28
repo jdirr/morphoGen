@@ -255,6 +255,13 @@ def _write_fields(result: Apparent, path_stem: Path) -> Path:
     return io.write_vti(path_stem.with_suffix(".vti"), images)
 
 
+def _write_flow(pores: TriMesh, velocity: np.ndarray, path_stem: Path) -> Path:
+    """The velocities of the three flows of the plane (under the unit forces along x, y and
+    z) at the nodes of the triangles of the pores: ``.vtu``."""
+    nodal = {f"velocity_{axis}": velocity[k] for k, axis in enumerate("xyz")}
+    return io.write_vtu_tri(path_stem.with_suffix(".vtu"), pores, {}, nodal)
+
+
 def _mesh_fractions(mesh: TetMesh | TriMesh, materials) -> dict[int, float]:
     """Volume fractions of the phases of a mesh; a phase left out of the mesh (the pores
     of porous media) takes the rest of the box."""
@@ -344,6 +351,10 @@ def _homogenize(
             if spec.fields and res.solution.fields is not None:
                 _write_fields(res, outdir / f"{stem}_{key.replace('.', '_')}")
         else:
+            pores, velocity = res.pop("pores", None), res.pop("velocity", None)
+            if spec.fields and pores is not None and velocity is not None:
+                written = _write_flow(pores, velocity, outdir / f"{stem}_{key.replace('.', '_')}")
+                log.info("the velocities of the flows of %s: %s", key, written.name)
             named = {}
             prop, _, bc = key.partition(".")
             if prop in COUPLED:  # the tensors of a coupled law, by name

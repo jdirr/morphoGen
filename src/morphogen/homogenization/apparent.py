@@ -793,7 +793,7 @@ def homogenize(
         flows = [p for p in props if PHYSICS[p] == "flow"]
         if flows and not (isinstance(sample, TriMesh) and bc != "periodic"):
             checkpoint()
-            for prop, res in _flow(sample, materials, flows, tol).items():
+            for prop, res in _flow(sample, materials, flows, tol, bool(fields)).items():
                 out[f"{prop}.{bc}"] = res
         for name, loading in named.items():
             checkpoint()
@@ -1015,19 +1015,20 @@ def _interface_options(interfaces, sample, solver: str) -> tuple[dict, dict] | N
     return law, cell
 
 
-def _flow(sample, materials, props, tol) -> dict:
+def _flow(sample, materials, props, tol, fields: bool = False) -> dict:
     """The permeability tensor and the acoustic parameters (those of ``props``) of the
     pores of a voxel image (:mod:`morphogen.homogenization.flow`,
     :mod:`morphogen.homogenization.acoustics`); the flows are solved once for both. The
     permeability of a mesh of the plane by its finite elements
-    (:mod:`morphogen.homogenization.plane_flow`)."""
+    (:mod:`morphogen.homogenization.plane_flow`), with the velocities of its flows
+    (``fields``)."""
     from morphogen.homogenization.acoustics import acoustic_parameters
     from morphogen.homogenization.flow import ENTRIES, permeability_tensor
 
     if isinstance(sample, TriMesh):
         from morphogen.homogenization.plane_flow import plane_permeability
 
-        return {"hydraulic_permeability": plane_permeability(sample, materials)}
+        return {"hydraulic_permeability": plane_permeability(sample, materials, fields=fields)}
 
     if not isinstance(sample, VoxelImage):
         raise ValueError(

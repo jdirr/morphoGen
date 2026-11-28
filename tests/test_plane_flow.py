@@ -172,7 +172,8 @@ def test_configurations_of_the_flow_of_the_plane(tmp_path):
 @needs_mmg2d
 def test_run_of_a_fibre_bed(tmp_path):
     """A run of fibres in a square array, the permeability in its table of results, its
-    pores meshed with the fibres."""
+    pores meshed with the fibres; the velocities of its three flows on the triangles of the
+    pores (``fields``), which give the permeability again."""
     from morphogen import pipeline
 
     spec = {
@@ -184,7 +185,7 @@ def test_run_of_a_fibre_bed(tmp_path):
         "homogenization": {"method": "fe",
                            "materials": {0: "void", 1: {"young": 1.0, "poisson": 0.2}},
                            "boundary_conditions": ["periodic"],
-                           "properties": ["hydraulic_permeability"]},
+                           "properties": ["hydraulic_permeability"], "fields": True},
         "outputs": {"directory": str(tmp_path / "out"), "name": "bed",
                     "conforming_mesh": ["vtu"]},
     }  # fmt: skip
@@ -198,6 +199,19 @@ def test_run_of_a_fibre_bed(tmp_path):
     )
     mesh = mg.io.read_tri_mesh(next(outdir.glob("bed_*_tri.vtu")))
     assert set(np.unique(mesh.phase)) == {0, 1}
+    flows = next(outdir.glob("bed_*_hydraulic_permeability_periodic.vtu"))
+    pores = mg.io.read_tri_mesh(flows)
+    assert set(np.unique(pores.phase)) == {0}
+    point = mg.io.read_vtu(flows)["point_data"]
+    velocity = np.asarray(point["velocity_x"], dtype=float)
+    assert velocity.shape == (pores.n_nodes, 3) and np.abs(velocity[:, 2]).max() == 0.0
+    # the mean velocity of the flow along x: its integral over the pores, the six-node
+    # functions integrated exactly on straight elements, nearly so on the curved ones
+    from morphogen.homogenization.plane_flow import _element_arrays
+
+    _, _, integrals = _element_arrays(pores)
+    mean = float((integrals * velocity[pores.elements, 0]).sum()) / 1.0
+    assert mean == pytest.approx(k, rel=1e-9)
 
 
 @pytest.mark.slow

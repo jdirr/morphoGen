@@ -14154,7 +14154,10 @@ through the corners of their triangles and across the box), is fixed at one node
 the closed pores hold a fluid at rest — across the plane, for they are pipes along $z$. The
 saddle point of the plane flow is factorized once (LU, a sparse factorization of SuperLU) for
 the two forces $f = e_x$ and $f = e_y$, the anti-plane flow by another for $f_3 = 1$; the
-mean velocities give the columns of $k$, symmetrized.
+mean velocities give the columns of $k$, symmetrized. With `fields`, the velocities of the
+three flows at the nodes of the triangles of the pores come with them, and the runs write
+them (`<stem>_hydraulic_permeability_periodic.vtu`: `velocity_x`, `velocity_y` and
+`velocity_z`, under the unit forces along $x$, $y$ and $z$).
 
 **The gaps.** The transverse permeability of a bed of fibres is that of its narrowest gaps,
 whose flows are a few elements across: the mesh must keep them open. The discs of straight
