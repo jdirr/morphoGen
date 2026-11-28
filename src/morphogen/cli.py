@@ -589,8 +589,9 @@ def _homogenization_sample(args, materials, plane: bool = False):
     """Mesh or image to homogenize: a geometry (.json) is meshed conformingly, a
     tetrahedral mesh (.vtu, .mesh) is used as is (finite elements), an image is solved
     by FFT. With ``plane`` (the homogenizations), a geometry is meshed in its plane when
-    ``--plane`` asks it or it is a tessellation of coplanar germs (columnar grains), and a
-    mesh of the plane (.vtu, .mesh of triangles) is read as such."""
+    ``--plane`` asks it or it is a tessellation of coplanar germs (columnar grains), its
+    pores with its solid for their flow (``hydraulic_permeability``), and a mesh of the
+    plane (.vtu, .mesh of triangles) is read as such."""
     from morphogen.homogenization.materials import any_oriented
     from morphogen.mesh.conforming import conforming_mesh
     from morphogen.mesh.triangles import planar_tessellation, plane_mesh
@@ -620,6 +621,9 @@ def _homogenization_sample(args, materials, plane: bool = False):
         periodic = True if args.periodic else None
         if plane and (getattr(args, "plane", None) is not None or planar_tessellation(micro)):
             extra = dict(light)
+            flows = "hydraulic_permeability" in (getattr(args, "property", None) or [])
+            if args.mesh_phases == "auto" and flows:
+                phases = "all"  # the flow through the pores: meshed with the solid
             if getattr(args, "z", None) is not None:
                 extra["z"] = args.z
             if args.min_feature is not None:
@@ -1060,7 +1064,8 @@ def cmd_homogenize(args) -> int:
             constants = {n: v for n, v in res.items() if isinstance(v, float) and n != "residual"}
             print("  constants: " + ", ".join(f"{n} {v:.6g}" for n, v in constants.items()))
         elif key.partition(".")[0] in ("hydraulic_permeability", "acoustic"):
-            print(f"{key} (lengths in the unit of the voxels, permeabilities in its square):")
+            unit = "the coordinates" if isinstance(sample, TriMesh) else "the voxels"
+            print(f"{key} (lengths in the unit of {unit}, permeabilities in its square):")
             tensor = res.get("tensor", res.get("permeability_tensor"))
             print("  permeability tensor k (<v> = -k grad p / viscosity):")
             print(_matrix_text(tensor))

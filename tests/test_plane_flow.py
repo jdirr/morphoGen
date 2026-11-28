@@ -216,3 +216,26 @@ def test_lattice_boltzmann_on_the_voxels_of_the_same_fibres():
     for key, tol in (("k11", 0.08), ("k22", 0.08), ("k33", 0.01)):
         assert lbm[key] == pytest.approx(fe[key], rel=tol)
     assert lbm["porosity"] == pytest.approx(fe["porosity"], abs=2e-3)
+
+
+@needs_mmg2d
+def test_command_line_of_the_flow_of_the_plane(tmp_path, capsys):
+    """``morphogen homogenize --plane`` of fibres with their permeability: the pores meshed
+    with the fibres, the tensor in the unit of the coordinates, that of the function."""
+    import json
+
+    from morphogen import cli
+
+    bed = _square_array(0.3)
+    geometry = tmp_path / "bed.json"
+    mg.io.save_microstructure(bed, geometry)
+    args = ["homogenize", str(geometry), "--size", "0.1", "--plane", "generalized",
+            "--material", "0=void", "1=young:230,poisson:0.2",
+            "--property", "hydraulic_permeability", "--bc", "periodic"]  # fmt: skip
+    assert cli.main(args) == 0
+    assert "in the unit of the coordinates" in capsys.readouterr().out
+    assert cli.main([*args, "--json"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    flow = out["hydraulic_permeability.periodic"]
+    mesh = plane_mesh(bed, size=0.1, order=2)
+    assert flow["k11"] == pytest.approx(plane_permeability(mesh, BED)["k11"], rel=1e-9)

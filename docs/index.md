@@ -67,8 +67,9 @@ the implicit geometry itself, exactly; the model of an image identified.
 
 Elastic, thermal, electrical, dielectric, magnetic and diffusive properties, their weak
 and strong couplings, thermo-chemo-elastic fields in time, harmonic regimes, waves, flow
-and sound: an FFT solver on voxels (CPU or GPU), finite elements on conforming meshes,
-extended finite elements.
+and sound: an FFT solver on voxels (CPU or GPU), finite elements on conforming meshes — in
+space, or in the plane of the structures that do not vary along an axis —, extended finite
+elements.
 ::::
 
 ::::{container} card

@@ -226,6 +226,9 @@
   of the fibres cannot change), the bounds of Hashin and Shtrikman, the permeability of the
   dry preform, the files of Abaqus; its card among the tutorials. The recipe of the
   permeability of a bed of fibres among the how-tos.
+* `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
+  the solid, for their flow; the overview pages (README, the landing page, the properties)
+  name the finite elements of the plane.
 * The rings of coated and hollow fibres and spheres in the sections of the plane
   (`disc_layers`; the model `coating`, outside or inside): their concentric circles meshed
   exactly, the coatings graded, three elements across them; coatings that meet by the level

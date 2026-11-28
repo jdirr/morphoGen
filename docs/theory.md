@@ -13995,7 +13995,10 @@ do at about half the size, whose remeshing refines the circles beyond the size o
 elements to keep its Hausdorff distance. A random bed of 21 fibres of radius 3.5 filling half
 of a periodic square of edge 40, gaps of 0.3 at least, is meshed in 0.35 s by 12 140
 triangles at the size 1, its smallest angle 17°, its pores in one part; its level sets need
-a grid of 0.1 for that, and 3.6 s (§120).
+a grid of 0.1 for that, and 3.6 s (§120). A circle that barely crosses a side of the box, or
+passes by one of its corners, leaves a thin cap there, whose sharp tips the elements take:
+over twenty realizations of the template `fibre_bed_plane` the smallest angles go from 1°
+(a cap 0.002 thick) to 19°, 10° in the median, the elements valid all the same.
 
 **Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
 $z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -

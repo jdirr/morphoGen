@@ -2,8 +2,10 @@
 
 The apparent properties of a volume element are its responses to macroscopic loadings
 under boundary conditions: kinematic (KUBC), mixed (MBC), periodic (PBC) and static
-(SUBC). morphoGen computes them by finite elements on conforming meshes, by an FFT solver
-on voxel images, or by extended finite elements on a grid cut by the interfaces, for
+(SUBC). morphoGen computes them by finite elements on conforming meshes (in space, or in the
+plane of the structures that do not vary along an axis: columnar grains, sections, fibres),
+by an FFT solver on voxel images, or by extended finite elements on a grid cut by the
+interfaces, for
 elasticity and for the other physics of heterogeneous materials. The
 [guide to the physics](physics.md) goes through each problem, its solver and the name of
 its property; this page shows the main uses.
