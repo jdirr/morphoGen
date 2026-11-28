@@ -262,6 +262,12 @@
   conductivities and the tensors of the other transport phenomena (`turned_conductivity`,
   `misaligned_conductivity`: `conductivity_tensor_voigt.<bc>.C33`..., their means), verified
   against the axial conductivities of fibres turned in a plane.
+* Fixed: the size field of the meshes of the plane (exact discs and contours) took the
+  least over the 48 nearest of its points: those of a contour traced finely (a body traced
+  again on the finer grids of the gaps between its capsules) hid a smaller size a little
+  farther, and single chords cut the round tips of capsules — 3.4·10⁻⁵ of the box in a dense
+  Boolean network; now the least over all of them where a farther one may give less, the
+  fields that were exact unchanged.
 * The exact contours of the dense Boolean networks: the twelve sections of six realizations
   of spherocylinders filling a fourth of the box meshed by their contours at the sizes 0.05
   and 0.025 (two of twelve before, the others left to the level sets), within 1.3·10⁻⁵ of

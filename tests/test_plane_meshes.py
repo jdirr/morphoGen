@@ -1039,3 +1039,21 @@ def test_exact_union_of_boolean_discs():
             - 0.5 * np.sqrt((a + b - d) * (d + a - b) * (d - a + b) * (d + a + b)))  # fmt: skip
     exact = np.pi * (a * a + b * b) - lens
     assert three.phase_fractions()[1] == pytest.approx(exact, rel=1e-5)
+
+
+def test_size_field_beyond_its_nearest_points():
+    """The size field of the contours and discs: the least over all its points, not over
+    the 48 nearest only — 200 points of size 0.04 along a line (a contour traced finely)
+    hide none of a point of size 0.001 a little farther, across a periodic side too."""
+    from morphogen.mesh.triangles import GRADE, _PointSizes
+
+    line = np.column_stack([np.linspace(0.0, 0.01, 200), np.zeros(200)])
+    points = np.vstack([line, [[0.02, 0.0]]])
+    h = np.append(np.full(200, 0.04), 0.001)
+    field = _PointSizes(points, h, (-1.0, -1.0), (1.0, 1.0), 0.05, False)
+    assert field([[0.0, 0.0]])[0] == pytest.approx(0.001 + GRADE * 0.02, rel=1e-12)
+    assert field([[0.5, 0.5]])[0] == pytest.approx(0.05)  # (beyond them all: the size)
+    shifted = points - [0.015, 0.0]  # the small one across the side x = -1 from the line
+    periodic = _PointSizes(np.mod(shifted + 1.0, 2.0) - 1.0, h, (-1.0, -1.0), (1.0, 1.0), 0.05,
+                           True)  # fmt: skip
+    assert periodic([[-0.015, 0.0]])[0] == pytest.approx(0.001 + GRADE * 0.02, rel=1e-12)

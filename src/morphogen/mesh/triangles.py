@@ -1618,8 +1618,10 @@ class _PointSizes:
             wrapped = np.mod(self.points - self.lower, self.lengths)
             wrapped[wrapped >= self.lengths] = 0.0
             self.tree = cKDTree(wrapped, boxsize=self.lengths)
+            self._wrapped = wrapped
         else:
             self.tree = cKDTree(self.points)
+            self._wrapped = self.points
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         x = np.atleast_2d(np.asarray(x, dtype=float))
@@ -1632,7 +1634,24 @@ class _PointSizes:
         found = idx < len(self.points)
         value = np.where(found, self.h[np.minimum(idx, len(self.points) - 1)] + GRADE * dist,
                          np.inf)  # fmt: skip
-        return np.minimum(self.size, value.min(axis=1))
+        value = np.minimum(self.size, value.min(axis=1))
+        # the points beyond the k nearest, none nearer than the k-th: where one of them may
+        # still give less (the points of a contour traced finely), those within reach
+        least = float(self.h.min()) if len(self.h) else 0.0
+        unsure = np.flatnonzero(np.isfinite(dist[:, -1]) & (value > least + GRADE * dist[:, -1]))
+        if len(unsure):
+            balls = self.tree.query_ball_point(x[unsure], (value[unsure] - least) / GRADE)
+            for i, near in zip(unsure.tolist(), balls.tolist(), strict=True):
+                if near:
+                    d = np.linalg.norm(self._apart(self._wrapped[near] - x[i]), axis=1)
+                    value[i] = min(value[i], float((self.h[near] + GRADE * d).min()))
+        return value
+
+    def _apart(self, d: np.ndarray) -> np.ndarray:
+        """Differences of points, the nearest images across a periodic box."""
+        if self.periodic:
+            d = d - self.lengths * np.round(d / self.lengths)
+        return d
 
 
 class _DiscSizes(_PointSizes):

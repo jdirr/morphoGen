@@ -14075,10 +14075,12 @@ circles 0.002 apart, the gap followed on the grid four times as fine, within 6.4
 4.9·10⁻⁷ at 0.05 and 0.0125, as by the union of discs. The sections of Boolean networks of
 spherocylinders turned at random (radius 0.03, length 0.4): filling a tenth of a periodic
 cube, the twelve meshes of six realizations at the sizes 0.05 and 0.025 within 2.1·10⁻⁶ of
-counts on grids of 4000² points; filling a fourth, the twelve within 1.3·10⁻⁵ — the eight
-at 0.025 within 3·10⁻⁶, those at 0.05 where a few middle nodes give way at sharp corners
-(8 of 1956 for the worst: the area of their chords) —, where the level sets are 3.9·10⁻³,
-1.3·10⁻³ and 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and 0.0125 for the first. Three
+counts on grids of 4000² points; filling a fourth, the twelve within 4.7·10⁻⁶ at both sizes
+alike (the errors of the counts), where the level sets are 3.9·10⁻³, 1.3·10⁻³ and
+4.3·10⁻⁴ off at the sizes 0.05, 0.025 and 0.0125 for the first. The size field of the
+contours is the least over all their points: those of a contour traced finely, on the finer
+grids of a body's gaps, would hide among the nearest a smaller size a little farther — the
+round tip of a capsule cut by a single chord, 3.4·10⁻⁵ of the box. Three
 features of these sections are narrower than the cells of the grids. A wedge of matrix
 between two capsules that cross at a small angle, narrower than a cell about a node of the
 grid in it: the marching squares close a loop of their own about the node, inside the
