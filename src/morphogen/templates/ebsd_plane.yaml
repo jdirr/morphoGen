@@ -1,0 +1,38 @@
+# A measured polycrystal by the finite elements of the plane: windows of an orientation map
+# (EBSD) meshed by their pixels (two triangles each, the grain and the mean orientation of
+# its pixel), their crystals of nickel solved in generalized plane strain under kinematic and
+# static uniform conditions — the conditions of a window that is not periodic, whose
+# apparent stiffnesses bound the effective one. The bulk modulus of a polycrystal of cubic
+# crystals is (C11 + 2 C12) / 3 = 180.37 GPa under both; the Young's moduli of the windows
+# lie between their kinematic and static values.
+#
+# The map is the demonstration map that comes with morphoGen: put the path of an .ang or a
+# .ctf file in its place, from the folder of this file.
+model:
+  type: ebsd
+  file: ebsd_map.ctf
+  threshold: 5.0               # degrees between two neighbouring points of one grain
+  min_size: 5                  # points: smaller grains are given to their neighbours
+  window: random               # origin: the window at the first corner of the map
+domain:
+  size: [16.0, 12.0, 0.5]      # um: a window of 32 x 24 points of the map
+  periodic: false
+seed: 2026
+realizations: 4
+mesh:
+  size: 0.5                    # the step of the map: its pixels (mesh.plane auto)
+homogenization:
+  method: fe                   # the finite elements of the plane
+  materials:
+    1: {cubic: [246.5, 147.3, 124.7]}   # nickel, GPa
+  boundary_conditions: [kubc, subc]
+  properties: [bulk_modulus, shear_modulus, stiffness]
+  fields: true
+outputs:
+  directory: out/ebsd_plane
+  name: map
+  conforming_mesh: [vtu, inp]  # map_0000_tri.vtu, the CPE6 elements of Abaqus
+visualization:
+  figures:
+    - {of: mesh}
+    - {of: shear_modulus.kubc, color: von_mises}

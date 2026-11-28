@@ -131,12 +131,13 @@ class MeshSpec:
 
     def on_plane(self, micro) -> bool:
         """Whether the mesh of a realization is a mesh of the plane: asked (``plane``), or
-        by default the columnar grains of a tessellation whose germs lie in one plane."""
+        by default the columnar grains of a tessellation whose germs lie in one plane and
+        the maps of grains (the orientation maps of EBSD)."""
         if self.plane is not None:
             return bool(self.plane)
-        from morphogen.mesh.triangles import planar_tessellation
+        from morphogen.mesh.triangles import lattice_map, planar_tessellation
 
-        return planar_tessellation(micro)
+        return planar_tessellation(micro) or lattice_map(micro)
 
     def plane_kwargs(self, porous=False) -> dict:
         """Arguments of :func:`morphogen.mesh.triangles.plane_mesh` (``phases`` as for
@@ -1183,12 +1184,14 @@ def _homogenization(data, base: Path | None = None) -> HomogenizationSpec:
 
 def _meshes_of_the_plane(mesh: MeshSpec, model) -> bool:
     """Whether the meshes of a run are those of the plane: asked, or by default for the
-    models whose realizations are columnar grains (the seeds of the plane)."""
+    models whose realizations are columnar grains (the seeds of the plane, the orientation
+    maps)."""
     if mesh.plane is not None:
         return bool(mesh.plane)
+    from morphogen.models.ebsd import EBSD
     from morphogen.models.seeded import SeededLaguerre
 
-    return isinstance(model, SeededLaguerre) and model.dimension == 2
+    return isinstance(model, EBSD) or (isinstance(model, SeededLaguerre) and model.dimension == 2)
 
 
 def _check_plane(mesh: MeshSpec, homog, outputs, viz) -> None:

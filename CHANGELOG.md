@@ -219,6 +219,20 @@
   `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
   plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
   `write_medit_tri` (`tests/public_api.txt`).
+* The loading paths of the meshes of the plane factorize the tangents of their layer by
+  default (`solver: auto`): the algebraic multigrid converged poorly on a layer tied across
+  its thickness (a plastic tension of 658 six-node triangles in 22 s instead of 207 s).
+* The orientation maps (EBSD) meshed in their plane by their pixels (§119; `lattice_mesh`,
+  `lattice_map`; `plane_mesh` and the configurations of the model `ebsd` by default): two
+  triangles per pixel, each the grain and the orientation of its pixel, for the finite
+  elements of the plane — the tetrahedra of the lattice field, meshed by its phases, turned
+  no crystal; the mesher in space extrudes them through the box (`conforming_mesh`), each
+  tetrahedron the grain of its pixel. The bulk modulus of the crystals of nickel of a window
+  of the demonstration map
+  exactly, kinematic conditions above static ones. The template `ebsd_plane` (windows of the
+  map by the finite elements of the plane, under kinematic and static conditions) and its
+  card in the gallery. Tested (`tests/test_plane_meshes.py`).
+  Public interface: `lattice_map`, `lattice_mesh` (`tests/public_api.txt`).
 * The loading paths of the meshes of the plane (§119): `homogenize` of a `TriMesh` follows
   them with the nonlinear behaviours on its layer of tetrahedra in space (`TriMesh.layer`:
   one layer of the thickness of its mean edge, ten-node tetrahedra for six-node triangles),

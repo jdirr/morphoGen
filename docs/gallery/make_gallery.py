@@ -129,6 +129,12 @@ RESULTS = {
         "field": "von_mises",
         "title": "von Mises stress of the shear",
     },
+    "ebsd_plane": {
+        "kind": "plane",
+        "result": "shear_modulus_kubc",
+        "field": "von_mises",
+        "title": "von Mises stress of the shear",
+    },
     "fracture_composite": {"kind": "fracture"},
     "fracture_rubber": {"kind": "fracture", "stretch": True},
 }
@@ -242,6 +248,9 @@ FAMILIES = [
              "crystal (low-angle boundaries)."),
             ("hyperuniform_cells", "The walls of the Voronoi cells of stealthy hyperuniform "
              "germs: disordered but regular closed cells."),
+            ("ebsd_plane", "A measured polycrystal by the finite elements of the plane: windows "
+             "of an orientation map meshed by their pixels, each with the grain and the "
+             "orientation of its pixel, under kinematic and static conditions."),
             ("ebsd", "A measured polycrystal: windows of an orientation map (EBSD, an .ang "
              "or a .ctf file), its grains found from the disorientations of its points, "
              "each with its mean orientation; their stiffness by FFT."),

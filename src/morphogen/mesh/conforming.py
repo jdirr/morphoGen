@@ -345,6 +345,20 @@ def _columnar_mesh(micro, *, size, min_size, gradation, phases, order, periodic,
     return mesh.quadratic() if order == 2 else mesh
 
 
+def _map_mesh(micro, *, size, order, phases, periodic) -> TetMesh:
+    """A map of grains (an orientation map): its mesh of the plane by its pixels
+    (:func:`morphogen.mesh.triangles.lattice_mesh`) extruded through the box in layers of
+    about the size of the elements, each element the grain of its pixel."""
+    from morphogen.mesh.triangles import lattice_mesh
+
+    axes = _periodic_axes(micro.domain.periodic if periodic is None else periodic)
+    plane = lattice_mesh(micro, phases=phases, periodic=bool(axes[0] and axes[1]))
+    layers = max(1, round(float(micro.domain.lengths[2]) / size))
+    mesh = plane.extruded(layers=layers)
+    mesh.metadata.update({"mesher": "map of grains (two triangles per pixel), extruded"})
+    return mesh.quadratic() if order == 2 else mesh
+
+
 def conforming_mesh(
     micro,
     *,
@@ -377,7 +391,8 @@ def conforming_mesh(
     orientation (``mesh.orientations``). The columnar grains of a tessellation whose germs
     lie in one plane (the seeds of the plane) are the exact polygons of its mesh of the
     plane (:func:`morphogen.mesh.triangles.tessellation_mesh`) extruded through the box,
-    in layers of about ``size``.
+    in layers of about ``size``; a map of grains (an orientation map) its pixels likewise,
+    two triangles each, each element the grain of its pixel.
 
     Parameters
     ----------
@@ -474,8 +489,11 @@ def conforming_mesh(
         raise ValueError(
             "phases: 'all', 'solid' (phase 1), 'matrix' (phase 0) or the phases to keep"
         )
+    from morphogen.mesh.triangles import lattice_map
     from morphogen.models.tessellation import Tessellation
 
+    if lattice_map(micro) and grains is not False:  # its grains: the map by its pixels
+        return _map_mesh(micro, size=float(size), order=order, phases=phases, periodic=periodic)
     tessellation = isinstance(micro, Tessellation)
     if grains is None:
         grains = tessellation and not micro.boundary_thickness > 0

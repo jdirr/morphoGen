@@ -3100,6 +3100,8 @@ morphogen.mesh.triangles.TriMesh.summary(self)
 morphogen.mesh.triangles.TriMesh.tolerance
 morphogen.mesh.triangles.background_triangulation(shape, lower, upper)
 morphogen.mesh.triangles.exact_section(micro)
+morphogen.mesh.triangles.lattice_map(micro)
+morphogen.mesh.triangles.lattice_mesh(micro, *, order=1, phases='all', periodic=None)
 morphogen.mesh.triangles.planar_pieces(micro, z=None)
 morphogen.mesh.triangles.planar_tessellation(micro)
 morphogen.mesh.triangles.plane_level_set(micro, spacing, z, phase=None)

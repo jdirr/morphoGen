@@ -13931,6 +13931,19 @@ other structures by their level sets: the section at $z = 0.37$ of a Laguerre te
 60 cells in a periodic unit cube has the areas of its 19 cells to round-off, which 200 000
 points of the plane sampled in the cells find within their standard errors.
 
+**Maps of grains.** An orientation map (EBSD, the model `ebsd`: a lattice of one cell
+through the thickness of the box, the label of a grain and its mean orientation per cell) is
+meshed in its plane by its pixels (`lattice_mesh`): two triangles per pixel along the
+diagonals that alternate with its parity, each the grain of its pixel, the grain boundaries
+the edges of the pixels as the map measures them; the configurations of the model mesh it so
+by default (`mesh.plane: auto`), the finite elements of the plane turning the crystals by the
+orientations of their grains — where the tetrahedra of the lattice field, meshed by its
+phases, had none. A window of 32 × 24 points of the demonstration map of nickel (20 grains,
+1 536 six-node triangles) gives the bulk modulus of the crystals, 180.367 GPa, under every
+condition (the mesher in space extrudes the same triangles through the box, each tetrahedron
+the grain of its pixel), and the Young's modulus $E_1$ 206.6 GPa under kinematic conditions, 196.6 GPa under
+static ones, about the 203.2 GPa of the FFT solver on its voxels.
+
 **Elasticity of the plane.** The fields of a structure invariant along $z$ under a uniform
 macroscopic loading do not vary along $z$: $u = E\,x + w(x, y)$, the strain
 $\varepsilon = E + \operatorname{sym}\nabla w$ with $\partial_z = 0$, so that
@@ -13967,7 +13980,10 @@ into tetrahedra (ten-node ones for six-node triangles), its faces $z$ tied as th
 other axes — the fields do not vary across it, the thickness drops out of the averages, and the
 periodic problems of the layer are those of the structure in generalized plane strain. Kinematic
 conditions on the layer would clamp its faces $z$: its paths run under periodic conditions only
-(the others skipped), and in generalized plane strain (not with `plane: strain`). A uniaxial
+(the others skipped), and in generalized plane strain (not with `plane: strain`); their
+tangents are factorized (`solver: auto`), the algebraic multigrid converging poorly on a layer
+tied across its thickness — the tension of 658 six-node triangles of two phases in 22 s
+instead of 207 s. A uniaxial
 tension of a square of an elastoplastic matrix about a stiff disc gives the same response on
 the mesh of the plane as on its layer itself, to round-off.
 
@@ -14018,7 +14034,8 @@ the areas within 8 % and 1 % on average); the section of spheres against their l
 back; the uniform fields, the laminates, the checkerboard and the layer in space; `homogenize`
 of a mesh of the plane (moduli, tensors, thermal expansion, named loadings, fields, porous
 meshes), what it does not solve refused; the loading paths on the layer in space, under
-periodic conditions only; a run of seeds of the plane (its files of
+periodic conditions only; an orientation map meshed by its pixels (two triangles each, their
+grains and orientations, the bulk modulus of the crystals, a run); a run of seeds of the plane (its files of
 triangles, the bulk modulus of the crystals), the keys of the configurations and what the
 meshes of the plane do not take, the command line, the figures.
 

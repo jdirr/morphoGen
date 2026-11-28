@@ -1212,6 +1212,62 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
     return mesh.quadratic() if order == 2 else mesh
 
 
+def lattice_map(micro) -> bool:
+    """Whether a structure is a map of grains: a lattice field of one layer through the
+    thickness of its box, with the label of a grain per cell (the orientation maps of EBSD:
+    the model ``ebsd``)."""
+    from morphogen.models.lattice_field import LatticeField
+
+    return (isinstance(micro, LatticeField) and micro.shape[2] == 1
+            and micro.cell_labels is not None)  # fmt: skip
+
+
+def lattice_mesh(micro, *, order: int = 1, phases="all", periodic: bool | None = None) -> TriMesh:
+    """The mesh of the plane of a map of grains (:func:`lattice_map`): two triangles per
+    cell (pixel), along the diagonals that alternate with its parity (the triangulation
+    symmetric about the lines of the lattice, as :func:`background_triangulation`), each the
+    phase and the grain of its cell, the grains their orientations — the map as measured,
+    its grain boundaries the edges of its pixels. The cells without a grain (label -1) are
+    one more grain of no orientation (zero angles)."""
+    if not lattice_map(micro):
+        raise ValueError("lattice mesh: a lattice field of one layer with grains (a map)")
+    if order not in (1, 2):
+        raise ValueError("order: 1 or 2")
+    domain: Domain = micro.domain
+    periodic = bool(domain.periodic) if periodic is None else bool(periodic)
+    nx, ny, _ = micro.shape
+    lower = np.asarray(domain.lower[:2], dtype=float)
+    upper = np.asarray(domain.upper[:2], dtype=float)
+    x = np.linspace(lower[0], upper[0], nx + 1)
+    y = np.linspace(lower[1], upper[1], ny + 1)
+    gx, gy = np.meshgrid(x, y, indexing="ij")
+    nodes = np.column_stack([gx.ravel(), gy.ravel()])
+    idx = np.arange((nx + 1) * (ny + 1)).reshape(nx + 1, ny + 1)
+    i, j = np.meshgrid(np.arange(nx), np.arange(ny), indexing="ij")
+    i, j = i.ravel(), j.ravel()
+    a, b, c, d = idx[i, j], idx[i + 1, j], idx[i + 1, j + 1], idx[i, j + 1]
+    even = (i + j) % 2 == 0
+    first = np.where(even[:, None], np.column_stack([a, b, c]), np.column_stack([a, b, d]))
+    second = np.where(even[:, None], np.column_stack([a, c, d]), np.column_stack([b, c, d]))
+    tri = np.stack([first, second], axis=1).reshape(-1, 3)  # the two of each cell together
+    cells = np.repeat(np.arange(nx * ny), 2)
+    phase = micro.phases[:, :, 0].ravel()[cells].astype(np.int64)
+    labels = micro.cell_labels[:, :, 0].ravel()[cells].astype(np.int64)
+    orientations = micro.orientations
+    if labels.min(initial=0) < 0:  # the cells of no grain: one more grain
+        extra = int(labels.max(initial=-1)) + 1
+        labels = np.where(labels < 0, extra, labels)
+        if orientations is not None:
+            orientations = np.vstack([orientations, np.zeros((extra + 1 - len(orientations), 3))])
+    mesh = TriMesh(nodes, tri, phase, lower, upper, periodic,
+                   {"mesher": "map of grains (two triangles per cell)", "cells": nx * ny},
+                   cell=labels, orientations=orientations,
+                   z=float(domain.lower[2] + 0.5 * domain.lengths[2]),
+                   thickness=float(domain.lengths[2]))  # fmt: skip
+    mesh = _kept(mesh, phases)
+    return mesh.quadratic() if order == 2 else mesh
+
+
 def exact_section(micro) -> bool:
     """Whether the sections of a structure are exact polygons: a tessellation (its grains
     gathered from its cells) without a boundary phase."""
@@ -1225,7 +1281,12 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     """The triangular mesh of a planar structure: the exact grains of a planar tessellation
     (:func:`tessellation_mesh`), the exact section of a tessellation in space in the plane
     ``z`` (by default the middle of its box), the section of any other structure in that
-    plane (:func:`section_mesh`). ``min_feature``: that of the polygons of tessellations."""
+    plane (:func:`section_mesh`), a map of grains by its pixels (:func:`lattice_mesh`).
+    ``min_feature``: that of the polygons of tessellations."""
+    if lattice_map(micro):
+        return lattice_mesh(micro, order=options.get("order", 1),
+                            phases=options.get("phases", "all"),
+                            periodic=options.get("periodic"))  # fmt: skip
     if planar_tessellation(micro) or exact_section(micro):
         options.pop("background", None)
         z = options.pop("z", None)
@@ -1238,5 +1299,6 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
 
 
 __all__ = ["REF_PHASE", "SIDE_REFS", "TRI6_EDGES", "TriMesh", "background_triangulation",
-           "exact_section", "planar_pieces", "planar_tessellation", "plane_level_set",
-           "plane_mesh", "section_mesh", "section_weights", "tessellation_mesh"]  # fmt: skip
+           "exact_section", "lattice_map", "lattice_mesh", "planar_pieces",
+           "planar_tessellation", "plane_level_set", "plane_mesh", "section_mesh",
+           "section_weights", "tessellation_mesh"]  # fmt: skip

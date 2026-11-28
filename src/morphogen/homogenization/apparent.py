@@ -884,10 +884,15 @@ def homogenize(
                     sample, materials, law, bc, tol=tol, maxiter=maxiter, **cell, **nonlinear
                 )
             else:
-                # a mesh of the plane: its layer of tetrahedra in space, periodic across it
-                solid = sample.layer() if isinstance(sample, TriMesh) else sample
+                # a mesh of the plane: its layer of tetrahedra in space, periodic across it,
+                # its tangents factorized (the multigrid converges poorly on a layer tied
+                # across its thickness)
+                solid, linear = sample, solver
+                if isinstance(sample, TriMesh):
+                    solid = sample.layer()
+                    linear = "direct" if solver == "auto" else solver
                 problem = NonlinearFEProblem(
-                    solid, materials, bc, solver=solver, tol=tol, maxiter=maxiter,
+                    solid, materials, bc, solver=linear, tol=tol, maxiter=maxiter,
                     **(nonlinear or {}),
                 )  # fmt: skip
             if microdamage and hasattr(problem, "microdamage_options"):

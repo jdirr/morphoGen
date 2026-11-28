@@ -855,6 +855,37 @@ morphogen run hyperuniform_cells.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-ebsd-plane
+
+```{image} _static/gallery/ebsd_plane.png
+:alt: ebsd_plane
+:loading: lazy
+```
+
+```{image} _static/gallery/ebsd_plane_result.png
+:alt: the result of ebsd_plane
+:loading: lazy
+```
+
+**`ebsd_plane`** — A measured polycrystal by the finite elements of the plane: windows of an orientation map meshed by their pixels, each with the grain and the orientation of its pixel, under kinematic and static conditions.
+
+*Needs the mesher MMG (extra `mesh`), VTK and ffmpeg (extra `video`).*
+
+```bash
+morphogen template ebsd_plane -o ebsd_plane.yaml
+morphogen run ebsd_plane.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/ebsd_plane.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-ebsd
 
 ```{image} _static/gallery/ebsd.png

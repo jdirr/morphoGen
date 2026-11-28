@@ -574,3 +574,52 @@ def test_plane_hypothesis_of_tetrahedra(tmp_path):
             "outputs": {"directory": str(tmp_path)}}  # fmt: skip
     with pytest.raises(ConfigError, match=r"homogenization\.plane"):
         load_config(data, base_dir=tmp_path)
+
+
+def test_maps_of_grains(tmp_path):
+    """An orientation map (EBSD) meshed in its plane by its pixels: two triangles per pixel,
+    each with the grain and the orientation of its pixel; the bulk modulus of its crystals
+    under every condition, kinematic conditions stiffer than static ones; in space, the
+    pixels extruded with their grains; the pixels of no grain one more grain; a run of the
+    map by the finite elements of the plane."""
+    from morphogen.config import load_config
+    from morphogen.mesh.triangles import lattice_map, lattice_mesh
+    from morphogen.models.ebsd import EBSD
+    from morphogen.models.lattice_field import LatticeField
+    from morphogen.pipeline import run
+
+    micro = EBSD(file="ebsd_map.ctf").generate(mg.Domain(size=(16.0, 12.0, 0.5), periodic=False),
+                                               seed=1)  # fmt: skip
+    assert lattice_map(micro)
+    mesh = plane_mesh(micro, size=0.5)
+    assert mesh.n_elements == 2 * 32 * 24 and mesh.areas() == pytest.approx(np.full(1536, 0.125))
+    labels = micro.cell_labels[:, :, 0].ravel()
+    np.testing.assert_array_equal(mesh.cell, np.repeat(labels, 2))
+    np.testing.assert_allclose(mesh.orientations, micro.orientations)
+    nickel = {1: Material.cubic(c11=246.5, c12=147.3, c44=124.7)}
+    out = homogenize(mesh, nickel, bcs=("kubc", "subc"), properties=("bulk_modulus", "stiffness"))
+    for bc in ("kubc", "subc"):
+        assert out[f"bulk_modulus.{bc}"].value == pytest.approx((246.5 + 2 * 147.3) / 3)
+    assert out["stiffness.kubc"]["E1"] > out["stiffness.subc"]["E1"]
+    solid = mg.mesh.conforming_mesh(micro, size=0.5)  # in space: the pixels extruded
+    assert len(np.unique(solid.cell)) == len(np.unique(labels)) and solid.orientations is not None
+    assert np.abs(solid.volumes()).sum() == pytest.approx(16.0 * 12.0 * 0.5)
+    phases = np.ones((4, 3, 1), dtype=np.uint8)
+    holes = np.zeros((4, 3, 1), dtype=np.int32)
+    holes[0, 0, 0] = -1
+    field = LatticeField(mg.Domain(size=(4.0, 3.0, 1.0), periodic=False), phases, labels=holes,
+                         orientations=[[10.0, 20.0, 30.0]])  # fmt: skip
+    grains = lattice_mesh(field)
+    assert set(np.unique(grains.cell)) == {0, 1} and len(grains.orientations) == 2
+    data = {"model": {"type": "ebsd", "file": "ebsd_map.ctf"},
+            "domain": {"size": [16.0, 12.0, 0.5], "periodic": False}, "seed": 1,
+            "mesh": {"size": 0.5},
+            "homogenization": {"method": "fe", "boundary_conditions": ["kubc"],
+                               "materials": {1: {"cubic": [246.5, 147.3, 124.7]}},
+                               "properties": ["bulk_modulus"]},
+            "outputs": {"directory": str(tmp_path / "out"), "name": "map",
+                        "conforming_mesh": ["vtu"]}}  # fmt: skip
+    cfg = load_config(data, base_dir=tmp_path)
+    assert cfg.mesh.on_plane(micro)
+    run(cfg)
+    assert (tmp_path / "out" / "map_0000_tri.vtu").exists()

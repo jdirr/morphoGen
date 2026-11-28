@@ -46,7 +46,8 @@ mesh:                  # conforming tetrahedral meshes (MMG), FE solver
                        # grains of a tessellation of coplanar germs, the section of any
                        # other structure at z) and the finite elements of the plane;
                        # false: tetrahedra (those grains extruded through the box);
-                       # auto: triangles for those tessellations, tetrahedra otherwise
+                       # auto: triangles for those tessellations and for the orientation
+                       # maps (ebsd: two triangles per pixel), tetrahedra otherwise
   z: null              # plane: the height of the sections (default: the middle of the box)
 outputs:
   directory: out/run   # relative to the configuration file
