@@ -262,6 +262,12 @@
   conductivities and the tensors of the other transport phenomena (`turned_conductivity`,
   `misaligned_conductivity`: `conductivity_tensor_voigt.<bc>.C33`..., their means), verified
   against the axial conductivities of fibres turned in a plane.
+* The interface solves the section of a morphology in its plane: the tool *Linear tensors*
+  (Mechanics) takes the method `plane` — the triangles of its section (exact discs or
+  contours, or the level sets), its element size, order, conditions and the height of the
+  plane, solved in generalized plane strain, the mesh drawn — and, for misaligned fibres,
+  gives the axial modulus, conductivity and expansion of the ply from the section turned
+  along the segments of its fibres (Voigt, the layers, Reuss) beside those of the section.
 * The exact contours of the cylinders whose flat caps cut the plane (the Boolean cylinders,
   whose caps are flat by default, fell to the level sets): the distance of a finite
   cylinder, the corners of the rims where the contours pass from the lateral surface to a

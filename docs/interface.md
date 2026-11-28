@@ -123,7 +123,11 @@ The workspace is saved to a folder and opened again in another session (**Saveâ€
   does, from the values of the form or a behaviour of the workspace, with the stiffness
   and compliance of the elasticity identified; the linear tensors (stiffness with its
   compliance, thermal expansion,
-  conductivity) with their bounds, by FFT, by finite elements on a conforming mesh or
+  conductivity) with their bounds, by FFT, by finite elements on a conforming mesh, by
+  those of its section in its plane (the triangles of its exact contours, the structure
+  along z in generalized plane strain, the mesh drawn; for misaligned fibres, the axial
+  modulus, conductivity and expansion of the ply from the section turned along the
+  segments of its fibres: Voigt, the layers and Reuss) or
   by extended finite elements (XFEM) on a grid cut by the level set; the stiffness of a fibre network, an open foam or a
   random lattice of the workspace as the frame of beams of its framework (Eulerâ€“Bernoulli
   or Timoshenko beams, rigid joints, the modulus and Poisson's ratio of the fibres): its

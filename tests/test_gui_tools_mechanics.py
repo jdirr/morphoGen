@@ -1145,6 +1145,55 @@ def test_linear_tensors(tmp_path):
     assert "one per phase" in _error(session, "tensors", {**params, "expansions": [1e-5]})
 
 
+@pytest.mark.skipif(not has_mmg(), reason="the meshes of the plane need MMG (pip install pymmg)")
+def test_linear_tensors_of_a_section(tmp_path):
+    """The linear tensors of a section in its plane: long fibres misaligned by 4 degrees,
+    the triangles of the exact contours of their section, solved in generalized plane
+    strain (the fibres along z: its axial modulus that of straight fibres), with the mesh
+    drawn; the ply's estimates from the section turned along the segments of its fibres —
+    its axial modulus and conductivity below the section's, Voigt above the layers and
+    Reuss, its axial expansion above the section's; spheres in their plane, no ply."""
+    session = api.Session(tmp_path)
+    config = {"type": "long_fibers", "radius": 2.0, "volume_fraction": 0.3, "min_gap": 0.5,
+              "misalignment": 4.0}  # fmt: skip
+    model = model_from_config(config)
+    micro = model.generate(Domain(size=(16.0, 16.0, 48.0), periodic=True), derive_seed(2, 0))
+    key, _ = session.folder()
+    session.add(key, "morphology", "long fibres (seed 2)", micro=micro, seed=2,
+                model=model.to_config(), domain={"size": [16.0, 16.0, 48.0], "periodic": True},
+                phases={"0": "matrix", "1": "fibres"})  # fmt: skip
+    params = {
+        "source": key,
+        "materials": {"0": {"young": 3.5, "poisson": 0.35}, "1": {"young": 230.0, "poisson": 0.2}},
+        "method": "plane",
+        "element_size": 1.0,
+        "order": "1",
+        "tensors": ["stiffness", "conductivity_tensor", "thermal_expansion"],
+        "expansions": [60e-6, -0.5e-6],
+        "conductivities": [0.2, 10.0],
+    }
+    out = _run(session, "tensors", params)
+    values = out["values"]
+    assert values["triangles"] > 100 and "the mesh of the section" in [
+        f["title"] for f in out["figures"]
+    ]
+    rule = values["fraction_0"] * 3.5 + values["fraction_1"] * 230.0  # (nearly: Hill)
+    assert values["stiffness.E3"] == pytest.approx(rule, rel=0.01)
+    assert values["misalignment (degrees)"] == pytest.approx(4.0, rel=0.1)
+    ply = next(t for t in out["tables"] if t["title"].startswith("the misaligned ply"))
+    assert ply["columns"] == ["", "E3", "K33", "A33"]
+    (section, voigt, layers, reuss) = (row[1:] for row in ply["rows"])
+    assert section[0] > voigt[0] > layers[0] >= reuss[0] * (1 - 1e-9)
+    assert section[1] >= voigt[1] >= layers[1] >= reuss[1] * (1 - 1e-9)
+    assert layers[2] > section[2] and reuss[2] > section[2]
+    assert values["ply.E3.voigt"] == pytest.approx(voigt[0])
+    session, key = _workspace(tmp_path / "spheres")  # (their section: discs)
+    params = {"source": key, "materials": ELASTIC, "method": "plane", "order": "1"}
+    out = _run(session, "tensors", params)
+    assert not any(t["title"].startswith("the misaligned ply") for t in out["tables"])
+    assert out["values"]["triangles"] > 10
+
+
 def test_linear_tensors_by_extended_finite_elements(tmp_path):
     """The linear tensors on a regular grid cut by the level set (XFEM): no mesh, the
     interfaces where the model puts them. The moduli stand between the bounds of the

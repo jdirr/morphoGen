@@ -3231,11 +3231,13 @@ CRYSTALS = (
     "The apparent stiffness tensor of a morphology (its engineering constants, anisotropy "
     "indices and isotropic projection), its thermal expansion and its conductivity tensor, "
     "by FFT on its voxels, by finite elements on its conforming mesh (periodic, kinematic "
-    "or static conditions) or by extended finite elements (XFEM) on a regular grid that its "
-    "level set cuts (periodic; no mesh to build, and the interfaces where the model puts "
-    "them); crystals turned by the orientations of the grains of polycrystals; against the "
-    "bounds of the phase fractions (Voigt, Reuss, Hashin-Shtrikman, Levin) and with the "
-    "directional Young's modulus.",
+    "or static conditions), by those of its section in its plane (triangles, the structure "
+    "along z: fibre composites, columnar grains; for misaligned fibres, the ply's estimates "
+    "from the section turned along the segments of its fibres) or by extended finite "
+    "elements (XFEM) on a regular grid that its level set cuts (periodic; no mesh to build, "
+    "and the interfaces where the model puts them); crystals turned by the orientations of "
+    "the grains of polycrystals; against the bounds of the phase fractions (Voigt, Reuss, "
+    "Hashin-Shtrikman, Levin) and with the directional Young's modulus.",
     [
         Field("source", "item", label="morphology", required=True),
         Field(
@@ -3282,6 +3284,11 @@ CRYSTALS = (
             "fe",
             choices=(
                 ("fe", "finite elements on the conforming mesh of its geometry"),
+                (
+                    "plane",
+                    "finite elements of its section in its plane (triangles; the structure "
+                    "along z, in generalized plane strain)",
+                ),
                 ("fft", "FFT on its voxels (periodic)"),
                 (
                     "xfem",
@@ -3303,18 +3310,31 @@ CRYSTALS = (
             "element_size",
             "float",
             unit="length",
-            when={"method": "fe"},
-            doc="largest edge of the elements (blank: 1/8 of the edge of the domain)",
+            when={"method": ["fe", "plane"]},
+            doc="largest edge of the elements (blank: 1/8 of the edge of the domain, 1/16 of "
+            "that of its section)",
+        ),
+        Field(
+            "z",
+            "float",
+            label="height of the section",
+            unit="length",
+            when={"method": "plane"},
+            doc="of the plane of the section (blank: the middle of the domain)",
         ),
         Field(
             "order",
             "choice",
             "2",
             label="elements",
-            when={"method": "fe"},
+            when={"method": ["fe", "plane"]},
             choices=(
-                ("2", "10-node tetrahedra (curved along the interfaces; accurate)"),
-                ("1", "4-node tetrahedra (fast; stiff)"),
+                (
+                    "2",
+                    "quadratic: 10-node tetrahedra, 6-node triangles (curved along the "
+                    "interfaces; accurate)",
+                ),
+                ("1", "linear: 4-node tetrahedra, 3-node triangles (fast; stiff)"),
             ),
         ),
         Field(
@@ -3322,7 +3342,7 @@ CRYSTALS = (
             "choice",
             "periodic",
             label="boundary conditions",
-            when={"method": "fe"},
+            when={"method": ["fe", "plane"]},
             choices=(
                 ("periodic", "periodic"),
                 ("kubc", "kinematic (KUBC)"),
@@ -3382,7 +3402,8 @@ def linear_tensors(p: dict, ctx) -> dict:
         configs[k] = spec
     configs.update(_extra(p))
     materials = materials_from_config(configs)
-    stage = {"fe": "conforming mesh", "xfem": "grid cut by the level set"}
+    stage = {"fe": "conforming mesh", "plane": "mesh of the section",
+             "xfem": "grid cut by the level set"}  # fmt: skip
     ctx.progress(0.05, stage.get(p["method"], "voxels"))
     extra_args: dict = {}
     if p["method"] == "xfem":
@@ -3419,6 +3440,31 @@ def linear_tensors(p: dict, ctx) -> dict:
         if len(absent) == 1:  # the pores, left out of the mesh
             fractions[absent[0]] = max(0.0, 1.0 - sum(fractions.values()))
         info = {"elements": sample.n_elements, "nodes": sample.n_nodes}
+    elif p["method"] == "plane":
+        from morphogen.mesh.triangles import plane_mesh
+
+        if any_oriented(materials):
+            raise ValueError("the section in its plane: isotropic phases (crystals: FE or FFT)")
+        edge = float(np.max(micro.domain.lengths[:2]))
+        size = p["element_size"] or edge / 16
+        if not edge / 400 <= size <= edge:
+            raise ValueError(f"element size: between {edge / 400:g} and {edge:g}")
+        voids = {int(k) for k, m in materials.items() if m.void}
+        options = MeshSpec(size=size, order=int(p["order"])).plane_kwargs(voids)
+        if p.get("z") is not None:
+            options["z"] = float(p["z"])
+        sample = plane_mesh(micro, **options)
+        bc = p["bc"]
+        fractions = sample.phase_fractions()
+        absent = [k for k in materials if k not in fractions]
+        if len(absent) == 1:  # the pores, left out of the mesh
+            fractions[absent[0]] = max(0.0, 1.0 - sum(fractions.values()))
+        info = {"triangles": sample.n_elements, "nodes": sample.n_nodes}
+        extra_args = {"plane": "generalized"}
+        from morphogen.viz.figures import mesh_figure
+
+        title = f"the section, {sample.metadata.get('mesher', 'triangles')}"
+        ctx.figure(mesh_figure(sample, title=title), "section", "the mesh of the section")
     else:
         n = p["voxels"]
         if not 4 <= n <= 256:
@@ -3450,12 +3496,64 @@ def linear_tensors(p: dict, ctx) -> dict:
         values.update({f"{name}.{k}": v for k, v in res.items() if isinstance(v, float)})
         if name == "stiffness":
             ctx.figure(_young_figure(tensor), "young_modulus", "directional Young's modulus")
+    if p["method"] == "plane":
+        values.update(_misaligned_ply(ctx, micro, results, wanted, bc))
     limits = bounds({k: v for k, v in fractions.items() if k in materials}, materials)
     rows = [{"property": prop, **values_} for prop, values_ in limits.items()]
     if rows:
         ctx.table(rows, "bounds", "bounds of the phase fractions")
     values.update({f"fraction_{k}": float(v) for k, v in sorted(fractions.items())})
     return {"values": values}
+
+
+def _misaligned_ply(ctx, micro, results, wanted, bc) -> dict:
+    """The tensors of a ply of misaligned fibres from those of its section (the fibres of a
+    union of segments, some not along z): the bounds of Voigt and Reuss and the layers of
+    :mod:`morphogen.homogenization.unidirectional`, their axial values in a table and the
+    values; nothing for another structure."""
+    from morphogen.homogenization.postprocess import engineering_constants
+    from morphogen.homogenization.unidirectional import (
+        fibre_directions,
+        misaligned_conductivity,
+        misaligned_expansion,
+        misaligned_stiffness,
+    )
+
+    try:
+        directions, volumes = fibre_directions(micro)
+    except ValueError:
+        return {}
+    if np.all(np.abs(directions[:, 2]) >= 1.0 - 1e-12):
+        return {}  # (straight fibres along z: the section is the ply)
+    angle = float(np.degrees(np.sqrt(np.average(np.arccos(np.clip(directions[:, 2], -1.0, 1.0))
+                                                ** 2, weights=volumes))))  # fmt: skip
+    averages: dict = {}
+    section = f"stiffness.{bc}"
+    if "stiffness" in wanted:
+        tensors = misaligned_stiffness(results[section]["tensor"], directions, volumes)
+        averages["E3"] = {k: engineering_constants(c)["E3"] for k, c in tensors.items()}
+        averages["E3"]["section"] = float(results[section]["E3"])
+    if "conductivity_tensor" in wanted:
+        tensor = results[f"conductivity_tensor.{bc}"]["tensor"]
+        found = misaligned_conductivity(tensor, directions, volumes)
+        averages["K33"] = {k: float(c[2, 2]) for k, c in found.items()}
+        averages["K33"]["section"] = float(np.asarray(tensor)[2, 2])
+    if "thermal_expansion" in wanted and "stiffness" in wanted:
+        expansion = results[f"thermal_expansion.{bc}"]["tensor"]
+        found = misaligned_expansion(results[section]["tensor"], expansion, directions, volumes)
+        averages["A33"] = {k: float(c[2, 2]) for k, c in found.items()}
+        averages["A33"]["section"] = float(np.asarray(expansion)[2, 2])
+    if not averages:
+        return {}
+    names = {"section": "the section (straight fibres)", "voigt": "Voigt (a uniform strain)",
+             "layers": "layers normal to z", "reuss": "Reuss (a uniform stress)"}  # fmt: skip
+    rows = [{"": names[k], **{q: v[k] for q, v in averages.items()}} for k in names]
+    ctx.table(rows, "misaligned_ply", f"the misaligned ply ({angle:.2f} degrees RMS), along "
+              "the fibres")  # fmt: skip
+    out = {"misalignment (degrees)": angle}
+    for q, v in averages.items():
+        out.update({f"ply.{q}.{k}": float(x) for k, x in v.items() if k != "section"})
+    return out
 
 
 def _elasticity_tables(ctx, material: dict, of: str) -> None:

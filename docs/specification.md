@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Document | Software requirements specification |
-| Version | 1.200 |
+| Version | 1.201 |
 | Date | 2026-11-27 |
 | Author | @jdirr |
 | Status | Version 1.1 **validated** on 2026-10-21. The later versions, proposed, are listed in the change log (§13); changes go through pull requests that update this file and its change log. |
@@ -1318,6 +1318,7 @@ Packages: `models`, `kernels`, `analysis`, `rve`, `mesh`, `homogenization`, `io`
 | 1.198 | 2026-11-28 | The thermal expansion of misaligned plies (FR-H38, §3.11) |
 | 1.199 | 2026-11-28 | The exact contours of the dense Boolean networks (FR-E18, §3.11) |
 | 1.200 | 2026-11-28 | The exact contours of the flat caps of cylinders (FR-E18, §3.11) |
+| 1.201 | 2026-11-28 | The linear tensors of a section in its plane in the interface, with the misaligned ply (FR-H38, §3.11) |
 
 ## 14. References
 
