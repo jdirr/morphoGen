@@ -219,6 +219,19 @@
   `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
   plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
   `write_medit_tri` (`tests/public_api.txt`).
+* The tutorial *Polycrystals of the plane, meshed and solved in their plane*
+  (`docs/tutorial_plane.md`, run by the tests): the grains of a rolled sheet grown from
+  seeds of the plane, their exact polygons and their small features removed, the stiffness
+  of the sheet under the three uniform conditions (the bulk modulus of the crystals of
+  copper), plane strain and the layer in space, the exact section of a polycrystal of space,
+  an orientation map meshed by its pixels, a plastic path and the files of Abaqus; its card
+  among the tutorials. The small features of the polygons of the plane removed at half the
+  size where the polygons would fold, three times at most, before the exact polygons; the
+  vertices near a side join the vertex of the side nearer than the features, instead of a
+  short edge along the side (the smallest angle of 152 624 triangles of 1415 grains 5.4°
+  instead of 0.9°). The power diagram of the plane skips the half planes that do not cut a polygon (the pieces of
+  9905 cells in 3.5 s instead of 8.4 s). The interface exports the triangles of its
+  simulations of structures of the plane.
 * The loading paths of the meshes of the plane factorize the tangents of their layer by
   default (`solver: auto`): the algebraic multigrid converged poorly on a layer tied across
   its thickness (a plastic tension of 658 six-node triangles in 22 s instead of 207 s).

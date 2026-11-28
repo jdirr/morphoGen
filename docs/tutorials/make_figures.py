@@ -28,7 +28,7 @@ FIGURES = DOCS / "_static" / "tutorial"
 #: The pages of the tutorials whose snippets save figures
 PAGES = ("tutorial", "tutorial_rubber", "tutorial_geometry", "tutorial_rve", "tutorial_iga",
          "tutorial_contact", "tutorial_fracture", "tutorial_texture",
-         "tutorial_morphology")  # fmt: skip
+         "tutorial_morphology", "tutorial_plane")  # fmt: skip
 #: Largest number of colours of a figure
 COLOURS = 96
 

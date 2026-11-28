@@ -1,7 +1,7 @@
 """The tutorials of the documentation (docs/tutorial.md, docs/tutorial_rve.md,
 docs/tutorial_rubber.md, docs/tutorial_geometry.md, docs/tutorial_iga.md,
 docs/tutorial_contact.md, docs/tutorial_fracture.md, docs/tutorial_texture.md,
-docs/tutorial_morphology.md) stay correct:
+docs/tutorial_morphology.md, docs/tutorial_plane.md) stay correct:
 the Python snippets of each run one after another in one session, at smaller sizes; the
 configuration of the
 first runs with ``morphogen run``; each of their ``morphogen`` commands is one that the
@@ -30,6 +30,7 @@ CONTACT = DOCS / "tutorial_contact.md"
 FRACTURE = DOCS / "tutorial_fracture.md"
 TEXTURE = DOCS / "tutorial_texture.md"
 MORPHOLOGY = DOCS / "tutorial_morphology.md"
+PLANE = DOCS / "tutorial_plane.md"
 if not DOCS.is_dir():  # an installed package without its sources
     pytest.skip("the documentation is not here", allow_module_level=True)
 
@@ -119,7 +120,13 @@ SMALLER_MORPHOLOGY = {
     "image = micro.voxelize(shape=64)": "image = micro.voxelize(shape=40)",
     "for s in range(8)\n": "for s in range(3)\n",
 }
+#: Those of the tutorial of the plane: a coarser sheet, a shorter path
+SMALLER_PLANE = {
+    "mesh = mg.mesh.plane_mesh(sheet, size=0.025)": "mesh = mg.mesh.plane_mesh(sheet, size=0.05)",
+    '"increments": 5, "strain": {"11": 0.01}': '"increments": 2, "strain": {"11": 0.01}',
+}
 PAGES = {
+    PLANE: SMALLER_PLANE,
     CONTACT: SMALLER_CONTACT,
     FRACTURE: {},
     TEXTURE: SMALLER_TEXTURE,
@@ -511,3 +518,27 @@ def test_morphology_tutorial_snippets(tmp_path, monkeypatch):
     for name in ("morphology_capacities.png", "morphology_operations.png",
                  "morphology_identification.png"):  # fmt: skip
         assert (tmp_path / name).is_file(), name
+
+
+@pytest.mark.slow
+def test_plane_tutorial_snippets(tmp_path, monkeypatch):
+    """Polycrystals of the plane: the exact polygons of seeds of the plane and their small
+    features removed, the bulk modulus of cubic crystals under the three conditions and
+    their ordering, the layer in space giving the tensor of the plane, the exact section of
+    a polycrystal of space, the bounds of an orientation map, a plastic path, the plane
+    elements of Abaqus."""
+    ns = _run(PLANE, tmp_path, monkeypatch)
+    assert ns["mesh"].n_elements < ns["exact"].n_elements and ns["mesh"].matching_sides()
+    out = ns["out"]
+    e1 = [out[f"stiffness.{bc}"]["E1"] for bc in ("kubc", "periodic", "subc")]
+    assert e1[0] >= e1[1] >= e1[2]
+    for bc in ("kubc", "periodic", "subc"):
+        assert out[f"stiffness.{bc}"]["bulk_modulus"] == pytest.approx(
+            (168.4 + 2 * 121.4) / 3.0, rel=1e-9)  # fmt: skip
+    assert np.abs(ns["layer"]["tensor"] - ns["plane"]["tensor"]).max() < 1e-9 * 168.4
+    assert ns["section"].areas().sum() == pytest.approx(1.0, rel=1e-12)
+    bounds = ns["bounds"]
+    assert bounds["stiffness.kubc"]["E1"] > bounds["stiffness.subc"]["E1"]
+    assert ns["path"]["pull.periodic"].components()["S11"] > 100.0
+    assert (tmp_path / "sheet.inp").read_text().count("*SOLID SECTION") == ns["sheet"].n_grains
+    assert (tmp_path / "plane_grains.png").is_file()

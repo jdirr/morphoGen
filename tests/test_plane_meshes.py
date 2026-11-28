@@ -623,3 +623,21 @@ def test_maps_of_grains(tmp_path):
     assert cfg.mesh.on_plane(micro)
     run(cfg)
     assert (tmp_path / "out" / "map_0000_tri.vtu").exists()
+
+
+@needs_mmg2d
+def test_small_features_halved_where_they_fold(caplog):
+    """Where the polygons would fold when their features below a quarter of the size are
+    removed, those below half of it are: no flat element, the sides matching."""
+    import logging
+
+    from morphogen.distributions import LogNormal
+
+    sheet = SeededLaguerre(dimension=2, diameter=LogNormal(0.12, 0.03), aspect_ratio=2.5,
+                           orientation="aligned", crystal_orientations=True).generate(
+        mg.Domain(size=(1.0, 1.0, 0.05), periodic=True), seed=1)  # fmt: skip
+    with caplog.at_level(logging.INFO, logger="morphogen"):
+        mesh = tessellation_mesh(sheet, size=0.05)
+    assert "below half of it instead" in caplog.text
+    assert mesh.matching_sides() and mesh.min_angles().min() > 3.0
+    assert mesh.n_elements < 0.5 * tessellation_mesh(sheet, size=0.05, min_feature=0).n_elements

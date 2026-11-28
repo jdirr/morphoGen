@@ -2030,8 +2030,8 @@ def _export_simulation(item: dict, request: dict, key: str, folder: Path, sessio
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(sim / s["file"], target)
             write_pvd(folder / "steps.pvd", steps)
-    if "mesh" in chosen:
-        for path in sim.glob("sample_0000_tet.*"):
+    if "mesh" in chosen:  # tetrahedra, or the triangles of a structure of the plane
+        for path in [*sim.glob("sample_0000_tet.*"), *sim.glob("sample_0000_tri.*")]:
             shutil.copy2(path, folder / path.name)
     if "configuration" in chosen and (sim / "configuration.yaml").exists():
         shutil.copy2(sim / "configuration.yaml", folder / "configuration.yaml")

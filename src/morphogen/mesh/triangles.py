@@ -1,20 +1,25 @@
 """Triangular meshes of planar structures, in the plane ``z`` of their box.
 
-A structure of the plane — the section of a model at a height ``z``, the columnar grains of
-seeds of the plane (``seeded_laguerre`` with ``dimension: 2``), a tessellation whose germs
-lie in one plane — is meshed in that plane by triangles (:class:`TriMesh`: three- or
-six-node triangles, a phase each, a grain each for polycrystals with their crystal
-orientations), conforming to its interfaces and, for a periodic structure, with matching
-nodes on opposite sides, so that periodic conditions are exact (:func:`plane_mesh`):
+A structure of the plane — the columnar grains of seeds of the plane (``seeded_laguerre``
+with ``dimension: 2``) or of any tessellation whose germs lie in one plane, the section of a
+structure of space at a height ``z``, an orientation map — is meshed in that plane by
+triangles (:class:`TriMesh`: three- or six-node triangles, a phase each, a grain each for
+polycrystals with their crystal orientations), conforming to its interfaces and, for a
+periodic structure, with matching nodes on opposite sides, so that periodic conditions are
+exact (:func:`plane_mesh`):
 
-* the grains of a tessellation whose germs lie in one plane are exact polygons: the facets
-  of its exact cells on the face ``z0`` of the box
-  (:meth:`~morphogen.models.tessellation.Tessellation.cell_complex`), the cells of the
-  spheres of a seed merged into its grain. Their edges between grains and the sides of the
-  box are subdivided at the element size — the sides alike on opposite sides — and the
-  polygons fanned from their centroids; ``mmg2d`` remeshes this triangulation, keeping the
-  corners of the polygons and, for a periodic structure, the edges of the sides
-  (:func:`tessellation_mesh`);
+* the grains of a tessellation whose germs lie in one plane, and the sections of any
+  tessellation of space, are exact polygons: the pieces of the power diagram of the plane
+  (:func:`planar_pieces`; for a section, the weights less the squares of the distances of
+  the germs to the plane, :func:`section_weights`), the cells of the spheres of a seed
+  gathered into its grain. Their features smaller than ``min_feature`` are removed (short
+  edges collapsed, the vertices near the sides moved onto them or onto their nearest
+  vertices), their edges between grains and on the sides subdivided at sizes graded from
+  what small features remain — the upper
+  sides of a periodic box the translates of the lower ones —, and ``mmg2d`` remeshes the
+  grains within them without moving them (:func:`tessellation_mesh`);
+* a map of grains (a lattice field of one layer with the label of a grain per cell: the
+  orientation maps of EBSD) by its pixels, two triangles each (:func:`lattice_mesh`);
 * any other structure (:func:`section_mesh`): the implicit functions of its phases are
   sampled at the nodes of a background triangulation of the rectangle (a grid of squares
   cut by alternating diagonals) in the plane ``z``, and cut one after another by the
@@ -24,9 +29,9 @@ nodes on opposite sides, so that periodic conditions are exact (:func:`plane_mes
   interfaces, keeping the edges of the sides of a periodic structure, which the cut left
   matching (the same values on opposite sides).
 
-:meth:`TriMesh.extruded` makes a layer of tetrahedra of it (prisms cut into three), whose
-finite elements in space reproduce those of the plane in plane strain (the verification of
-:mod:`morphogen.homogenization.plane`).
+:meth:`TriMesh.extruded` makes layers of tetrahedra of it (prisms cut into three), whose
+periodic finite elements in space are those of the plane (:meth:`TriMesh.layer`: the
+loading paths of :mod:`morphogen.homogenization.plane`).
 """
 
 from __future__ import annotations
@@ -576,6 +581,10 @@ def _clip(polygon: np.ndarray, normal: np.ndarray, bound: float) -> np.ndarray:
     if not len(polygon):
         return polygon
     side = polygon @ normal - bound
+    if side.max() <= 0:  # the half plane holds the whole polygon (most neighbours)
+        return polygon
+    if side.min() > 0:
+        return polygon[:0]
     out = []
     for k in range(len(polygon)):
         p, q = polygon[k], polygon[(k + 1) % len(polygon)]
@@ -790,11 +799,22 @@ def _regularized(xy, loops, owner, lower, upper, periodic: bool, delta: float, t
         if periodic:  # the image of the merged vertex nearest to the canonical copy
             target = target + lengths * np.round((xy[c] - target) / lengths)
         new[v] = target + (xy[v] - xy[c])
-    # the vertices near a side, onto it (the caps of the cells cut by the box)
+    # the vertices near a side, onto it (the caps of the cells cut by the box), or onto the
+    # vertex of the side nearer than delta (no short edge of the side)
     for axis in (0, 1):
+        other = 1 - axis
         for value in (lower[axis], upper[axis]):
-            near = (np.abs(new[:, axis] - value) < delta) & (new[:, axis] != value)
-            new[near, axis] = value
+            near = np.flatnonzero((np.abs(new[:, axis] - value) < delta) & (new[:, axis] != value))
+            if not len(near):
+                continue
+            targets = new[near].copy()
+            targets[:, axis] = value
+            on = np.flatnonzero(new[:, axis] == value)
+            if len(on):
+                d, j = cKDTree(new[on, other][:, None]).query(targets[:, other][:, None])
+                close = d < delta
+                targets[close] = new[on[j[close]]]
+            new[near] = targets
     for axis in (0, 1):  # exactly on the sides
         for value in (lower[axis], upper[axis]):
             new[np.abs(new[:, axis] - value) <= tol, axis] = value
@@ -1045,7 +1065,8 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
     as the cells in space): the edges between grains shorter than it collapsed and the
     vertices nearer than it to a side moved onto it (:func:`_regularized`); 0 keeps the
     exact polygons, at the price of flat elements next to their small features (the thin
-    caps of the cells that the box cuts)."""
+    caps of the cells that the box cuts). Where the polygons would fold, the features are
+    removed at half that size, three times at most, before the exact polygons."""
     from morphogen.mesh.conforming import mmg_executable
 
     if z is None and not planar_tessellation(micro):
@@ -1080,13 +1101,19 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
         for value in (lower[axis], upper[axis]):
             xy[np.abs(xy[:, axis] - value) <= tol, axis] = value
     feature = size / 4.0 if min_feature is None else float(min_feature)
-    if feature > 0:
+    for _ in range(4):  # the features removed at half the size where the polygons fold
+        if not feature > 0:
+            break
         regular = _regularized(xy, loops, owner, lower, upper, periodic, feature, tol)
-        if regular is None:
-            log.warning("tessellation mesh: the polygons fold when their features below %g "
-                        "are removed; the exact polygons instead", feature)  # fmt: skip
-        else:
+        if regular is not None:
             xy, loops, owner = regular
+            break
+        log.info("tessellation mesh: the polygons fold when their features below %g are "
+                 "removed; below half of it instead", feature)  # fmt: skip
+        feature /= 2.0
+    else:
+        log.warning("tessellation mesh: the polygons fold when their small features are "
+                    "removed; the exact polygons instead")  # fmt: skip
     ids = np.arange(len(xy))  # each vertex, or the one of the lower sides it translates
     twins = [np.arange(len(xy)), np.arange(len(xy))]  # along x, along y
     if periodic:

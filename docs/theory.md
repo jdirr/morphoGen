@@ -13899,16 +13899,18 @@ smaller than `min_feature` (by default a quarter of the size; 0 keeps the exact 
 are removed before meshing: the edges between grains or on the sides shorter than it
 collapse, their ends merged on the torus of a periodic box (the copies of a vertex on
 opposite sides alike, on the side or the corner of a vertex of one); the vertices nearer
-than it to a side move onto it; the loops lose the vertices where they then turn back along
+than it to a side move onto it, or onto the vertex of the side nearer than it (no short edge
+along the sides); the loops lose the vertices where they then turn back along
 a side, the pieces left without area vanish, and the vertices of the sides of a periodic box
 get their translates on the opposite sides, inserted in the edges there — the sides match,
 and the areas sum to the box. The grains of the template `seeded_plane_stiffness` (90 grains
 of seeds elongated along $x$ in the unit square, `size: 0.025`, four realizations): 52 000 to
-59 000 triangles with the exact polygons, the smallest angles 0 to 9°; 8 300 to 10 300
-regularized, the smallest angles 6.4 to 10.4°, the areas of the grains within 0.4 to 0.6 %
+59 000 triangles with the exact polygons, the smallest angles 0 to 9°; 8 200 to 8 500
+regularized, the smallest angles 7.7 to 11.1°, the areas of the grains within 0.4 to 0.6 %
 of the exact ones on average (2 to 4 % at most). A piece that the regularization leaves not
-star-shaped about its centroid is cut into triangles by ear clipping, and polygons that would
-fold are kept exact.
+star-shaped about its centroid is cut into triangles by ear clipping; where the polygons
+would fold, the features are removed at half the size, three times at most, before the exact
+polygons.
 
 **Sections.** Any other structure is meshed in its plane $z$ from the implicit functions of its
 phases (`section_mesh`), as in space (§11): sampled at the nodes of a triangulation of the

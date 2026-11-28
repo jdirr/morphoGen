@@ -1,9 +1,9 @@
 # Tutorials
 
-Ten studies to follow from start to end. The first nine are written in Python snippets
+Eleven studies to follow from start to end. The first ten are written in Python snippets
 that follow each other in one session and run in seconds to a minute each, at sizes
 chosen for that; the tests of morphoGen run them at each change, so that they stay
-correct. The tenth is a tour of the graphical interface, which runs the same functions
+correct. The eleventh is a tour of the graphical interface, which runs the same functions
 from forms. Each page shows the figures of its own snippets.
 
 ::::{container} gallery tutorials
@@ -133,6 +133,20 @@ a tomography found among the candidates.
 :::
 
 :::{container} gallery-card
+```{image} _static/tutorial/plane_grains.png
+:alt: the triangles of the grains of a sheet grown from seeds of the plane
+```
+
+**[Polycrystals of the plane, meshed and solved in their plane](tutorial_plane.md)** — the
+grains of a rolled sheet grown from elliptical seeds, their exact polygons meshed by
+triangles, the stiffness of the sheet under the three uniform conditions, the section of a
+polycrystal of space, an orientation map meshed by its pixels, a plastic path and the files
+of Abaqus.
+
+*About a minute.*
+:::
+
+:::{container} gallery-card
 ```{image} _static/tutorial/interface_fracture.png
 :alt: the tab Fracture of the graphical interface
 ```
@@ -164,5 +178,6 @@ tutorial_contact
 tutorial_fracture
 tutorial_texture
 tutorial_morphology
+tutorial_plane
 tutorial_interface
 ```
