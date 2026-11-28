@@ -245,6 +245,18 @@
 * `morphogen homogenize --plane --property hydraulic_permeability` meshes the pores with
   the solid, for their flow; the overview pages (README, the landing page, the properties)
   name the finite elements of the plane.
+* The exact corners of the contours of the sections where their capsules cross
+  (`mesh.contours`): found where a contour passes from the surface of a capsule to that of
+  another (Newton's method on the two distances), nodes of the pieces on either side, the
+  sizes graded toward the sharp ones, the middle nodes on the capsule of their edge; the
+  vertices of the contours moved along their edges of the grid, which keeps the topology of
+  the marching squares; the gaps within a body narrower than a cell traced again on finer
+  grids, the sizes below the least one where a gap is narrower than the bulge of the
+  chords, and the edges checked before meshing (two that cross: the level sets). Two
+  crossing discs as by the union of discs (2.5·10⁻⁸ at 0.0125); the sections of Boolean
+  networks of spherocylinders within 3.2·10⁻⁶ of counts on grids where they are meshed. The
+  contours of the earlier step crossed themselves in such networks, which `mmg2d` took
+  nonetheless.
 * The exact contours of the sections of oblique and wavy fibres (`mesh.contours`,
   `contour_mesh`; `plane_mesh` by default for them): the capsules that reach the plane
   clipped to its slab and grouped into bodies where they meet, each body's contours traced

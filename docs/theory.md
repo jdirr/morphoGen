@@ -14035,9 +14035,11 @@ their closest points, Ericson 2005, §5.1.9), the images across a periodic box a
 sections of different bodies, those of disjoint sets, do not meet. Each body's contours are
 traced on its own signed distance $d_b(x) = \min_k (\operatorname{dist}(x, a_k) - r_k)$ over
 its axes $a_k$, exact outside it: by the marching squares on a grid of its own, of an eighth
-of its least radius (`TRACE_CELLS`), the saddles resolved by the mean of their corners, the
-vertices then moved onto the surface by the steps of Newton $x \leftarrow x - d_b\,\nabla
-d_b / |\nabla d_b|^2$, to round-off. The level sets of the whole section (above) close the
+of its least radius (`TRACE_CELLS`), the saddles resolved by the mean of their corners, each
+vertex then moved along its edge of the grid onto the surface by Newton's method, kept within
+the edge by bisection, to round-off: the contours keep the topology of the marching squares,
+which do not cross, where steps along the gradient of $d_b$, the least of the distances to
+several capsules, can jump from a surface to another. The level sets of the whole section (above) close the
 gaps narrower than their background; these stay open, however narrow. `contour_mesh` meshes
 them as the discs: the contours cut where they cross the lines of the sides (the crossings
 moved onto the surface along the side by Newton's method), the pieces inside the box kept,
@@ -14048,19 +14050,42 @@ regions within the contours, each triangle the phase of its centroid, and the si
 elements have their middle nodes on the surfaces. The section of a straight fibre of radius
 0.2 turned by 0, 30 and 50° is an ellipse of area $\pi r^2/\cos\theta$: across a side of
 the periodic box, within 8.4·10⁻⁶, 6.5·10⁻⁶ and 2.1·10⁻⁶ at the size 0.05, 5.2·10⁻⁷,
-3.8·10⁻⁷ and 2.3·10⁻⁷ at 0.025 (2.6·10⁻³ to 1.3·10⁻³ off with the chords). Where the
-capsules of a body cross, its contours have corners, which the vertices of the grid cut
-within a cell: two discs of radius 0.2 whose centres are 0.3 apart are within 1.2·10⁻⁵ of
-the area of their union by their contours, where the union of discs converges as the fourth
-power of the size (2.5·10⁻⁸ at 0.0125); the section of a Boolean network of spherocylinders
-turned at random (radius 0.03, a fourth of the box) is within 1.4·10⁻⁵ of a count on a grid,
-the level sets 3.9·10⁻³, 1.3·10⁻³ and 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and 0.0125. A ply of fibres of radius 0.05 misaligned by 3° filling
-half of a periodic cube, 74 sections in its middle plane with gaps down to 4·10⁻⁴: the level
-sets close its gaps — 7 parts of fibres at the size 0.05 and 15 at 0.025, 2.7·10⁻² and
-8·10⁻³ too much fibre —, its contours keep the 74 apart, their area within 5·10⁻⁶ of a count
-on a grid of 4000² points, by 48 474 triangles in 1.5 s (the level sets: 5 982, the narrow
-gaps not graded), and the reciprocal theorem of Keller and Mendelson holds within 3.7·10⁻⁴ and
-2.7·10⁻⁴ at the sizes 0.05 and 0.025. Its pores stay in one part, which the bridges of the
+3.8·10⁻⁷ and 2.3·10⁻⁷ at 0.025 (2.6·10⁻³ to 1.3·10⁻³ off with the chords).
+
+Where the capsules of a body cross, its contours have corners. Where a contour passes from
+the surface of a capsule to that of another, the point of both surfaces near its two
+vertices, by Newton's method on their two distances, is inserted on the edge near them that
+it lengthens the least: a node of the pieces on either side; the sizes are graded toward
+the sharp ones (more than 10° between the normals, `CORNER_ANGLE`) as toward the corners of
+the unions of discs, and the middle node of each edge of a piece is moved onto the capsule
+on whose surface its two ends lie, where the least of the distances would take the other
+surface near a corner. Where a contour passes from a capsule to another that it does not
+cross, its chord outside the body, it bridges a gap between them narrower than a cell: the
+body is traced again on grids four and sixteen times as fine (`TRACE_REFINEMENTS`, two
+million nodes at most). The sizes take the gaps within a contour (to its vertices farther
+along it than three times their distance: the two sides of a narrow wedge) and between the
+contours of a body; where a gap $g$ is narrower than the bulge of chords of the least size,
+they fall to $\sqrt{2\rho\,g}$, chords that bulge by a quarter of it; the contours within
+three times the least size, holes and the tips of caps, are left out; and the edges are
+checked before `mmg2d`: two that cross leave the section to the level sets. Two discs of
+radius 0.2 whose centres are 0.3 apart are meshed by their contours as by the union of
+discs, within 3.3·10⁻⁶, 3.7·10⁻⁷ and 2.5·10⁻⁸ of their area at the sizes 0.05, 0.025 and
+0.0125, their corners to round-off; two discs of radius 0.1 that a third joins, their
+circles 0.002 apart, the gap followed on the grid four times as fine, within 6.4·10⁻⁶ and
+4.9·10⁻⁷ at 0.05 and 0.0125, as by the union of discs. The sections of Boolean networks of
+spherocylinders turned at random (radius 0.03, length 0.4): filling a tenth of a periodic
+cube, ten of the twelve meshes of six realizations at the sizes 0.05 and 0.025 within
+3.2·10⁻⁶ of counts on grids of 4000² points; filling a fourth, four of twelve, the others
+— holes and clusters of corners finer than the grids — left to the level sets, which are
+3.9·10⁻³, 1.3·10⁻³ and 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and 0.0125 for the first.
+
+A ply of fibres of radius 0.05 misaligned by 3° filling half of a periodic cube, 74
+sections in its middle plane with gaps down to 4·10⁻⁴: the level sets close its gaps — 7
+parts of fibres at the size 0.05 and 15 at 0.025, 2.7·10⁻² and 8·10⁻³ too much fibre —, its
+contours keep the 74 apart, their area within 5·10⁻⁶ of a count on a grid of 4000² points,
+by 50 006 triangles in 2.4 s (the level sets: 5 982, the narrow gaps not graded), and the
+reciprocal theorem of Keller and Mendelson holds within 3.6·10⁻⁴ and 2.7·10⁻⁴ at the sizes
+0.05 and 0.025. Its pores stay in one part, which the bridges of the
 level sets split into 25: across the fibres, along $x$, its permeability (§120) is 2.0·10⁻⁶
 on the contours and 2·10⁻⁹ on the level sets. Flat caps in the plane (the Boolean
 cylinders), capsules that touch and contours tangent to a side are left to the level sets.

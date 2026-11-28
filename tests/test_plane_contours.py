@@ -12,7 +12,12 @@ import morphogen as mg
 from morphogen.homogenization import Material, homogenize
 from morphogen.mesh.conforming import mmg_executable
 from morphogen.mesh.contours import (
+    TRACE_CELLS,
+    _crossing,
     _segment_distances,
+    _simple,
+    _traced,
+    _traced_at,
     contour_mesh,
     section_bodies,
     section_capsules,
@@ -58,6 +63,47 @@ def _pieces(mesh) -> int:
     incidence = coo_matrix((np.ones(len(rows)), (rows, mesh.elements[fibres, :3].ravel())),
                            shape=(len(mesh.elements), len(mesh.nodes))).tocsr()  # fmt: skip
     return connected_components((incidence @ incidence.T)[fibres][:, fibres])[0]
+
+
+def _counted(micro, n: int) -> float:
+    """The fraction of the box in the bodies of the section of ``micro``, counted at the
+    centres of the cells of an ``n`` x ``n`` grid, body by body."""
+    inside = np.zeros((n, n), dtype=bool)
+    for body in section_bodies(micro):
+        lo, hi = body.bounds
+        i = np.arange(max(int(lo[0] * n), 0), min(int(np.ceil(hi[0] * n)) + 1, n))
+        j = np.arange(max(int(lo[1] * n), 0), min(int(np.ceil(hi[1] * n)) + 1, n))
+        if len(i) and len(j):
+            gx, gy = np.meshgrid((i + 0.5) / n, (j + 0.5) / n, indexing="ij")
+            d = body.distance(np.column_stack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
+            inside[np.ix_(i, j)] |= d < 0.0
+    return float(inside.mean())
+
+
+def _straight(xy: list, radii: list) -> PrimitiveUnion:
+    """Straight fibres along z through a thin periodic box: their sections discs."""
+    xy = np.asarray(xy, dtype=float)
+    ends = [np.column_stack([xy, np.full(len(xy), z)]) for z in (0.0, 0.2)]
+    domain = mg.Domain(size=(1.0, 1.0, 0.2), periodic=True)
+    return PrimitiveUnion(domain, None, Segments(ends[0], ends[1], np.asarray(radii, dtype=float)))
+
+
+def _lens(a: float, b: float, d: float) -> float:
+    """The area of the lens of two discs of radii ``a`` and ``b`` whose centres are ``d``
+    apart."""
+    return (a * a * np.arccos((d * d + a * a - b * b) / (2.0 * d * a))
+            + b * b * np.arccos((d * d + b * b - a * a) / (2.0 * d * b))
+            - 0.5 * np.sqrt((a + b - d) * (d + a - b) * (d - a + b) * (d + a + b)))  # fmt: skip
+
+
+def _phase_at(mesh, point) -> int:
+    """The phase of the triangle of a mesh that holds a point."""
+    p = mesh.nodes[mesh.elements[:, :3]]
+    u, v, w = p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], np.asarray(point) - p[:, 0]
+    det = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
+    s = (w[:, 0] * v[:, 1] - w[:, 1] * v[:, 0]) / det
+    t = (u[:, 0] * w[:, 1] - u[:, 1] * w[:, 0]) / det
+    return int(mesh.phase[np.flatnonzero((s >= 0.0) & (t >= 0.0) & (s + t <= 1.0))[0]])
 
 
 def test_distances_of_segments():
@@ -140,20 +186,10 @@ def test_contours_keep_the_gaps_of_misaligned_fibres():
     contours keep every fibre apart, their area within 3e-5 of a count on a grid of 2000 x
     2000 points (1.2e-5), and the reciprocal theorem of Keller and Mendelson within 1e-3."""
     micro = LongFibers(radius=0.05, volume_fraction=0.5, misalignment=3.0).generate(BOX, seed=1)
-    bodies = section_bodies(micro)
     mesh = plane_mesh(micro, size=0.05, order=2)
     assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
     assert _pieces(mesh) == mesh.metadata["bodies"] > 60
-    n, inside = 2000, np.zeros((2000, 2000), dtype=bool)
-    for body in bodies:  # the count, body by body
-        lo, hi = body.bounds
-        i = np.arange(max(int(lo[0] * n), 0), min(int(np.ceil(hi[0] * n)) + 1, n))
-        j = np.arange(max(int(lo[1] * n), 0), min(int(np.ceil(hi[1] * n)) + 1, n))
-        if len(i) and len(j):
-            gx, gy = np.meshgrid((i + 0.5) / n, (j + 0.5) / n, indexing="ij")
-            d = body.distance(np.column_stack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
-            inside[np.ix_(i, j)] |= d < 0.0
-    counted = float(inside.mean())
+    counted = _counted(micro, 2000)
     assert mesh.phase_fractions()[1] == pytest.approx(counted, abs=3e-5)
     levels = section_mesh(micro, size=0.05, order=2)
     assert _pieces(levels) < 20 and levels.phase_fractions()[1] - counted > 2e-2
@@ -181,3 +217,69 @@ def test_what_the_contours_leave_to_the_level_sets():
     a, b = 0.2 / np.cos(np.radians(30.0)), 0.2  # cut at half its semi-axis b
     exact = a * b * (np.pi / 2.0 + np.arcsin(0.5) + 0.5 * np.sqrt(0.75))
     assert free.phase_fractions()[1] == pytest.approx(exact, rel=2e-5)
+
+
+@needs_mmg2d
+def test_corners_of_capsules_that_cross():
+    """Two fibres of radius 0.2 whose axes are 0.3 apart: their contour has its corners where
+    the circles cross, by Newton's method on the two distances, to round-off, the angle of
+    their normals arccos(-1/8); the area of their union within 1e-5, 1e-6 and 1e-7 at the
+    sizes 0.05, 0.025 and 0.0125, the fourth power of the size, as the union of discs."""
+    pair = _straight([[0.3, 0.5], [0.6, 0.5]], [0.2, 0.2])
+    (body,) = section_bodies(pair)
+    ((loop, corners, angles),) = _traced(body)
+    crossing = np.array([[0.45, 0.5 - np.sqrt(0.0175)], [0.45, 0.5 + np.sqrt(0.0175)]])
+    found = loop[corners][np.argsort(loop[corners][:, 1])]
+    assert len(corners) == 2 and np.abs(found - crossing).max() < 1e-12
+    assert np.allclose(angles, np.degrees(np.arccos(-0.125)))
+    exact = 2.0 * np.pi * 0.04 - _lens(0.2, 0.2, 0.3)
+    for size, within in ((0.05, 1e-5), (0.025, 1e-6), (0.0125, 1e-7)):
+        mesh = contour_mesh(pair, size=size, order=2)
+        assert mesh.phase_fractions()[1] == pytest.approx(exact, rel=within)
+
+
+@needs_mmg2d
+def test_a_narrow_gap_within_a_body():
+    """Two discs of radius 0.1 that a third joins, their circles 0.002 apart: on the grid of
+    an eighth of the least radius the contours of their body bridge the gap, on one four
+    times as fine they follow it, and the mesh takes them — matrix in the middle of the
+    gap, the area of the union within 1e-5 at the size 0.05 and 1e-6 at 0.0125, as the
+    union of discs."""
+    micro = _straight([[0.4, 0.5], [0.602, 0.5], [0.5, 0.42]], [0.1, 0.1, 0.06])
+    (body,) = section_bodies(micro)
+    h = 0.06 / TRACE_CELLS
+    assert _traced_at(body, h) is None and _traced_at(body, h / 4.0) is not None
+    exact = (np.pi * 0.0236 - _lens(0.1, 0.06, np.hypot(0.1, 0.08))
+             - _lens(0.1, 0.06, np.hypot(0.102, 0.08)))  # fmt: skip
+    for size, within in ((0.05, 1e-5), (0.0125, 1e-6)):
+        mesh = contour_mesh(micro, size=size, order=2)
+        assert _phase_at(mesh, (0.501, 0.5)) == 0 and mesh.min_jacobian() > 0.3
+        assert mesh.phase_fractions()[1] == pytest.approx(exact, rel=within)
+
+
+def test_contours_checked_before_meshing():
+    """Two edges that cross are found, two that share a node do not cross; a bow tie is
+    not a simple contour, a square is."""
+    points = np.array([[0.0, 0.0], [1.0, 1.0], [0.0, 1.0], [1.0, 0.0]])
+    assert _crossing(points, np.array([[0, 1], [2, 3]]))
+    assert not _crossing(points, np.array([[0, 1], [1, 2], [0, 2]]))
+    assert _simple(points[[0, 3, 1, 2]]) and not _simple(points)
+
+
+@needs_mmg2d
+def test_boolean_networks_of_spherocylinders():
+    """Spherocylinders turned at random (a Boolean model, radius 0.03, length 0.4), their
+    sections bodies of several capsules that cross: filling a tenth of the box, meshed by
+    their contours within 2e-5 of a count on a grid of 3000 x 3000 points; filling a
+    fourth, their crossings (holes and clusters of corners finer than the grids) leave this
+    realization to the level sets."""
+    sparse = mg.models.BooleanCylinders(radius=0.03, length=0.4, volume_fraction=0.1,
+                                        caps="round").generate(BOX, seed=1)  # fmt: skip
+    mesh = plane_mesh(sparse, size=0.05, order=2)
+    assert mesh.metadata["mesher"] == "exact contours (mmg2d)" and mesh.matching_sides()
+    assert mesh.min_jacobian() > 0.3
+    assert mesh.phase_fractions()[1] == pytest.approx(_counted(sparse, 3000), abs=2e-5)
+    dense = mg.models.BooleanCylinders(radius=0.03, length=0.4, volume_fraction=0.25,
+                                       caps="round").generate(BOX, seed=1)  # fmt: skip
+    assert contour_mesh(dense, size=0.05) is None
+    assert plane_mesh(dense, size=0.05).metadata["mesher"].startswith("section")

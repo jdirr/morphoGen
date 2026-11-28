@@ -7,24 +7,30 @@ it: clipped to that slab, they keep the section (:func:`section_capsules`). The 
 that meet are grouped into bodies, whose sections, those of disjoint sets, do not meet;
 each body's contours are traced on its own distance function, the least of the distances
 to its axes less their radii — the marching squares on a grid of its own, of a
-:data:`TRACE_CELLS`-th of its least radius, their vertices moved onto the surface by
-Newton's method (:func:`section_contours`). No gap between two bodies closes, however
-narrow, where the level sets of the whole section
-(:func:`~morphogen.mesh.triangles.section_mesh`) close those narrower than their
-background: the sections of misaligned fibres packed at the fractions of composites.
+:data:`TRACE_CELLS`-th of its least radius, their vertices moved along their edges of the
+grid onto the surface (:func:`section_contours`), the contours then those of the marching
+squares, which do not cross. No gap between two bodies closes, however narrow, where the
+level sets of the whole section (:func:`~morphogen.mesh.triangles.section_mesh`) close
+those narrower than their background: the sections of misaligned fibres packed at the
+fractions of composites. Where the capsules of a body cross, its contours have corners,
+found where they pass from the surface of a capsule to that of another (Newton's method on
+the two distances); where they pass to a capsule that they do not cross, they bridge a gap
+narrower than a cell, which grids four and sixteen times as fine follow.
 
 :func:`contour_mesh` meshes them as :func:`~morphogen.mesh.triangles.disc_mesh` meshes
-circles: the contours cut by the sides of the box, nodes on them at sizes graded from the
-gaps between the bodies (their distances, exact) and from their curvatures, the sides of a
-periodic box matching; ``mmg2d`` meshes the regions within them, which keep their nodes,
-each triangle the phase of its centroid; six-node elements have their middle nodes on the
-surfaces (:func:`~morphogen.mesh.curved.curved_triangles`).
+circles: the contours cut by the sides of the box and at their corners, nodes on them at
+sizes graded from the gaps between the bodies (their distances, exact), within a contour
+and between those of a body, from their curvatures and toward the sharp corners, the sides
+of a periodic box matching; their edges checked, ``mmg2d`` meshes the regions within them,
+which keep their nodes, each triangle the phase of its centroid; six-node elements have
+their middle nodes on the surfaces, each edge on the capsule of its two ends.
 """
 
 from __future__ import annotations
 
 import itertools
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,10 +40,14 @@ from scipy.spatial import cKDTree
 from morphogen.io import medit
 from morphogen.mesh.triangles import (
     CIRCLE_SEGMENTS,
+    CORNER_REFINEMENT,
     GAP_ELEMENTS,
     GRADE,
     REF_CIRCLE,
     SIDE_REFS,
+    TRI6_EDGES,
+    TRI6_NODES,
+    TRI_GAUSS,
     TriMesh,
     _DiscSizes,
     _kept,
@@ -45,12 +55,25 @@ from morphogen.mesh.triangles import (
     _mmg_args,
     _point,
     _run,
+    corner_gradients,
+    jacobian_ratios,
 )
 
 #: The cells of the grid on which a body's contours are traced, across its least radius
 TRACE_CELLS = 8
 #: Newton's steps onto the surface of a body
 NEWTON_STEPS = 6
+#: The finer grids on which a body is traced again where its contours bridge a gap between
+#: two of its capsules narrower than a cell: each a quarter of the last
+TRACE_REFINEMENTS = 2
+#: The most nodes of the grid of a body
+TRACE_POINTS = 2_000_000
+#: The least ratio of the area element of a curved six-node element to that of its straight
+#: triangle: the middle nodes of the elements that would fold give way toward the middles
+MIN_JACOBIAN = 0.3
+#: The least angle (degrees) between the normals of the two surfaces at a corner of a
+#: contour for the sizes to be graded toward it (``CORNER_REFINEMENT``)
+CORNER_ANGLE = 10.0
 
 
 def section_capsules(micro, z: float | None = None):
@@ -164,13 +187,37 @@ class Body:
                 grad[closer] = v[closer, :2] / np.maximum(n[closer], 1e-300)[:, None]
         return (best, grad) if gradient else best
 
-    def onto(self, xy: np.ndarray) -> np.ndarray:
-        """Points moved onto the surface of the body along its gradient (Newton)."""
-        xy = np.array(xy, dtype=float)
-        for _ in range(NEWTON_STEPS):
-            value, grad = self.distance(xy, gradient=True)
-            g2 = np.maximum(np.einsum("ij,ij->i", grad, grad), 1e-300)
-            xy -= (value / g2)[:, None] * grad
+    def capsule(self, k: int, xy: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The signed distance of points of the plane to the capsule ``k`` (to its axis,
+        less its radius) and its gradient in the plane."""
+        xy = np.atleast_2d(np.asarray(xy, dtype=float))
+        p = np.column_stack([xy, np.full(len(xy), self.z)])
+        a, b, r = self.start[k], self.end[k], float(self.radii[k])
+        d = b - a
+        length2 = float(d @ d)
+        t = np.clip((p - a) @ d / length2, 0.0, 1.0) if length2 > 0.0 else np.zeros(len(p))
+        v = p - a - t[:, None] * d
+        n = np.linalg.norm(v, axis=1)
+        return n - r, v[:, :2] / np.maximum(n, 1e-300)[:, None]
+
+    def owners(self, xy: np.ndarray) -> np.ndarray:
+        """The capsule nearest to each point (whose surface bounds the body there)."""
+        values = np.array([self.capsule(k, xy)[0] for k in range(len(self.radii))])
+        return values.argmin(axis=0)
+
+    def onto(self, xy: np.ndarray, capsules=None) -> np.ndarray:
+        """Points moved onto the surface of the body along its gradient (Newton), or onto
+        that of the capsule of each (``capsules``; -1: the body's)."""
+        xy = np.array(xy, dtype=float).reshape(-1, 2)
+        own = np.full(len(xy), -1) if capsules is None else np.asarray(capsules, dtype=int)
+        for k in np.unique(own).tolist():
+            at = own == k
+            p = xy[at]
+            for _ in range(NEWTON_STEPS):
+                value, grad = self.distance(p, gradient=True) if k < 0 else self.capsule(k, p)
+                g2 = np.maximum(np.einsum("ij,ij->i", grad, grad), 1e-300)
+                p = p - (value / g2)[:, None] * grad
+            xy[at] = p
         return xy
 
 
@@ -229,10 +276,13 @@ def section_bodies(micro, z: float | None = None, *, lower=None, upper=None,
     return [Body(start[k], end[k], radii[k], z) for k in groups.values()]
 
 
-def _marching_loops(f: np.ndarray, x0: float, y0: float, h: float) -> list[np.ndarray]:
+def _marching_loops(f: np.ndarray, x0: float, y0: float, h: float,
+                    along=None) -> list[np.ndarray]:  # fmt: skip
     """The closed contours ``f = 0`` of values on a grid (``f[i, j]`` at ``(x0 + i h, y0 +
     j h)``, positive along its border) by the marching squares, the saddles resolved by the
-    mean of their corners: lists of their points, linear between the nodes."""
+    mean of their corners: lists of their points, linear between the nodes, or
+    ``along(starts, steps, t)`` (the points ``starts + t steps`` of their edges of the grid,
+    moved along them)."""
     inside = f < 0.0
     across_x = inside[:-1, :] != inside[1:, :]  # the edges (i, j)-(i+1, j)
     across_y = inside[:, :-1] != inside[:, 1:]  # the edges (i, j)-(i, j+1)
@@ -242,14 +292,16 @@ def _marching_loops(f: np.ndarray, x0: float, y0: float, h: float) -> list[np.nd
     hx[across_x] = np.arange(nh)
     hy[across_y] = nh + np.arange(int(across_y.sum()))
     i, j = np.nonzero(across_x)
-    t = f[i, j] / (f[i, j] - f[i + 1, j])
-    px = np.column_stack([x0 + (i + t) * h, y0 + j * h])
+    tx = f[i, j] / (f[i, j] - f[i + 1, j])
+    sx = np.column_stack([x0 + i * h, y0 + j * h])
     i, j = np.nonzero(across_y)
-    t = f[i, j] / (f[i, j] - f[i, j + 1])
-    py = np.column_stack([x0 + i * h, y0 + (j + t) * h])
-    points = np.concatenate([px, py])
-    if not len(points):
+    ty = f[i, j] / (f[i, j] - f[i, j + 1])
+    sy = np.column_stack([x0 + i * h, y0 + j * h])
+    starts, t = np.concatenate([sx, sy]), np.concatenate([tx, ty])
+    if not len(t):
         return []
+    steps = np.concatenate([np.tile([h, 0.0], (len(tx), 1)), np.tile([0.0, h], (len(ty), 1))])
+    points = starts + t[:, None] * steps if along is None else along(starts, steps, t)
     bottom, top, left, right = hx[:, :-1], hx[:, 1:], hy[:-1, :], hy[1:, :]
     count = (bottom >= 0).astype(int) + (top >= 0) + (left >= 0) + (right >= 0)
     edges = np.stack([bottom, right, top, left], axis=-1)
@@ -285,23 +337,163 @@ def _marching_loops(f: np.ndarray, x0: float, y0: float, h: float) -> list[np.nd
     return loops
 
 
-def section_contours(body: Body) -> list[np.ndarray]:
-    """The closed contours of the section of a body: traced on a grid of its own (a
-    :data:`TRACE_CELLS`-th of its least radius), their vertices on its surface."""
+def _corner(body: Body, a: int, b: int, x: np.ndarray, tol: float):
+    """The point near ``x`` on the surfaces of the capsules ``a`` and ``b`` of a body, by
+    Newton's method on their two distances, and the angle (degrees) between their normals
+    there; None where it does not converge (surfaces nearly tangent: no corner) or where
+    another capsule covers it."""
+    for _ in range(2 * NEWTON_STEPS):
+        (va, ga), (vb, gb) = body.capsule(a, x), body.capsule(b, x)
+        jacobian = np.array([ga[0], gb[0]])
+        if abs(float(np.linalg.det(jacobian))) < 1e-6:
+            return None
+        x = x - np.linalg.solve(jacobian, np.array([va[0], vb[0]]))
+    (va, ga), (vb, gb) = body.capsule(a, x), body.capsule(b, x)
+    if max(abs(float(va[0])), abs(float(vb[0]))) > tol or body.distance(x)[0] < -tol:
+        return None
+    return x[0], float(np.degrees(np.arccos(np.clip(ga[0] @ gb[0], -1.0, 1.0))))
+
+
+def _crossing(points: np.ndarray, edges: np.ndarray) -> bool:
+    """Whether two of the edges between points cross (those that share a point do
+    not)."""
+    a, b = points[edges[:, 0]], points[edges[:, 1]]
+    lengths = np.linalg.norm(b - a, axis=1)
+    pairs = cKDTree(0.5 * (a + b)).query_pairs(float(lengths.max()), output_type="ndarray")
+    i, j = pairs[:, 0], pairs[:, 1]
+    apart = ((edges[i, 0] != edges[j, 0]) & (edges[i, 0] != edges[j, 1])
+             & (edges[i, 1] != edges[j, 0]) & (edges[i, 1] != edges[j, 1]))  # fmt: skip
+    i, j = i[apart], j[apart]
+
+    def side(p, q, r):
+        return (q[:, 0] - p[:, 0]) * (r[:, 1] - p[:, 1]) - (q[:, 1] - p[:, 1]) * (r[:, 0] - p[:, 0])
+
+    cross = (side(a[i], b[i], a[j]) * side(a[i], b[i], b[j]) < 0.0) & (
+        side(a[j], b[j], a[i]) * side(a[j], b[j], b[i]) < 0.0
+    )
+    return bool(np.any(cross))
+
+
+def _simple(loop: np.ndarray) -> bool:
+    """Whether a closed contour does not cross itself."""
+    k = np.arange(len(loop))
+    return not _crossing(loop, np.column_stack([k, np.roll(k, -1)]))
+
+
+def _traced(body: Body) -> list[tuple[np.ndarray, list[int], list[float]]] | None:
+    """The closed contours of the section of a body (see :func:`section_contours`), their
+    corners among their vertices: where a contour passes from the surface of a capsule to
+    that of another that crosses it, the point of both surfaces between the two vertices
+    (:func:`_corner`); each contour, the indices of its corners and their angles. Where a
+    contour passes from a capsule to another that it does not cross, its chord outside the
+    body, it bridges a gap between them narrower than a cell: the body is traced again on
+    a grid four times as fine, :data:`TRACE_REFINEMENTS` times at most; None if a bridge
+    is left."""
     h = float(body.radii.min()) / TRACE_CELLS
+    for _ in range(TRACE_REFINEMENTS + 1):
+        out = _traced_at(body, h)
+        if out is not None:
+            return out
+        h /= 4.0
+    return None
+
+
+def _traced_at(body: Body, h: float) -> list[tuple[np.ndarray, list[int], list[float]]] | None:
+    """The contours of :func:`_traced` on the grid of cell ``h``; None for a bridge."""
     lo, hi = body.bounds
     lo, hi = lo - 2.0 * h, hi + 2.0 * h
     nx, ny = (int(np.ceil((hi - lo)[k] / h)) + 1 for k in (0, 1))
+    if nx * ny > TRACE_POINTS:
+        return None  # (a grid too large for the body)
     gx, gy = np.meshgrid(lo[0] + h * np.arange(nx), lo[1] + h * np.arange(ny), indexing="ij")
     values = body.distance(np.column_stack([gx.ravel(), gy.ravel()])).reshape(nx, ny)
-    loops = []
-    for loop in _marching_loops(values, float(lo[0]), float(lo[1]), h):
-        loop = body.onto(loop)
+    tol = 1e-9 * float(body.radii.min())
+    out = []
+
+    def along(starts, steps, t):  # Newton's steps along the edges, bisection out of them
+        sign, low, high = np.sign(body.distance(starts)), np.zeros(len(t)), np.ones(len(t))
+        for _ in range(8 * NEWTON_STEPS):
+            d, g = body.distance(starts + t[:, None] * steps, gradient=True)
+            if np.abs(d).max() <= 1e-3 * tol:
+                break
+            before = np.sign(d) == sign
+            low, high = np.where(before, t, low), np.where(before, high, t)
+            slope = np.einsum("ij,ij->i", g, steps)
+            newton = t - d / np.where(slope != 0.0, slope, np.inf)
+            t = np.where((newton > low) & (newton < high), newton, 0.5 * (low + high))
+        return starts + t[:, None] * steps
+
+    for loop in _marching_loops(values, float(lo[0]), float(lo[1]), h, along):
         step = np.linalg.norm(np.diff(np.vstack([loop, loop[:1]]), axis=0), axis=1)
         loop = loop[step > 1e-9 * h]  # (the points of a node of the grid on the surface)
-        if len(loop) >= 3:
-            loops.append(loop)
-    return loops
+        if len(loop) < 3:
+            continue
+        owner = body.owners(loop) if len(body.radii) > 1 else np.zeros(len(loop), dtype=int)
+        n = len(loop)
+        found_at: list[tuple[int, float, np.ndarray, float]] = []  # (edge, along, x, angle)
+        for k in range(n):
+            a, b = int(owner[k]), int(owner[(k + 1) % n])
+            if a == b:
+                continue
+            middle = 0.5 * (loop[k] + loop[(k + 1) % n])[None]
+            found = _corner(body, a, b, middle, tol)
+            if found is None:
+                if body.distance(middle)[0] > 0.0:
+                    return None  # a gap between the capsules bridged by the chord
+                continue
+            x, angle = found
+            if any(np.linalg.norm(x - y) < 1e-6 * h for *_, y, _ in found_at):
+                continue  # (the same corner, found again)
+            # the corner on the edge near this one that it lengthens the least
+            best = None
+            for e in range(k - 2, k + 3):
+                p, q = loop[e % n], loop[(e + 1) % n]
+                detour = np.linalg.norm(x - p) + np.linalg.norm(q - x) - np.linalg.norm(q - p)
+                if best is None or detour < best[0]:
+                    along = float((x - p) @ (q - p)) / max(float((q - p) @ (q - p)), 1e-300)
+                    best = (detour, e % n, along)
+            if best[0] > h:  # pragma: no cover - a corner off its contour
+                continue
+            found_at.append((best[1], best[2], x, angle))
+        found_at.sort(key=lambda c: (c[0], c[1]))
+        points: list[np.ndarray] = []
+        corners: list[int] = []
+        angles: list[float] = []
+        pending = 0
+        for k in range(n):
+            points.append(loop[k])
+            while pending < len(found_at) and found_at[pending][0] == k:
+                points.append(found_at[pending][2])
+                corners.append(len(points) - 1)
+                angles.append(found_at[pending][3])
+                pending += 1
+        points = np.asarray(points)
+        if corners and not _simple(points):  # the corners left out of a contour they knot
+            points, corners, angles = loop, [], []
+        if corners:  # a vertex within a millionth of a cell of a corner: the corner
+            m = len(points)
+            corner = np.zeros(m, dtype=bool)
+            corner[corners] = True
+            near = np.zeros(m, dtype=bool)
+            for c in corners:
+                for d in ((c - 1) % m, (c + 1) % m):
+                    near[d] |= not corner[d] and np.linalg.norm(points[d] - points[c]) < 1e-6 * h
+            keep = np.flatnonzero(~near)
+            points, corners = points[keep], np.flatnonzero(corner[keep]).tolist()
+        out.append((points, corners, angles))
+    return out
+
+
+def section_contours(body: Body) -> list[np.ndarray]:
+    """The closed contours of the section of a body: traced on a grid of its own (a
+    :data:`TRACE_CELLS`-th of its least radius, finer where a gap between two of its capsules
+    needs it), their vertices on its surface, its corners among them, where the surfaces of
+    two capsules that cross meet."""
+    traced = _traced(body)
+    if traced is None:
+        raise ValueError("section contours: a gap between two capsules of a body narrower "
+                         "than the finest grid")  # fmt: skip
+    return [loop for loop, *_ in traced]
 
 
 class _ContourSizes(_DiscSizes):
@@ -316,6 +508,21 @@ class _ContourSizes(_DiscSizes):
         self.points, self.h = np.asarray(points, dtype=float), np.asarray(h, dtype=float)
         self.reach = self.size / GRADE
         self._index()
+
+
+def _self_gaps(loop: np.ndarray, ratio: float = 3.0) -> np.ndarray:
+    """The gaps of a closed contour to itself: the distance of each vertex to the nearest of
+    the others that are ``ratio`` times as far along it (the two sides of a narrow wedge
+    at a corner, or of a neck)."""
+    n = len(loop)
+    cum = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(loop, axis=0), axis=1))])
+    perimeter = cum[-1] + float(np.linalg.norm(loop[0] - loop[-1]))
+    k = min(n, 16)
+    dist, idx = cKDTree(loop).query(loop, k=k)
+    along = np.abs(cum[idx] - cum[:, None])
+    along = np.minimum(along, perimeter - along)
+    far = (along > ratio * dist) & (idx != np.arange(n)[:, None])
+    return np.where(far, dist, np.inf).min(axis=1)
 
 
 def _curvature_radii(loop: np.ndarray) -> np.ndarray:
@@ -369,12 +576,14 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     between the bodies (:data:`~morphogen.mesh.triangles.GAP_ELEMENTS` elements across the
     narrowest, the gaps the distances of the bodies), from their curvatures (the share of a
     circle of :data:`~morphogen.mesh.triangles.CIRCLE_SEGMENTS` of their radius) and at
-    least ``min_size`` (by default a 64th of ``size``), the sides of a periodic box
+    least ``min_size`` (by default a 64th of ``size``) — below it where a gap is narrower
+    than the bulge of the chords —, toward the sharp corners
+    (:data:`~morphogen.mesh.triangles.CORNER_REFINEMENT`), the sides of a periodic box
     matching; ``mmg2d`` meshes the regions within them, which keep their nodes. Six-node
-    elements have their middle nodes on the surfaces
-    (:func:`~morphogen.mesh.curved.curved_triangles`), by default. None for another
+    elements have their middle nodes on the surfaces, by default. None for another
     structure, flat caps in the plane, capsules that touch, a body larger than the box (a
-    cluster that percolates), or a contour tangent to a side."""
+    cluster that percolates), a gap within a body too narrow for the finest grid, a contour
+    tangent to a side, or edges that cross."""
     from morphogen.mesh.conforming import mmg_executable
 
     domain = micro.domain
@@ -398,34 +607,46 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     if bodies is None or any(np.any(np.subtract(*b.bounds[::-1]) > lengths) for b in bodies):
         return None  # (or a body larger than the box: a cluster that percolates)
     floor = size / 64.0 if min_size is None else float(min_size)
-    # 1. the contours of the bodies, the lines of the sides that they cross, and the pieces
-    #    of them inside the box between their crossings
-    loops: list[tuple[int, np.ndarray]] = []
+    # 1. the contours of the bodies, their corners, the lines of the sides that they cross,
+    #    and the pieces of them inside the box between these marks: ("side", (axis, side,
+    #    t)) where they cross a side, ("corner", (key, point)) at a corner
+    loops: list[tuple[int, np.ndarray, list[int]]] = []
     pieces: list[tuple[int, np.ndarray, tuple | None, tuple | None, float]] = []
     crosses: list[set] = [set() for _ in bodies]
+    sharp: list[np.ndarray] = []
     for b, body in enumerate(bodies):
-        for loop in section_contours(body):
-            loops.append((b, loop))
+        traced = _traced(body)
+        if traced is None:
+            return None  # (a gap within a body too narrow for the finest grid)
+        for loop, corners, angles in traced:
+            perimeter = float(np.linalg.norm(loop - np.roll(loop, 1, axis=0), axis=1).sum())
+            if perimeter < 3.0 * floor:
+                continue  # a contour within the least size: a hole or the tip of a cap
+            loops.append((b, loop, corners))
             found = _line_crossings(body, loop, lower, upper, tol)
             if found is None:
                 return None
-            perimeter = float(np.linalg.norm(loop - np.roll(loop, 1, axis=0), axis=1).sum())
-            if not found:
-                if np.all(loop[0] > lower + tol) and np.all(loop[0] < upper - tol):
-                    pieces.append((b, np.vstack([loop, loop[:1]]), None, None, perimeter))
-                continue
+            sharp += [loop[k] for k, angle in zip(corners, angles, strict=True)
+                      if angle > CORNER_ANGLE]  # fmt: skip
             for *_, axis, side, t in found:
                 if lower[1 - axis] - tol <= t <= upper[1 - axis] + tol:
                     crosses[b].add((axis, side))
+            marks = [(e, f, ("side", (axis, side, t)), _point(axis, side, t, lower, upper))
+                     for e, f, axis, side, t in found]  # fmt: skip
+            marks += [(k, 0.0, ("corner", ((len(loops), k), loop[k])), loop[k])
+                      for k in corners]  # fmt: skip
+            if not marks:
+                if np.all(loop[0] > lower + tol) and np.all(loop[0] < upper - tol):
+                    pieces.append((b, np.vstack([loop, loop[:1]]), None, None, perimeter))
+                continue
+            marks.sort(key=lambda m: (m[0], m[1]))
             n = len(loop)
-            for c0, c1 in zip(found, [*found[1:], found[0]], strict=True):
-                p0 = _point(c0[2], c0[3], c0[4], lower, upper)
-                p1 = _point(c1[2], c1[3], c1[4], lower, upper)
-                k0, k1 = c0[0], c1[0]
-                inner = [(k0 + 1 + i) % n for i in range((k1 - k0) % n)]
-                if k1 == k0 and c1[1] <= c0[1]:  # around the whole contour
-                    inner = [(k0 + 1 + i) % n for i in range(n)]
-                path = np.vstack([p0, loop[inner], p1]) if inner else np.vstack([p0, p1])
+            for m0, m1 in zip(marks, [*marks[1:], marks[0]], strict=True):
+                start, stop = m0[0] + m0[1], m1[0] + m1[1]
+                if stop < start or m1 is m0:  # (around the end of the contour, or all of it)
+                    stop += n
+                inner = [i % n for i in range(int(np.floor(start)) + 1, int(np.ceil(stop)))]
+                path = np.vstack([m0[3], loop[inner], m1[3]])
                 step = np.linalg.norm(np.diff(path, axis=0), axis=1)
                 if step.sum() <= 1e3 * tol:
                     continue
@@ -435,7 +656,7 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                 w = (0.5 * cum[-1] - cum[k - 1]) / max(step[k - 1], 1e-300)
                 middle = path[k - 1] + w * (path[k] - path[k - 1])
                 if np.all(middle > lower + tol) and np.all(middle < upper - tol):
-                    pieces.append((b, path, c0[2:], c1[2:], perimeter))
+                    pieces.append((b, path, m0[2], m1[2], perimeter))
     # 2. the sizes: along the contours, from the gaps to the other bodies and to the sides
     #    that they do not cross, and from their curvatures; along the sides, from the gaps
     #    to the bodies that do not cross them
@@ -446,21 +667,31 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     tree = cKDTree(centres) if len(bodies) else None
     reach = float(extents.max()) + margin if len(bodies) else 0.0
     points, h = [], []
-    for b, loop in loops:
+    for b, loop, corners in loops:
         gap = np.full(len(loop), np.inf)
         for o in tree.query_ball_point(centres[b], extents[b] + reach):
             if o != b:
                 gap = np.minimum(gap, bodies[o].distance(loop))
-        same = [other for c, other in loops if c == b and other is not loop]
+        same = [other for c, other, _ in loops if c == b and other is not loop]
         if same:  # the other contours of the body (its vertices: within a cell)
             gap = np.minimum(gap, cKDTree(np.concatenate(same)).query(loop)[0])
+        gap = np.minimum(gap, _self_gaps(loop))
         for axis in (0, 1):
             for side, value in ((0, lower[axis]), (1, upper[axis])):
                 if (axis, side) not in crosses[b]:
                     gap = np.minimum(gap, np.abs(loop[:, axis] - value))
-        bend = 2.0 * np.pi * _curvature_radii(loop) / CIRCLE_SEGMENTS
+        radii = _curvature_radii(loop)
+        for k in corners:  # (a corner is no curvature: graded below if sharp)
+            radii[[k - 1, k, (k + 1) % len(loop)]] = np.inf
+        sized = np.clip(np.minimum(gap / GAP_ELEMENTS, 2.0 * np.pi * radii / CIRCLE_SEGMENTS),
+                        floor, size)  # fmt: skip
+        # below the least size where a gap is narrower than the bulge of its chords: those of
+        # the size sqrt(2 rho gap) bulge by a quarter of it
         points.append(loop)
-        h.append(np.minimum(gap / GAP_ELEMENTS, bend))
+        bent = np.isfinite(radii)
+        bulge = np.full(len(loop), np.inf)
+        bulge[bent] = np.sqrt(2.0 * radii[bent] * gap[bent])
+        h.append(np.minimum(sized, np.maximum(bulge, 1e-3 * floor)))
     for axis in (0, 1):
         other = 1 - axis
         n = max(2, int(np.ceil(lengths[other] / spacing)) + 1)
@@ -475,9 +706,15 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                     if lo[axis] - margin < value < hi[axis] + margin:
                         gap = np.minimum(gap, body.distance(p))
             points.append(p)
-            h.append(gap / GAP_ELEMENTS)
-    field = _ContourSizes(np.concatenate(points), np.clip(np.concatenate(h), floor, size),
-                          lower, upper, size, periodic)  # fmt: skip
+            h.append(np.clip(gap / GAP_ELEMENTS, floor, size))
+    field = _ContourSizes(np.concatenate(points), np.concatenate(h), lower, upper, size,
+                          periodic)  # fmt: skip
+    if sharp:  # the sharp corners, where the fields are singular: graded toward them
+        sharp = np.asarray(sharp)
+        refined = np.maximum(field(sharp) / CORNER_REFINEMENT, floor)
+        field.points = np.concatenate([field.points, sharp])
+        field.h = np.concatenate([field.h, refined])
+        field._index()
     # 3. the nodes of the sides: their corners, the crossings, the points graded between;
     #    those of the upper sides of a periodic box the translates of the lower ones
     xy: list[np.ndarray] = []
@@ -485,7 +722,9 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
     refs: list[int] = []
     side_nodes: dict[tuple[int, int], tuple[np.ndarray, list[int]]] = {}
     corner: dict[tuple[int, int], int] = {}
-    cuts = [c for piece in pieces for c in (piece[2], piece[3]) if c is not None]
+    cuts = [m[1] for piece in pieces for m in (piece[2], piece[3])
+            if m is not None and m[0] == "side"]  # fmt: skip
+    corner_ids: dict[tuple[int, int], int] = {}
 
     def corner_node(i: int, j: int) -> int:
         if (i, j) not in corner:
@@ -526,8 +765,16 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             edges += list(itertools.pairwise(ids))
             refs += [SIDE_REFS[(axis, side)]] * (len(ids) - 1)
 
-    def side_node(cut) -> int:
-        axis, side, t = cut
+    def node(mark) -> int:
+        """The node of a mark: of its side, or of its corner (the first time, new)."""
+        kind, value = mark
+        if kind == "corner":
+            key, point = value
+            if key not in corner_ids:
+                corner_ids[key] = len(xy)
+                xy.append(point)
+            return corner_ids[key]
+        axis, side, t = value
         chain, ids = side_nodes[(axis, side)]
         k = int(np.argmin(np.abs(chain - t)))
         if abs(chain[k] - t) > 1e3 * tol:  # pragma: no cover - merged above
@@ -545,20 +792,34 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             w = (s - cum[k]) / np.maximum(step[k], 1e-300)
             return path[k] + w[:, None] * (path[k + 1] - path[k])
 
-        least = max(2, int(np.ceil(CIRCLE_SEGMENTS * length / perimeter)))
-        inner = bodies[b].onto(at(_marched(length, at, field, least))[1:-1])
-        ids = [side_node(start) if start is not None else len(xy)]
+        least = max(1 if length < floor else 2, int(np.ceil(CIRCLE_SEGMENTS * length / perimeter)))
+        if start is None:  # a whole contour: three segments at least, no shorter than the least
+            least = max(3, min(CIRCLE_SEGMENTS, int(perimeter / floor)))
+        params = _marched(length, at, field, least)[1:-1]
+        # each node onto the capsule of its edge of the path, whose vertices it bounds (those
+        # of its marks, ambiguous at corners, those of their neighbours), the body's where
+        # the edge passes from a capsule to another (smoothly: a corner is a mark)
+        one = len(bodies[b].radii) == 1
+        owner = np.zeros(len(path), dtype=int) if one else bodies[b].owners(path)
+        if len(path) > 2:
+            owner[0], owner[-1] = owner[1], owner[-2]
+        k = np.clip(np.searchsorted(cum, params, side="right") - 1, 0, len(step) - 1)
+        own = np.where(owner[k] == owner[k + 1], owner[k], -1) if len(path) > 2 else None
+        inner = bodies[b].onto(at(params), own)
+        ids = [node(start) if start is not None else len(xy)]
         if start is None:
             xy.append(path[0])
         for p in inner:
             ids.append(len(xy))
             xy.append(p)
-        ids.append(side_node(end) if end is not None else ids[0])
+        ids.append(node(end) if end is not None else ids[0])
         edges += list(itertools.pairwise(ids))
         refs += [REF_CIRCLE] * (len(ids) - 1)
     xy = np.asarray(xy)
     edges = np.asarray(edges, dtype=np.int64)
     refs = np.asarray(refs, dtype=np.int64)
+    if _crossing(xy, edges):  # pragma: no cover - the contours of bodies apart, graded
+        return None
     shortest = float(np.linalg.norm(xy[edges[:, 1]] - xy[edges[:, 0]], axis=1).min())
     exe = mmg_executable(executable, "mmg2d")
     with tempfile.TemporaryDirectory(dir=workdir) as tmp:
@@ -586,6 +847,75 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
         return mesh
     if curved is False:
         return mesh.quadratic()
-    from morphogen.mesh.curved import curved_triangles
+    return _curved(mesh, bodies)
 
-    return curved_triangles(mesh, micro)
+
+def _curved(mesh: TriMesh, bodies: list[Body]) -> TriMesh:
+    """The six-node mesh of a mesh of contours whose middle nodes on the contours lie on
+    the surfaces: each edge between the phases curved onto the capsule on whose surface its
+    two ends lie, its middle moved along the gradient of that capsule's distance (that of
+    a body, the least of its capsules', would take the surface of the other near a corner);
+    the middle nodes of the elements that would fold (:data:`MIN_JACOBIAN`) halved toward
+    their middles, eight times at most, then straight."""
+    t0 = time.perf_counter()
+    quad = mesh.quadratic()
+    nodes = quad.nodes.copy()
+    ends = quad.elements[:, np.array(TRI6_EDGES)]
+    mids = quad.elements[:, 3:]
+    flat = mids.ravel()
+    low = np.full(quad.n_nodes, np.iinfo(np.int64).max)
+    high = np.full(quad.n_nodes, -1)
+    np.minimum.at(low, flat, np.repeat(quad.phase, 3))
+    np.maximum.at(high, flat, np.repeat(quad.phase, 3))
+    chosen = np.flatnonzero((high >= 0) & (low != high))  # the middles between the phases
+    if not len(chosen) or not bodies:
+        return quad
+    pair = np.zeros((quad.n_nodes, 2), dtype=np.int64)
+    pair[flat] = ends.reshape(-1, 2)
+    a, b = nodes[pair[chosen, 0]], nodes[pair[chosen, 1]]
+    middle = 0.5 * (a + b)
+    target = middle.copy()
+    best = np.full(len(chosen), np.inf)
+    tree = cKDTree(middle)
+    for body in bodies:
+        lo, hi = body.bounds
+        near = np.asarray(tree.query_ball_point(0.5 * (lo + hi), 0.5 * np.linalg.norm(hi - lo)),
+                          dtype=np.int64)  # fmt: skip
+        if not len(near):
+            continue
+        for k in range(len(body.radii)):
+            off = np.maximum(
+                np.abs(body.capsule(k, a[near])[0]), np.abs(body.capsule(k, b[near])[0])
+            )
+            better = off < best[near]
+            if not np.any(better):
+                continue
+            take = near[better]
+            best[take] = off[better]
+            target[take] = body.onto(middle[take], np.full(len(take), k))
+    move = target - middle
+    scale = np.ones(len(chosen))
+    index = np.full(quad.n_nodes, -1)
+    index[chosen] = np.arange(len(chosen))
+    bent = np.flatnonzero((index[mids] >= 0).any(axis=1))
+    gradients = corner_gradients(nodes, quad.elements[bent])
+    points = np.vstack([TRI6_NODES, TRI_GAUSS])
+    for round_ in range(9):
+        trial = nodes.copy()
+        trial[chosen] = middle + scale[:, None] * move
+        deviation = trial[mids[bent]] - 0.5 * (trial[ends[bent, :, 0]] + trial[ends[bent, :, 1]])
+        bad = bent[jacobian_ratios(gradients, deviation, points).min(axis=1) < MIN_JACOBIAN]
+        if not len(bad):
+            break
+        mine = index[mids[bad]].ravel()
+        mine = np.unique(mine[mine >= 0])
+        scale[mine] = 0.0 if round_ == 7 else 0.5 * scale[mine]
+    nodes[chosen] = middle + scale[:, None] * move
+    out = quad._with_nodes(nodes)
+    size = float(mesh.metadata.get("size", 1.0))
+    on = int(np.count_nonzero((scale == 1.0) & (best <= 1e-9 * size)))
+    deviation = float(np.linalg.norm(scale[:, None] * move, axis=1).max())
+    out.metadata["curved"] = {"nodes": on, "interface_nodes": len(chosen),
+                              "max_deviation": deviation, "sampling": 0.0,
+                              "time_s": round(time.perf_counter() - t0, 3)}  # fmt: skip
+    return out

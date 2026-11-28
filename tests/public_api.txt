@@ -2993,10 +2993,16 @@ morphogen.mesh.conforming.node_level_set(micro, spacing, phase=None)
 morphogen.mesh.conforming.point_group(mirrors, diagonals=())
 morphogen.mesh.contours.Body(start, end, radii, z)
 morphogen.mesh.contours.Body.bounds
+morphogen.mesh.contours.Body.capsule(self, k, xy)
 morphogen.mesh.contours.Body.distance(self, xy, gradient=False)
-morphogen.mesh.contours.Body.onto(self, xy)
+morphogen.mesh.contours.Body.onto(self, xy, capsules=None)
+morphogen.mesh.contours.Body.owners(self, xy)
+morphogen.mesh.contours.CORNER_ANGLE
+morphogen.mesh.contours.MIN_JACOBIAN
 morphogen.mesh.contours.NEWTON_STEPS
 morphogen.mesh.contours.TRACE_CELLS
+morphogen.mesh.contours.TRACE_POINTS
+morphogen.mesh.contours.TRACE_REFINEMENTS
 morphogen.mesh.contours.contour_mesh(micro, *, size, min_size=None, hausdorff=None, gradation=2.0, z=None, phases='all', order=1, curved=None, periodic=None, executable=None, workdir=None, timeout=None)
 morphogen.mesh.contours.section_bodies(micro, z=None, *, lower=None, upper=None, margin=0.0, periodic=None)
 morphogen.mesh.contours.section_capsules(micro, z=None)
