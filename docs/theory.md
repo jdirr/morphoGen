@@ -14080,7 +14080,10 @@ alike (the errors of the counts), where the level sets are 3.9·10⁻³, 1.3·10
 4.3·10⁻⁴ off at the sizes 0.05, 0.025 and 0.0125 for the first. The size field of the
 contours is the least over all their points: those of a contour traced finely, on the finer
 grids of a body's gaps, would hide among the nearest a smaller size a little farther — the
-round tip of a capsule cut by a single chord, 3.4·10⁻⁵ of the box. Three
+round tip of a capsule cut by a single chord, 3.4·10⁻⁵ of the box. `mmg2d` (5.7.0) does not
+triangulate some inputs the same way from a run to another — the same file of contours,
+run six times, gave two meshes, their interior nodes moved —, so that a mesh of the plane
+is reproducible to the bit only where it does. Three
 features of these sections are narrower than the cells of the grids. A wedge of matrix
 between two capsules that cross at a small angle, narrower than a cell about a node of the
 grid in it: the marching squares close a loop of their own about the node, inside the
