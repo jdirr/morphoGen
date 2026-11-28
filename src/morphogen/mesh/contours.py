@@ -1275,6 +1275,16 @@ def _line_crossings(body: Body, loop: np.ndarray, lower, upper, tol: float):
             for e in np.flatnonzero((u < 0.0) != (v < 0.0)).tolist():
                 fraction = float(u[e] / (u[e] - v[e]))
                 start = float(loop[e, other] + fraction * (following[e, other] - loop[e, other]))
+                # a vertex on the line (a corner on the side, where the distance along the
+                # line is not smooth): the crossing is that vertex
+                for at, end in ((0.0, loop[e]), (1.0, following[e])):
+                    if abs(float(end[axis]) - value) <= 1e3 * tol:
+                        out.append((e, at, axis, side, float(end[other])))
+                        break
+                else:
+                    end = None
+                if end is not None:
+                    continue
                 # the root between the points of the line beside the ends of the edge, where
                 # the distance has their signs: that of this edge (the nearest to the
                 # crossing of the chord may be that of the next, the other side of a dip)
@@ -1384,6 +1394,10 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
             found = _line_crossings(body, loop, lower, upper, tol)
             if found is None:
                 return None
+            for line in {(axis, side) for *_, axis, side, _ in found}:
+                ts = np.sort([t for *_, axis, side, t in found if (axis, side) == line])
+                if len(ts) > 1 and float(np.diff(ts).min()) < 1e-2 * floor:
+                    return None  # a contour tangent to a side, within a hundredth of the least size
             sharp += [loop[k] for k, angle in zip(corners, angles, strict=True)
                       if angle > CORNER_ANGLE]  # fmt: skip
             for *_, axis, side, t in found:
@@ -1396,8 +1410,11 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
                 x = _point(axis, side, t, lower, upper)
                 along = _along(loop, e, x)
                 marks.append((e, min(max(along, 0.0), 1.0), ("side", (axis, side, t)), x, along))
+            # (a corner where the contour crosses a side: the crossing, a node of the side)
+            crossed = [m[3] for m in marks]
             marks += [(k, 0.0, ("corner", ((len(loops), k), loop[k])), loop[k], 0.0)
-                      for k in corners]  # fmt: skip
+                      for k in corners
+                      if all(np.linalg.norm(loop[k] - x) > 1e3 * tol for x in crossed)]  # fmt: skip
             if not marks:
                 if np.all(loop[0] > lower + tol) and np.all(loop[0] < upper - tol):
                     pieces.append((b, np.vstack([loop, loop[:1]]), None, None, perimeter))
@@ -1610,19 +1627,30 @@ def contour_mesh(micro, *, size: float, min_size: float | None = None,
         return None
     shortest = float(np.linalg.norm(xy[edges[:, 1]] - xy[edges[:, 0]], axis=1).min())
     exe = mmg_executable(executable, "mmg2d")
-    with tempfile.TemporaryDirectory(dir=workdir) as tmp:
-        folder = Path(tmp)
-        medit.write_mesh(folder / "contours.mesh", xy, None, np.zeros((0, 3), dtype=np.int64),
-                         edges=edges, edge_refs=refs, required_vertices=np.arange(len(xy)),
-                         required_edges=np.arange(len(edges)))  # fmt: skip
-        args = [*_mmg_args(size, 0.5 * shortest, hausdorff, gradation), "-nr", "-nosurf"]
-        try:
-            out = _run(exe, folder / "contours.mesh", None, folder / "out.mesh", args, timeout)
-        except RuntimeError as err:  # (left to the level sets, which may mesh it)
-            first = str(err).splitlines()[0] if str(err) else type(err).__name__
-            warnings.warn(f"contour mesh: {first}; the section is left to the level sets",
-                          RuntimeWarning, stacklevel=2)  # fmt: skip
-            return None
+    args = [*_mmg_args(size, 0.5 * shortest, hausdorff, gradation), "-nr", "-nosurf"]
+    # mmg2d inserts the nodes in their order, which may fail among many collinear ones (the
+    # straight sides of struts cut along their axes): once more in another order, else the
+    # level sets
+    sequence = np.arange(len(xy))
+    for attempt in range(2):
+        with tempfile.TemporaryDirectory(dir=workdir) as tmp:
+            folder = Path(tmp)
+            place = np.empty_like(sequence)
+            place[sequence] = np.arange(len(sequence))
+            medit.write_mesh(folder / "contours.mesh", xy[sequence], None,
+                             np.zeros((0, 3), dtype=np.int64), edges=place[edges],
+                             edge_refs=refs, required_vertices=np.arange(len(xy)),
+                             required_edges=np.arange(len(edges)))  # fmt: skip
+            try:
+                out = _run(exe, folder / "contours.mesh", None, folder / "out.mesh", args, timeout)
+                break
+            except RuntimeError as err:
+                if attempt:
+                    first = str(err).splitlines()[0].rstrip(":") if str(err) else "failed"
+                    warnings.warn(f"contour mesh: {first}; the section is left to the level "
+                                  "sets", RuntimeWarning, stacklevel=2)  # fmt: skip
+                    return None
+                sequence = np.random.default_rng(0).permutation(len(xy))
     nodes, tri = out["Vertices"], out["Triangles"]
     centroids = nodes[tri].mean(axis=1)
     innermost = np.full(len(tri), len(unions))

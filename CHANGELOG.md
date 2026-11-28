@@ -317,8 +317,18 @@
   crossing were two nodes 7·10⁻¹⁴ apart; the corner is now the node of the side. The octet
   and hierarchical lattices of struts, whose struts cross on the sides, are meshed by their
   contours (the section of the octet cell through its middle, its diagonal strips, to
-  round-off). Where `mmg2d` still fails on the contours, a warning says so and the section
-  is left to the level sets, which a run then uses, where the error stopped it.
+  round-off). A vertex of a contour on the line of a side (a corner there, where the
+  distance along the line is not smooth) is the crossing itself, which a search of the root
+  placed 3·10⁻⁴ off (the Kelvin lattice); a corner where a contour crosses a side is that
+  crossing, a node of the side, in whatever order the two marks come. `mmg2d`, which inserts
+  the nodes in their order, may fail among many collinear ones (the straight sides of the
+  struts of a lattice cut along their axes): it is run once more with the nodes in another
+  order, and where it fails again a warning says so and the section is left to the level
+  sets, which a run then uses, where the error stopped it. Two crossings of a contour with a
+  side within a hundredth of the least size, a contour tangent to it, leave the section to
+  the level sets. Every cell of `strut_lattice` (cubic, BCC, FCC, octet, Kelvin, diamond,
+  pyrochlore), solid and hollow, cut at two heights, meshed by its contours, its areas within
+  10⁻⁶ at the sizes 0.05 and 0.0125 (10⁻⁸ through the middle of the cells).
 * Fixed: `reaction_diffusion` in a box of a single cell (its default `cell_size` of 1 in a
   unit box) divided by zero; it now says that its patterns need at least 24 cells across.
   `gray_scott` refuses a lattice of a single cell.

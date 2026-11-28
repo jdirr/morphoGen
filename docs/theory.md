@@ -14255,8 +14255,18 @@ that touch 0.02 below the plane, within its slab, their sections 0.0029 apart, w
 in 24 arcs a circle at both sizes 0.05 and 0.025); random walks of fibres in contact, solid
 and hollow, within 3.2·10⁻⁶ of counts on grids of 8000² points, the bias of the counts (one
 within 5.1·10⁻⁶, 2.9·10⁻⁶ and 1.4·10⁻⁶ of counts on grids of 4000², 8000² and 16000²
-points). Features too small for the finest grid and contours tangent to a side within
-round-off are left to the level sets.
+points). A vertex of a contour on the line of a side (a corner on the side, where the
+distance along the line is not smooth) is the crossing itself, and a corner where a contour
+crosses a side is that crossing, a node of the side: the lattices of struts, whose nodes
+lie on the faces of their cells, are meshed by their contours, every cell of
+`strut_lattice` solid and hollow, cut at two heights, its areas within 10⁻⁶ at the sizes
+0.05 and 0.0125 (within 10⁻⁸ through the middle of the cells, their struts there mostly cut
+along their axes) — the section of the octet cell through its middle, its diagonal strips,
+$4\sqrt{2}\,r - 8 r^2$ to round-off. `mmg2d` inserts the nodes in their order and may fail
+among many collinear ones, the straight sides of struts cut along their axes: it is run
+once more with the nodes in another order. Features too small for the finest grid and
+contours tangent to a side, two of their crossings within a hundredth of the least size,
+are left to the level sets.
 
 **Flat caps.** A cylinder whose flat cap reaches the slab of the plane keeps that end (the
 ends clipped to the slab are round, which keeps the section): its distance is that of the

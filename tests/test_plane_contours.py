@@ -475,8 +475,14 @@ def test_corners_on_the_sides(monkeypatch):
     struts of the plane, along the diagonals, strips that cross on the sides of the box,
     corners of their contours on the sides, where a contour crosses them: their nodes those
     of the sides (two nodes 7e-14 apart failed mmg2d), the area of the strips
-    4 sqrt(2) r - 8 r^2 to round-off. Where mmg2d fails on the contours, a warning, and the
-    section left to the level sets."""
+    4 sqrt(2) r - 8 r^2 to round-off; a Kelvin lattice, whose corners lie on the sides (the
+    crossing the corner itself, where the distance along the line is not smooth: the
+    corner and the crossing were two nodes 3e-4 apart), and a pyrochlore one of hollow
+    struts, many nodes collinear along the straight sides of its struts (mmg2d failed to
+    insert them in their order, and succeeds in another), meshed by their contours, their
+    areas within 1e-8 at the sizes 0.05 and 0.0125 (counts on grids of 4000 points differ by
+    1e-4 with the grid). Where mmg2d fails on the contours twice, a warning, and the section
+    left to the level sets."""
     from morphogen.mesh import contours
     from morphogen.models.base import model_from_config
 
@@ -486,6 +492,15 @@ def test_corners_on_the_sides(monkeypatch):
     assert mesh is not None and mesh.matching_sides()
     r = 0.08
     assert mesh.phase_fractions()[1] == pytest.approx(4.0 * np.sqrt(2.0) * r - 8.0 * r**2, abs=1e-9)
+    for extra in ({"cell": "kelvin"}, {"cell": "pyrochlore", "wall_thickness": 0.015}):
+        lattice = model_from_config({"type": "strut_lattice", "strut_radius": 0.05, **extra})
+        lattice = lattice.generate(BOX, seed=1)
+        areas = []
+        for size in (0.05, 0.0125):
+            mesh = contour_mesh(lattice, size=size, order=2)
+            assert mesh is not None and mesh.matching_sides()
+            areas.append(mesh.phase_fractions()[1])
+        assert areas[0] == pytest.approx(areas[1], abs=1e-8)
 
     def failed(*args, **kwargs):
         raise RuntimeError("mmg2d_O3 failed (exit code 1):\n  -- MMG2D")
