@@ -1080,6 +1080,37 @@ morphogen run hierarchical_lattice.yaml
 :::
 
 :::{container} gallery-card
+:name: gallery-honeycomb-plane
+
+```{image} _static/gallery/honeycomb_plane.png
+:alt: honeycomb_plane
+:loading: lazy
+```
+
+```{image} _static/gallery/honeycomb_plane_result.png
+:alt: the result of honeycomb_plane
+:loading: lazy
+```
+
+**`honeycomb_plane`** — A hexagonal honeycomb of aluminium meshed exactly in its plane, its lumens the cells offset inward by half their walls: its stiffness and conductivity in space by the finite elements of the plane, the axial ones the fraction of the walls of aluminium's, the transverse ones near the beams of Gibson and Ashby.
+
+*Needs the mesher MMG (extra `mesh`), VTK and ffmpeg (extra `video`).*
+
+```bash
+morphogen template honeycomb_plane -o honeycomb_plane.yaml
+morphogen run honeycomb_plane.yaml
+```
+
+<details><summary>Configuration</summary>
+
+```{literalinclude} ../src/morphogen/templates/honeycomb_plane.yaml
+:language: yaml
+```
+
+</details>
+:::
+
+:::{container} gallery-card
 :name: gallery-scale-rich-network
 
 ```{image} _static/gallery/scale_rich_network.png

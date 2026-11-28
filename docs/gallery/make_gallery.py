@@ -137,6 +137,12 @@ RESULTS = {
         "title": "von Mises stress of the shear",
     },
     "fibre_bed_plane": {"kind": "flow"},
+    "honeycomb_plane": {
+        "kind": "plane",
+        "result": "shear_modulus_periodic",
+        "field": "von_mises",
+        "title": "von Mises stress of the shear",
+    },
     "misaligned_ply_plane": {
         "kind": "plane",
         "result": "shear_modulus_periodic",
@@ -285,6 +291,11 @@ FAMILIES = [
              "and the rigidity of its framework (Maxwell–Calladine)."),
             ("hierarchical_lattice", "A hierarchical lattice of hollow tubes: frames of "
              "octahedra of generation 1 (Rayneau-Kirkhope, Mao & Farr 2012)."),
+            ("honeycomb_plane", "A hexagonal honeycomb of aluminium meshed exactly in its "
+             "plane, its lumens the cells offset inward by half their walls: its stiffness "
+             "and conductivity in space by the finite elements of the plane, the axial ones "
+             "the fraction of the walls of aluminium's, the transverse ones near the beams "
+             "of Gibson and Ashby."),
             ("scale_rich_network", "A scale-rich network: 500 ligaments of power-law "
              "thicknesses grown until they meet, at 40 % relative density (Both et al. "
              "2026)."),

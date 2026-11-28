@@ -123,8 +123,9 @@ def test_honeycombs_solved_in_their_plane():
     generalized plane strain, its lumens empty: along its prisms the uniform strain is its
     field, its axial modulus and conductivity the fraction of the walls of those of the
     solid, to round-off; across them, isotropic in its plane as its hexagonal symmetry has
-    it, within 1e-3, near the beams of Gibson and Ashby, 4/sqrt(3) (t/l)^3, for walls of a
-    sixth of their length (bending only: 8 % below)."""
+    it, within 1e-3, and within 5 % of the beams of Gibson and Ashby in bending,
+    4/sqrt(3) (t/l)^3, of the modulus of plates in plane strain E / (1 - nu^2) (the walls of
+    long prisms), for walls of a sixth of their length (2.1 % below)."""
     _, micro = _honeycomb("hexagonal", (3.0, 3.0 * np.sqrt(3.0), 1.0))
     mesh = cells_mesh(micro, size=0.05, order=2)
     phi = mesh.phase_fractions()[1]
@@ -135,5 +136,36 @@ def test_honeycombs_solved_in_their_plane():
     assert stiffness["E3"] == pytest.approx(phi * 70.0, rel=1e-12)
     assert conduction["tensor"][2, 2] == pytest.approx(phi * 200.0, rel=1e-12)
     assert stiffness["E1"] == pytest.approx(stiffness["E2"], rel=1e-3)
-    beams = 4.0 / np.sqrt(3.0) * (0.1 * np.sqrt(3.0)) ** 3  # (t / l, l the side of the hexagons)
-    assert 1.0 < stiffness["E1"] / 70.0 / beams < 1.15
+    plates = 4.0 / np.sqrt(3.0) * (0.1 * np.sqrt(3.0)) ** 3 * 70.0 / (1.0 - 0.3**2)  # (t / l)
+    assert stiffness["E1"] == pytest.approx(plates, rel=0.05)
+
+
+@needs_mmg2d
+def test_the_template_of_a_honeycomb_in_its_plane(tmp_path):
+    """The template ``honeycomb_plane`` (a hexagonal honeycomb of aluminium, walls of 0.05
+    in cells of 1) run as written, its outputs aside: meshed exactly in its plane, its axial
+    modulus and conductivity those of aluminium times 0.0975 to round-off under both
+    conditions, isotropic in its plane, the kinematic conditions three times stiffer across
+    the prisms than the periodic ones (the walls that the window cuts)."""
+    import csv
+    from importlib import resources
+
+    import yaml
+
+    from morphogen.config import load_config
+    from morphogen.pipeline import run
+
+    text = (resources.files("morphogen") / "templates" / "honeycomb_plane.yaml").read_text()
+    config = yaml.safe_load(text)
+    config["outputs"] = {"directory": str(tmp_path / "out"), "name": "honeycomb"}
+    config.pop("visualization", None)
+    run(load_config(config, base_dir=tmp_path))
+    with open(tmp_path / "out" / "results.csv", newline="") as stream:
+        values = {k: v for k, v in next(csv.DictReader(stream)).items() if v}
+    for bc in ("periodic", "kubc"):
+        assert float(values[f"stiffness.{bc}.E3"]) == pytest.approx(0.0975 * 70.0, rel=1e-12)
+        k33 = float(values[f"conductivity_tensor.{bc}.C33"])
+        assert k33 == pytest.approx(0.0975 * 200.0, rel=1e-12)
+    e1, e2 = float(values["stiffness.periodic.E1"]), float(values["stiffness.periodic.E2"])
+    assert e1 == pytest.approx(e2, rel=1e-4)
+    assert 2.5 < float(values["stiffness.kubc.E1"]) / e1 < 3.5

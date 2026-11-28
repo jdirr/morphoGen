@@ -1,0 +1,45 @@
+# A hexagonal honeycomb of aluminium meshed exactly in its plane: cells of 1 mm between
+# opposite walls, walls of 0.05 mm, the lumen of each cell its hexagon offset inward by
+# half its wall, an exact polygon. The prisms do not vary along z, so that the mesh of their
+# plane is the structure itself, and its finite elements in generalized plane strain give
+# its stiffness and conductivity in space. Along the prisms, the uniform strain is the
+# field: the axial modulus and conductivity are those of aluminium times the fraction of
+# the walls, 1 - (1 - t/d)^2 = 0.0975, exactly (6.825 GPa, 19.5 W/m/K). Across them the
+# walls bend: the honeycomb is isotropic in its plane, as its hexagonal symmetry has it,
+# its modulus 1.7e-3 of that of aluminium, within 2.4 % of the beams of Gibson and Ashby,
+# 2.3 (t/l)^3 (l the side of the hexagons), of the modulus of plates in plane strain,
+# E / (1 - nu^2) (the walls of long prisms), sixty times below its axial one, its shear
+# modulus a fourth of it; kinematic conditions on the walls that the window cuts make it
+# three times stiffer. The stiffness, the shear modulus and the conductivity under periodic
+# and kinematic conditions (static ones cannot hold the empty lumens), and the figures of
+# the mesh and of the von Mises stress of the shear.
+model:
+  type: honeycomb
+  arrangement: hexagonal
+  cell_size: 1.0              # mm, between opposite walls
+  wall_thickness: 0.05
+domain:
+  size: [3.0, 5.196152422706632, 1.0]   # three by three periods: whole cells (3 by 3 sqrt 3)
+  periodic: true
+seed: 1
+mesh:
+  plane: true                 # the triangles of the plane: the exact lumens and walls
+  size: 0.1                   # graded across the walls: three elements at least
+  order: 2
+homogenization:
+  method: fe
+  plane: generalized
+  materials:
+    0: void                                                # the lumens
+    1: {young: 70.0, poisson: 0.33, conductivity: 200.0}    # aluminium (GPa, W/m/K)
+  boundary_conditions: [periodic, kubc]
+  properties: [stiffness, shear_modulus, conductivity_tensor]
+  fields: true
+outputs:
+  directory: out/honeycomb_plane
+  name: honeycomb
+  conforming_mesh: [vtu]
+visualization:
+  figures:
+    - {of: mesh}
+    - {of: shear_modulus.periodic, color: von_mises}

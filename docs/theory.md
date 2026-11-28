@@ -14329,16 +14329,21 @@ of a solid, its lumens empty, has along its prisms the uniform strain for its fi
 axial modulus and conductivity those of the solid times the fraction of its walls, to
 round-off (13.3 = 0.19·70 GPa); across them it is isotropic as its hexagonal symmetry has
 it (its moduli $E_1$ and $E_2$ within 2·10⁻⁴), $E_1/E_s = 0.0129$ for walls of a sixth of
-their length, 8 % above the beams of Gibson and Ashby in bending alone
-($4/\sqrt{3}\,(t/l)^3 = 0.0120$), the stiff nodes of the walls. So is softwood without rays
-(`arrangement: wood`): the lumens of its radial files of rectangular cells, earlywood and
-latewood, are the rectangles shrunk by half their walls, within 1.7·10⁻⁶ of counts on a
-lattice of 3000 points across turned by an irrational angle — a lattice along the sides
-errs alike at every point along each side of the rectangles, by 2·10⁻⁴ in all. The vertices
-of the lumens nearer to a side of the box than a 16th of the least size are moved onto it:
-a lumen that a side cuts 4·10⁻⁶ from its edge leaves out the sliver, which `mmg2d` could
-not mesh. Wood with rays, which vary along the prisms, and prisms along another axis are
-left to the level sets.
+their length, within 2.1 % of the beams of Gibson and Ashby in bending,
+$4/\sqrt{3}\,(t/l)^3$, of the modulus of plates in plane strain, $E_s/(1 - \nu^2)$: the
+walls of long prisms bend as plates. The template `honeycomb_plane` (aluminium, walls of
+0.05 in cells of 1): its axial modulus and conductivity 0.0975 of aluminium's, its
+transverse modulus 1.7·10⁻³ of it, within 2.4 % of the plates in bending for these thinner
+walls ($t/l = 0.087$), its shear modulus a fourth of it, as for a Poisson's ratio near one;
+kinematic conditions on the walls that the window cuts make it three times stiffer. So is
+softwood without rays (`arrangement: wood`): the lumens of its radial files of rectangular
+cells, earlywood and latewood, are the rectangles shrunk by half their walls, within
+1.7·10⁻⁶ of counts on a lattice of 3000 points across turned by an irrational angle — a
+lattice along the sides errs alike at every point along each side of the rectangles, by
+2·10⁻⁴ in all. The vertices of the lumens nearer to a side of the box than a 16th of the
+least size are moved onto it: a lumen that a side cuts 4·10⁻⁶ from its edge leaves out the
+sliver, which `mmg2d` could not mesh. Wood with rays, which vary along the prisms, and
+prisms along another axis are left to the level sets.
 
 **Maps of grains.** An orientation map (EBSD, the model `ebsd`: a lattice of one cell
 through the thickness of the box, the label of a grain and its mean orientation per cell) is

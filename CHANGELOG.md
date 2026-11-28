@@ -276,10 +276,14 @@
   hexagonal honeycombs have their walls $1 - (1 - t/d)^2$ to round-off, Voronoi ones within
   4.6·10⁻⁶ of counts on grids of 4000² points, and a hexagonal honeycomb of a solid its
   axial modulus and conductivity the fraction of the walls of the solid's to round-off,
-  isotropic in its plane within 2·10⁻⁴, 8 % above the bending beams of Gibson and Ashby.
+  isotropic in its plane within 2·10⁻⁴, within 2.1 % of the bending beams of Gibson and
+  Ashby of the modulus of plates in plane strain (the walls of long prisms).
   Softwood without rays too, the lumens of its radial files rectangles, within 1.7·10⁻⁶ of
   counts on a turned lattice; the vertices of the lumens within a 16th of the least size of
   a side moved onto it (the slivers that a side cuts thinner than the elements left out).
+  The template `honeycomb_plane` (a hexagonal honeycomb of aluminium, its card in the
+  gallery): its axial modulus and conductivity 0.0975 of aluminium's, isotropic in its
+  plane at 1.7·10⁻³ of aluminium's modulus, the kinematic conditions three times stiffer.
   Tested in `tests/test_plane_cells.py`; the module in the public interface.
 * The exact contours of hollow fibres whose lumens are a union of their own (`hardcore_fibers`
   and `curved_fibers` with a `lumen`, the union of the fibres less that of their lumens):
