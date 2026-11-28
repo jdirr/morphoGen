@@ -174,8 +174,9 @@ def test_permeability_in_homogenize_and_configurations(tmp_path, capsys):
     out = homogenize(image, {0: VOID, 1: SOLID}, properties=["hydraulic_permeability"])
     res = out["hydraulic_permeability.periodic"]
     assert res["k33"] > res["k11"] > 0.0 and res["tensor"].shape == (3, 3)
-    with pytest.raises(ValueError, match="voxel images"):
-        homogenize(box_mesh(), {0: SOLID}, properties=["hydraulic_permeability"])
+    # a mesh without pores (the flows of conforming meshes: tests/test_mesh_flow.py)
+    solid = homogenize(box_mesh(), {0: SOLID}, properties=["hydraulic_permeability"])
+    assert np.all(solid["hydraulic_permeability.periodic"]["tensor"] == 0.0)
     data = {
         "model": {"type": "boolean_spheres", "radius": 1.0, "volume_fraction": 0.3},
         "domain": {"periodic": True},

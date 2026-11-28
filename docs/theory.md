@@ -8206,7 +8206,9 @@ A fluid of viscosity `η` creeps through the pores of a rigid solid under a macr
 pressure gradient `G`: the Stokes problem `η Δv − grad p = G`, `div v = 0` in the pores,
 `v = 0` on their walls, with `v` and the fluctuation `p` periodic. Its mean velocity over
 the whole cell obeys Darcy's law, `<v> = −(k / η) G`, with the permeability tensor `k`
-(a squared length), symmetric and positive.
+(a squared length), symmetric and positive. This section solves it on voxels; the finite
+elements of Taylor and Hood solve it on conforming meshes, whose walls follow the
+interfaces: in the plane (§120) and in space (§121).
 
 **Method.** The lattice Boltzmann method with two relaxation times (Ginzburg 2005) on
 the voxels themselves, lattice D3Q19: populations `f_i` move along the 19 velocities
@@ -14196,6 +14198,41 @@ left out of the elastic problems), the pores left out of the mesh and the flow w
 periodic conditions refused; the configurations (`method: fe` and `mesh.plane: true`, or
 `auto`, which takes the finite elements of the plane) and a run.
 
+## 121. Creeping flow through the pores of a conforming mesh (`homogenization.mesh_flow`)
+
+**The elements.** The Stokes flow of §120 in space, on a conforming mesh whose pores are
+meshed with the solid (`mesh.phases: all`, which the runs take for `hydraulic_permeability`):
+the elements of Taylor and Hood on the ten-node tetrahedra of the pores — the velocity
+quadratic, isoparametric, curved along the walls (§76), the pressure linear and continuous
+on their corners —, the weak form of §120 integrated at the four points of the tetrahedra
+(exact on straight ones), the walls the faces of the pores on the other phases or free
+inside the box, the nodes of the faces of the box those of their images, the pressure fixed
+in each connected part of the pores; the three forces $e_x$, $e_y$, $e_z$ give the columns of
+$k$, and with `fields` the velocities of their flows at the nodes of the pores, which the runs
+write as for the plane (§120). Where the lattice Boltzmann method of §67 draws the walls as
+stairs, these follow them.
+
+**The solver.** The saddle points of space fill fast when factorized: 27 516 unknowns (a
+sphere in a periodic cube meshed at the size 0.2) take 140 s and 1.1·10⁸ entries of the
+factors by SuperLU. Beyond 8 000 unknowns (`DIRECT_LIMIT`), MINRES solves them, preconditioned
+by a block diagonal: a V-cycle of the smoothed aggregation of `homogenization.amg` on the
+viscous block of each component, and the inverse of the lumped mass matrix of the pressures
+over the viscosity, to which the Schur complement of the Stokes problem is spectrally
+equivalent (Elman, Silvester & Wathen 2005): about a hundred iterations per force whatever
+the mesh — 27 516, 62 411 and 131 829 unknowns in 9, 22 and 34 s, to the relative residual
+10⁻⁸.
+
+**Checked** (`tests/test_mesh_flow.py`): the channel of the plane on its layer of
+tetrahedra (`TriMesh.layer`), the permeability of Poiseuille along it and along $z$ to
+10⁻¹⁰ by the factorization and by MINRES, nothing across; a square duct of side 0.5, its
+axial permeability on the layer as by the flow along $z$ of the plane within 7·10⁻⁶, and
+within 4·10⁻⁴ of the series $0.0351443\,a^2$; the simple cubic arrays of spheres against
+the drags of Zick & Homsy (1982), $k = 2a^2/(9cK)$ with $K$ = 4.292 at the fraction 0.125:
+7.5·10⁻⁴, 2.2·10⁻⁴ and 5·10⁻⁵ below at the sizes 0.2, 0.12 and 0.08, the three axes alike,
+and within 10⁻³ of $K$ = 7.442 at 0.216, the lattice Boltzmann method on 40³ voxels within
+3 % of the elements; `homogenize` of a conforming mesh (periodic conditions; `acoustic` left to the
+voxels) and a run with `method: fe` (`auto` keeps the voxels for the flows of space).
+
 ## References
 
 See [specification.md](specification.md#14-references). In addition:
@@ -15215,3 +15252,5 @@ See [specification.md](specification.md#14-references). In addition:
 * Taylor, C., Hood, P. (1973). A numerical solution of the Navier-Stokes equations using the
   finite element technique. *Comput. Fluids* 1, 73–100.
 * Brezzi, F., Fortin, M. (1991). *Mixed and Hybrid Finite Element Methods*. Springer.
+* Elman, H. C., Silvester, D. J., Wathen, A. J. (2005). *Finite Elements and Fast Iterative
+  Solvers, with Applications in Incompressible Fluid Dynamics*. Oxford University Press.

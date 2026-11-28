@@ -1216,9 +1216,6 @@ def _check_plane(mesh: MeshSpec, homog, outputs, viz) -> None:
         reasons.append("the contacts and the interfaces")
     if homog is not None and "mixed" in homog.boundary_conditions:
         reasons.append("the mixed conditions")
-    if (homog is not None and "hydraulic_permeability" in homog.properties
-            and "periodic" not in homog.boundary_conditions):  # fmt: skip
-        reasons.append("the flow through the pores without periodic conditions")
     if viz is not None and viz.videos and any(v.of != "image" and v.of != "labels"
                                               for v in viz.videos):  # fmt: skip
         reasons.append("the videos of the mesh and of its fields")
@@ -2191,12 +2188,12 @@ def _check_method(
             "solved on voxel images (method: fft, periodic conditions)"
         )
     flows = [p for p in homog.properties if PHYSICS[p] == "flow"
-             and not (plane and homog.method == "fe" and p in PLANE_FLOW)]  # fmt: skip
+             and not (homog.method == "fe" and p in PLANE_FLOW)]  # fmt: skip
     if homog.method != "fft" and flows:
         raise ConfigError(
             f"homogenization.properties: the flows through the pores {flows} are solved on "
             "voxel images (method: fft, periodic conditions), the permeability on the "
-            "meshes of the plane too (mesh.plane: true)"
+            "conforming meshes too (method: fe)"
         )
     if homog.fracture is not None and homog.method != "fft":
         raise ConfigError(
@@ -2415,6 +2412,12 @@ def load_config(source, *, base_dir=None) -> RunConfig:
         )
     if mesh is not None and mesh.plane:
         _check_plane(mesh, homog, outputs, viz)
+    if (homog is not None and homog.method == "fe" and "hydraulic_permeability" in homog.properties
+            and "periodic" not in homog.boundary_conditions):  # fmt: skip
+        raise ConfigError(
+            "homogenization.properties: the flow through the pores of a mesh, under periodic "
+            "conditions (boundary_conditions: [periodic, ...])"
+        )
     if mesh is not None and viz is not None and _meshes_of_the_plane(mesh, model):
         for view in viz.figures:  # the triangles drawn by matplotlib, not VTK
             if view.group in ("mesh", "result", "path"):

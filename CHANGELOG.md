@@ -226,6 +226,17 @@
   of the fibres cannot change), the bounds of Hashin and Shtrikman, the permeability of the
   dry preform, the files of Abaqus; its card among the tutorials. The recipe of the
   permeability of a bed of fibres among the how-tos.
+* The flow through the pores of the conforming meshes of space
+  (`homogenization.mesh_flow`, `mesh_permeability`): the Stokes flow by the elements of
+  Taylor and Hood on the ten-node tetrahedra of the pores, curved along their walls, its
+  saddle points factorized up to 8 000 unknowns and solved beyond by MINRES with a block
+  preconditioner (smoothed aggregation on the viscous block, the lumped mass of the
+  pressures): about a hundred iterations per force whatever the mesh. `homogenize` of a
+  conforming mesh takes `hydraulic_permeability` (periodic conditions), and so do the
+  configurations with `method: fe`, their pores meshed with the solid, the velocities of
+  the flows written with `fields: true`. The channel of
+  Poiseuille to round-off, a square duct as on the plane, the simple cubic arrays of
+  spheres within 5·10⁻⁵ of Zick and Homsy.
 * The velocities of the flows through the pores of the plane, with `fields`: from
   `plane_permeability` and `homogenize`, and in the runs (`fields: true`) as the file
   `<stem>_hydraulic_permeability_periodic.vtu`, the velocities of the three flows (under the

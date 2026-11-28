@@ -255,11 +255,12 @@ def _write_fields(result: Apparent, path_stem: Path) -> Path:
     return io.write_vti(path_stem.with_suffix(".vti"), images)
 
 
-def _write_flow(pores: TriMesh, velocity: np.ndarray, path_stem: Path) -> Path:
-    """The velocities of the three flows of the plane (under the unit forces along x, y and
-    z) at the nodes of the triangles of the pores: ``.vtu``."""
+def _write_flow(pores: TriMesh | TetMesh, velocity: np.ndarray, path_stem: Path) -> Path:
+    """The velocities of the three flows (under the unit forces along x, y and z) at the
+    nodes of the triangles or the tetrahedra of the pores: ``.vtu``."""
     nodal = {f"velocity_{axis}": velocity[k] for k, axis in enumerate("xyz")}
-    return io.write_vtu_tri(path_stem.with_suffix(".vtu"), pores, {}, nodal)
+    write = io.write_vtu_tri if isinstance(pores, TriMesh) else io.write_vtu_tet
+    return write(path_stem.with_suffix(".vtu"), pores, {}, nodal)
 
 
 def _mesh_fractions(mesh: TetMesh | TriMesh, materials) -> dict[int, float]:
@@ -389,9 +390,9 @@ def _conforming_mesh(micro: Microstructure, cfg: RunConfig) -> tuple[TetMesh | T
     germs), and its summary."""
     homog = cfg.homogenization
     porous = homog.void_phases if homog is not None else set()
+    if homog is not None and "hydraulic_permeability" in homog.properties:
+        porous = set()  # the flow through the pores: meshed with the solid
     if cfg.mesh.on_plane(micro):
-        if homog is not None and "hydraulic_permeability" in homog.properties:
-            porous = set()  # the flow through the pores: meshed with the solid
         mesh = plane_mesh(micro, **cfg.mesh.plane_kwargs(porous))
     else:
         mesh = conforming_mesh(micro, **cfg.mesh.kwargs(porous))

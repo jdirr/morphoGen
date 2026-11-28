@@ -327,7 +327,9 @@ A fluid that creeps through the pores obeys Darcy's law, `<v> = -(k / eta) grad 
 lattice Boltzmann method and gives the permeability tensor `k`, a squared length that
 does not depend on the fluid; a structure that does not vary along `z`, meshed in its plane
 (`mesh.plane: true`, the pores meshed with the solid), has it by the finite elements of
-Taylor and Hood on its triangles, curved along its walls (`homogenization.plane_flow`). `acoustic` adds the other parameters of the equivalent
+Taylor and Hood on its triangles, curved along its walls (`homogenization.plane_flow`), and
+any structure meshed in space by the same elements on its tetrahedra (`method: fe`,
+`homogenization.mesh_flow`). `acoustic` adds the other parameters of the equivalent
 fluid of a rigid porous frame (tortuosity, viscous and thermal characteristic lengths,
 thermal permeability), from which the model of Johnson, Champoux, Allard and Lafarge
 gives the sound absorption of a layer. Here a bed of fibres, sound across them:

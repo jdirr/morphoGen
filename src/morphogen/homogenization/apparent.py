@@ -648,7 +648,10 @@ def homogenize(
 
     The flow of a fluid through the pores (:data:`FLOW`; voxel images of cubic voxels,
     the pores their void phases): ``hydraulic_permeability``, the permeability tensor of
-    Darcy's law by the lattice Boltzmann method (:mod:`morphogen.homogenization.flow`),
+    Darcy's law by the lattice Boltzmann method (:mod:`morphogen.homogenization.flow`) —
+    or, on a conforming mesh whose pores are meshed with the solid, by the finite elements
+    of Taylor and Hood (:mod:`morphogen.homogenization.mesh_flow`; periodic conditions;
+    ``solver``: ``"direct"``, ``"minres"`` or ``"auto"``) —,
     and ``acoustic``, the parameters of the equivalent fluid of the rigid porous frame
     (porosity, permeability, tortuosity, viscous and thermal characteristic lengths,
     thermal permeability: :mod:`morphogen.homogenization.acoustics`, whose
@@ -714,6 +717,10 @@ def homogenize(
                              "and subc")  # fmt: skip
     elif plane is not None:
         raise ValueError("plane: the hypothesis of the elastic problems of a mesh of the plane")
+    if (isinstance(sample, TetMesh) and set(PLANE_FLOW) & set(props)
+            and "periodic" not in bc_names):  # fmt: skip
+        raise ValueError("hydraulic_permeability: the flow through the pores of a mesh, under "
+                         "periodic conditions")  # fmt: skip
     if isinstance(sample, (VoxelImage, LevelSetSample)):
         other = [b for b in bc_names if b != "periodic"]
         if other:
@@ -791,9 +798,9 @@ def homogenize(
                 maxiter,
             )
         flows = [p for p in props if PHYSICS[p] == "flow"]
-        if flows and not (isinstance(sample, TriMesh) and bc != "periodic"):
+        if flows and not (isinstance(sample, TriMesh | TetMesh) and bc != "periodic"):
             checkpoint()
-            for prop, res in _flow(sample, materials, flows, tol, bool(fields)).items():
+            for prop, res in _flow(sample, materials, flows, tol, bool(fields), solver).items():
                 out[f"{prop}.{bc}"] = res
         for name, loading in named.items():
             checkpoint()
@@ -1015,13 +1022,14 @@ def _interface_options(interfaces, sample, solver: str) -> tuple[dict, dict] | N
     return law, cell
 
 
-def _flow(sample, materials, props, tol, fields: bool = False) -> dict:
+def _flow(sample, materials, props, tol, fields: bool = False, method: str = "auto") -> dict:
     """The permeability tensor and the acoustic parameters (those of ``props``) of the
     pores of a voxel image (:mod:`morphogen.homogenization.flow`,
     :mod:`morphogen.homogenization.acoustics`); the flows are solved once for both. The
     permeability of a mesh of the plane by its finite elements
-    (:mod:`morphogen.homogenization.plane_flow`), with the velocities of its flows
-    (``fields``)."""
+    (:mod:`morphogen.homogenization.plane_flow`), and that of a conforming mesh of space
+    (:mod:`morphogen.homogenization.mesh_flow`; ``method``: its solver), with the
+    velocities of their flows (``fields``)."""
     from morphogen.homogenization.acoustics import acoustic_parameters
     from morphogen.homogenization.flow import ENTRIES, permeability_tensor
 
@@ -1029,6 +1037,16 @@ def _flow(sample, materials, props, tol, fields: bool = False) -> dict:
         from morphogen.homogenization.plane_flow import plane_permeability
 
         return {"hydraulic_permeability": plane_permeability(sample, materials, fields=fields)}
+    if isinstance(sample, TetMesh):
+        from morphogen.homogenization.mesh_flow import mesh_permeability
+
+        if "acoustic" in props:
+            raise ValueError("acoustic: the parameters of the equivalent fluid are those of "
+                             "voxel images (the lattice Boltzmann method)")  # fmt: skip
+        solver = "auto" if method not in ("direct", "minres") else method
+        flow = mesh_permeability(sample, materials, solver=solver, tol=min(tol, 1e-8),
+                                 fields=fields)  # fmt: skip
+        return {"hydraulic_permeability": flow}
 
     if not isinstance(sample, VoxelImage):
         raise ValueError(

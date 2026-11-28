@@ -1157,6 +1157,7 @@ morphogen.homogenization: isotropy_errors
 morphogen.homogenization: long_wavelength_speeds
 morphogen.homogenization: make_problem
 morphogen.homogenization: materials_from_config
+morphogen.homogenization: mesh_permeability
 morphogen.homogenization: path_beremin
 morphogen.homogenization: path_bifurcation
 morphogen.homogenization: path_fatigue
@@ -1690,6 +1691,8 @@ morphogen.homogenization.materials.transport_physics(physics)
 morphogen.homogenization.materials.voigt_average(d)
 morphogen.homogenization.materials.voigt_to_tensor4(d)
 morphogen.homogenization.materials.young_poisson(bulk, shear)
+morphogen.homogenization.mesh_flow.DIRECT_LIMIT
+morphogen.homogenization.mesh_flow.mesh_permeability(mesh, materials=None, *, pores=None, viscosity=1.0, solver='auto', tol=1e-08, maxiter=None, fields=False)
 morphogen.homogenization.mfront.INSTALL
 morphogen.homogenization.mfront.MFrontBehaviour(library=None, source=None, behaviour=None, material_properties=(), parameters=(), external_state_variables=(), temperature=293.15, plastic_strain=None)
 morphogen.homogenization.mfront.MFrontBehaviour.from_config(cls, spec)

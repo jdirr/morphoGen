@@ -142,8 +142,8 @@ def test_homogenize_the_flow_of_the_plane():
 
 
 def test_configurations_of_the_flow_of_the_plane(tmp_path):
-    """The permeability on the meshes of the plane (method fe, mesh.plane true) and not on
-    the tetrahedra; the template of the fibre bed."""
+    """The permeability on the meshes of the plane (method fe, mesh.plane true, or auto), on
+    the tetrahedra of space too (method fe); the acoustic parameters on voxels only."""
     base = {
         "model": {"type": "long_fibers", "radius": 0.15, "volume_fraction": 0.4,
                   "arrangement": "square"},
@@ -156,14 +156,17 @@ def test_configurations_of_the_flow_of_the_plane(tmp_path):
     }  # fmt: skip
     cfg = load_config({**base, "mesh": {"size": 0.1, "plane": True}}, base_dir=tmp_path)
     assert cfg.homogenization.method == "fe" and cfg.mesh.order == 2
+    space = load_config({**base, "mesh": {"size": 0.1}}, base_dir=tmp_path)
+    assert space.homogenization.method == "fe" and not space.mesh.plane
+    sound = {**base["homogenization"], "properties": ["acoustic"]}
     with pytest.raises(ConfigError, match="voxel images"):
-        load_config({**base, "mesh": {"size": 0.1}}, base_dir=tmp_path)
+        load_config({**base, "homogenization": sound, "mesh": {"size": 0.1}}, base_dir=tmp_path)
     auto = {**base, "homogenization": {**base["homogenization"], "method": "auto"}}
     assert load_config({**auto, "mesh": {"size": 0.1, "plane": True}},
                        base_dir=tmp_path).homogenization.method == "fe"  # fmt: skip
     voxels = {**auto, "voxels": {"voxel_size": 0.05}}
     assert load_config(voxels, base_dir=tmp_path).homogenization.method == "fft"
-    with pytest.raises(ConfigError, match="without periodic conditions"):
+    with pytest.raises(ConfigError, match="under periodic conditions"):
         kubc = {**base["homogenization"], "boundary_conditions": ["kubc"]}
         load_config({**base, "homogenization": kubc, "mesh": {"size": 0.1, "plane": True}},
                     base_dir=tmp_path)  # fmt: skip

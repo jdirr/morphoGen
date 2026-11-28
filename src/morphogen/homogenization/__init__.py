@@ -117,6 +117,7 @@ from morphogen.homogenization.laws import (
     fit_hyperelasticity,
 )
 from morphogen.homogenization.materials import VOID, Material, materials_from_config
+from morphogen.homogenization.mesh_flow import mesh_permeability
 from morphogen.homogenization.nonlinear import KINEMATICS, NonlinearFEProblem, simulate_point
 from morphogen.homogenization.ntfa import NTFAModel, train_ntfa
 from morphogen.homogenization.paths import LoadingPath, PathResult
@@ -198,6 +199,7 @@ __all__ = [
     "long_wavelength_speeds",
     "make_problem",
     "materials_from_config",
+    "mesh_permeability",
     "path_beremin",
     "path_bifurcation",
     "path_fatigue",

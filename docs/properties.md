@@ -217,7 +217,8 @@ dynamic, with their couplings:
   index (`refractive_index`).
 * Flow and sound in porous media: the permeability of Darcy's law by a Stokes flow
   through the pores (`hydraulic_permeability`, a lattice Boltzmann method on the
-  voxels, or the elements of Taylor and Hood on the triangles of the meshes of the plane),
+  voxels, or the elements of Taylor and Hood on the triangles of the meshes of the plane and
+  on the tetrahedra of the conforming meshes),
   the parameters of the equivalent fluid of a rigid frame (`acoustic`:
   tortuosity, viscous and thermal characteristic lengths, thermal permeability) and the
   sound absorption of a layer (`homogenization.absorption`, the model of Johnson,
