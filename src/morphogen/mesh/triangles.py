@@ -19,6 +19,9 @@ exact (:func:`plane_mesh`):
   what small features remain — the upper
   sides of a periodic box the translates of the lower ones —, and ``mmg2d`` remeshes the
   grains within them without moving them (:func:`tessellation_mesh`);
+* the discs of the sections of straight fibres along ``z`` and of spheres that do not meet
+  (:func:`disc_sections`) by their circles, discretized exactly at sizes graded from the
+  gaps between them, ``mmg2d`` meshing the regions within them (:func:`disc_mesh`);
 * a map of grains (a lattice field of one layer with the label of a grain per cell: the
   orientation maps of EBSD) by its pixels, two triangles each (:func:`lattice_mesh`);
 * any other structure (:func:`section_mesh`): the implicit functions of its phases are
@@ -1391,6 +1394,341 @@ def tessellation_mesh(micro, *, size: float, min_size: float | None = None,
     return mesh.quadratic() if order == 2 else mesh
 
 
+# ----------------------------------------------------------------------------------------
+# The exact sections of discs
+
+
+#: The elements across the narrowest gap between two discs, or between a disc and a side
+GAP_ELEMENTS = 3
+#: The fewest segments of a whole circle
+CIRCLE_SEGMENTS = 24
+#: The reference of the edges of the circles (in the files of mmg2d)
+REF_CIRCLE = 10
+
+
+def disc_sections(micro, z: float | None = None):
+    """The discs of the section of a union of spheres and of segments along ``z`` (the
+    straight fibres along ``z`` of :class:`~morphogen.models.long_fibers.LongFibers`) in the
+    plane ``z`` (default: the middle of its box), the periodic images along ``z`` taken:
+    their centres ``(n, 2)`` and radii, the concentric discs of the segments of a fibre
+    merged; None for another structure, or for segments that are not along ``z``, whose
+    sections are not discs."""
+    from morphogen.models.union import PrimitiveUnion
+
+    if not isinstance(micro, PrimitiveUnion):
+        return None
+    domain = micro.domain
+    z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
+    lz = float(domain.lengths[2])
+    shifts = (-1.0, 0.0, 1.0) if domain.periodic else (0.0,)
+    centres, radii = [np.zeros((0, 2))], [np.zeros(0)]
+    spheres, segments = micro.spheres, micro.segments
+    if len(spheres):
+        c, r = spheres.centers, spheres.radii
+        for k in shifts:
+            d = z - (c[:, 2] + k * lz)
+            cut = np.abs(d) < r
+            centres.append(c[cut, :2])
+            radii.append(np.sqrt(r[cut] ** 2 - d[cut] ** 2))
+    if len(segments):
+        a, b, r = segments.start, segments.end, segments.radii
+        if np.abs(a[:, :2] - b[:, :2]).max() > 1e-12 * float(domain.lengths.max()):
+            return None  # oblique segments: their sections are not discs
+        lo, hi = np.minimum(a[:, 2], b[:, 2]), np.maximum(a[:, 2], b[:, 2])
+        for k in shifts:
+            height = z - k * lz
+            d = np.maximum(np.maximum(lo - height, height - hi), 0.0)  # to the axis
+            cut = d < r if segments.round_caps else d == 0.0
+            centres.append(a[cut, :2])
+            radii.append(np.sqrt(np.maximum(r[cut] ** 2 - d[cut] ** 2, 0.0)))
+    centres, radii = np.concatenate(centres), np.concatenate(radii)
+    keep = radii > 0.0
+    centres, radii = centres[keep], radii[keep]
+    if not len(radii):
+        return centres, radii
+    tol = 1e-9 * float(domain.lengths.max())
+    key = np.round(centres / tol).astype(np.int64)
+    _, first, inverse = np.unique(key, axis=0, return_index=True, return_inverse=True)
+    largest = np.zeros(len(first))
+    np.maximum.at(largest, inverse.ravel(), radii)
+    return centres[first], largest
+
+
+def _crossings(c, r, lower, upper, tol):
+    """Where a circle crosses the sides of the rectangle: ``(axis, side, t)``, ``t`` along
+    the side; tangent circles do not cross."""
+    out = []
+    for axis in (0, 1):
+        other = 1 - axis
+        for side, value in ((0, lower[axis]), (1, upper[axis])):
+            d = value - c[axis]
+            if abs(d) >= r - tol:
+                continue
+            half = np.sqrt(r * r - d * d)
+            for t in (c[other] - half, c[other] + half):
+                if lower[other] - tol <= t <= upper[other] + tol:
+                    out.append((axis, side, float(np.clip(t, lower[other], upper[other]))))
+    return out
+
+
+class _DiscSizes:
+    """The size of the elements along the circles and the sides: the least of the size and
+    of ``h_k + GRADE |x - p_k|`` over points ``p_k`` along the circles and the sides, whose
+    sizes ``h_k`` are a :data:`GAP_ELEMENTS`-th of their gaps to the nearest other circle
+    (and, for the points of a circle, to the sides it does not cross; for those of a side,
+    to the circles that do not cross it), at most the share of a circle of
+    :data:`CIRCLE_SEGMENTS`, at least ``floor``."""
+
+    def __init__(self, cs, rs, lower, upper, size, periodic, floor):
+        self.size = float(size)
+        self.lower = np.asarray(lower, dtype=float)
+        self.lengths = np.asarray(upper, dtype=float) - self.lower
+        self.periodic = bool(periodic)
+        spacing = self.size / 4.0
+        points, h = [], []
+        tree = cKDTree(cs) if len(cs) else None
+        reach = float(rs.max()) + self.size * GAP_ELEMENTS if len(rs) else 0.0
+        for i, (c, r) in enumerate(zip(cs, rs, strict=True)):
+            m = max(16, int(np.ceil(2.0 * np.pi * r / spacing)))
+            a = 2.0 * np.pi * np.arange(m) / m
+            p = c + r * np.column_stack([np.cos(a), np.sin(a)])
+            gap = np.full(m, np.inf)
+            for j in tree.query_ball_point(c, r + reach):
+                if j != i:
+                    gap = np.minimum(gap, np.linalg.norm(p - cs[j], axis=1) - rs[j])
+            for axis in (0, 1):
+                for value in (lower[axis], upper[axis]):
+                    if abs(c[axis] - value) >= r:  # a side that the circle does not cross
+                        gap = np.minimum(gap, np.abs(p[:, axis] - value))
+            points.append(p)
+            h.append(np.minimum(gap / GAP_ELEMENTS, 2.0 * np.pi * r / CIRCLE_SEGMENTS))
+        for axis in (0, 1):
+            other = 1 - axis
+            n = max(2, int(np.ceil(self.lengths[other] / spacing)) + 1)
+            t = np.linspace(lower[other], upper[other], n)
+            for value in (lower[axis], upper[axis]):
+                p = np.empty((n, 2))
+                p[:, axis], p[:, other] = value, t
+                gap = np.full(n, np.inf)
+                apart = np.abs(cs[:, axis] - value) >= rs  # the circles that do not cross it
+                for c, r in zip(cs[apart], rs[apart], strict=True):
+                    gap = np.minimum(gap, np.linalg.norm(p - c, axis=1) - r)
+                points.append(p)
+                h.append(gap / GAP_ELEMENTS)
+        self.points = np.concatenate(points)
+        self.h = np.clip(np.concatenate(h), floor, self.size)
+        if self.periodic:
+            wrapped = np.mod(self.points - self.lower, self.lengths)
+            wrapped[wrapped >= self.lengths] = 0.0
+            self.tree = cKDTree(wrapped, boxsize=self.lengths)
+        else:
+            self.tree = cKDTree(self.points)
+        self.reach = self.size / GRADE
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        x = np.atleast_2d(np.asarray(x, dtype=float))
+        if self.periodic:
+            x = np.mod(x - self.lower, self.lengths)
+            x[x >= self.lengths] = 0.0
+        k = min(len(self.points), 48)
+        dist, idx = self.tree.query(x, k=k, distance_upper_bound=self.reach)
+        dist, idx = dist.reshape(len(x), k), idx.reshape(len(x), k)
+        found = idx < len(self.points)
+        value = np.where(found, self.h[np.minimum(idx, len(self.points) - 1)] + GRADE * dist,
+                         np.inf)  # fmt: skip
+        return np.minimum(self.size, value.min(axis=1))
+
+
+def _marched(length: float, at, field: _DiscSizes, least: int = 1) -> np.ndarray:
+    """The arc lengths (from 0 to ``length``) of the nodes of a curve whose points are
+    ``at(s)``, at the sizes of the field: marched from its start, the steps then scaled to
+    end on its end; ``least`` segments at least."""
+    steps, s = [], 0.0
+    while s < length:
+        h = float(field(at(np.array([s])))[0])
+        steps.append(h)
+        s += h
+    steps = np.asarray(steps)
+    n = max(least, round(len(steps) - 1 + (length - float(steps[:-1].sum())) / steps[-1]))
+    cum = np.concatenate([[0.0], np.cumsum(np.resize(steps, n))])
+    return cum * length / cum[-1]
+
+
+def disc_mesh(micro, discs=None, *, size: float, min_size: float | None = None,
+              hausdorff: float | None = None, gradation: float = 2.0, z: float | None = None,
+              phases="all", order: int = 1, curved: bool | None = None,
+              periodic: bool | None = None, executable: str | None = None, workdir=None,
+              timeout: float | None = None) -> TriMesh | None:  # fmt: skip
+    """The triangular mesh of a section made of discs that do not meet (the straight fibres
+    along ``z`` of a union of segments, the sections of spheres: :func:`disc_sections`, or
+    ``discs``, their centres and radii): their circles discretized exactly, at sizes graded
+    from the gaps between them (:data:`GAP_ELEMENTS` elements across the narrowest; at least
+    ``min_size``, by default a 64th of ``size``), the sides of a periodic box matching;
+    ``mmg2d`` meshes the regions within them, which keep their nodes. Six-node elements have
+    their middle nodes on the circles (:func:`~morphogen.mesh.curved.curved_triangles`), by
+    default. None for discs that meet or touch (the level sets of their union then)."""
+    from morphogen.mesh.conforming import mmg_executable
+
+    domain = micro.domain
+    size = float(size)
+    if not size > 0:
+        raise ValueError("size: must be positive")
+    if order not in (1, 2):
+        raise ValueError("order: 1 or 2")
+    if curved and order == 1:
+        raise ValueError("curved: the edges of six-node elements (order 2)")
+    lower = np.asarray(domain.lower[:2], dtype=float)
+    upper = np.asarray(domain.upper[:2], dtype=float)
+    lengths = upper - lower
+    periodic = bool(domain.periodic) if periodic is None else bool(periodic)
+    if periodic and not domain.periodic:
+        raise ValueError("matching periodic sides need a periodic structure")
+    z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
+    discs = disc_sections(micro, z) if discs is None else discs
+    if discs is None:
+        return None
+    centres, radii = (np.asarray(a, dtype=float) for a in discs)
+    centres = centres.reshape(-1, 2)
+    tol = 1e-9 * float(lengths.max())
+    # 1. the discs that reach the box, and their images across a periodic box
+    if periodic and len(radii):
+        shifts = np.array([(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)], dtype=float)
+        cs = (centres[None, :, :] + (shifts * lengths)[:, None, :]).reshape(-1, 2)
+        rs = np.tile(radii, len(shifts))
+    else:
+        cs, rs = centres, radii
+    margin = size * GAP_ELEMENTS
+    near = np.all((cs + rs[:, None] > lower - margin) & (cs - rs[:, None] < upper + margin),
+                  axis=1)  # fmt: skip
+    cs, rs = cs[near], rs[near]
+    if len(rs) > 1:
+        pairs = cKDTree(cs).query_pairs(2.0 * float(rs.max()) + tol, output_type="ndarray")
+        if len(pairs):
+            gap = (np.linalg.norm(cs[pairs[:, 0]] - cs[pairs[:, 1]], axis=1)
+                   - rs[pairs[:, 0]] - rs[pairs[:, 1]])  # fmt: skip
+            if gap.min() <= tol:
+                return None  # discs that meet: the level sets of their union
+    reach = np.all((cs + rs[:, None] > lower + tol) & (cs - rs[:, None] < upper - tol), axis=1)
+    floor = size / 64.0 if min_size is None else float(min_size)
+    field = _DiscSizes(cs, rs, lower, upper, size, periodic, floor)
+    cuts = [_crossings(c, r, lower, upper, tol) for c, r in zip(cs[reach], rs[reach],
+                                                                    strict=True)]  # fmt: skip
+    # 2. the nodes of the sides: their corners, the crossings, the points graded between;
+    #    those of the upper sides of a periodic box the translates of the lower ones
+    xy: list[np.ndarray] = []
+    edges: list[tuple[int, int]] = []
+    refs: list[int] = []
+    side_nodes: dict[tuple[int, int], tuple[np.ndarray, list[int]]] = {}
+    corner: dict[tuple[int, int], int] = {}
+
+    def corner_node(i: int, j: int) -> int:
+        if (i, j) not in corner:
+            corner[(i, j)] = len(xy)
+            xy.append(np.array([(lower, upper)[i][0], (lower, upper)[j][1]]))
+        return corner[(i, j)]
+
+    for axis in (0, 1):
+        other = 1 - axis
+        for side in (0, 1):
+            ts = [t for found in cuts for a, s, t in found
+                  if a == axis and (s == side or periodic)]  # fmt: skip
+            ts = np.sort(np.asarray(ts, dtype=float))  # (those of both sides, merged)
+            ts = ts[np.concatenate([[True], np.diff(ts) > tol])] if len(ts) else ts
+            ts = ts[(ts > lower[other] + tol) & (ts < upper[other] - tol)]
+            ts = np.concatenate([[lower[other]], ts, [upper[other]]])
+            value = (lower, upper)[side][axis]
+
+            def along(s, t0, axis=axis, other=other, value=value):
+                p = np.empty((len(s), 2))
+                p[:, axis], p[:, other] = value, t0 + s
+                return p
+
+            if periodic and side == 1:  # the translate of the lower side
+                chain = list(side_nodes[(axis, 0)][0])
+            else:
+                chain = [ts[0]]
+                for t0, t1 in itertools.pairwise(ts):
+                    params = _marched(t1 - t0, lambda s, t0=t0: along(s, t0), field)
+                    chain += [*(t0 + params[1:-1]), t1]
+            ends = (corner_node(*((side, 0) if axis == 0 else (0, side))),
+                    corner_node(*((side, 1) if axis == 0 else (1, side))))  # fmt: skip
+            ids = [ends[0]]
+            for t in chain[1:-1]:
+                ids.append(len(xy))
+                xy.append(along(np.array([t]), 0.0)[0])
+            ids.append(ends[1])
+            side_nodes[(axis, side)] = (np.asarray(chain), ids)
+            edges += list(itertools.pairwise(ids))
+            refs += [SIDE_REFS[(axis, side)]] * (len(ids) - 1)
+    # 3. the arcs of the circles inside the box, between their crossings
+    for c, r, found in zip(cs[reach], rs[reach], cuts, strict=True):
+        ends = []
+        for axis, side, t in found:
+            chain, ids = side_nodes[(axis, side)]
+            k = int(np.argmin(np.abs(chain - t)))
+            ends.append(ids[k])
+        ends = list(dict.fromkeys(ends))  # a crossing at a corner, once
+        if ends:
+            angles = np.array([np.arctan2(*(xy[k] - c)[::-1]) for k in ends])
+            order_ = np.argsort(angles)
+            ends, angles = [ends[k] for k in order_], angles[order_]
+            spans = list(zip(ends, [*ends[1:], ends[0]], angles,
+                             [*angles[1:], angles[0] + 2.0 * np.pi], strict=True))  # fmt: skip
+        else:
+            spans = [(None, None, 0.0, 2.0 * np.pi)]
+        for start, end, a0, a1 in spans:
+            middle = c + r * np.array([np.cos(0.5 * (a0 + a1)), np.sin(0.5 * (a0 + a1))])
+            if np.any(middle <= lower + tol) or np.any(middle >= upper - tol):
+                continue  # an arc outside the box
+
+            def on(s, a0=a0, c=c, r=r):
+                angle = a0 + s / r
+                return c + r * np.column_stack([np.cos(angle), np.sin(angle)])
+
+            least = max(2, int(np.ceil((a1 - a0) / (2.0 * np.pi) * CIRCLE_SEGMENTS)))
+            points = on(_marched(r * (a1 - a0), on, field, least))
+            ids = [start if start is not None else len(xy)]
+            if start is None:
+                xy.append(points[0])
+            for p in points[1:-1]:
+                ids.append(len(xy))
+                xy.append(p)
+            ids.append(end if end is not None else ids[0])
+            edges += list(itertools.pairwise(ids))
+            refs += [REF_CIRCLE] * (len(ids) - 1)
+    xy = np.asarray(xy)
+    edges = np.asarray(edges, dtype=np.int64)
+    refs = np.asarray(refs, dtype=np.int64)
+    shortest = float(np.linalg.norm(xy[edges[:, 1]] - xy[edges[:, 0]], axis=1).min())
+    exe = mmg_executable(executable, "mmg2d")
+    with tempfile.TemporaryDirectory(dir=workdir) as tmp:
+        folder = Path(tmp)
+        medit.write_mesh(folder / "discs.mesh", xy, None, np.zeros((0, 3), dtype=np.int64),
+                         edges=edges, edge_refs=refs, required_vertices=np.arange(len(xy)),
+                         required_edges=np.arange(len(edges)))  # fmt: skip
+        args = [*_mmg_args(size, 0.5 * shortest, hausdorff, gradation), "-nr", "-nosurf"]
+        out = _run(exe, folder / "discs.mesh", None, folder / "out.mesh", args, timeout)
+    nodes, tri = out["Vertices"], out["Triangles"]
+    phase = np.zeros(len(tri), dtype=np.int64)
+    if len(rs):  # the triangles inside a disc: their centroids
+        centroids = cKDTree(nodes[tri].mean(axis=1))
+        close = centroids.sparse_distance_matrix(cKDTree(cs), float(rs.max()),
+                                                 output_type="ndarray")  # fmt: skip
+        inside = close["v"] < rs[close["j"]]
+        phase[close["i"][inside]] = 1
+    mesh = TriMesh(nodes, tri, phase, lower, upper, periodic,
+                   {"mesher": "exact discs (mmg2d)", "size": size, "discs": len(radii),
+                    "z": z}, z=z, thickness=float(domain.lengths[2]))  # fmt: skip
+    mesh = _kept(mesh, phases)
+    if order == 1:
+        return mesh
+    if curved is False:
+        return mesh.quadratic()
+    from morphogen.mesh.curved import curved_triangles
+
+    return curved_triangles(mesh, micro)
+
+
 def lattice_map(micro) -> bool:
     """Whether a structure is a map of grains: a lattice field of one layer through the
     thickness of its box, with the label of a grain per cell (the orientation maps of EBSD:
@@ -1459,8 +1797,10 @@ def exact_section(micro) -> bool:
 def plane_mesh(micro, *, size: float, **options) -> TriMesh:
     """The triangular mesh of a planar structure: the exact grains of a planar tessellation
     (:func:`tessellation_mesh`), the exact section of a tessellation in space in the plane
-    ``z`` (by default the middle of its box), the section of any other structure in that
-    plane (:func:`section_mesh`), a map of grains by its pixels (:func:`lattice_mesh`).
+    ``z`` (by default the middle of its box), the exact discs of the section of straight
+    fibres along ``z`` and of spheres that do not meet (:func:`disc_mesh`), the section of
+    any other structure in that plane (:func:`section_mesh`), a map of grains by its pixels
+    (:func:`lattice_mesh`).
     ``min_feature``: that of the polygons of tessellations; ``curved``: the six-node
     elements of the sections with curved edges along their interfaces (by default; the
     edges of polygons and pixels are straight)."""
@@ -1480,11 +1820,19 @@ def plane_mesh(micro, *, size: float, **options) -> TriMesh:
             z = float(domain.lower[2] + 0.5 * domain.lengths[2]) if z is None else float(z)
         return tessellation_mesh(micro, size=size, z=z, **options)
     options.pop("min_feature", None)  # (the level sets have no features to remove)
+    discs = disc_sections(micro, options.get("z"))
+    if discs is not None:
+        exact = {k: v for k, v in options.items() if k != "background"}
+        mesh = disc_mesh(micro, discs, size=size, **exact)
+        if mesh is not None:
+            return mesh
+        log.info("plane mesh: discs that meet, meshed by the level sets of their union")
     return section_mesh(micro, size=size, **options)
 
 
 __all__ = ["REF_PHASE", "SIDE_REFS", "TRI6_EDGES", "TRI6_NODES", "TRI_GAUSS", "TriMesh",
-           "background_triangulation", "corner_gradients", "curved_maps", "edge_deviations",
-           "exact_section", "jacobian_ratios", "lattice_map", "lattice_mesh",
+           "background_triangulation", "corner_gradients", "curved_maps", "disc_mesh",
+           "disc_sections", "edge_deviations", "exact_section", "jacobian_ratios",
+           "lattice_map", "lattice_mesh",
            "planar_pieces", "planar_tessellation", "plane_level_set", "plane_mesh",
            "section_mesh", "section_weights", "tessellation_mesh"]  # fmt: skip

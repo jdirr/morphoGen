@@ -105,15 +105,15 @@ def test_closed_pores_and_pipes():
     """Pores that do not meet in the plane (the fibres of an array are the pores, the matrix
     solid): across the plane a fluid at rest in each, its pressure fixed in each of them
     (the flow 1e-7 of that along z, the pressures linear in the curved elements to their
-    bending); along z the pipes of Hagen and Poiseuille, ``k33 = c a^2 / 8``, within 2e-6
-    on curved six-node triangles of size 0.05 (2e-5 at 0.1, 8e-8 at 0.025)."""
+    bending); along z the pipes of Hagen and Poiseuille, ``k33 = c a^2 / 8``, within 1e-5
+    on curved six-node triangles of size 0.05 (7.5e-5 at 0.1, 3.7e-7 at 0.025)."""
     fraction = 0.3
     mesh = plane_mesh(_square_array(fraction), size=0.05, order=2)
     tubes = {0: Material(young=1.0, poisson=0.3), 1: Material(void=True)}
     out = plane_permeability(mesh, tubes, fields=True)
     assert out["parts"] == 4 and out["porosity"] == pytest.approx(fraction, rel=1e-5)
     pipes = fraction * (fraction / np.pi) / 8.0
-    assert out["k33"] == pytest.approx(pipes, rel=2e-6)
+    assert out["k33"] == pytest.approx(pipes, rel=1e-5)
     assert np.abs(out["tensor"][:2, :2]).max() < 1e-7 * pipes
     with pytest.raises(ValueError, match="without walls"):
         plane_permeability(mesh, pores=[0, 1])
@@ -194,7 +194,7 @@ def test_run_of_a_fibre_bed(tmp_path):
     values = dict(zip(header, row, strict=True))
     k = float(values["hydraulic_permeability.periodic.k11"])
     assert k > 0.0 and float(values["hydraulic_permeability.periodic.k22"]) == pytest.approx(
-        k, rel=1e-3
+        k, rel=3e-3
     )
     mesh = mg.io.read_tri_mesh(next(outdir.glob("bed_*_tri.vtu")))
     assert set(np.unique(mesh.phase)) == {0, 1}

@@ -19,8 +19,7 @@ seed: 1
 realizations: 4
 mesh:
   plane: true                 # triangles in the plane z of the box
-  size: 1.0
-  background: 0.1             # the grid of the sections: a third of the smallest gap
+  size: 1.0                   # the discs of the fibres graded from their gaps
   order: 2                    # six-node triangles, their edges curved along the fibres
 homogenization:
   method: fe

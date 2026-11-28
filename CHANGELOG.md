@@ -219,6 +219,14 @@
   `morphogen.homogenization.plane`, `homogenize(..., plane=...)`, `make_problem(...,
   plane=...)`, `read_tri_mesh`, `write_inp_tri`, `write_msh_tri`, `write_vtu_tri`,
   `write_medit_tri` (`tests/public_api.txt`).
+* The exact discs of the sections of straight fibres along z and of spheres
+  (`disc_sections`, `disc_mesh`; `plane_mesh` by default for them): their circles
+  discretized exactly, at sizes graded from the gaps between them, three elements across the
+  narrowest, the sides of a periodic box matching, `mmg2d` meshing the regions within them;
+  the discs that meet and the oblique fibres by the level sets of their union. The areas of
+  fibres as the fourth power of the size on six-node triangles (8·10⁻⁷ at 0.05), the
+  conductivity of square arrays within 1.4·10⁻⁵, every gap of a random bed open in 0.35 s.
+  The template `fibre_bed_plane` without its sampling grid.
 * The flow through the pores of the plane (`homogenization.plane_flow`,
   `plane_permeability`): the Stokes flow across a structure that does not vary along z by
   the elements of Taylor and Hood on its six-node triangles (the velocity quadratic, the

@@ -5,7 +5,8 @@ ones, the layers of tetrahedra extruded from them, their files; the problems of 
 checked against the uniform fields, the laminates, the checkerboard of Dykhne and the same
 problems in space on the extruded layers; the curved six-node triangles of the sections
 (mesh.curved) against the areas of discs, the conductivity of square arrays of cylinders
-(Perrins et al., Keller) and the neutral coated cylinder of Hashin."""
+(Perrins et al., Keller) and the neutral coated cylinder of Hashin; the exact discs of the
+sections of fibres and spheres, graded from their gaps."""
 
 from __future__ import annotations
 
@@ -25,6 +26,8 @@ from morphogen.mesh.curved import curved_triangles
 from morphogen.mesh.triangles import (
     TriMesh,
     background_triangulation,
+    disc_mesh,
+    disc_sections,
     planar_pieces,
     planar_tessellation,
     plane_level_set,
@@ -703,11 +706,12 @@ def _conducting(ratio: float) -> dict:
 @needs_mmg2d
 def test_curved_triangles_of_discs():
     """The six-node triangles of the section of a square array of fibres (0.4 of the area),
-    their nodes of the interfaces on the circles: the area of the fibres within 1e-6 at the
-    size 0.1 and 1e-7 at 0.05, falling as the fourth power of the size (the straight edges
-    of the mesher 2e-3 off); the box keeps its area, the sides their matching nodes, the
-    elements more than 0.3 of the area elements of their straight triangles. The functions
-    of a structure sampled on a grid of the plane put the nodes on their splines: 1e-5."""
+    their nodes on the circles: the area of the fibres within 1e-5 at the size 0.1 and 1e-6
+    at 0.05, falling as the fourth power of the size (the straight edges between the nodes of
+    the circles 8e-3 and 3e-3 off); the box keeps its area, the sides their matching nodes,
+    the elements more than 0.3 of the area elements of their straight triangles. Meshed by
+    the level sets, their corners moved onto the circles too: 2e-6 at 0.1. The functions of a
+    structure sampled on a grid of the plane put the nodes on their splines: 1e-5."""
     micro = _fibres(0.4)
     errors = []
     for size in (0.1, 0.05):
@@ -720,7 +724,10 @@ def test_curved_triangles_of_discs():
         assert mesh.matching_sides() and mesh.min_jacobian() > 0.3
         errors.append(abs(mesh.phase_fractions()[1] / 0.4 - 1.0))
         assert abs(straight.phase_fractions()[1] / 0.4 - 1.0) > 1000 * errors[-1]
-    assert errors[0] < 1e-6 and errors[1] < 1e-7 and errors[0] > 8 * errors[1]
+    assert errors[0] < 1e-5 and errors[1] < 1e-6 and errors[0] > 6 * errors[1]
+    levels = section_mesh(micro, size=0.1, order=2)
+    assert levels.metadata["curved"]["nodes"] == levels.metadata["curved"]["interface_nodes"]
+    assert levels.phase_fractions()[1] == pytest.approx(0.4, rel=2e-6)
     sampled = curved_triangles(plane_mesh(micro, size=0.1), _Sampled(micro))
     assert sampled.metadata["curved"]["sampling"] > 0.0
     assert sampled.phase_fractions()[1] == pytest.approx(0.4, rel=1e-5)
@@ -733,21 +740,21 @@ def test_curved_triangles_of_discs():
 def test_conductivity_of_a_square_array_of_cylinders(ratio):
     """Cylinders filling 0.4 of the plane, ten times as conducting as their matrix or
     insulating (pores left out of the mesh, their walls curved): the curved six-node
-    triangles of size 0.1 give the conductivity of Perrins, McKenzie & McPhedran (1979)
-    within 6e-5, where the straight ones are 1e-3 off."""
+    triangles of size 0.05 give the conductivity of Perrins, McKenzie & McPhedran (1979)
+    within 2e-5, where the straight ones are 2e-3 off."""
     micro = _fibres(0.4)
     reference = _perrins(0.4, ratio)
     assert reference == pytest.approx({10.0: 1.980607, 0.0: 0.425351}[ratio], abs=1e-6)
     phases = "all" if ratio else "matrix"
     errors = []
     for curved in (True, False):
-        mesh = plane_mesh(micro, size=0.1, order=2, curved=curved, phases=phases)
+        mesh = plane_mesh(micro, size=0.05, order=2, curved=curved, phases=phases)
         out = homogenize(mesh, _conducting(ratio), properties=["conductivity_tensor"])
         k = out["conductivity_tensor.periodic"]["tensor"]
         errors.append(abs(k[0, 0] / reference - 1.0))
         if curved:  # the square symmetry of the array, to the error of the elements
             assert abs(k[0, 1]) < 1e-5 * k[0, 0] and k[1, 1] == pytest.approx(k[0, 0], rel=1e-4)
-    assert errors[0] < 6e-5 and errors[1] > 5e-4
+    assert errors[0] < 2e-5 and errors[1] > 2e-3
 
 
 @needs_mmg2d
@@ -826,3 +833,78 @@ def test_curved_layer_in_space(tmp_path):
     back = read_tri_mesh(save_mesh(mesh, tmp_path / "curved.vtu"))
     assert back.curved and back.areas().sum() == pytest.approx(1.0, rel=1e-12)
     np.testing.assert_allclose(np.sort(back.areas()), np.sort(mesh.areas()), rtol=1e-9)
+
+
+# -- the exact discs of the sections -----------------------------------------------------------
+
+
+@needs_mmg2d
+def test_exact_discs_of_fibres():
+    """A random bed of fibres (twelve, gaps of 0.02 at least): their discs meshed by their
+    circles, the nodes of the interfaces on them to round-off, the edges there at most the
+    narrowest gap (three elements across it; the pores in one part), the sides matching,
+    the elements of good shape; the areas of the fibres within 1e-5 on six-node triangles,
+    which have only their middle nodes to move; the same fibres in a box that is not
+    periodic, its sides then walls."""
+    from morphogen.homogenization.plane_flow import plane_permeability
+    from morphogen.mesh.curved import _plane_interfaces
+
+    micro = LongFibers(radius=0.1, number=12, arrangement="random", min_gap=0.02).generate(
+        mg.Domain(size=(1.0, 1.0, 0.25), periodic=True), seed=2
+    )
+    centres, radii = disc_sections(micro)
+    assert len(radii) == 12 and np.allclose(radii, 0.1)
+    linear = plane_mesh(micro, size=0.05)
+    assert linear.metadata["mesher"] == "exact discs (mmg2d)" and linear.matching_sides()
+    assert linear.min_angles().min() > 10.0
+    shifts = np.array([[i, j] for i in (-1, 0, 1) for j in (-1, 0, 1)], dtype=float)
+    images = (centres[:, None, :] + shifts[None]).reshape(-1, 2)
+    interfaces, _ = _plane_interfaces(linear.quadratic())
+    corners = linear.quadratic().nodes[interfaces[:, :2]]  # (edges, 2, 2)
+    to = np.linalg.norm(corners[:, :, None, :] - images[None, None], axis=3) - 0.1
+    assert np.abs(to).min(axis=2).max() < 1e-12  # the nodes of the circles on them
+    gaps = np.linalg.norm(images[:, None] - images[None], axis=2) - 0.2
+    middles = 0.5 * (images[:, None] + images[None])
+    gaps[(gaps < -0.1) | np.any((middles < 0.0) | (middles > 1.0), axis=2)] = np.inf
+    a, b = np.unravel_index(np.argmin(gaps), gaps.shape)
+    narrowest, middle = gaps[a, b], 0.5 * (images[a] + images[b])
+    assert narrowest == pytest.approx(0.02, rel=1e-3)
+    near = np.linalg.norm(corners.mean(axis=1) - middle, axis=1) < 0.05
+    length = np.linalg.norm(corners[:, 1] - corners[:, 0], axis=1)
+    assert near.any() and length[near].max() < narrowest
+    mesh = plane_mesh(micro, size=0.05, order=2)
+    assert mesh.phase_fractions()[1] == pytest.approx(12 * np.pi * 0.01, rel=1e-5)
+    pores = {0: Material(void=True), 1: Material(young=1.0, poisson=0.3)}
+    assert plane_permeability(mesh, pores)["parts"] == 1
+    window = LongFibers(radius=0.1, number=10, arrangement="random", min_gap=0.02).generate(
+        mg.Domain(size=(1.0, 1.0, 0.25), periodic=False), seed=3
+    )
+    closed = plane_mesh(window, size=0.05, order=2)
+    assert closed.metadata["mesher"] == "exact discs (mmg2d)" and not closed.periodic
+    assert closed.areas().sum() == pytest.approx(1.0, rel=1e-12)
+
+
+@needs_mmg2d
+def test_exact_discs_of_spheres_and_what_they_leave():
+    """The section of hardcore spheres in a plane: discs of the radii of their cuts, meshed
+    exactly (2e-6 of their area at the size 0.04); oblique fibres and discs that meet, by the
+    level sets of their union."""
+    spheres = mg.models.HardcoreSpheres(volume_fraction=0.3, radius=0.3).generate(
+        mg.Domain.cube(2.0, periodic=True), seed=4
+    )
+    _, radii = disc_sections(spheres, 1.0)
+    assert len(radii) and np.all(radii <= 0.3)
+    mesh = plane_mesh(spheres, size=0.04, z=1.0, order=2)
+    assert mesh.metadata["mesher"] == "exact discs (mmg2d)" and mesh.matching_sides()
+    exact = np.pi * float((radii**2).sum()) / 4.0
+    assert mesh.phase_fractions()[1] == pytest.approx(exact, rel=1e-5)
+    oblique = LongFibers(radius=0.1, volume_fraction=0.3, misalignment=5.0).generate(
+        mg.Domain.cube(1.0, periodic=True), seed=1
+    )
+    assert disc_sections(oblique) is None
+    domain = mg.Domain(size=(1.0, 1.0, 0.2), periodic=True)
+    axes = Segments(np.array([[0.3, 0.5, 0.0], [0.6, 0.5, 0.0]]),
+                    np.array([[0.3, 0.5, 0.2], [0.6, 0.5, 0.2]]), np.array([0.2, 0.2]))  # fmt: skip
+    meeting = PrimitiveUnion(domain, None, axes)
+    assert disc_mesh(meeting, size=0.05) is None
+    assert plane_mesh(meeting, size=0.05).metadata["mesher"].startswith("section")

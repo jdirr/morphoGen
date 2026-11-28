@@ -3073,7 +3073,10 @@ morphogen.mesh.tetra.element_volumes(nodes, elements)
 morphogen.mesh.tetra.jacobian_ratios(gradients, deviations, bary)
 morphogen.mesh.tetra.tet_quality(nodes, elements)
 morphogen.mesh.tetra.tet_volumes(nodes, elements)
+morphogen.mesh.triangles.CIRCLE_SEGMENTS
+morphogen.mesh.triangles.GAP_ELEMENTS
 morphogen.mesh.triangles.GRADE
+morphogen.mesh.triangles.REF_CIRCLE
 morphogen.mesh.triangles.REF_INSIDE
 morphogen.mesh.triangles.REF_INTERFACE
 morphogen.mesh.triangles.REF_OUTSIDE
@@ -3112,6 +3115,8 @@ morphogen.mesh.triangles.TriMesh.tolerance
 morphogen.mesh.triangles.background_triangulation(shape, lower, upper)
 morphogen.mesh.triangles.corner_gradients(nodes, corners)
 morphogen.mesh.triangles.curved_maps(gradients, deviations, point)
+morphogen.mesh.triangles.disc_mesh(micro, discs=None, *, size, min_size=None, hausdorff=None, gradation=2.0, z=None, phases='all', order=1, curved=None, periodic=None, executable=None, workdir=None, timeout=None)
+morphogen.mesh.triangles.disc_sections(micro, z=None)
 morphogen.mesh.triangles.edge_deviations(nodes, elements)
 morphogen.mesh.triangles.exact_section(micro)
 morphogen.mesh.triangles.jacobian_ratios(gradients, deviations, points)

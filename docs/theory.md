@@ -13944,7 +13944,8 @@ of its edges over the curved edges where those of the triangles are, at their he
 faces are the curved edges extruded, the volumes of its phases their areas times its
 thickness exactly, its fields independent of $z$ those of the triangles, and its tensors those
 of the plane but for the integration points, which differ on curved elements (5·10⁻⁷ for a
-coated cylinder meshed at the size 0.15). Checked: the fibres of a square array filling 0.4 of
+coated cylinder meshed at the size 0.15). Checked, on the meshes of their level sets
+(`section_mesh`; by their circles below): the fibres of a square array filling 0.4 of
 the plane have their area within 9.5·10⁻⁷ at the size 0.1 and 7.3·10⁻⁸ at 0.05 (4·10⁻³ and
 2·10⁻³ off with straight edges), the fourth power of the size, and within 3·10⁻⁶ on the
 splines of their sampled functions; their conductivity against the series of Perrins,
@@ -13960,6 +13961,34 @@ in the coated cylinder, $k = \lambda + \mu$): the field about it stays uniform, 
 has them under any condition — within 1.5·10⁻⁵ and 6·10⁻⁶ at the size 0.1 and 5·10⁻⁷ and
 2·10⁻⁷ at 0.025, under the kinematic, periodic and static conditions alike (10⁻³ and 3·10⁻⁴
 off with straight edges).
+
+**Exact discs.** The sections of the straight fibres along $z$ of a union of segments (the
+long fibres without misalignment) and those of spheres are discs (`disc_sections`: the cuts
+by the plane, of radii $\sqrt{r^2 - d^2}$ at the distance $d$ of the plane from a centre, or
+from the axis of a segment beyond its end; the periodic images along $z$ taken, the
+concentric discs of the segments of one fibre merged). Those that do not meet are meshed by
+their circles (`disc_mesh`, by default for them in `plane_mesh`): each circle discretized
+exactly — its nodes on it —, by 24 segments at least and at sizes graded from the gaps,
+$h(x) = \min(h_{\max}, \min_k (h_k + g\,|x - p_k|))$ over points $p_k$ of the circles and of the
+sides whose sizes $h_k$ are a third of their gaps to the nearest other circle (and to the
+sides that a circle does not cross), $h_{\max}/64$ at least: three elements across the
+narrowest gap. The points where the circles cross the sides of the box are those of their
+images on the opposite sides, the nodes of the upper sides the translates of those of the
+lower sides; `mmg2d` meshes the regions within these edges, which it keeps (`-nosurf`), and
+each triangle takes the phase of its centroid. The six-node elements have only their middle
+nodes to move onto the circles. Discs that meet or touch, and oblique fibres, are left to the
+level sets. The fibres of the square array filling 0.4 of the plane have their area within
+6·10⁻⁶ at the size 0.1, 7.9·10⁻⁷ at 0.05 and 5·10⁻⁸ at 0.025, the fourth power of the size
+(8·10⁻³, 3·10⁻³ and 8·10⁻⁴ off with the straight edges between the nodes of the circles,
+the chords: its square); the cuts of hardcore spheres theirs within 2·10⁻⁶ at the size 0.04;
+the conductivity of the array against Perrins et al. within 1.4·10⁻⁵ (conducting) and
+9·10⁻⁶ (insulating, the pores left out) at the size 0.05, 2·10⁻³ and 3·10⁻³ off with the
+chords, and Keller's product within 6.7·10⁻⁵ and 9.3·10⁻⁶ at 0.1 and 0.05 — as the level sets
+do at about half the size, whose remeshing refines the circles beyond the size of the
+elements to keep its Hausdorff distance. A random bed of 21 fibres of radius 3.5 filling half
+of a periodic square of edge 40, gaps of 0.3 at least, is meshed in 0.35 s by 12 140
+triangles at the size 1, its smallest angle 17°, its pores in one part; its level sets need
+a grid of 0.1 for that, and 3.6 s (§120).
 
 **Exact sections of tessellations.** The power distance of a point $(x, y, z)$ of the plane
 $z$ to a germ $(x_k, y_k, z_k)$ of weight $w_k$ is $|(x, y) - (x_k, y_k)|^2 - (w_k - (z -
@@ -14118,27 +14147,34 @@ the two forces $f = e_x$ and $f = e_y$, the anti-plane flow by another for $f_3 
 mean velocities give the columns of $k$, symmetrized.
 
 **The gaps.** The transverse permeability of a bed of fibres is that of its narrowest gaps,
-whose flows are a few elements across: the mesh must keep them open. The section of the
-fibres is meshed from the functions of the phases sampled on a grid (`background`, §119),
-which must resolve the gaps — a third of the smallest gap: a random packing of fibres
-of radius 3.5 at 0.5 of the area, gaps of 0.3 at least, meshed with elements of 1 on the
+whose flows are a few elements across: the mesh must keep them open. The discs of straight
+fibres meshed by their circles (§119) have the elements graded from the gaps, three across
+the narrowest. The sections meshed from the functions of their phases sampled on a grid
+(`background`, §119) — oblique fibres, discs that meet, any other structure — need a grid
+that resolves the gaps, a third of the smallest: a random packing of fibres of radius 3.5 at
+0.5 of the area, gaps of 0.3 at least, meshed by its level sets with elements of 1 on the
 grid of 0.5 (the default, half of the elements) lost 0.6 % of its pores in ten closed parts
-and 5 % of its transverse permeability; on the grid of 0.1 it keeps its pores to 10⁻⁶ in one
-part, and its tensor within 2·10⁻⁴ of that on the grid of 0.05.
+and 5 % of its transverse permeability; on the grid of 0.1 it kept its pores to 10⁻⁶ in one
+part, and its tensor within 2·10⁻⁴ of that on the grid of 0.05 — which its discs give at the
+size 0.5 (0.044468, 0.12937 and 2.0606 for $k_{11}$, $k_{22}$ and $k_{33}$; 0.044493,
+0.12941 and 2.0606 at 0.25).
 
 **Checked** (`tests/test_plane_flow.py`): the channel of Poiseuille between plane walls along
 the lines of the grid, its parabola in the quadratic elements to 10⁻¹³ at the nodes and its
 permeability $H^3/12L$ along the channel and along $z$ to 10⁻¹², zero across; the square
 arrays of cylinders across them against the drags $F/\mu U$ of Sangani & Acrivos (1982),
 51.53 and 102.90 at the fractions 0.2 and 0.3, $k = \pi a^2/(cF) = 1/F$ for a unit cell:
-within 1.8·10⁻⁵ and 1.1·10⁻⁴ on curved triangles of size 0.05 (the digits of the drags;
-1 to 5 % off with straight edges), and along them against the series of Drummond & Tahir
+within 1.1·10⁻⁴ and 3.9·10⁻⁵ on the curved triangles of their discs at the size 0.05 (the
+digits of the drags; 1.8·10⁻⁵ and 1.1·10⁻⁴ on their level sets; 0.8 to 0.9 % off with the
+chords), and along them against the series of Drummond & Tahir
 (1984), $a^2(-\ln c - 1.476 + 2c - c^2/2)/(4c)$, which is 8·10⁻⁴ and 3·10⁻³ off; the
 closed pores of the array of fibres taken as the pores, a fluid at rest across the plane
 (10⁻⁷ of the flow along $z$) and the pipes of Hagen and Poiseuille along it,
-$k_{33} = c\,a^2/8$, within 1.7·10⁻⁵, 1.7·10⁻⁶ and 7.5·10⁻⁸ at the sizes 0.1, 0.05 and
-0.025; a random bed of twelve fibres of radius 0.1 at 0.38 (gaps of 0.02), converged to
-10⁻⁴ at the size 0.0125 ($k_{11}$ 3.0598·10⁻⁴, $k_{22}$ 9.43·10⁻⁵, $k_{33}$ 3.4986·10⁻³),
+$k_{33} = c\,a^2/8$, within 7.5·10⁻⁵, 6.1·10⁻⁶ and 3.7·10⁻⁷ at the sizes 0.1, 0.05 and
+0.025 (1.7·10⁻⁵, 1.7·10⁻⁶ and 7.5·10⁻⁸ on the level sets); a random bed of twelve fibres of
+radius 0.1 at 0.38 (gaps of 0.02), converged to 10⁻⁴ at the size 0.0125 ($k_{11}$
+3.0598·10⁻⁴, $k_{22}$ 9.43·10⁻⁵, $k_{33}$ 3.4986·10⁻³ on its level sets, its discs within
+7·10⁻⁴),
 which the lattice Boltzmann method of §67 approaches on the voxels of its section, their
 walls stairs in the gaps, from 7.4 % and 0.5 % below on 96² voxels and 3.1 % below on
 192² across the fibres, 0.6 % along them; `homogenize` of a mesh of the plane (the
