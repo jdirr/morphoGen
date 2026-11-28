@@ -426,8 +426,10 @@ def test_every_corner_of_a_body_traced():
 @pytest.mark.slow
 @pytest.mark.parametrize("seed", [1, 2])
 def test_sections_of_many_realizations(seed):
-    """The sections of misaligned plies, sparse and dense, coated, hollow, of a Boolean
-    network of spherocylinders and of Boolean spheres, at two sizes: every one meshed —
+    """The sections of misaligned plies, sparse and dense, coated, hollow, of Boolean
+    networks of spherocylinders and of cylinders with flat caps (dense: the rims of the
+    caps between the corners of two capsules and their vertices, the contours their corners
+    knot traced again) and of Boolean spheres, at two sizes: every one meshed —
     by its exact contours or discs, or else by the level sets —, its six-node elements
     valid and its periodic sides matching."""
     structures = [
@@ -439,6 +441,8 @@ def test_sections_of_many_realizations(seed):
                 thickness=0.015, side="inside", core_phase=2).generate(BOX, seed=seed),
         mg.models.BooleanCylinders(radius=0.04, length=0.3, volume_fraction=0.15,
                                    caps="round").generate(BOX, seed=seed),
+        mg.models.BooleanCylinders(radius=0.03, length=0.4,
+                                   volume_fraction=0.25).generate(BOX, seed=seed),
         mg.models.BooleanSpheres(radius=0.08, volume_fraction=0.3).generate(BOX, seed=seed),
     ]  # fmt: skip
     meshers = set()
